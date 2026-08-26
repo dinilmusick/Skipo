@@ -1,6 +1,6 @@
 ---
 name: krnlts-runtime-router
-description: Sub-router activated when @dinilmusick/krnl or @dinilmusick/krnlts is detected in a project, directing agents to getting-started scaffolding, Krnl Studio visual IDE, runtime mechanisms, MagneticLoader, Flows, Utility Tools, and Ingress Gateway.
+description: Sub-router activated when @dinilmusick/krnl or @dinilmusick/krnlts is detected in a project, directing agents to getting-started scaffolding, Krnl Studio visual IDE, agentic API endpoints, runtime mechanisms, MagneticLoader, Flows, Utility Tools, and Ingress Gateway.
 ---
 
 # KRNLTS RUNTIME EXTENSION ROUTER
@@ -15,6 +15,7 @@ It extends the universal **Skipo Base Skills** with concrete Krnl Framework and 
 
 | Subsystem / Task | Target Skill File | Directives & Primitives Covered | Trigger Keywords |
 | :--- | :--- | :--- | :--- |
+| **Agentic API Suite & Docs** | [`api-endpoints/SKILL.md`](./api-endpoints/SKILL.md) | REST/WebSocket endpoints (`/api/v1/*`), Preemptive Documentation, real-time UI observable sync, sandboxed testing | `agentic_api`, `preemptive_documentation`, `studio_api`, `api_endpoints`, `ai_agent_endpoints`, `programmatic_build` |
 | **Getting Started & Studio IDE** | [`getting-started/SKILL.md`](./getting-started/SKILL.md) | `create-krnl`, `krnl dev`, Krnl Studio visual node IDE, Monaco editor suite, quad-unit scaffolding | `getting_started`, `create_krnl`, `krnl_dev`, `studio_ide`, `fresh_workspace`, `init_project`, `scaffold` |
 | **Core Entity & Flows** | [`runtime/SKILL.md`](./runtime/SKILL.md) | `Entity<TState, TEvents>`, `this.flow()`, `this.call()`, capability bubbling, resolution | `krnl_entity`, `flow_builder`, `resolve_capability`, `emit_event` |
 | **Magnetic Discovery & SubApps** | [`magnetic-loader/SKILL.md`](./magnetic-loader/SKILL.md) | `KrnlMagneticLoader.loadAll()`, boot order invariants, worker/local sub-apps | `magnetic_loader`, `load_all`, `subapp_registration`, `boot_order` |
@@ -28,6 +29,7 @@ It extends the universal **Skipo Base Skills** with concrete Krnl Framework and 
 ```python
 def dispatch_krnlts_subsystem(task_intent: str) -> str:
     mapping = {
+        "api-endpoints": ["agentic_api", "preemptive_documentation", "studio_api", "api_endpoints", "ai_agent_endpoints", "programmatic_build"],
         "getting-started": ["getting_started", "create_krnl", "krnl_dev", "studio_ide", "fresh_workspace", "init_project", "scaffold", "new_project"],
         "runtime": ["krnl_entity", "flow_builder", "resolve_capability", "emit_event", "state_mutation"],
         "magnetic-loader": ["magnetic_loader", "load_all", "subapp_registration", "boot_order", "subapp_worker"],
