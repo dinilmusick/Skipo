@@ -1,6 +1,6 @@
 ---
 name: ui-styling-guidelines
-description: Directives for neo-brutalism 2.5D biome styling, locked coffee and black-and-gold palettes, custom styled scrollbars, themed dropdowns, and regression guards.
+description: Directives for neo-brutalism 2.5D biome styling, strict monochromatic SVG icon protocol, infinite 4-quadrant canvas clipping prevention, locked palettes, custom styled scrollbars, themed dropdowns, and regression guards.
 ---
 
 # UI STYLING & 2.5D BIOME GUIDELINES
@@ -8,19 +8,34 @@ description: Directives for neo-brutalism 2.5D biome styling, locked coffee and 
 ## 1. THEME & VISUAL IDENTITY
 - **Core Paradigm**: `neo-brutalism_2.5D_biome` with **Subtle Tactile Glow**.
 - **Shapes & Borders**: Neo-Brutalist (bold, blocky, geometric, crisp 1px-2px solid borders).
-- **Subtle Glow Effects**: Tactile ambient neon/rune glow on interactive elements, hover states, and active cards (`box-shadow: 0 0 10px var(--krnl-accent-glow)` / `0 0 18px rgba(212, 163, 89, 0.25)`).
+- **Subtle Glow Effects**: Tactile ambient neon/rune glow on interactive elements, hover states, and active cards (`box-shadow: 0 0 10px var(--krnl-accent-glow)` / `0 0 18px rgba(212, 175, 55, 0.25)`).
+- **Strict Monochromatic Icon Mandate**:
+  - **PROHIBITED**: Full-color OS emojis (e.g. 🏛️, ⚡, 🎨, 📚, 🌐, 💾, 🛠️, 🎯, 📐, 👁️). Emojis render with distracting multi-color OS themes that break the brutalist aesthetic.
+  - **MANDATORY**: Single-tone monochromatic SVG vector paths or geometric line glyphs.
+  - **Coloring**: Must inherit or use theme color tokens (`fill="currentColor"`, `stroke="currentColor"`, or explicit theme accents: `#d4af37`, `#f5ede4`, `#c678dd`, `#61afef`, `#e5c07b`).
 - **Strict Icon-Only Buttons**:
-  - **Zero Text Labels on Buttons**: Buttons MUST contain only monochromatic vector/SVG icons.
+  - **Zero Text Labels on Buttons**: Toolbars, docks, and action buttons MUST contain only monochromatic SVG icons.
   - Button text/utility description appears **exclusively on hover** via a tooltip.
 - **Zero On-Screen Explanatory Clutter**:
   - FORBID direct on-screen marketing copy, descriptive paragraphs, tutorials, or "how-to" guidance text.
   - All descriptions, feature utility, and guidance MUST be revealed **only on hover** over that specific element.
 - **Fonts**: Locked set (1 Display + 1 Body font; high contrast, clean typography).
-- **Icons**: Monochromatic only. Zero multi-color icons.
 
 ---
 
-## 2. COLOR PALETTES (LOCKED)
+## 2. INFINITE CANVAS 4-QUADRANT CLIPPING PREVENTION
+```
+∀ canvas ∈ Canvas_Viewports:
+  svg_wire_layer.viewBox   ≡ "-50000 -50000 100000 100000"
+  svg_wire_layer.overflow  ≡ "visible"
+  svg_wire_layer.position  ≡ "absolute; top: -50000px; left: -50000px; width: 100000px; height: 100000px;"
+```
+- **Unbounded 4-Quadrant Plane**: Canvas nodes can move into negative $X$ and negative $Y$ coordinates ($x < 0, y < 0$) without clipping.
+- **SVG Wire Persistence**: The SVG connection wire layer must span all 4 quadrants ($-\infty$ to $+\infty$) so that wires between negative-coordinate nodes never clip or vanish.
+
+---
+
+## 3. COLOR PALETTES (LOCKED)
 ```
 Light Mode (coffee_theme):
   base    : #F5EDE4 (Warm cream / off-white)
@@ -35,17 +50,9 @@ Dark Mode (black_and_gold):
   text    : Warm off-white / Soft gold-white (≠ #FFFFFF)
 ```
 
-### Complementary Layering Rule
-```
-function getLayerAccentColor(layer_depth, base_layer_hue):
-    assert base_layer_hue ∈ LOCKED_PALETTE
-    accent_complement = OppositeHue(base_layer_hue, within = LOCKED_PALETTE)
-    return accent_complement
-```
-
 ---
 
-## 3. THEMED CONTROLS & HOVER TOOLTIPS (ZERO UNSTYLED ELEMENTS)
+## 4. THEMED CONTROLS & HOVER TOOLTIPS (ZERO UNSTYLED ELEMENTS)
 ```
 FORBID: Default OS/browser unstyled elements (<select>, default webkit scrollbars).
 
@@ -58,33 +65,7 @@ REQUIRE:
       surface: locked panel background with hard-edged brutalist drop-shadow
       borders: 1px - 2px solid locked accent / border tone
       options: monochromatic icons + hover highlight from complementary palette
-  - Hover Tooltips & Text Bubbles:
-      surface: locked theme background with crisp 1px solid border and subtle brutalist shadow
-      typography: display/body font matching theme, high contrast
-      boundary_rule: Elements located close to the top edge of the app window/viewport MUST spawn
-                     hover text bubbles popping DOWNWARDS (placement: "bottom").
-      forbid: NEVER spawn tooltips upwards when near the top window boundary (prevents text getting pushed out of view).
+  - Hover Tooltips:
+      surface: #1e1e28 with 1px solid theme accent
+      placement: downward ("bottom") if within 80px of top window edge; upward ("top") otherwise
 ```
-
----
-
-## 4. 2.5D BIOME & DEPTH SYSTEM
-- **World Concept**: Each UI window = stylized nature biome (forest, desert, tundra, ocean, volcanic, mountain).
-- **Camera Projection**: Isometric game view (fixed-angle projected perspective, flat layers).
-- **Renderer Restriction**: 2.5D layered flats / SVGs / canvas ONLY (no full 3D engines, no WebGL physics).
-- **Layering Plane**:
-  - `Background`: Slow ambient biome motion (drifting leaves/sand/snow/spores, distant fauna/dust motes).
-  - `Midground`: Subtle cursor/scroll parallax (low amplitude).
-  - `Foreground`: Static brutalist UI panels with crisp hard-edged drop-shadows.
-- **Particles & Rune Glow**:
-  - Biome-matched particles (embers=volcanic, pollen=forest, snow=tundra, bubbles=ocean) at low opacity.
-  - Accent glow: Rune/sigil-like glow (Viking/Vedic-Gothic flavor) on active nodes/edges from locked accent palette.
-  - Window transitions: Particle burst or rune flicker + depth fade (<300ms, non-blocking).
-- **Overlay Windows**: Semi-transparent glass panels + depth shadow.
-- **Perf Guard**: Ambient motion must be toggle-able and respect `prefers-reduced-motion`. Zero input latency degradation.
-
----
-
-## 5. STYLE REGRESSION GUARD
-- Never restyle or refactor existing working UI components unless explicitly requested by user.
-- Leave existing UI as-is unless restyle requested -> then apply `neo-brutalism_2.5D_biome` specs strictly.
