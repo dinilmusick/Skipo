@@ -5,8 +5,16 @@ description: Directives for project history tracking (docs/HISTORY.md), pre-refa
 
 # DOCUMENTATION & PROJECT HISTORY GUIDELINES
 
+## 0. AGENT STATE CADENCE TRACKING (`.skipo/agent-state.json`)
+The AI agent MUST maintain `.skipo/agent-state.json` to track turns and audit outcomes:
+- On every edit turn: Update `turnsSinceLastAudit` and `totalTurns`.
+- On every 5-turn routine audit or refactor: Append the audit summary (`timestamp`, `status`, `refactorsPerformed`, `checksPassed`) to `lastAudit` and `history[]` in `.skipo/agent-state.json`.
+- Sync all major milestone refactors and cadence resolutions into `docs/HISTORY.md`.
+
+---
+
 ## 1. CHRONOLOGICAL PROJECT HISTORY TIMELINE (`docs/HISTORY.md`)
-Whenever big changes, new features, or architectural refactors are requested by the user, the AI agent MUST record the change in `docs/HISTORY.md` (or root `HISTORY.md`) using structured bulleted lists.
+Whenever big changes, new features, or architectural refactors are requested by the user (or triggered by a 5-turn cadence audit), the AI agent MUST record the change in `docs/HISTORY.md` (or root `HISTORY.md`) using structured bulleted lists.
 
 ### Entry Format Template:
 ```markdown

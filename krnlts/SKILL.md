@@ -7,7 +7,7 @@ description: Sub-router activated when @dinilmusick/krnl or @dinilmusick/krnlts 
 
 This sub-router is activated **strictly when a project uses `@dinilmusick/krnl` or `@dinilmusick/krnlts`** (as detected via `package.json`, `krnl.json`, or `@dinilmusick/krnl*` imports).
 
-It extends the universal **Skipo Base Skills** with concrete Krnl Framework and Krnl Studio mechanics.
+It extends the universal **Skipo Base Skills** with concrete Krnl Framework and Krnl Studio mechanics. All KrnlTS workflows inherit the **Step 0 Turn-Counter State Engine (`.skipo/agent-state.json`)** and 5-turn routine cadence audits from [`../SKILL.md`](../SKILL.md).
 
 ---
 

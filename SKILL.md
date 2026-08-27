@@ -5,16 +5,85 @@ description: Master router and deterministic dispatcher directing the AI agent t
 
 # AGENT MASTER ROUTER & DISPATCH DIRECTORY
 
+## 0. MANDATORY TURN-COUNTER & ROUTINE CADENCE AUDIT PROTOCOL (STEP 0)
+Whenever this Skipo framework is present in an agent workspace, the AI agent **MUST deterministically execute Step 0 before performing any code generation or editing**:
+
+```python
+def pre_action_turn_counter_guard(workspace_root: str = "."):
+    state_file = f"{workspace_root}/.skipo/agent-state.json"
+    
+    # 1. Initialize or load persistent agent state
+    if not file_exists(state_file):
+        mkdir_p(f"{workspace_root}/.skipo")
+        state = {
+            "schemaVersion": "1.0.0",
+            "turnsSinceLastAudit": 0,
+            "auditCadenceThreshold": 5,  # Mandatory audit triggered every 5 editing turns
+            "totalTurns": 0,
+            "lastAudit": {
+                "timestamp": current_iso_timestamp(),
+                "status": "INITIALIZED",
+                "refactorsPerformed": [],
+                "checksPassed": []
+            },
+            "history": []
+        }
+        write_json(state_file, state)
+    else:
+        state = read_json(state_file)
+
+    # 2. Check Cadence Threshold
+    if state["turnsSinceLastAudit"] >= state["auditCadenceThreshold"]:
+        # CADENCE TRIGGERED: MANDATORY ROUTINE SYSTEM AUDIT & APP DEBUGGING
+        print("🚨 [Skipo Cadence Trigger]: Threshold reached. Executing mandatory system audit & refactoring...")
+        
+        # A. Execute 5-Pillar Architectural Audit & Deduplication
+        audit_results = execute_full_architectural_audit(scope="ALL_PROJECT_FILES")
+        
+        # B. Run Diagnostic Build & Automated Regression Checks
+        diagnostic_results = run_app_diagnostics_and_tests()
+        
+        # C. Auto-Remediate Violations (Quad-Units, Purity L0-L3, Line Limits, Anti-Polling, Zero-Mock)
+        refactors = auto_remediate_deviations(audit_results, diagnostic_results)
+        
+        # D. Reset Turn Counter & Record Audit State
+        state["turnsSinceLastAudit"] = 0
+        state["totalTurns"] += 1
+        state["lastAudit"] = {
+            "timestamp": current_iso_timestamp(),
+            "status": "PASSED" if diagnostic_results["success"] else "REMEDIATED",
+            "refactorsPerformed": refactors,
+            "checksPassed": ["quad_units", "4_layer_purity", "line_limits", "anti_polling", "zero_mock", "diagnostics"]
+        }
+        state["history"].append(state["lastAudit"])
+        write_json(state_file, state)
+        
+        # E. Record in docs/HISTORY.md
+        append_to_project_history(state["lastAudit"])
+    else:
+        # CADENCE BELOW THRESHOLD: PROCEED WITH NORMAL EDIT
+        state["turnsSinceLastAudit"] += 1
+        state["totalTurns"] += 1
+        write_json(state_file, state)
+
+    return state
+```
+
+---
+
 ## 1. MANDATORY PRE-ACTION ROUTING PROTOCOL
 ```
 ∀ task ∈ Agent_Actions:
+  0. Execute pre_action_turn_counter_guard("."):
+     - If turnsSinceLastAudit >= threshold -> Run routine audit & debug app, refactor deviations, reset counter to 0.
+     - Else -> Increment turn counter in .skipo/agent-state.json and proceed with normal edit.
   1. Inspect workspace to detect Runtime Extensions:
      if (has_dependency("@dinilmusick/krnlts") ∨ file_exists("krnl.json") ∨ has_import("@dinilmusick/krnlts")):
          load_skill("./krnlts/SKILL.md")  # Load KrnlTS Runtime Subsystem Extensions
   2. Classify task intent(s) into Domain(s).
   3. Consult corresponding leaf SKILL.md before proposing or writing code.
   4. If task spans multiple domains, load all relevant skills in dependency order:
-     [ Backend / Database -> Architecture -> KrnlTS -> Data -> API -> UI -> Features -> Docs ]
+     [ Backend / Database -> Architecture / Deduplication -> KrnlTS -> Data -> API -> UI -> Features -> Docs ]
   5. Abide strictly by the loaded skill constraints.
 ```
 
@@ -24,6 +93,7 @@ description: Master router and deterministic dispatcher directing the AI agent t
 
 | Task Intent / Keywords | Target Skill / Sub-Router | Core Directives & Constraints |
 | :--- | :--- | :--- |
+| `turn_counter`, `agent_state`, `cadence_audit`, `routine_debug`, `5_turn_audit`, `deduplicate_structs`, `unify_functions`, `remediate_deviations` | [`architecture/deduplication/SKILL.md`](./architecture/deduplication/SKILL.md) | **Step 0 Turn Counter Engine**: `.skipo/agent-state.json` persistence, routine 5-turn audit cadence, automated app debugging, KrnlTS quad-unit compliance, deduplication, 4-layer purity, anti-polling audit |
 | `universal_backend`, `control_plane`, `data_plane`, `workspace_storage`, `local_fs`, `local_hosted`, `remote_backend`, `admin_auth`, `vercel_backend`, `decoupled_storage` | [`backend/SKILL.md`](./backend/SKILL.md) | Universal Backend Architecture: Control Plane vs Data Plane separation, 3 Storage Modes (Local FS, Local-Hosted, Remote BaaS), Decoupled Data/Storage providers, Admin authorization, Vercel/Desktop readiness |
 | `theme`, `colors`, `biome`, `parallax`, `particles`, `scrollbars`, `dropdowns` | [`ui/styling/SKILL.md`](./ui/styling/SKILL.md) | Neo-brutalism 2.5D biome, locked coffee/black-gold palettes, custom scrollbars, top-edge downward tooltips |
 | `dock_toolbar`, `window_switcher`, `auto_hide`, `dock_position`, `main_toolbar` | [`ui/dock-toolbar/SKILL.md`](./ui/dock-toolbar/SKILL.md) | macOS-style main window switcher dock, 4-edge positioning (top/bottom/left/right), auto-hide trigger zone, icon-only |
@@ -34,7 +104,6 @@ description: Master router and deterministic dispatcher directing the AI agent t
 | `pure_function`, `state_accessor`, `impure_function`, `complex_impure`, `layer_flow` | [`architecture/function-layers/SKILL.md`](./architecture/function-layers/SKILL.md) | 4-layer purity flow (Pure/State -> Impure -> Complex Impure -> API), zero layer bypassing |
 | `create_feature`, `entity_structure`, `quad_unit`, `system_entity`, `helpers_events` | [`architecture/entity-functionality/SKILL.md`](./architecture/entity-functionality/SKILL.md) | KrnlTS quad-units, recursive Entity tree, strict event-driven communication (zero onTick/polling loops) |
 | `shared_utils`, `canonical_structs`, `concept_file`, `libraries_folder` | [`architecture/libraries-concepts/SKILL.md`](./architecture/libraries-concepts/SKILL.md) | `libraries/{Domain}Concepts.ts` at system root level with uniform polymorphic generic templates |
-| `5_turn_audit`, `deduplicate_structs`, `unify_functions`, `remediate_deviations` | [`architecture/deduplication/SKILL.md`](./architecture/deduplication/SKILL.md) | 5-turn periodic audit: KrnlTS quad-unit compliance, deduplication, 4-layer purity, anti-polling audit |
 | `skeleton`, `structural_entity`, `component_composition`, `behavioral_unit` | [`architecture/skeleton-components/SKILL.md`](./architecture/skeleton-components/SKILL.md) | `Entity<TState, TEvents>` Skeletons = Impure Orchestrators (`@role skeleton`), Components = Pure/Atomic (`@role component`) |
 | `file_length`, `line_limit`, `split_file`, `atomic_sizing`, `200_lines` | [`architecture/code-limits/SKILL.md`](./architecture/code-limits/SKILL.md) | 200 lines/file max, $\le 30$ lines in helpers before concept delegation, $\le 20$ lines in main before helper delegation |
 | `subapp_engine`, `subapp_authoring`, `drag_and_drop_app`, `engine_wrapper`, `subapp_json` | [`architecture/sub-app-engine/SKILL.md`](./architecture/sub-app-engine/SKILL.md) | 100% drag-and-drop KrnlTS sub-app compatibility, zero-server rule, `subapp.json`, `register.ts`, pure operations |
@@ -50,6 +119,9 @@ description: Master router and deterministic dispatcher directing the AI agent t
 ## 3. DETERMINISTIC AGENT DISPATCH PIPELINE
 ```python
 def resolve_and_execute(task_intent: str, modified_domains: list[str]):
+    # Step 0: Execute mandatory turn-counter state check & audit guard
+    state = pre_action_turn_counter_guard(".")
+
     # Step 1: Detect KrnlTS library presence
     is_krnlts = has_dependency("@dinilmusick/krnlts") or file_exists("krnl.json") or has_import("@dinilmusick/krnlts")
 

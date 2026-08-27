@@ -1,21 +1,104 @@
 ---
-name: architecture-5turn-audit-guidelines
-description: Mandatory 5-turn periodic audit to identify and remediate deviations in Entity-Functionality structures, deduplication, and 4-layer function isolation.
+name: architecture-audit-cadence-and-deduplication
+description: Mandatory persistent turn-counter state engine, routine cadence audit, app debugging, KrnlTS quad-unit compliance, deduplication, and 4-layer function isolation.
 ---
 
-# 5-TURN PERIODIC ARCHITECTURAL AUDIT & CONVERGENCE
+# TURN-COUNTER STATE ENGINE & ROUTINE ARCHITECTURAL AUDIT
 
-## 1. 5-TURN AUDIT CADENCE TRIGGER
+## 1. PERSISTENT TURN-COUNTER STATE ENGINE (`.skipo/agent-state.json`)
+The AI agent **MUST maintain and check** a persistent state file at `.skipo/agent-state.json` (relative to the workspace root) on every interaction turn.
+
+### Canonical Schema:
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "schemaVersion": "1.0.0",
+  "turnsSinceLastAudit": 0,
+  "auditCadenceThreshold": 5,
+  "totalTurns": 0,
+  "lastAudit": {
+    "timestamp": "2026-08-26T12:00:00.000Z",
+    "status": "PASSED",
+    "refactorsPerformed": [],
+    "checksPassed": [
+      "quad_units_structure",
+      "layer_purity_L0_to_L3",
+      "multi_tier_line_limits",
+      "deduplication_and_concepts",
+      "anti_polling_reactive_events",
+      "zero_mock_backend_wiring",
+      "app_diagnostics_compilation"
+    ]
+  },
+  "history": []
+}
 ```
-CADENCE_TRIGGER:
-  ∀ turn_count ≡ 0 (mod 5):
-    executeFullArchitecturalAudit(scope = ALL_PROJECT_FILES)
+
+### Deterministic State Transition Algorithm:
+```python
+def evaluate_turn_cadence_and_execute(workspace_root: str = "."):
+    state_path = f"{workspace_root}/.skipo/agent-state.json"
+    
+    # Step 1: Ensure .skipo directory and state file exist
+    if not file_exists(state_path):
+        mkdir_p(f"{workspace_root}/.skipo")
+        state = {
+            "schemaVersion": "1.0.0",
+            "turnsSinceLastAudit": 0,
+            "auditCadenceThreshold": 5,
+            "totalTurns": 0,
+            "lastAudit": {
+                "timestamp": current_iso_timestamp(),
+                "status": "INITIALIZED",
+                "refactorsPerformed": [],
+                "checksPassed": []
+            },
+            "history": []
+        }
+    else:
+        state = read_json(state_path)
+
+    # Step 2: Evaluate Cadence
+    if state["turnsSinceLastAudit"] >= state["auditCadenceThreshold"]:
+        # ═══ CADENCE TRIGGERED: MANDATORY ROUTINE AUDIT & DEBUGGING ═══
+        print("🚨 [CADENCE TRIGGER]: Executing routine audit and debugging...")
+        
+        # 1. Run 6-Pillar Audit
+        audit_report = run_6_pillar_architectural_audit()
+        
+        # 2. Run App Diagnostics & Regression Suite
+        test_report = run_app_diagnostics_and_tests()
+        
+        # 3. Auto-Remediate Any Deviations
+        remediated_actions = auto_remediate_all_violations(audit_report, test_report)
+        
+        # 4. Reset Cadence Counter
+        state["turnsSinceLastAudit"] = 0
+        state["totalTurns"] += 1
+        state["lastAudit"] = {
+            "timestamp": current_iso_timestamp(),
+            "status": "PASSED" if (len(remediated_actions) == 0 and test_report["passed"]) else "REMEDIATED",
+            "refactorsPerformed": remediated_actions,
+            "checksPassed": ["quad_units", "layer_purity", "line_limits", "deduplication", "anti_polling", "diagnostics"]
+        }
+        state["history"].append(state["lastAudit"])
+        write_json(state_path, state)
+        
+        # 5. Log in docs/HISTORY.md
+        record_audit_in_project_history(state["lastAudit"])
+        
+        return {"mode": "AUDIT_AND_EDIT", "state": state}
+    else:
+        # ═══ NORMAL TURN: INCREMENT COUNTER & PROCEED ═══
+        state["turnsSinceLastAudit"] += 1
+        state["totalTurns"] += 1
+        write_json(state_path, state)
+        return {"mode": "NORMAL_EDIT", "state": state}
 ```
-- **Mandate**: Every 5 turns of active editing, the AI agent MUST perform an automated review across the codebase and automatically refactor any architectural deviations back into full compliance.
 
 ---
 
-## 2. 4-PILLAR ARCHITECTURAL AUDIT CHECKLIST
+## 2. 6-PILLAR ARCHITECTURAL AUDIT CHECKLIST
 
 ### Pillar I: Entity & Functionality Quad-Unit Structure Audit
 - [ ] Every entity resides in `entities/<EntityName>/` with `<EntityName>.ts` (`@role skeleton`).
@@ -53,20 +136,29 @@ CADENCE_TRIGGER:
 - [ ] State changes communicate reactively via `entity.emitEvent()`, `entity.on()`, `state:changed`, or WebSocket/SSE streams.
 - **Action on Deviation**: Refactor polling loops into reactive event subscriptions or push listeners.
 
+### Pillar VI: Zero-Mock Data, DB Wiring & App Diagnostics Audit
+- [ ] Zero mock data objects or fake simulated promises in production feature paths.
+- [ ] Real backend/DB connectivity configured via `entity.configureBackend(...)` or canonical control plane adapters.
+- [ ] Build & Test Diagnostic Suite passes with 0 compilation errors:
+  - `npm run build` generates clean ESM/CJS/DTS bundles.
+  - `node dist/bin/krnlts-validate.js` passes 4-layer AST purity checks with 0 warnings.
+  - Regression test scripts (`node examples/test_*.js`) execute with exit code 0.
+- **Action on Deviation**: Wire real database adapters, resolve compilation/type errors, and fix broken regression assertions.
+
 ---
 
-## 3. AUDIT & REMEDIATION ALGORITHM
+## 3. AUDIT, DIAGNOSTICS & REMEDIATION ALGORITHM
 ```python
-def run_5_turn_architectural_audit():
+def run_routine_audit_and_debug():
     """
-    Automated 5-Turn Self-Correction Loop
+    Automated Self-Correction & App Debugging Loop
     """
-    # 1. Audit Structure
+    # 1. Structure Remediation
     for feature in scan_features():
         if not is_krnlts_quad_unit_structured(feature):
             remediate_to_krnlts_quad_unit(feature)
             
-    # 2. Audit Deduplication
+    # 2. Deduplication Remediation
     struct_pairs = find_similar_structs(threshold=0.65)
     for A, B in struct_pairs:
         extract_to_concept_library(A, B)
@@ -75,14 +167,14 @@ def run_5_turn_architectural_audit():
     for cluster in fn_clusters:
         unify_into_generic_template_function(cluster)
         
-    # 3. Audit Layer Intermixing
+    # 3. Layer Intermixing Remediation
     for fn in scan_all_functions():
         if fn.is_impure and has_inline_pure_calculations(fn):
             extract_to_helper_functions_layer_0(fn)
         if fn.is_complex_impure_or_api and calls_layer_0_directly(fn):
             route_through_intermediate_layer_1(fn)
             
-    # 4. Audit Line Limits & Delegation Thresholds
+    # 4. Line Limits & Delegation Thresholds
     for f in scan_modified_files():
         if line_count(f) > 200:
             split_into_atomic_modules(f)
@@ -93,8 +185,14 @@ def run_5_turn_architectural_audit():
             if line_count(main_fn) > 20:
                 delegate_to_helpers(main_fn)
 
-    # 5. Audit Polling & onTick Violations
+    # 5. Polling & onTick Violations
     for f in scan_all_files():
         if has_polling_or_ontick_loop(f):
             refactor_to_event_driven_subscription(f)
+
+    # 6. Diagnostics & Test Verification
+    compilation_res = run_command("npm run build")
+    if compilation_res.exit_code != 0:
+        patch_syntax_and_type_errors(compilation_res.stderr)
+        run_command("npm run build")
 ```
