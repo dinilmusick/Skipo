@@ -1,6 +1,6 @@
 ---
 name: backend-control-plane
-description: Control Plane directives: User Accounts, Authentication, Workspace Registry, Admin Control, Multi-Database Redundancy Clusters, Failover, Immutable Audit Logging, and RBAC enforcement.
+description: Control Plane directives: User Accounts, Authentication, Workspace Registry, Admin Control, Multi-Database Redundancy Clusters, Vercel .env Blueprint Generator, Failover, Immutable Audit Logging, and RBAC enforcement with drop-in TypeScript & React code templates.
 ---
 
 # CONTROL PLANE — APPLICATION IDENTITY, CLUSTERING & GOVERNANCE
@@ -16,14 +16,20 @@ $$\text{Control Plane} \cap \text{Workspace Data Plane} = \emptyset$$
 ```
 CONTROL PLANE (Application-Owned)
 │
-├── User Accounts & Identities (USER, MODERATOR, ADMIN)
-├── Authentication & HMAC Session Tokens (sess::<userId>::<epoch>::<rand>)
-├── Workspace Registry & Ownership Mappings
-├── Persistent Config Vaults (.krnl/control_plane/database_cluster.json, .krnl/db_config.json)
-├── Multi-Backend Redundancy Clusters (primary, redundant_clone, read_replica)
-├── Real-Time Connection Latency Testing & Live Credential Validation
+├── User Accounts & Universal Identities (`app_profiles` JSONB)
+├── Authentication & Session Crypto (`sess::<userId>::<timestamp>::<random>`)
+├── RFC 5322 Regex Email Format Validation
+├── Multi-Backend Redundancy Clusters (Primary + Redundant Clones + Read Replicas)
+│     ├── Neon Serverless Postgres (Direct connectionless HTTP via @neondatabase/serverless)
+│     ├── Supabase BaaS (REST /rest/v1 with merge-duplicates)
+│     ├── Firebase Cloud Firestore (REST API v1)
+│     └── PostgreSQL Standard (SQL)
+├── Dynamic Vercel `.env` Blueprint Drawer (1-Click Copy Value / Copy All)
+├── Visual Status Badges: 🟢 .ENV PERSISTENT vs ⚡ RUNTIME (GET .ENV)
+├── Real-Time Connection Latency Testing & Live Credential Probing
 ├── Dynamic Primary Promotion & Automatic Failover
-└── Immutable Audit Logging (AuditLogger trails)
+├── In-Memory & Edge Rate Limiting (25 login attempts / 15m / IP)
+└── Immutable Audit Logging (AuditLogger trails with JSON/CSV export)
 ```
 
 > [!IMPORTANT]
@@ -31,24 +37,7 @@ CONTROL PLANE (Application-Owned)
 
 ---
 
-## 2. Role-Based Access Control (RBAC) & Boundary Guards
-
-$$\text{UserRole} \in \{ \text{USER}, \text{MODERATOR}, \text{ADMIN} \}$$
-
-- **AdminGuard Middleware**: Strict route-level barrier checking session validities and enforcing required role boundaries.
-```typescript
-import { AdminGuard } from "@dinilmusick/krnlts";
-
-// Strict Admin Gate: Throws [AccessDenied] if session is null or role != "ADMIN"
-await AdminGuard.verify(authHeader, accountProvider);
-
-// Moderator or Admin Gate
-await AdminGuard.verifyModeratorOrAdmin(authHeader, accountProvider);
-```
-
----
-
-## 3. Multi-Backend Database Clusters & High-Availability Redundancy
+## 2. Multi-Backend Database Clusters & High-Availability Redundancy
 
 To guarantee zero data loss and fault-tolerant operation, the Control Plane supports **Multi-Backend Database Clustering**:
 
@@ -58,59 +47,96 @@ To guarantee zero data loss and fault-tolerant operation, the Control Plane supp
                  ┌──────────────────────┼──────────────────────┐
                  ▼                      ▼                      ▼
         [PRIMARY DATABASE]     [REDUNDANT CLONE 1]    [READ REPLICA 1]
-         (Turso LibSQL /        (PostgreSQL /          (Supabase /
-          MongoDB / SQLite)      Supabase)              Cloudflare)
+         (Neon Serverless /     (Supabase BaaS /       (Firebase /
+          PostgreSQL)            Cloud Standby)         SQLite)
                  │                      ▲
-                 │ (Periodic Snapshot)  │ (Promoted on Spike / Failover)
+                 │ (Atomic Upsert Sync) │ (Real-Time Replication)
                  └──────────────────────┘
 ```
 
-### Cluster Roles
-1. **`primary`**: Receives all active write mutations and authoring queries.
-2. **`redundant_clone`**: Kept in sync via periodic snapshot replication (`syncRedundantDatabases`).
-3. **`read_replica`**: Serves high-throughput read requests and reporting queries.
-
-### Dynamic Promotion & Failover
-- If a primary database experiences latency spikes or connection timeouts:
-  $$\text{Promote}(\text{RedundantClone}) \implies \text{Role} \gets \text{primary}$$
-  $$\text{Demote}(\text{OldPrimary}) \implies \text{Role} \gets \text{redundant\_clone}$$
-- Transition occurs dynamically in the persistent configuration vault with **zero application downtime**.
-
----
-
-## 4. Live Connection Testing & Latency Measurement
-
-Administrators and users can test prospective database connections before committing:
-```typescript
-const result = await clusterManager.testDatabaseConnection(targetConfig);
-console.log(`Connection OK: ${result.ok}, Latency: ${result.latencyMs}ms`);
-```
+### Supported Engines & Mechanics:
+1. **Neon Serverless Postgres** (`@neondatabase/serverless`):
+   - Stateless SQL over HTTP pipeline.
+   - Non-blocking table provisioning (`autoProvisionNeonTable`) with automatic column migrations for `app_profiles JSONB`, `avatar_glyph TEXT`, `last_login_at TIMESTAMPTZ`.
+   - Explicit parameter type casting: `$8::jsonb`, `$9::timestamptz`, `$10::timestamptz`, `$11::timestamptz`.
+2. **Supabase BaaS**:
+   - REST-based upsert using `Prefer: resolution=merge-duplicates` header and Service Role Key.
+3. **Firebase Cloud Firestore**:
+   - Structured document patch via REST API v1.
+4. **PostgreSQL Standard**:
+   - Standard SQL connection string support.
 
 ---
 
-## 5. Immutable Audit Logging (`AuditLogger`)
+## 3. Explicit Environment Variable Standards & Vercel Generator
 
-Every administrative mutation, backend connection switch, user role upgrade, and cluster failover event is recorded in an immutable append-only audit trail:
+To prevent ambiguity when multiple databases exist, standard explicit provider prefixes are used:
 
-```typescript
-import { AuditLogger } from "@dinilmusick/krnlts";
+| Engine | Primary Variable Key | Table Name Key | Clone Variable Key |
+|---|---|---|---|
+| **Neon** | `NEON_DATABASE_URL` (or `DATABASE_URL`) | `NEON_TABLE_NAME` | `CLONE_NEON_DATABASE_URL` |
+| **Supabase** | `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | `SUPABASE_TABLE_NAME` | `CLONE_SUPABASE_URL` |
+| **Firebase** | `FIREBASE_PROJECT_ID` + `FIREBASE_API_KEY` | `FIREBASE_COLLECTION_NAME` | `CLONE_FIREBASE_PROJECT_ID` |
+| **PostgreSQL**| `POSTGRES_DATABASE_URL` | N/A | `CLONE_POSTGRES_DATABASE_URL` |
 
-const auditLogger = new AuditLogger("./.krnl/control_plane/audit_trail.jsonl");
-
-await auditLogger.log({
-  actorUserId: "admin_alice",
-  actorRole: "ADMIN",
-  action: "PROMOTE_DATABASE_PRIMARY",
-  resource: "cluster_turso_edge_01",
-  details: { previousPrimary: "sqlite_local", latencyMs: 24 },
-  status: "SUCCESS"
-});
-```
+### Visual Badges in Admin UI:
+- `🟢 .ENV PERSISTENT`: Automatically detected from deployed environment variables.
+- `⚡ RUNTIME (GET .ENV)`: Added dynamically in Admin UI. Opens the **1-Click Vercel `.env` Drawer** to copy the generated blueprint snippet into Vercel Project Settings.
 
 ---
 
-## 6. Persistent Configuration Vaults
+## 4. Drop-in Code Library Reference (In `./code/`)
 
-Connection settings and cluster topologies are persisted in structured JSON vaults:
-- `.krnl/control_plane/database_cluster.json` (or `.docustack/control_plane/database_cluster.json`): Cluster definitions, assigned roles, and health statuses.
-- `.krnl/db_config.json` (or `.docustack/db_config.json`): Active workspace database configurations and daisy-chain parameters.
+Any AI agent can copy these files directly into a new TypeScript/React application to implement the full Control Plane:
+
+### Core Library & Storage (`./code/lib/`):
+- [`code/lib/control-plane-types.ts`](./code/lib/control-plane-types.ts) — Cluster configurations, telemetry, latency results, and RBAC types.
+- [`code/lib/control-plane.ts`](./code/lib/control-plane.ts) — Cluster management, Neon/Supabase/Firebase persistence, latency probes, and admin guards.
+- [`code/lib/auth-storage.ts`](./code/lib/auth-storage.ts) — User registration with RFC 5322 regex validation, password hashing, session tokens, and workspace helpers.
+- [`code/lib/audit-logger.ts`](./code/lib/audit-logger.ts) — Immutable admin security audit logs with JSON/CSV export.
+- [`code/lib/rate-limiter.ts`](./code/lib/rate-limiter.ts) — In-memory & serverless rate limiter.
+
+### Next.js API Routes (`./code/api/`):
+- [`code/api/auth/register/route.ts`](./code/api/auth/register/route.ts) — User registration endpoint.
+- [`code/api/auth/login/route.ts`](./code/api/auth/login/route.ts) — Rate-limited login with dynamic cluster lookup.
+- [`code/api/auth/me/route.ts`](./code/api/auth/me/route.ts) — Active session & profile endpoint.
+- [`code/api/auth/workspaces/route.ts`](./code/api/auth/workspaces/route.ts) — Workspace CRUD & switching.
+- [`code/api/auth/app-profile/route.ts`](./code/api/auth/app-profile/route.ts) — Universal multi-app profile endpoint.
+- [`code/api/auth/users/route.ts`](./code/api/auth/users/route.ts) — User listing & updates.
+- [`code/api/admin/backend/route.ts`](./code/api/admin/backend/route.ts) — Admin cluster probe tests, auto-provisioning, and CRUD.
+- [`code/api/admin/users/route.ts`](./code/api/admin/users/route.ts) — Admin user management.
+- [`code/api/admin/audit/route.ts`](./code/api/admin/audit/route.ts) — Audit log query & export endpoint.
+- [`code/api/admin/tables/route.ts`](./code/api/admin/tables/route.ts) — Live database table inspector.
+
+### React UI Components (`./code/components/`):
+- [`code/components/admin/AdminPanelModal.tsx`](./code/components/admin/AdminPanelModal.tsx) — Main Admin Control Plane Modal container.
+- [`code/components/admin/AdminDatabaseClusterTab.tsx`](./code/components/admin/AdminDatabaseClusterTab.tsx) — Cluster management tab with latency pings, .env badges & Vercel Drawer.
+- [`code/components/admin/AdminUsersTab.tsx`](./code/components/admin/AdminUsersTab.tsx) — Users & Roles management tab.
+- [`code/components/admin/AdminAuditTab.tsx`](./code/components/admin/AdminAuditTab.tsx) — Audit Log Viewer with 1-click Copy & CSV/JSON export.
+- [`code/components/admin/AdminTablesTab.tsx`](./code/components/admin/AdminTablesTab.tsx) — Live raw database table record viewer.
+- [`code/components/admin/AdminBackendTab.tsx`](./code/components/admin/AdminBackendTab.tsx) — Legacy single-engine and storage engine testing tab.
+- [`code/components/admin/AdminWorkspacesTab.tsx`](./code/components/admin/AdminWorkspacesTab.tsx) — Multi-tenant workspace overview tab.
+- [`code/components/auth/LoginModal.tsx`](./code/components/auth/LoginModal.tsx) — User authentication modal.
+- [`code/components/BrutalistUi.tsx`](./code/components/BrutalistUi.tsx) — Neo-Brutalist UI primitives (Card, Button, Badge, Modal, Input).
+
+---
+
+## 5. Integration Protocol for Future AI Agents
+
+1. **Install Dependencies**:
+   ```bash
+   npm install @neondatabase/serverless @supabase/supabase-js lucide-react clsx tailwind-merge
+   ```
+2. **Copy Code**:
+   - Copy `code/lib/*` ➔ `lib/`
+   - Copy `code/api/*` ➔ `app/api/`
+   - Copy `code/components/*` ➔ `components/`
+3. **Configure Environment Variables**:
+   ```env
+   ADMIN_EMAIL=admin@example.com
+   ADMIN_PASSWORD=your_secure_password_123
+   AUTH_SECRET=your_32_character_random_secret
+   NEON_DATABASE_URL=postgresql://user:pass@ep-xyz.region.aws.neon.tech/neondb?sslmode=require
+   ```
+4. **Trigger Auto-Provision**:
+   - Navigate to `/admin/login`, open the Cluster tab, and click **⚡ Auto-Provision Table in Neon**.
