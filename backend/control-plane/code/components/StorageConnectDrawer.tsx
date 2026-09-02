@@ -42,17 +42,28 @@ interface StorageConnectDrawerProps {
 }
 
 const ACTIVE_STORAGE_PROVIDERS: UserStorageProvider[] = [
-  'local_fs',
   'backblaze_b2',
   'cloudflare_r2',
   'supabase_storage',
   'aws_s3',
+  'local_fs',
 ];
+
+interface StorageConnectDrawerProps {
+  userToken?: string | null;
+  currentConnectionId?: string;
+  currentProvider?: UserStorageProvider;
+  currentLocalFolderName?: string;
+  currentLocalFolderKey?: string;
+  onSelectLocalFolder: (folderName: string, folderKey: string) => void;
+  onSelectCloudConnection: (connection: UserStorageConnection) => void;
+  onSelectEngine: (engine: DatabaseEngine) => void;
+}
 
 export default function StorageConnectDrawer({
   userToken,
   currentConnectionId,
-  currentProvider = 'local_fs',
+  currentProvider = 'backblaze_b2',
   currentLocalFolderName,
   currentLocalFolderKey,
   onSelectLocalFolder,
@@ -107,13 +118,31 @@ export default function StorageConnectDrawer({
     return headers;
   };
 
-  const fetchSavedConnections = async () => {
+  const fetchSavedConnections = async (preferredId?: string) => {
     try {
       setLoadingConnections(true);
       const res = await fetch('/api/auth/storage/connections', { headers: getAuthHeaders() });
       const data = await res.json();
       if (data.success && Array.isArray(data.connections)) {
         setSavedConnections(data.connections);
+        if (data.connections.length === 0) {
+          setShowNewConnectionForm(true);
+        } else {
+          const targetId = preferredId || activeConnId;
+          const matched = targetId ? data.connections.find((c: any) => c.id === targetId) : undefined;
+          const chosen = matched || data.connections[0];
+          if (chosen) {
+            setActiveConnId(chosen.id);
+            setSelectedProvider(chosen.provider);
+            if (chosen.provider === 'local_fs') {
+              onSelectLocalFolder(chosen.localFolderName || '', chosen.localFolderKey || '');
+              onSelectEngine('local_fs');
+            } else {
+              onSelectCloudConnection(chosen);
+              onSelectEngine('s3_blob');
+            }
+          }
+        }
       }
     } catch (err) {
       console.warn('Failed to load saved storage connections:', err);
@@ -210,10 +239,10 @@ export default function StorageConnectDrawer({
             });
             const saveData = await saveRes.json();
             if (saveData.success && saveData.connection) {
-              await fetchSavedConnections();
+              await fetchSavedConnections(saveData.connection.id);
               setActiveConnId(saveData.connection.id);
               onSelectCloudConnection(saveData.connection);
-              onSelectEngine('s3_blob');
+              onSelectEngine(saveData.connection.provider === 'local_fs' ? 'local_fs' : 's3_blob');
               setShowNewConnectionForm(false);
               setImportNotification(`✓ Successfully connected & added "${saveData.connection.label}" as an active storage option.`);
             }
@@ -262,11 +291,12 @@ export default function StorageConnectDrawer({
         throw new Error(data.error || 'Failed to save storage connection.');
       }
 
-      await fetchSavedConnections();
+      await fetchSavedConnections(data.connection.id);
       setActiveConnId(data.connection.id);
       onSelectCloudConnection(data.connection);
-      onSelectEngine('s3_blob');
+      onSelectEngine(data.connection.provider === 'local_fs' ? 'local_fs' : 's3_blob');
       setShowNewConnectionForm(false);
+      setImportNotification(`✓ Added "${data.connection.label}" as an active storage option.`);
     } catch (err: any) {
       setGeneralError(err.message || 'Failed to save connection.');
     } finally {
@@ -285,12 +315,18 @@ export default function StorageConnectDrawer({
       });
       const data = await res.json();
       if (data.success) {
-        setSavedConnections((prev) => prev.filter((c) => c.id !== connId));
-        if (activeConnId === connId) {
-          setActiveConnId(undefined);
-          setSelectedProvider('local_fs');
-          onSelectEngine('local_fs');
-        }
+        setSavedConnections((prev) => {
+          const remaining = prev.filter((c) => c.id !== connId);
+          if (activeConnId === connId) {
+            if (remaining.length > 0) {
+              handleSelectSavedConn(remaining[0]);
+            } else {
+              setActiveConnId(undefined);
+              setShowNewConnectionForm(true);
+            }
+          }
+          return remaining;
+        });
       }
     } catch (err: any) {
       alert(`Failed to delete connection: ${err.message}`);
@@ -300,8 +336,13 @@ export default function StorageConnectDrawer({
   const handleSelectSavedConn = (conn: UserStorageConnection) => {
     setActiveConnId(conn.id);
     setSelectedProvider(conn.provider);
-    onSelectCloudConnection(conn);
-    onSelectEngine('s3_blob');
+    if (conn.provider === 'local_fs') {
+      onSelectLocalFolder(conn.localFolderName || '', conn.localFolderKey || '');
+      onSelectEngine('local_fs');
+    } else {
+      onSelectCloudConnection(conn);
+      onSelectEngine('s3_blob');
+    }
     setImportNotification(null);
   };
 
@@ -418,8 +459,6 @@ export default function StorageConnectDrawer({
     selectedProvider === 'backblaze_b2' &&
     formData['b2KeyId']?.startsWith('K00');
 
-  const isLocalSelected = selectedProvider === 'local_fs' && !activeConnId;
-
   return (
     <div className="space-y-3.5 border-2 border-brutalist bg-[var(--color-surface-subtle)] p-3.5">
       {/* Hidden File Input for JSON Import */}
@@ -485,93 +524,68 @@ export default function StorageConnectDrawer({
           SELECT ACTIVE STORAGE FOR THIS WORKSPACE:
         </span>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {/* Tile 1: Local Disk Folder */}
-          <div
-            onClick={() => {
-              setSelectedProvider('local_fs');
-              setActiveConnId(undefined);
-              setShowNewConnectionForm(false);
-              onSelectEngine('local_fs');
-              if (localFolderName && localFolderKey) {
-                onSelectLocalFolder(localFolderName, localFolderKey);
-              }
-            }}
-            className={`p-2.5 border-2 text-left cursor-pointer transition-all flex flex-col justify-between ${
-              isLocalSelected
-                ? 'border-[var(--color-accent)] bg-black/40 shadow-[2px_2px_0px_var(--color-accent)]'
-                : 'border-brutalist/40 bg-black/15 hover:border-brutalist hover:bg-black/25'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FolderOpen size={14} className={isLocalSelected ? 'text-[var(--color-accent)]' : 'opacity-60'} />
-                <span className="text-xs font-black uppercase text-[var(--color-text)]">
-                  LOCAL DISK FOLDER
-                </span>
-              </div>
-              {isLocalSelected && (
-                <span className="text-[8px] bg-[var(--color-accent)] text-black px-1.5 py-0.5 font-bold uppercase">
-                  ACTIVE
-                </span>
-              )}
-            </div>
-            <div className="text-[9px] font-mono opacity-70 mt-1 truncate">
-              {localFolderName ? `Folder: ${localFolderName}` : 'Native Browser File System API'}
-            </div>
-          </div>
+        {savedConnections.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {savedConnections.map((conn) => {
+              const isConnSelected = activeConnId === conn.id;
+              const cfg = STORAGE_PROVIDER_CONFIGS[conn.provider];
+              const bucketName =
+                conn.b2BucketName || conn.r2BucketName || conn.s3BucketName || conn.supabaseBucketName || conn.localFolderName || '';
 
-          {/* Tiles 2..N: User Saved Cloud Connections */}
-          {savedConnections.map((conn) => {
-            const isConnSelected = activeConnId === conn.id;
-            const cfg = STORAGE_PROVIDER_CONFIGS[conn.provider];
-            const bucketName =
-              conn.b2BucketName || conn.r2BucketName || conn.s3BucketName || conn.supabaseBucketName || '';
-
-            return (
-              <div
-                key={conn.id}
-                onClick={() => {
-                  handleSelectSavedConn(conn);
-                  setShowNewConnectionForm(false);
-                }}
-                className={`p-2.5 border-2 text-left cursor-pointer transition-all flex flex-col justify-between ${
-                  isConnSelected
-                    ? 'border-emerald-500 bg-emerald-500/10 shadow-[2px_2px_0px_#10B981]'
-                    : 'border-brutalist/40 bg-black/15 hover:border-brutalist hover:bg-black/25'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 size={14} className={isConnSelected ? 'text-emerald-400' : 'opacity-50'} />
-                    <span className="text-xs font-black uppercase text-[var(--color-text)] truncate max-w-[150px]">
-                      {conn.label}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {isConnSelected && (
-                      <span className="text-[8px] bg-emerald-500 text-black px-1.5 py-0.5 font-bold uppercase">
-                        ACTIVE
+              return (
+                <div
+                  key={conn.id}
+                  onClick={() => {
+                    handleSelectSavedConn(conn);
+                    setShowNewConnectionForm(false);
+                  }}
+                  className={`p-2.5 border-2 text-left cursor-pointer transition-all flex flex-col justify-between ${
+                    isConnSelected
+                      ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 shadow-[3px_3px_0px_var(--color-accent)] ring-1 ring-[var(--color-accent)]'
+                      : 'border-brutalist/40 bg-black/15 hover:border-brutalist hover:bg-black/25'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={14} className={isConnSelected ? 'text-[var(--color-accent)]' : 'opacity-40'} />
+                      <span className="text-xs font-black uppercase text-[var(--color-text)] truncate max-w-[150px]">
+                        {conn.label}
                       </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={(e) => handleDeleteSavedConnection(conn.id, e)}
-                      className="p-1 text-red-400 hover:bg-red-500/20 border border-red-500/30 cursor-pointer"
-                      title="Delete connection"
-                    >
-                      <Trash2 size={10} />
-                    </button>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {isConnSelected && (
+                        <span className="text-[8px] bg-[var(--color-accent)] text-black px-1.5 py-0.5 font-bold uppercase">
+                          ACTIVE
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteSavedConnection(conn.id, e)}
+                        className="p-1 text-red-400 hover:bg-red-500/20 border border-red-500/30 cursor-pointer"
+                        title="Delete connection"
+                      >
+                        <Trash2 size={10} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-[9px] font-mono opacity-70 mt-1 flex items-center justify-between">
+                    <span className="uppercase text-[var(--color-accent)]">{cfg?.shortName || conn.provider}</span>
+                    <span className="truncate max-w-[120px]">{bucketName} {conn.latencyMs ? `· ${conn.latencyMs}ms` : ''}</span>
                   </div>
                 </div>
-                <div className="text-[9px] font-mono opacity-70 mt-1 flex items-center justify-between">
-                  <span className="uppercase text-[var(--color-accent)]">{cfg?.shortName || conn.provider}</span>
-                  <span className="truncate max-w-[120px]">{bucketName} {conn.latencyMs ? `· ${conn.latencyMs}ms` : ''}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-4 border-2 border-dashed border-[var(--color-accent)]/60 bg-black/20 text-center space-y-1.5 font-mono">
+            <span className="text-xs font-black text-[var(--color-accent)] block uppercase tracking-wider">
+              NO STORAGE OPTIONS CONNECTED YET
+            </span>
+            <p className="text-[10px] opacity-75 max-w-md mx-auto leading-relaxed">
+              Connect a storage provider below (such as <strong>Backblaze B2</strong>, <strong>Cloudflare R2</strong>, <strong>Supabase</strong>, or <strong>AWS S3</strong>) to set up and sync your workspace documents.
+            </p>
+          </div>
+        )}
 
         {/* Toggle / Add New Connection Button */}
         <button
@@ -590,45 +604,7 @@ export default function StorageConnectDrawer({
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          SECONDARY SECTION: LOCAL FOLDER EXPLORER SELECTION
-          ───────────────────────────────────────────────────────────── */}
-      {isLocalSelected && (
-        <div className="p-3 border border-brutalist/50 bg-black/25 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase text-[var(--color-accent)] flex items-center gap-1.5">
-              <FolderOpen size={13} />
-              LOCAL DISK FOLDER ATTACHMENT
-            </span>
-            <span className="text-[9px] font-mono opacity-60">OFFLINE FIRST</span>
-          </div>
-
-          {!isLocalFsSupported && (
-            <div className="p-2 border border-amber-500/40 bg-amber-500/10 text-amber-400 text-[10px]">
-              ⚠️ Your current browser does not support the native File System Access API. Chrome, Edge, or Opera recommended for local folder access.
-            </div>
-          )}
-
-          <div className="p-2.5 border-2 border-brutalist bg-black/40 flex items-center justify-between">
-            <div>
-              <span className="text-[9px] uppercase font-mono opacity-60 block">SELECTED FOLDER</span>
-              <span className="text-xs font-mono font-bold text-emerald-400">
-                {localFolderName || 'No local folder attached yet'}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={handlePickLocalFolder}
-              className="py-1.5 px-3 border-2 border-brutalist bg-[var(--color-accent)] text-black hover:bg-[#c5a059] font-black text-xs uppercase flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_var(--color-border)]"
-            >
-              <FolderOpen size={13} />
-              <span>{localFolderName ? 'CHANGE FOLDER' : 'SELECT FOLDER'}</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ─────────────────────────────────────────────────────────────
-          TERTIARY SECTION: NEW CLOUD CONNECTION FORM
+          TERTIARY SECTION: NEW CLOUD / STORAGE CONNECTION FORM
           ───────────────────────────────────────────────────────────── */}
       {showNewConnectionForm && (
         <div className="border border-brutalist/60 bg-black/30 p-3 space-y-3">
@@ -637,8 +613,8 @@ export default function StorageConnectDrawer({
           </span>
 
           {/* Provider Selector Tiles */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {ACTIVE_STORAGE_PROVIDERS.filter((p) => p !== 'local_fs').map((provId) => {
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {ACTIVE_STORAGE_PROVIDERS.map((provId) => {
               const cfg = STORAGE_PROVIDER_CONFIGS[provId];
               const isSelected = selectedProvider === provId;
 
@@ -659,17 +635,63 @@ export default function StorageConnectDrawer({
                 >
                   <div className="flex items-center justify-between w-full">
                     <span className="text-xs font-black uppercase tracking-tight text-[var(--color-text)]">
-                      {cfg.shortName}
+                      {cfg?.shortName || provId}
                     </span>
                     {isSelected && <Check size={12} className="text-[var(--color-accent)]" />}
                   </div>
                   <div className="text-[8px] font-mono opacity-50 uppercase mt-0.5">
-                    {cfg.tag}
+                    {cfg?.tag || provId}
                   </div>
                 </button>
               );
             })}
           </div>
+
+          {selectedProvider === 'local_fs' && (
+            <div className="space-y-3 pt-2 border-t border-brutalist/30">
+              <div className="space-y-1">
+                <label className="text-[9px] font-black uppercase opacity-60 block">
+                  Storage Option Label
+                </label>
+                <input
+                  type="text"
+                  value={connectionLabel}
+                  onChange={(e) => setConnectionLabel(e.target.value)}
+                  placeholder="e.g. My Local Documents Folder"
+                  className="w-full bg-black border border-brutalist px-2 py-1.5 text-xs font-mono text-[var(--color-text)] focus:outline-none focus:border-[var(--color-accent)]"
+                />
+              </div>
+
+              <div className="p-2.5 border-2 border-brutalist bg-black/40 flex items-center justify-between">
+                <div>
+                  <span className="text-[9px] uppercase font-mono opacity-60 block">SELECTED FOLDER</span>
+                  <span className="text-xs font-mono font-bold text-emerald-400">
+                    {localFolderName || 'No local folder selected yet'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handlePickLocalFolder}
+                  className="py-1.5 px-3 border-2 border-brutalist bg-[var(--color-accent)] text-black hover:bg-[#c5a059] font-black text-xs uppercase flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_var(--color-border)]"
+                >
+                  <FolderOpen size={13} />
+                  <span>{localFolderName ? 'CHANGE FOLDER' : 'SELECT FOLDER'}</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleSaveAndUse}
+                  disabled={!localFolderName || saving}
+                  className="py-1.5 px-3 border-2 border-brutalist bg-[var(--color-accent)] text-black hover:bg-[#c5a059] font-black text-xs uppercase flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-[2px_2px_0px_var(--color-border)]"
+                >
+                  <Check size={13} />
+                  <span>{saving ? 'SAVING...' : 'SAVE LOCAL STORAGE OPTION'}</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {currentProviderConfig && selectedProvider !== 'local_fs' && (
             <div className="space-y-3 pt-2 border-t border-brutalist/30">

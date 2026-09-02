@@ -113,6 +113,20 @@ CONTROL PLANE (Application-Owned)
 >      // ❌ WRONG: Never read user workspace credentials from server env vars
 >      // const key = process.env.BACKBLAZE_KEY_ID;
 >      ```
+> 8. **Dynamic Storage Options & Zero Hardcoded Local Tiles Mandate**:
+>    - Storage selection dialogues (`StorageConnectDrawer`) MUST render available storage options **dynamically** from the user's saved connections (`savedConnections`).
+>    - **NEVER hardcode a static, unremovable "Local Disk Folder" tile** in the primary storage selector. If no storage options have been added yet, the UI must render an instructional empty state prompting the user to connect a cloud provider or local folder below.
+>    - Newly connected or tested storage options (`Test Connectivity & Set Storage`) MUST automatically register to `user.appProfiles.{appName}.storage_connections`, auto-select, and render immediately as active tiles.
+>    - `normalizeUserAccount` MUST strictly preserve `storage_connections` and `workspaces`, ensuring user accounts loaded from disk or database never drop connected storage options or reset workspace arrays to empty.
+> 9. **End-to-End Cloud Bucket Initialization & Workspace Menu Sync**:
+>    - When creating a workspace backed by cloud storage (Backblaze B2, Cloudflare R2, AWS S3, Supabase), the server endpoint (`POST /api/auth/workspaces`) MUST immediately invoke `initializeCloudWorkspaceBucket`.
+>    - It must create the core vault files directly in the cloud bucket under the canonical folder prefix:
+>      - `.docustack/workspace_manifest.json`
+>      - `.docustack/graph.json`
+>      - `.docustack/categories.json`
+>      - `.docustack/documents_index.json`
+>      - `inbox/WELCOME_TO_{workspace_name}.MD`
+>    - The Workspace Tiles Menu MUST query `/api/auth/workspaces` on mount (`useEffect(() => { refreshWorkspaces(); }, [])`) and maintain functional state synchronization so newly created workspaces appear as active selectable tiles immediately.
 
 
 ---

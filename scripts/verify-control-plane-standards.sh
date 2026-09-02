@@ -129,6 +129,60 @@ if [ -f "$TARGET_DIR/components/workspace/WorkspaceTilesMenu.tsx" ]; then
   fi
 fi
 
+# Check 9: Dynamic Storage Options Tiles Check (No hardcoded Local Disk Folder tile in StorageConnectDrawer)
+echo "→ Checking for dynamic storage options tiles compliance..."
+DRAWER_FILE=""
+if [ -f "$TARGET_DIR/components/workspace/StorageConnectDrawer.tsx" ]; then
+  DRAWER_FILE="$TARGET_DIR/components/workspace/StorageConnectDrawer.tsx"
+elif [ -f "$TARGET_DIR/backend/control-plane/code/components/StorageConnectDrawer.tsx" ]; then
+  DRAWER_FILE="$TARGET_DIR/backend/control-plane/code/components/StorageConnectDrawer.tsx"
+fi
+
+if [ -n "$DRAWER_FILE" ]; then
+  if grep -q "Tile 1: Local Disk Folder" "$DRAWER_FILE"; then
+    echo "❌ VIOLATION: $DRAWER_FILE contains hardcoded static Local Disk Folder tile! Storage options must be dynamic from saved connections."
+    ERRORS=$((ERRORS + 1))
+  else
+    echo "✅ PASS: StorageConnectDrawer renders dynamic storage options without static hardcoded tiles."
+  fi
+fi
+
+# Check 10: Storage connections and workspace preservation in auth-storage.ts
+echo "→ Checking storage connections & workspace normalization preservation..."
+AUTH_STORAGE_FILE=""
+if [ -f "$TARGET_DIR/lib/auth-storage.ts" ]; then
+  AUTH_STORAGE_FILE="$TARGET_DIR/lib/auth-storage.ts"
+elif [ -f "$TARGET_DIR/backend/control-plane/code/lib/auth-storage.ts" ]; then
+  AUTH_STORAGE_FILE="$TARGET_DIR/backend/control-plane/code/lib/auth-storage.ts"
+fi
+
+if [ -n "$AUTH_STORAGE_FILE" ]; then
+  if grep -q "storage_connections" "$AUTH_STORAGE_FILE"; then
+    echo "✅ PASS: $AUTH_STORAGE_FILE preserves user storage_connections across profiles."
+  else
+    echo "❌ VIOLATION: $AUTH_STORAGE_FILE does not preserve storage_connections!"
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
+# Check 11: Backblaze B2 custom endpoint & region resolution support
+echo "→ Checking Backblaze B2 endpoint resolution..."
+STORAGE_PROV_FILE=""
+if [ -f "$TARGET_DIR/lib/storage-providers.ts" ]; then
+  STORAGE_PROV_FILE="$TARGET_DIR/lib/storage-providers.ts"
+elif [ -f "$TARGET_DIR/backend/control-plane/code/lib/storage-providers.ts" ]; then
+  STORAGE_PROV_FILE="$TARGET_DIR/backend/control-plane/code/lib/storage-providers.ts"
+fi
+
+if [ -n "$STORAGE_PROV_FILE" ]; then
+  if grep -q "b2Endpoint" "$STORAGE_PROV_FILE"; then
+    echo "✅ PASS: $STORAGE_PROV_FILE supports custom b2Endpoint configuration."
+  else
+    echo "❌ VIOLATION: $STORAGE_PROV_FILE lacks b2Endpoint configuration!"
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
 # Summary
 echo "══════════════════════════════════════════════════════════════════════════════════════════"
 if [ "$ERRORS" -gt 0 ]; then

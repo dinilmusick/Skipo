@@ -2,8 +2,14 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { UserAccount, UserRole, UserWorkspaceRecord, DocuStackAppProfile, UltrstIdentity } from './types';
+import { UserAccount, UserRole, UserWorkspaceRecord, DocuStackAppProfile, UltrstIdentity, UserStorageConnection } from './types';
 import { getVaultAbsolutePath, ensureWorkspaceExists } from './workspaceFS';
+import {
+  formatCanonicalWorkspaceFolderName,
+  formatCanonicalWorkspacePath,
+} from './workspace-canonical';
+
+export { formatCanonicalWorkspaceFolderName, formatCanonicalWorkspacePath };
 
 export interface CanonicalAccount {
   id: string;
@@ -107,16 +113,42 @@ export function normalizeUserAccount(rawUser: any): UserAccount {
 
   // Extract or initialize DocuStack profile
   const existingDocuStackProfile = appProfiles[APP_ID] || {};
-  const userWorkspaces = existingDocuStackProfile.workspaces || rawUser.workspaces || [];
-  const defaultWsId = userWorkspaces[0]?.id || '';
-  const defaultWsPath = userWorkspaces[0]?.workspacePath || '';
-  const defaultWsName = userWorkspaces[0]?.name || '';
+
+  // Prioritize rawUser.workspaces if provided (direct updates happen on user.workspaces),
+  // otherwise fallback to existingDocuStackProfile.workspaces
+  const userWorkspaces: UserWorkspaceRecord[] =
+    Array.isArray(rawUser.workspaces) && rawUser.workspaces.length > 0
+      ? rawUser.workspaces
+      : (Array.isArray(existingDocuStackProfile.workspaces) && existingDocuStackProfile.workspaces.length > 0
+          ? existingDocuStackProfile.workspaces
+          : (rawUser.workspaces || existingDocuStackProfile.workspaces || []));
+
+  const activeWsId: string =
+    rawUser.activeWorkspaceId !== undefined
+      ? rawUser.activeWorkspaceId
+      : (existingDocuStackProfile.activeWorkspaceId || userWorkspaces[0]?.id || '');
+
+  const activeWs = userWorkspaces.find((w) => w.id === activeWsId) || userWorkspaces[0];
+  const wsPath: string =
+    rawUser.workspacePath !== undefined
+      ? rawUser.workspacePath
+      : (existingDocuStackProfile.workspacePath || activeWs?.workspacePath || '');
+  const wsName: string =
+    rawUser.workspaceName !== undefined
+      ? rawUser.workspaceName
+      : (existingDocuStackProfile.workspaceName || activeWs?.name || '');
+
+  // Preserve user-saved storage connections (Backblaze B2, R2, S3, Supabase, Local)
+  const storageConnections: UserStorageConnection[] =
+    existingDocuStackProfile.storage_connections || (rawUser as any).storage_connections || [];
 
   const docustackProfile: DocuStackAppProfile = {
-    workspacePath: existingDocuStackProfile.workspacePath || rawUser.workspacePath || defaultWsPath,
-    workspaceName: existingDocuStackProfile.workspaceName || rawUser.workspaceName || defaultWsName,
-    activeWorkspaceId: existingDocuStackProfile.activeWorkspaceId || rawUser.activeWorkspaceId || defaultWsId,
+    ...existingDocuStackProfile,
+    workspacePath: wsPath,
+    workspaceName: wsName,
+    activeWorkspaceId: activeWsId,
     workspaces: userWorkspaces,
+    storage_connections: storageConnections,
     themePreference: existingDocuStackProfile.themePreference || 'dark',
     registeredAt: existingDocuStackProfile.registeredAt || rawUser.createdAt || now,
     lastActiveAt: now,
@@ -141,6 +173,7 @@ export function normalizeUserAccount(rawUser: any): UserAccount {
     workspaceName: docustackProfile.workspaceName,
     activeWorkspaceId: docustackProfile.activeWorkspaceId,
     workspaces: docustackProfile.workspaces,
+    storage_connections: docustackProfile.storage_connections,
   };
 }
 
@@ -741,10 +774,11 @@ export function attachSessionCookie(response: NextResponse, token: string): Next
 
 /**
  * Update user account details (workspaces, workspace path, workspace name, name, etc.)
+ * Also accepts appProfiles to store user-scoped app data (e.g. Google Drive credentials).
  */
 export function updateUserProfile(
   userId: string,
-  updates: Partial<Pick<UserAccount, 'name' | 'username' | 'avatarGlyph' | 'workspacePath' | 'workspaceName' | 'role' | 'workspaces' | 'activeWorkspaceId'>>
+  updates: Partial<Pick<UserAccount, 'name' | 'username' | 'avatarGlyph' | 'workspacePath' | 'workspaceName' | 'role' | 'workspaces' | 'activeWorkspaceId' | 'appProfiles'>>
 ): UserAccount {
   const users = loadUsers();
   const idx = users.findIndex((u) => u.id === userId);
@@ -772,7 +806,7 @@ export function updateUserProfile(
 
 export async function updateUserProfileAsync(
   userId: string,
-  updates: Partial<Pick<UserAccount, 'name' | 'username' | 'avatarGlyph' | 'workspacePath' | 'workspaceName' | 'role' | 'workspaces' | 'activeWorkspaceId'>>
+  updates: Partial<Pick<UserAccount, 'name' | 'username' | 'avatarGlyph' | 'workspacePath' | 'workspaceName' | 'role' | 'workspaces' | 'activeWorkspaceId' | 'appProfiles'>>
 ): Promise<UserAccount> {
   const updated = updateUserProfile(userId, updates);
   try {
@@ -797,41 +831,6 @@ export async function getUserWorkspacesAsync(userId: string): Promise<UserWorksp
   const user = await findUserByIdAsync(userId);
   if (!user) throw new Error('USER_NOT_FOUND');
   return user.workspaces || [];
-}
-
-/**
- * Sanitizes a segment for canonical workspace folder naming.
- */
-export function sanitizeFolderSegment(val: string): string {
-  return (val || '')
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9_-]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_|_$/g, '') || 'default';
-}
-
-/**
- * Ecosystem-wide canonical workspace folder name:
- * ultrst_{app_name}_{user_name}_{workspace_name}
- */
-export function formatCanonicalWorkspaceFolderName(
-  appName: string = 'app',
-  userName: string = 'user',
-  workspaceName: string = 'default'
-): string {
-  const app = sanitizeFolderSegment(appName);
-  const user = sanitizeFolderSegment(userName);
-  const ws = sanitizeFolderSegment(workspaceName);
-  return `ultrst_${app}_${user}_${ws}`;
-}
-
-export function formatCanonicalWorkspacePath(
-  appName: string = 'app',
-  userName: string = 'user',
-  workspaceName: string = 'default'
-): string {
-  return `./${formatCanonicalWorkspaceFolderName(appName, userName, workspaceName)}`;
 }
 
 export function addUserWorkspace(
@@ -861,6 +860,13 @@ export function addUserWorkspace(
   user.activeWorkspaceId = newWorkspace.id;
   user.workspacePath = newWorkspace.workspacePath;
   user.workspaceName = newWorkspace.name;
+
+  if (user.appProfiles && user.appProfiles[APP_ID]) {
+    user.appProfiles[APP_ID].workspaces = workspaces;
+    user.appProfiles[APP_ID].activeWorkspaceId = newWorkspace.id;
+    user.appProfiles[APP_ID].workspacePath = newWorkspace.workspacePath;
+    user.appProfiles[APP_ID].workspaceName = newWorkspace.name;
+  }
 
   users[idx] = user;
   saveUsers(users);
@@ -913,9 +919,17 @@ export function updateUserWorkspace(
   workspaces[wsIdx] = updatedWs;
   user.workspaces = workspaces;
 
+  if (user.appProfiles && user.appProfiles[APP_ID]) {
+    user.appProfiles[APP_ID].workspaces = workspaces;
+  }
+
   if (user.activeWorkspaceId === workspaceId) {
     user.workspacePath = updatedWs.workspacePath;
     user.workspaceName = updatedWs.name;
+    if (user.appProfiles && user.appProfiles[APP_ID]) {
+      user.appProfiles[APP_ID].workspacePath = updatedWs.workspacePath;
+      user.appProfiles[APP_ID].workspaceName = updatedWs.name;
+    }
   }
 
   users[idx] = user;
@@ -950,6 +964,10 @@ export function deleteUserWorkspace(userId: string, workspaceId: string): void {
   const workspaces = (user.workspaces || []).filter((w) => w.id !== workspaceId);
 
   user.workspaces = workspaces;
+  if (user.appProfiles && user.appProfiles[APP_ID]) {
+    user.appProfiles[APP_ID].workspaces = workspaces;
+  }
+
   if (user.activeWorkspaceId === workspaceId) {
     if (workspaces.length > 0) {
       user.activeWorkspaceId = workspaces[0].id;
@@ -959,6 +977,11 @@ export function deleteUserWorkspace(userId: string, workspaceId: string): void {
       user.activeWorkspaceId = '';
       user.workspacePath = '';
       user.workspaceName = '';
+    }
+    if (user.appProfiles && user.appProfiles[APP_ID]) {
+      user.appProfiles[APP_ID].activeWorkspaceId = user.activeWorkspaceId;
+      user.appProfiles[APP_ID].workspacePath = user.workspacePath;
+      user.appProfiles[APP_ID].workspaceName = user.workspaceName;
     }
   }
 
@@ -992,6 +1015,12 @@ export function switchActiveWorkspace(userId: string, workspaceId: string): User
   user.activeWorkspaceId = targetWs.id;
   user.workspacePath = targetWs.workspacePath;
   user.workspaceName = targetWs.name;
+
+  if (user.appProfiles && user.appProfiles[APP_ID]) {
+    user.appProfiles[APP_ID].activeWorkspaceId = targetWs.id;
+    user.appProfiles[APP_ID].workspacePath = targetWs.workspacePath;
+    user.appProfiles[APP_ID].workspaceName = targetWs.name;
+  }
 
   users[idx] = user;
   saveUsers(users);

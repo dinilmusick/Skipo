@@ -85,6 +85,14 @@ export const STORAGE_PROVIDER_CONFIGS: Record<UserStorageProvider, StorageProvid
         helpText: 'The exact bucket name created in your Backblaze account',
         required: true,
       },
+      {
+        key: 'b2Endpoint',
+        label: 'B2 S3 Endpoint (Optional)',
+        type: 'text',
+        placeholder: 's3.us-east-005.backblazeb2.com',
+        helpText: 'From Backblaze B2 -> Buckets -> Endpoint. Auto-derived from Key ID if omitted.',
+        required: false,
+      },
     ],
   },
   cloudflare_r2: {
@@ -309,7 +317,7 @@ export function buildS3Client(conn: UserStorageConnection): { s3: S3Client; buck
       throw new Error('MISSING_BACKBLAZE_CREDENTIALS: Key ID, Application Key, and Bucket Name are required.');
     }
 
-    const { endpoint, region } = resolveBackblazeEndpoint(undefined, keyId);
+    const { endpoint, region } = resolveBackblazeEndpoint(conn.b2Endpoint || conn.b2Region, keyId);
 
     const s3 = new S3Client({
       region,

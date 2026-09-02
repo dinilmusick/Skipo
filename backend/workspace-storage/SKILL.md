@@ -200,6 +200,10 @@ USER ──► APPLICATION ──► WorkspaceFS.write(path, data)
    - Backup Storages checklist with status badges.
    - **Promote to Primary**: Validate new target $\to$ Compare checksums $\to$ Switch without silent data loss.
    - **Detach Storage**: Disconnects endpoint config without deleting remote files ($\text{Detach} \neq \text{Delete}$).
+4. **Dynamic Storage Options Selection & Cloud Bucket Initialization**:
+   - Workspace creation dialogues MUST dynamically render user-connected storage options from `savedConnections`.
+   - **FORBID static, unremovable "Local Disk Folder" default tiles**. Show only active user-configured storage options with live connectivity status.
+   - Upon creating a cloud workspace, automatically initialize the remote bucket hierarchy (`.docustack/workspace_manifest.json`, `.docustack/graph.json`, `.docustack/categories.json`, `.docustack/documents_index.json`, `inbox/WELCOME_TO_{workspace_name}.MD`).
 
 ---
 
