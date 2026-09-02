@@ -66,6 +66,28 @@ CONTROL PLANE (Application-Owned)
 >      Input fields and textareas for workspace descriptions, notes, and metadata MUST NOT have CSS `uppercase` or force uppercase text. They must allow users to type and display both upper and lower case letters naturally.
 >    - **Cloud Storage OAuth Integration (Google Drive, OneDrive, etc.)**:
 >      When a user selects a cloud storage provider such as Google Drive for a workspace, the system MUST NOT silently fall back to a dummy local path. It MUST provide a proper OAuth connection interface (e.g. "Connect Google Drive Account" button launching the Google OAuth consent popup) and create the canonical folder in the cloud provider upon authorization.
+> 7. **User-Scoped Third-Party Workspace Credentials Law**:
+>    - **Strict Separation of Infrastructure Credentials vs. User Workspace Credentials**:
+>      - Server environment variables (`.env.local`, Vercel Env Vars, Cloud Run Secrets) are strictly reserved for **system database infrastructure**: `NEON_DATABASE_URL`, `SUPABASE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `AUTH_SECRET`, etc.
+>      - **Third-party workspace storage credentials** (Google Drive OAuth `clientId`/`clientSecret`, OneDrive credentials, S3 access keys) belong to **individual users** and MUST be stored inside the user's profile record in the system database under `appProfiles.{appName}.{provider}`.
+>    - **UI-Only Credential Entry**:
+>      - When a user selects a cloud storage provider (Google Drive, OneDrive, S3, etc.) for a workspace, the UI MUST display an inline credential input form where the user enters their own OAuth Client ID and Secret.
+>      - These credentials are saved to the user's profile via a protected API endpoint (e.g. `POST /api/auth/google-drive/credentials`) with full authentication (`Authorization: Bearer <token>`).
+>      - The OAuth flow (`GET /api/auth/google-drive/auth`) reads `clientId` from the authenticated user's profile — never from `process.env`.
+>      - The OAuth callback (`GET /api/auth/google-drive/callback`) decodes `userId` from the OAuth state parameter and saves the received tokens directly into `user.appProfiles.{appName}.google_drive.accounts` in the system database cluster.
+>    - **Prohibition of Env Var References for User Credentials**:
+>      - ZERO references to `process.env.GOOGLE_CLIENT_ID`, `process.env.GOOGLE_CLIENT_SECRET`, `process.env.ONEDRIVE_CLIENT_ID`, etc. for workspace-level credentials.
+>      - The status API (`GET /api/auth/google-drive/status`) reads from the user's profile, returning `hasCredentials: true/false` based on whether the user has entered their own credentials.
+>      - If a user has not yet entered credentials, the UI shows an inline input drawer — NOT an error message instructing them to set server env vars.
+>    - **Implementation Pattern** (TypeScript):
+>      ```typescript
+>      // ✅ CORRECT: Read from user profile
+>      const gdCreds = user.appProfiles?.docustack?.google_drive;
+>      const clientId = gdCreds?.clientId;
+>
+>      // ❌ WRONG: Never read user workspace credentials from env vars
+>      // const clientId = process.env.GOOGLE_CLIENT_ID;
+>      ```
 
 ---
 
