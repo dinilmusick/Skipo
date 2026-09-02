@@ -292,45 +292,24 @@ export function getDefaultClusterConfig(): AdminDatabaseClusterConfig {
   }
 
   // 5. If no environment variables detected:
+  // Both locally and on Vercel/Cloud, environment variables are the sole source of truth for the system backend database credentials.
+  // We strictly avoid local-only SQLite or file fallbacks so that local and hosted systems behave identically.
   if (databases.length === 0) {
-    if (isVercel || isProduction) {
-      // In cloud serverless, do NOT default to SQLite! Show standby Cloud Control Plane
-      databases.push({
-        id: 'cluster_cloud_standby',
-        name: 'Cloud Control Plane (Standby)',
-        engine: 'neon',
-        role: 'primary',
-        target: 'all',
-        enabled: false,
-        neon: {
-          connectionString: '',
-          tableName: 'ultrst-users',
-        },
-        status: 'error',
-        lastError: 'Serverless deployment active. Add DATABASE_URL (Neon) or SUPABASE_URL in Vercel Environment Variables or the Admin Panel.',
-        createdAt: now,
-      });
-    } else {
-      // Local development fallback
-      databases.push({
-        id: 'cluster_sqlite_local_01',
-        name: 'Primary Local Storage',
-        engine: 'sqlite',
-        role: 'primary',
-        target: 'all',
-        enabled: true,
-        sqlite: {
-          dbPath: './docustack_vault/.docustack/control_plane/accounts.sqlite',
-          walMode: true,
-        },
-        status: 'connected',
-        latencyMs: 2,
-        lastTestedAt: now,
-        lastSyncedAt: now,
-        recordsCloned: 3,
-        createdAt: now,
-      });
-    }
+    databases.push({
+      id: 'cluster_cloud_standby',
+      name: 'System Backend Database (Awaiting .env)',
+      engine: 'neon',
+      role: 'primary',
+      target: 'all',
+      enabled: false,
+      neon: {
+        connectionString: '',
+        tableName: 'ultrst-users',
+      },
+      status: 'error',
+      lastError: 'No database environment variable detected. Configure NEON_DATABASE_URL (or SUPABASE_URL / POSTGRES_DATABASE_URL) in your environment variables (.env.local locally, or Vercel Environment Variables).',
+      createdAt: now,
+    });
   }
 
   return {
@@ -963,12 +942,10 @@ export async function testDatabaseEntryConnection(entry: DatabaseConnectionEntry
   const t0 = performance.now();
   switch (entry.engine) {
     case 'sqlite': {
-      const dbPath = entry.sqlite?.dbPath || './docustack_vault/control_plane/accounts.sqlite';
-      const latencyMs = Math.round(performance.now() - t0) + 1;
       return {
-        success: true,
-        message: `SQLite storage connection verified at [${dbPath}]. WAL Mode: ${entry.sqlite?.walMode ? 'Active' : 'Standard'}.`,
-        latencyMs,
+        success: false,
+        message: 'Local SQLite is not supported for the Control Plane database. The Control Plane requires a persistent cloud database (Neon, Supabase, PostgreSQL, Firebase) configured via environment variables.',
+        latencyMs: 1,
       };
     }
     case 'postgres': {
@@ -1046,16 +1023,9 @@ export async function syncRedundantDatabases(actorUserId: string = 'system'): Pr
   for (const db of activeClones) {
     let syncError: string | null = null;
 
-    // 1. SQLite sync
+    // 1. SQLite sync is rejected for Control Plane
     if (db.engine === 'sqlite') {
-      try {
-        const targetPath = db.sqlite?.dbPath || path.join(getControlPlaneDir(), 'accounts_clone.json');
-        const dir = path.dirname(targetPath);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(targetPath, JSON.stringify(users, null, 2), 'utf-8');
-      } catch (err: any) {
-        syncError = err.message || 'Failed to write SQLite snapshot';
-      }
+      syncError = 'Local SQLite is not supported for Control Plane database redundancy. Use a persistent cloud database (Neon, Supabase, Postgres, Firebase).';
     }
 
     // 2. Supabase sync
@@ -1277,7 +1247,7 @@ export function loadAdminBackendConfig(): AdminBackendConfig {
   const cluster = loadDatabaseClusterConfig();
   const primary = cluster.databases.find((d) => d.role === 'primary') || cluster.databases[0];
   return {
-    engine: (primary?.engine as AdminBackendEngine) || 'sqlite',
+    engine: (primary?.engine as AdminBackendEngine) || 'neon',
     activeProfile: primary?.name || 'Primary Storage',
     sqlite: primary?.sqlite || { dbPath: './docustack_vault/control_plane/accounts.sqlite', walMode: true },
     postgres: primary?.postgres || { host: 'localhost', database: 'docustack', ssl: true },
@@ -1550,7 +1520,11 @@ export async function persistUserToCluster(user: UserAccount): Promise<{ success
     return true;
   });
 
-  const targetsUpdated: string[] = ['local_cache'];
+  if (activeDatabases.length === 0) {
+    throw new Error('NO_ACTIVE_DATABASE: No persistent system database is configured. Please configure NEON_DATABASE_URL (or SUPABASE_URL / POSTGRES_DATABASE_URL) in your environment variables (.env.local locally or Vercel Environment Variables).');
+  }
+
+  const targetsUpdated: string[] = [];
 
   for (const db of activeDatabases) {
     const isNeonOrPg = (db.engine === 'neon' && db.neon?.connectionString) ||

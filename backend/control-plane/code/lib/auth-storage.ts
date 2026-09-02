@@ -473,15 +473,11 @@ export async function registerUserAsync(
 
   const normalized = normalizeUserAccount(newUser);
 
-  // 3. Persist immediately to Primary Database (Neon, Supabase, etc.) and active Clones
-  try {
-    const { persistUserToCluster } = await getClusterPersister();
-    await persistUserToCluster(normalized);
-  } catch (err: any) {
-    console.error('[DocuStack AuthStorage] registerUserAsync cluster persist error:', err.message);
-    users.push(normalized);
-    saveUsers(users);
-  }
+  // 3. Persist directly to Primary Database (Neon, Supabase, etc.) and active Clones
+  // The system database credentials in environment variables are the sole source of truth.
+  // We strictly do NOT swallow database errors or create phantom local accounts.
+  const { persistUserToCluster } = await getClusterPersister();
+  await persistUserToCluster(normalized);
 
   const token = createSessionToken(normalized.id);
   const { passwordHash: _, ...safeUser } = normalized;

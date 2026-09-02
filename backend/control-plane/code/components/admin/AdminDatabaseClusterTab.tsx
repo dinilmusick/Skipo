@@ -82,10 +82,9 @@ export default function AdminDatabaseClusterTab({ cluster, userToken, onRefresh 
 
   // New DB Form State
   const [newName, setNewName] = useState('');
-  const [newEngine, setNewEngine] = useState<AdminBackendEngine>('sqlite');
+  const [newEngine, setNewEngine] = useState<AdminBackendEngine>('neon');
   const [newRole, setNewRole] = useState<DatabaseRole>('redundant_clone');
   const [newTarget, setNewTarget] = useState<DatabaseTargetScope>('all');
-  const [sqlitePath, setSqlitePath] = useState('./docustack_vault/backups/accounts_clone.sqlite');
   const [walMode, setWalMode] = useState(true);
   const [pgHost, setPgHost] = useState('localhost');
   const [pgPort, setPgPort] = useState(5432);
@@ -304,9 +303,7 @@ export default function AdminDatabaseClusterTab({ cluster, userToken, onRefresh 
         enabled: true,
       };
 
-      if (newEngine === 'sqlite') {
-        entryPayload.sqlite = { dbPath: sqlitePath.trim(), walMode };
-      } else if (newEngine === 'postgres') {
+      if (newEngine === 'postgres') {
         entryPayload.postgres = {
           host: pgHost.trim(),
           port: Number(pgPort),
@@ -440,12 +437,6 @@ export default function AdminDatabaseClusterTab({ cluster, userToken, onRefresh 
         val: db.firebase?.collectionName || 'ultrst-users',
         desc: 'Cloud Firestore Collection Name'
       });
-    } else if (db.engine === 'sqlite') {
-      keys.push({
-        key: 'SQLITE_DB_PATH',
-        val: db.sqlite?.dbPath || './docustack_vault/control_plane/accounts.sqlite',
-        desc: 'Local SQLite / POSIX File Path (Recommended for local/desktop development)'
-      });
     }
 
     const envText = keys.map((k) => `${k.key}=${k.val}`).join('\n');
@@ -534,10 +525,9 @@ export default function AdminDatabaseClusterTab({ cluster, userToken, onRefresh 
                 onChange={(e) => setNewEngine(e.target.value as AdminBackendEngine)}
                 className="w-full px-2.5 py-1.5 bg-[#0F0E12] border-2 border-[#D4AF37]/60 text-xs text-[#F3EDE0] focus:border-[#D4AF37] focus:outline-none"
               >
-                <option value="sqlite">SQLite Storage Engine (Local / Vault)</option>
-                <option value="postgres">PostgreSQL Relational Storage</option>
-                <option value="supabase">Supabase BaaS Engine</option>
                 <option value="neon">Neon Serverless Postgres (Direct HTTP)</option>
+                <option value="supabase">Supabase BaaS Engine</option>
+                <option value="postgres">PostgreSQL Relational Storage</option>
                 <option value="firebase">Firebase Cloud Firestore (Document BaaS)</option>
                 <option value="remote_auth">Remote Auth Service Endpoint</option>
               </select>
@@ -556,23 +546,6 @@ export default function AdminDatabaseClusterTab({ cluster, userToken, onRefresh 
               </select>
             </div>
           </div>
-
-          {/* Engine Parameters */}
-          {newEngine === 'sqlite' && (
-            <div className="p-3 bg-[#0E0D11] border border-[#D4AF37]/30 space-y-2">
-              <label className="block text-[10px] font-black uppercase text-[#D4AF37]">SQLite File Path</label>
-              <input
-                type="text"
-                value={sqlitePath}
-                onChange={(e) => setSqlitePath(e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-[#141318] border border-[#D4AF37]/50 text-xs text-[#F3EDE0]"
-              />
-              <label className="flex items-center gap-2 text-[10px] text-[#F3EDE0] cursor-pointer pt-1">
-                <input type="checkbox" checked={walMode} onChange={(e) => setWalMode(e.target.checked)} />
-                <span>Enable Write-Ahead Logging (WAL Mode)</span>
-              </label>
-            </div>
-          )}
 
           {newEngine === 'postgres' && (
             <div className="p-3 bg-[#0E0D11] border border-[#D4AF37]/30 grid grid-cols-2 sm:grid-cols-4 gap-2">

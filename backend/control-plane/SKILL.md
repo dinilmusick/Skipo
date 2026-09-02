@@ -33,7 +33,12 @@ CONTROL PLANE (Application-Owned)
 ```
 
 > [!IMPORTANT]
-> The Control Plane **never** contains project documents, database records of a workspace, or user media files. It contains metadata, account credentials, and cluster connection pointers only.
+> **Cardinal Invariants**:
+> 1. **Data Isolation**: The Control Plane **never** contains project documents, database records of a workspace, or user media files ($\text{Control Plane} \cap \text{Data Plane} = \emptyset$).
+> 2. **Zero-Divergence Environment Parity**: Environment variables (`.env.local` in local development, or Vercel Environment Variables in cloud) are the **sole source of truth** for system backend database credentials (`NEON_DATABASE_URL`, `SUPABASE_URL`, `POSTGRES_DATABASE_URL`).
+>    - **NO local-only SQLite or ephemeral file fallbacks for user accounts**.
+>    - If no database is configured, both local dev and production report the exact same standby state: `System Backend Database (Awaiting .env)`.
+>    - Registration and authentication strictly require and verify against the configured database, eliminating phantom local accounts and guaranteeing 100% parity across local and hosted environments.
 
 ---
 
