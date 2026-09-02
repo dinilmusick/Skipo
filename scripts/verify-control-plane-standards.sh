@@ -7,6 +7,8 @@
 # 2. Zero hardcoded mock / demo accounts (admin@docustack.vault, demo@docustack.vault).
 # 3. Zero demo autofill / quick preset UI buttons in login modals and pages.
 # 4. Zero "Return to Workspace" back buttons in Admin Control Plane UI headers.
+# 5. Admin UI isolation & back-button strictly navigating to /admin/login or logout.
+# 6. Strict separation between Admin infrastructure settings and normal user settings.
 # ══════════════════════════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
@@ -22,7 +24,7 @@ SQLITE_MATCHES=$(grep -rn --include="*.ts" --include="*.tsx" --include="*.js" --
   --exclude-dir={node_modules,.git,.next,target,scripts} "accounts\.sqlite" "$TARGET_DIR" || true)
 
 if [ -n "$SQLITE_MATCHES" ]; then
-  echo "❌ VIOLATION: Found 'accounts.sqlite' in source code!"
+  echo "❌ VIOLATION: Found 'accounts.sqlite' in source code! The Control Plane must be strictly environment-driven."
   echo "$SQLITE_MATCHES"
   ERRORS=$((ERRORS + 1))
 else
@@ -70,6 +72,30 @@ if [ -n "$ADMIN_BACK_MATCHES" ]; then
   ERRORS=$((ERRORS + 1))
 else
   echo "✅ PASS: No forbidden Admin UI workspace back buttons found."
+fi
+
+# Check 5: Admin UI Header Isolation Check (Back button must target /admin/login or handleLogout)
+echo "→ Checking that Admin UI pages have isolated back navigation..."
+if [ -f "$TARGET_DIR/app/admin/page.tsx" ]; then
+  if grep -q "ArrowLeft" "$TARGET_DIR/app/admin/page.tsx"; then
+    if grep -q "handleLogout" "$TARGET_DIR/app/admin/page.tsx" || grep -q "/admin/login" "$TARGET_DIR/app/admin/page.tsx"; then
+      echo "✅ PASS: Admin UI header back button properly routes to /admin/login or calls logout."
+    else
+      echo "❌ VIOLATION: Admin UI header back button does not route to /admin/login or call logout!"
+      ERRORS=$((ERRORS + 1))
+    fi
+  fi
+fi
+
+# Check 6: Check that user settings modal does not leak admin database cluster controls
+echo "→ Checking separation of user settings vs admin infrastructure..."
+if [ -f "$TARGET_DIR/components/settings/SettingsModal.tsx" ]; then
+  if grep -q "AdminDatabaseClusterTab" "$TARGET_DIR/components/settings/SettingsModal.tsx"; then
+    echo "❌ VIOLATION: SettingsModal leaks AdminDatabaseClusterTab! User settings and Admin infrastructure must be completely isolated."
+    ERRORS=$((ERRORS + 1))
+  else
+    echo "✅ PASS: User SettingsModal is cleanly isolated from Admin infrastructure controls."
+  fi
 fi
 
 # Summary

@@ -228,3 +228,64 @@ Inside Workspace Settings:
 - **Icon-Only Buttons**: Action buttons must render strictly as icons (`[ 🔄 ]`, `[ ⚙️ ]`, `[ 🔌 ]`, `[ ➔ ]`) with tooltips appearing on hover.
 - **Hover-Only Descriptions**: Subtitles and feature guides appear exclusively on card hover or tooltip trigger.
 - **Subtle Glow Effects**: Selected cards, active status pills, and action buttons utilize `--krnl-accent-glow` and `--krnl-rune-glow` box-shadows.
+
+---
+
+## 10. Strict Admin UI Panel Isolation & System Separation Architecture
+
+$$\text{Admin UI Panel (Infrastructure Governance)} \cap \text{User Workspace & App UI Plane} = \emptyset$$
+
+The Admin Control Plane UI is **fundamentally isolated** from the normal user interfaces, workspace windows, and user settings of the application.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                   ADMIN CONTROL PLANE SYSTEM (/admin)                  │
+│  - Dedicated governance environment entered strictly via /admin/login  │
+│  - Governs database clusters, redundancy clones, failovers, and logs   │
+│  - BACK-BUTTON INVARIANT: Clicking back routes strictly to /admin/login │
+│  - NEVER navigates to any workspace window, canvas, or user view       │
+└────────────────────────────────────────────────────────────────────────┘
+                                    │
+                         STRICT AIR-GAP ISOLATION
+                                    │
+┌────────────────────────────────────────────────────────────────────────┐
+│               STANDARD USER WORKSPACE INTERFACE (/)                    │
+│  - Workspace documents, canvas, media, tags, biomes, and themes       │
+│  - Standard user login portal (/login)                                 │
+│  - Workspace Settings: User preferences only (themes, folders, biomes) │
+│  - NEVER contains system database cluster controls or master RBAC      │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### Inviolable UI Isolation Laws:
+1. **Back Button Trapping & Destination Invariant**:
+   - Inside the Admin UI (`/admin`), any "Back" button, exit chevron, or return icon (`<ArrowLeft />`) **MUST NEVER** navigate to `/`, `/workspace`, or any user view.
+   - The Back action MUST navigate strictly to the **Admin Login Portal** (`/admin/login`) or trigger a session sign-out:
+     ```tsx
+     <button
+       type="button"
+       onClick={() => {
+         localStorage.removeItem('authToken');
+         router.push('/admin/login');
+       }}
+       title="Return to Admin Login"
+     >
+       <ArrowLeft size={16} />
+     </button>
+     ```
+   - Prohibit `<Link href="/" title="Return to Workspace">` inside any admin view.
+
+2. **System Settings vs User Preferences Separation**:
+   - The Admin UI is an **Infrastructure & Governance System**. It handles database connections, Vercel `.env` blueprints, live latency probes, and security audit trails.
+   - User Settings (`SettingsModal`) are **Workspace & Personal Preferences**. They handle biomes, custom themes, wallpapers, local folder selectors, and document views.
+   - These two systems must NEVER be merged into a single ambiguous settings drawer.
+
+3. **Root Route (`/`) Admin Protection Guard**:
+   - If an authenticated administrator (`user.role === 'admin'`) ever visits `/` (e.g. via browser history or back button), the client runtime must immediately intercept and redirect them back to `/admin`:
+     ```tsx
+     if (currentUser.role === 'admin') {
+       router.push('/admin');
+       return;
+     }
+     ```
+   - This ensures administrators are never accidentally dumped into an unconfigured or empty workspace window.

@@ -135,7 +135,63 @@ Any AI agent can copy these files directly into a new TypeScript/React applicati
 
 ---
 
-## 5. Integration Protocol for Future AI Agents
+## 5. Strict Admin UI Panel Isolation & Back-Navigation Boundary Architecture
+
+$$\text{Admin UI Panel (System Infrastructure)} \cap \text{Standard App & Workspace Plane} = \emptyset$$
+
+### A. Architectural Isolation Rationale
+The Admin Control Plane (`/admin`) is a dedicated system-level administrative console meant exclusively for platform administrators and infrastructure operations. It has zero overlap with user workspace files, documents, canvases, or personal settings.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                   ADMIN CONTROL PLANE SYSTEM (/admin)                  │
+│  - Dedicated governance console entered strictly via /admin/login      │
+│  - Governs database clusters, redundancy clones, failovers, and logs   │
+│  - BACK-BUTTON INVARIANT: Clicking back routes strictly to /admin/login │
+│  - NEVER navigates to any workspace window, canvas, or user view       │
+└────────────────────────────────────────────────────────────────────────┘
+                                    │
+                         STRICT AIR-GAP ISOLATION
+                                    │
+┌────────────────────────────────────────────────────────────────────────┐
+│               STANDARD USER WORKSPACE INTERFACE (/)                    │
+│  - Workspace documents, canvas, media, tags, biomes, and themes       │
+│  - Standard user login portal (/login)                                 │
+│  - Workspace Settings: User preferences only (themes, folders, biomes) │
+│  - NEVER contains system database cluster controls or master RBAC      │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### B. Inviolable Navigation & Back-Button Laws:
+1. **Zero Workspace Escape**:
+   - The Back button or exit button in the Admin UI header (`/admin`) **MUST NEVER** navigate to `/`, `/workspace`, or any user view.
+   - Prohibit `<Link href="/" title="Return to Workspace">` with `<ArrowLeft />` inside `/admin`.
+   - The Back button must route strictly to `/admin/login` (Admin Login Portal) or perform a session sign-out (`handleLogout()`):
+     ```tsx
+     <button
+       type="button"
+       onClick={() => {
+         localStorage.removeItem('docustackAuthToken');
+         router.push('/admin/login');
+       }}
+       className="p-2 border-2 border-[#D4AF37] bg-[#1A1813] hover:bg-[#D4AF37] hover:text-black cursor-pointer"
+       title="Return to Admin Login"
+     >
+       <ArrowLeft size={16} />
+     </button>
+     ```
+2. **Route Trapping on Root (`/`)**:
+   - In the root application view (`app/page.tsx`), session initialization MUST inspect `user.role`.
+   - If an authenticated administrator (`user.role === 'admin'`) arrives at `/` (via browser back button, forward button, or typed URL), client runtime must redirect them immediately to `/admin`.
+   - Administrators must never be stranded or dumped into an unconfigured, empty, or misleading workspace window.
+3. **Strict Separation from User Settings**:
+   - Admin UI settings manage: Database Clusters, Redundant Clones, Vercel `.env` Blueprints, Raw SQL Tables, User Role Permissions, and Immutable Audit Trails.
+   - User Settings (`SettingsModal.tsx`) manage: Visual Biomes, Themes, Wallpapers, Local Folder Selection, and Document View Modes.
+   - User settings components MUST NEVER import, expose, or leak Admin Control Plane cluster operations.
+
+---
+
+## 6. Integration Protocol for Future AI Agents
 
 1. **Install Dependencies**:
    ```bash

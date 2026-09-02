@@ -19,6 +19,7 @@ When developing or modifying any UI layer components, consult the specific sub-s
 | **Tag Force Graph** | [`force-graph/SKILL.md`](./force-graph/SKILL.md) | Physics simulation optimizations (alphaDecay 0.08, charge -70, theta 0.9), single-frame VSync scheduler, DPR 2x cap | `tag_canvas`, `force_graph`, `simulation_physics`, `vsync_scheduler`, `dpr_cap` |
 | **Connectable Node Graph** | [`react-flow/SKILL.md`](./react-flow/SKILL.md) | Middle-mouse pan, box select, scroll zoom, wire drag auto-spawn, centered wire delete gizmo (deletable edges only), full hotkeys, visual differentiation | `node_graph`, `react_flow`, `connect_nodes`, `wire_drag`, `auto_spawn`, `delete_gizmo`, `box_selection`, `context_menu` |
 | **Backend Connection UX** | [`backend-connection/SKILL.md`](./backend-connection/SKILL.md) | Progressive disclosure, tri-choice storage selection (Local, BYOB, Managed), capability-driven ProviderRegistry, OAuth/Wizard fallback, live probes, auto-init | `backend_connection`, `storage_wizard`, `connect_backend`, `byob`, `workspace_storage`, `provider_registry` |
+| **Admin UI Panel Isolation** | [`backend-connection/SKILL.md#10-strict-admin-ui-panel-isolation--system-separation-architecture`](./backend-connection/SKILL.md) | Strict isolation between Admin Control Plane and User Workspace UI; back button returns to /admin/login; zero workspace leak; route trapping | `admin_ui`, `admin_panel`, `control_plane_ui`, `admin_isolation`, `back_button_admin`, `admin_navigation` |
 
 ---
 
@@ -34,7 +35,7 @@ def dispatch_ui_task(task_type: str) -> str:
         "wiring": ["button_click", "form_submit", "input_wiring", "input_empty_state", "form_validation", "ui_stub"],
         "force-graph": ["tag_canvas", "force_simulation", "physics_layout", "fps_optimization", "dpr_cap"],
         "react-flow": ["node_graph", "connect_nodes", "box_selection", "graph_context_menu", "react_flow"],
-        "backend-connection": ["backend_connection", "storage_wizard", "connect_backend", "byob", "workspace_storage", "provider_registry"]
+        "backend-connection": ["backend_connection", "storage_wizard", "connect_backend", "byob", "workspace_storage", "provider_registry", "admin_ui", "admin_panel", "admin_isolation"]
     }
     for subskill, keywords in mapping.items():
         if any(kw in task_type.lower() for kw in keywords):
