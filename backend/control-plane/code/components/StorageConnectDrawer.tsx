@@ -3,21 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   HardDrive,
-  Cloud,
-  Globe,
-  Radio,
+  FolderOpen,
   CheckCircle2,
   AlertCircle,
-  FolderOpen,
-  Plus,
-  Trash2,
   Check,
-  RefreshCw,
   Zap,
   Activity,
-  Layers,
-  ChevronDown,
-  Shield,
+  Trash2,
 } from 'lucide-react';
 import {
   UserStorageConnection,
@@ -26,16 +18,12 @@ import {
 } from '@/lib/types';
 import {
   STORAGE_PROVIDER_CONFIGS,
-  StorageProviderMeta,
 } from '@/lib/storage-providers';
 import {
   isFileSystemAccessSupported,
   promptSelectLocalFolder,
   saveLocalDirectoryHandle,
-  getLocalDirectoryHandle,
-  verifyDirectoryHandlePermission,
 } from '@/lib/local-fs-handle';
-import { BrutalistButton, BrutalistBadge } from '../BrutalistUi';
 
 interface StorageConnectDrawerProps {
   userToken?: string | null;
@@ -46,10 +34,15 @@ interface StorageConnectDrawerProps {
   onSelectLocalFolder: (folderName: string, folderKey: string) => void;
   onSelectCloudConnection: (connection: UserStorageConnection) => void;
   onSelectEngine: (engine: DatabaseEngine) => void;
-  onConnectGoogleDrive?: () => void;
-  googleDriveConnected?: boolean;
-  googleDriveAccountEmail?: string;
 }
+
+const ACTIVE_STORAGE_PROVIDERS: UserStorageProvider[] = [
+  'local_fs',
+  'backblaze_b2',
+  'cloudflare_r2',
+  'supabase_storage',
+  'aws_s3',
+];
 
 export default function StorageConnectDrawer({
   userToken,
@@ -60,9 +53,6 @@ export default function StorageConnectDrawer({
   onSelectLocalFolder,
   onSelectCloudConnection,
   onSelectEngine,
-  onConnectGoogleDrive,
-  googleDriveConnected,
-  googleDriveAccountEmail,
 }: StorageConnectDrawerProps) {
   const [selectedProvider, setSelectedProvider] = useState<UserStorageProvider>(currentProvider);
   const [savedConnections, setSavedConnections] = useState<UserStorageConnection[]>([]);
@@ -206,12 +196,7 @@ export default function StorageConnectDrawer({
 
       await fetchSavedConnections();
       onSelectCloudConnection(data.connection);
-
-      if (selectedProvider === 'supabase_storage') {
-        onSelectEngine('s3_blob');
-      } else if (selectedProvider === 'backblaze_b2' || selectedProvider === 'cloudflare_r2' || selectedProvider === 'aws_s3') {
-        onSelectEngine('s3_blob');
-      }
+      onSelectEngine('s3_blob');
     } catch (err: any) {
       setGeneralError(err.message || 'Failed to save connection.');
     } finally {
@@ -241,7 +226,7 @@ export default function StorageConnectDrawer({
   const activeSavedConnsForProvider = savedConnections.filter((c) => c.provider === selectedProvider);
 
   return (
-    <div className="space-y-4 border-2 border-brutalist bg-[var(--color-surface-subtle)] p-3.5">
+    <div className="space-y-3.5 border-2 border-brutalist bg-[var(--color-surface-subtle)] p-3.5">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-brutalist/40 pb-2">
         <div className="flex items-center gap-2">
@@ -255,12 +240,11 @@ export default function StorageConnectDrawer({
         </span>
       </div>
 
-      {/* Provider Selector Tiles */}
+      {/* Provider Selector Clean Tiles */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {(['local_fs', 'backblaze_b2', 'cloudflare_r2', 'supabase_storage', 'aws_s3', 'google_drive'] as UserStorageProvider[]).map((provId) => {
+        {ACTIVE_STORAGE_PROVIDERS.map((provId) => {
           const cfg = STORAGE_PROVIDER_CONFIGS[provId];
           const isSelected = selectedProvider === provId;
-          const hasSaved = savedConnections.some((c) => c.provider === provId);
 
           return (
             <button
@@ -272,8 +256,6 @@ export default function StorageConnectDrawer({
                 setGeneralError(null);
                 if (provId === 'local_fs') {
                   onSelectEngine('local_fs');
-                } else if (provId === 'google_drive') {
-                  onSelectEngine('google_drive');
                 } else {
                   onSelectEngine('s3_blob');
                 }
@@ -284,37 +266,25 @@ export default function StorageConnectDrawer({
                   : 'border-brutalist/40 bg-black/15 hover:border-brutalist hover:bg-black/25'
               }`}
             >
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span
-                    className="text-[8px] font-black uppercase px-1 py-0.2 border font-mono"
-                    style={{
-                      borderColor: cfg.color,
-                      color: cfg.color,
-                      backgroundColor: `${cfg.color}15`,
-                    }}
-                  >
-                    {cfg.tag}
-                  </span>
-                  {isSelected && <Check size={11} className="text-[var(--color-accent)]" />}
-                </div>
-                <div className="text-[11px] font-black uppercase tracking-tight text-[var(--color-text)]">
+              <div className="flex items-center justify-between w-full">
+                <span className="text-xs font-black uppercase tracking-tight text-[var(--color-text)]">
                   {cfg.shortName}
-                </div>
+                </span>
+                {isSelected && <Check size={13} className="text-[var(--color-accent)]" />}
               </div>
-              <div className="text-[9px] opacity-60 font-mono mt-1 leading-tight line-clamp-1">
-                {cfg.freeTier}
+              <div className="text-[9px] font-mono opacity-50 uppercase mt-1">
+                {cfg.tag}
               </div>
             </button>
           );
         })}
       </div>
 
-      {/* Saved Connections Quick-Select for Current Provider */}
-      {activeSavedConnsForProvider.length > 0 && selectedProvider !== 'local_fs' && selectedProvider !== 'google_drive' && (
+      {/* Saved Connections Quick-Select */}
+      {activeSavedConnsForProvider.length > 0 && selectedProvider !== 'local_fs' && (
         <div className="space-y-1.5 border border-brutalist/40 bg-black/30 p-2.5">
           <span className="text-[9px] font-black uppercase text-[var(--color-accent)] block">
-            SAVED {currentProviderConfig.shortName.toUpperCase()} CONNECTIONS ON YOUR PROFILE:
+            SAVED {currentProviderConfig?.shortName.toUpperCase()} CONNECTIONS ON YOUR PROFILE:
           </span>
           <div className="space-y-1">
             {activeSavedConnsForProvider.map((conn) => {
@@ -408,50 +378,8 @@ export default function StorageConnectDrawer({
           </div>
         )}
 
-        {/* GOOGLE DRIVE AREA */}
-        {selectedProvider === 'google_drive' && (
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase text-[#3B82F6] flex items-center gap-1.5">
-                <Globe size={13} />
-                GOOGLE DRIVE WORKSPACE
-              </span>
-              {googleDriveConnected ? (
-                <span className="text-[9px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 border border-emerald-500/40">
-                  ✓ CONNECTED
-                </span>
-              ) : (
-                <span className="text-[9px] bg-amber-500/20 text-amber-400 font-bold px-2 py-0.5 border border-amber-500/40">
-                  AUTH REQUIRED
-                </span>
-              )}
-            </div>
-
-            <p className="text-[11px] opacity-80 leading-snug">
-              Syncs documents with your personal Google Drive account under canonical folder structures.
-            </p>
-
-            {googleDriveConnected ? (
-              <div className="text-xs p-2 border border-emerald-500/40 bg-emerald-500/10 space-y-1">
-                <p className="text-[11px]">
-                  Connected Account: <strong className="text-[var(--color-text)]">{googleDriveAccountEmail}</strong>
-                </p>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={onConnectGoogleDrive}
-                className="w-full py-2 px-3 border-2 border-brutalist bg-[#3B82F6] text-white hover:bg-blue-600 font-black text-xs uppercase flex items-center justify-center gap-2 cursor-pointer shadow-[2px_2px_0px_var(--color-border)]"
-              >
-                <Globe size={14} />
-                <span>CONNECT GOOGLE DRIVE ACCOUNT</span>
-              </button>
-            )}
-          </div>
-        )}
-
         {/* CLOUD PROVIDERS (B2, R2, S3, Supabase) FORM */}
-        {selectedProvider !== 'local_fs' && selectedProvider !== 'google_drive' && (
+        {selectedProvider !== 'local_fs' && currentProviderConfig && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
