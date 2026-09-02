@@ -144,7 +144,7 @@ export function loadWorkspaceRegistries(): WorkspaceRegistryItem[] {
     {
       id: 'ws-main',
       ownerId: adminUser ? adminUser.id : 'user-admin-01',
-      ownerEmail: adminUser ? adminUser.email : getEnvAdminCredentials().email,
+      ownerEmail: adminUser ? adminUser.email : (getEnvAdminCredentials().email || 'admin@docustack.system'),
       name: 'PRIMARY_CORE_WORKSPACE',
       backendConfig: DEFAULT_WORKSPACE_DATA_PLANE,
       createdAt: new Date().toISOString(),

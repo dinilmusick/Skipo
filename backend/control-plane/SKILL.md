@@ -47,7 +47,25 @@ CONTROL PLANE (Application-Owned)
 > 4. **Strict Zero-Demo Accounts Mandate**:
 >    - **ZERO hardcoded demo accounts** (`demo@...`, `admin@docustack.vault`, `alex@...`, `sam@...`, etc.) in production code, default seed arrays, or UI auto-fill buttons.
 >    - **NO "QUICK ACCESS PRESETS" or "AUTO-FILL ADMIN / DEMO" buttons** in login interfaces.
->    - Authentication bootstrap accounts are strictly derived from environment variables (`ADMIN_EMAIL` / `ADMIN_PASSWORD`) and project owner configuration. All other users must be authentic accounts registered directly against the persistent database.
+> 5. **Strict Zero-Fallback Admin Credentials Mandate (Environment-Only Admin Auth)**:
+>    - **ZERO hardcoded fallback credentials or default admin accounts** (`todadjp@gmail.com`, `password123`, `admin123`, `admin@...`, etc.) in production code, backend libraries, authentication fallbacks, seeds, or stores.
+>    - Admin accounts and authentication are **strictly derived from environment variables** (`ADMIN_EMAIL` and `ADMIN_PASSWORD`) provided via Vercel, Cloud Run, `.env.local`, or the active hosting provider.
+>    - If `ADMIN_EMAIL` or `ADMIN_PASSWORD` are not defined in the environment, admin login MUST be rejected; the system MUST NEVER create or fall back to an arbitrary default credential or backdoor owner account.
+>    - All other non-admin users must be authentic accounts registered directly against the persistent database.
+> 6. **Canonical Workspace Folder Naming Law & UI Display Rules**:
+>    - **Deterministic Naming Formula**: For all applications across the Ultrst ecosystem, workspace storage folder paths MUST be derived automatically using the standard formula:
+>      `ultrst_{app_name}_{user_name}_{workspace_name}`
+>      (e.g., `ultrst_docustack_admin_research_vault`, `ultrst_skipo_alex_project_alpha`).
+>    - **Prohibition of Manual Folder Path Input**:
+>      Workspace creation dialogs, settings modals, and admin panels MUST NEVER expose an editable "Vault Folder Path" input field. The folder name and path are strictly auto-derived from the application name, user account identifier, and workspace title.
+>    - **Primary UI Title with Copyable Raw Folder Subtitle**:
+>      Wherever a workspace is displayed in the user interface (header bar, workspace tiles menu, storage cards, settings profile, admin table):
+>      1. The **Workspace Name** is the primary display element.
+>      2. Directly beneath it, the **raw folder name** (`ultrst_{app}_{user}_{workspace}`) is rendered as small, monospace copyable text with 1-click clipboard copy functionality and visual feedback ("COPIED!").
+>    - **Natural Mixed-Case in Description Inputs**:
+>      Input fields and textareas for workspace descriptions, notes, and metadata MUST NOT have CSS `uppercase` or force uppercase text. They must allow users to type and display both upper and lower case letters naturally.
+>    - **Cloud Storage OAuth Integration (Google Drive, OneDrive, etc.)**:
+>      When a user selects a cloud storage provider such as Google Drive for a workspace, the system MUST NOT silently fall back to a dummy local path. It MUST provide a proper OAuth connection interface (e.g. "Connect Google Drive Account" button launching the Google OAuth consent popup) and create the canonical folder in the cloud provider upon authorization.
 
 ---
 

@@ -389,6 +389,10 @@ export class ControlPlaneManager {
     const loginIdentifier = credentials.email || credentials.username || envAdmin.email;
     const pwd = credentials.password || envAdmin.password;
 
+    if (!loginIdentifier || !pwd) {
+      throw new Error('MISSING_CREDENTIALS: Email and password are required, and no admin environment variables are configured.');
+    }
+
     const authRes = authenticateUser(loginIdentifier, pwd);
     
     // Format token per spec: "sess::<userId>::<timestamp>::<random>"

@@ -57,7 +57,7 @@ export function getEnvAdminCredentials(): { email: string; password: string } {
     process.env.ADMIN_USER ||
     process.env.ADMIN_USERNAME ||
     process.env.ADMIN_LOGIN ||
-    'todadjp@gmail.com';
+    '';
 
   const rawPassword =
     process.env.ADMIN_PASSWORD ||
@@ -65,7 +65,7 @@ export function getEnvAdminCredentials(): { email: string; password: string } {
     process.env.admin_password ||
     process.env.ADMIN_PASS ||
     process.env.ADMIN_PWD ||
-    'password123';
+    '';
 
   const cleanEmail = rawEmail.trim().replace(/^["']|["']$/g, '').toLowerCase();
   const cleanPassword = rawPassword.trim().replace(/^["']|["']$/g, '');
@@ -172,7 +172,8 @@ let inMemoryUsers: UserAccount[] | null = null;
 
 export function loadUsers(): UserAccount[] {
   const envAdmin = getEnvAdminCredentials();
-  const hashedEnvPassword = hashPassword(envAdmin.password);
+  const hasEnvAdmin = Boolean(envAdmin.email && envAdmin.password);
+  const hashedEnvPassword = hasEnvAdmin ? hashPassword(envAdmin.password) : '';
   const filePath = getUsersFilePath();
 
   let rawUsers: any[] = [];
@@ -190,93 +191,44 @@ export function loadUsers(): UserAccount[] {
     }
   }
 
-  // Ensure bootstrap admin accounts exist if list is empty
-  const baseDefaults: any[] = [
-    {
-      id: 'user-admin-01',
-      email: envAdmin.email,
-      username: 'admin',
-      name: 'Vault Administrator',
-      role: 'admin',
-      workspacePath: '',
-      workspaceName: '',
-      activeWorkspaceId: '',
-      workspaces: [],
-      avatarGlyph: '⚡',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      passwordHash: hashedEnvPassword,
-    },
-    {
-      id: 'user-todadjp-01',
-      email: 'TodaDJP@gmail.com',
-      username: 'TodaDJP',
-      name: 'TodaDJP',
-      role: 'admin',
-      workspacePath: '',
-      workspaceName: '',
-      activeWorkspaceId: '',
-      workspaces: [],
-      avatarGlyph: '👋',
-      createdAt: '2026-08-27T00:00:00.000Z',
-      passwordHash: hashPassword('password123'),
-    },
-  ];
-
-  if (rawUsers.length === 0) {
-    rawUsers = baseDefaults;
-  }
-
   let users = rawUsers.map((u) => normalizeUserAccount(u));
 
-  // Purge any legacy demo or default placeholder accounts
+  // Purge any legacy demo, default placeholder, or hardcoded fallback accounts
   users = users.filter((u) => {
     const email = (u.email || '').toLowerCase().trim();
-    return !email.endsWith('.vault') &&
-           !email.startsWith('demo@') &&
-           !email.startsWith('analyst@') &&
-           !u.id.includes('demo') &&
-           !u.id.includes('fallback');
+    const id = (u.id || '').toLowerCase();
+    return (
+      !email.endsWith('.vault') &&
+      !email.startsWith('demo@') &&
+      !email.startsWith('analyst@') &&
+      email !== 'todadjp@gmail.com' &&
+      !id.includes('demo') &&
+      !id.includes('fallback') &&
+      !id.includes('todadjp')
+    );
   });
 
-  // Always keep admin account synchronized with active env vars
-  let adminRecord = users.find((u) => u.role === 'admin' || u.email.toLowerCase() === envAdmin.email);
-  if (adminRecord) {
-    adminRecord.email = envAdmin.email;
-    adminRecord.passwordHash = hashedEnvPassword;
-    adminRecord.role = 'admin';
-  } else {
-    users.unshift(
-      normalizeUserAccount({
-        id: 'user-admin-01',
-        email: envAdmin.email,
-        username: 'admin',
-        name: 'Vault Administrator',
-        role: 'admin',
-        avatarGlyph: '⚡',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        passwordHash: hashedEnvPassword,
-      })
-    );
-  }
-
-  // Always ensure TodaDJP@gmail.com is present with admin privileges
-  const todaEmail = 'todadjp@gmail.com';
-  let todaUser = users.find((u) => u.email.toLowerCase() === todaEmail);
-  if (todaUser) {
-    todaUser.role = 'admin';
-  } else {
-    users.push(
-      normalizeUserAccount({
-        id: 'user-todadjp-01',
-        email: 'TodaDJP@gmail.com',
-        username: 'TodaDJP',
-        name: 'TodaDJP',
-        role: 'admin',
-        avatarGlyph: '👋',
-        createdAt: '2026-08-27T00:00:00.000Z',
-        passwordHash: hashPassword('password123'),
-      })
-    );
+  // Only synchronize / bootstrap admin account if ADMIN_EMAIL & ADMIN_PASSWORD are provided via environment variables
+  if (hasEnvAdmin) {
+    let adminRecord = users.find((u) => u.role === 'admin' || u.email.toLowerCase() === envAdmin.email);
+    if (adminRecord) {
+      adminRecord.email = envAdmin.email;
+      adminRecord.passwordHash = hashedEnvPassword;
+      adminRecord.role = 'admin';
+    } else {
+      users.unshift(
+        normalizeUserAccount({
+          id: 'user-admin-01',
+          email: envAdmin.email,
+          username: envAdmin.email.split('@')[0] || 'admin',
+          name: 'Vault Administrator',
+          role: 'admin',
+          avatarGlyph: '⚡',
+          createdAt: new Date().toISOString(),
+          passwordHash: hashedEnvPassword,
+        })
+      );
+    }
   }
 
   inMemoryUsers = users;
@@ -532,17 +484,15 @@ export async function authenticateUserAsync(
   const cleanPassword = (password || '').trim();
   const envAdmin = getEnvAdminCredentials();
 
+  const hasEnvAdmin = Boolean(envAdmin.email && envAdmin.password);
+
   // 1. Check if matches environment variable admin credentials
   const isEnvAdminMatch =
-    (normalizedEmail === envAdmin.email || normalizedEmail === 'admin') &&
+    hasEnvAdmin &&
+    (normalizedEmail === envAdmin.email || (envAdmin.email && normalizedEmail === 'admin')) &&
     (cleanPassword === envAdmin.password || password === envAdmin.password);
 
-  // 2. Check if user is project owner TodaDJP
-  const isOwnerMatch =
-    normalizedEmail === 'todadjp@gmail.com' &&
-    (cleanPassword === 'password123' || cleanPassword === envAdmin.password || password === 'password123');
-
-  if (isEnvAdminMatch || isOwnerMatch) {
+  if (isEnvAdminMatch) {
     const authResult = authenticateUser(email, password);
     // Sync admin record timestamp
     getClusterPersister()
@@ -554,7 +504,7 @@ export async function authenticateUserAsync(
     return authResult;
   }
 
-  // 3. User Lookup: check cache first, then fetch fresh from Cluster (Neon / Supabase)
+  // 2. User Lookup: check cache first, then fetch fresh from Cluster (Neon / Supabase)
   let user = findUserByEmail(normalizedEmail);
   if (!user) {
     user = await findUserByEmailAsync(normalizedEmail);
@@ -570,7 +520,7 @@ export async function authenticateUserAsync(
   const isPasswordValid =
     user.passwordHash === hashRaw ||
     user.passwordHash === hashClean ||
-    (user.role === 'admin' && cleanPassword === envAdmin.password);
+    (user.role === 'admin' && hasEnvAdmin && cleanPassword === envAdmin.password);
 
   if (!isPasswordValid) {
     throw new Error('INVALID_CREDENTIALS');
@@ -597,7 +547,7 @@ export async function authenticateUserAsync(
 }
 
 /**
- * Robust Synchronous User Authentication with Dynamic Fallbacks
+ * Robust Synchronous User Authentication with Strict Environment Admin Enforcement
  */
 export function authenticateUser(
   email: string,
@@ -606,27 +556,24 @@ export function authenticateUser(
   const normalizedEmail = (email || '').trim().toLowerCase();
   const cleanPassword = (password || '').trim();
   const envAdmin = getEnvAdminCredentials();
+  const hasEnvAdmin = Boolean(envAdmin.email && envAdmin.password);
 
   // 1. Check if matches environment variable admin credentials
   const isEnvAdminMatch =
-    (normalizedEmail === envAdmin.email || normalizedEmail === 'admin') &&
+    hasEnvAdmin &&
+    (normalizedEmail === envAdmin.email || (envAdmin.email && normalizedEmail === 'admin')) &&
     (cleanPassword === envAdmin.password || password === envAdmin.password);
 
-  // 2. Check if user is project owner TodaDJP
-  const isOwnerMatch =
-    normalizedEmail === 'todadjp@gmail.com' &&
-    (cleanPassword === 'password123' || cleanPassword === envAdmin.password || password === 'password123');
-
-  if (isEnvAdminMatch || isOwnerMatch) {
+  if (isEnvAdminMatch) {
     const users = loadUsers();
-    let targetUser = users.find((u) => u.email.toLowerCase() === normalizedEmail) ||
+    let targetUser = users.find((u) => u.email.toLowerCase() === envAdmin.email) ||
       users.find((u) => u.role === 'admin');
 
     if (!targetUser) {
       targetUser = {
         id: 'user-admin-01',
-        email: normalizedEmail || envAdmin.email,
-        username: 'admin',
+        email: envAdmin.email,
+        username: envAdmin.email.split('@')[0] || 'admin',
         name: 'Vault Administrator',
         role: 'admin',
         workspacePath: './docustack_vault',
@@ -650,7 +597,7 @@ export function authenticateUser(
     return { user: safeUser, token };
   }
 
-  // 3. Fallback: Database User Lookup
+  // 2. Database User Lookup
   const user = findUserByEmail(normalizedEmail);
   if (!user) {
     throw new Error('INVALID_CREDENTIALS');
@@ -662,7 +609,7 @@ export function authenticateUser(
   const isPasswordValid =
     user.passwordHash === hashRaw ||
     user.passwordHash === hashClean ||
-    (user.role === 'admin' && (cleanPassword === envAdmin.password || cleanPassword === 'admin123'));
+    (user.role === 'admin' && hasEnvAdmin && cleanPassword === envAdmin.password);
 
   if (!isPasswordValid) {
     throw new Error('INVALID_CREDENTIALS');
@@ -852,6 +799,41 @@ export async function getUserWorkspacesAsync(userId: string): Promise<UserWorksp
   return user.workspaces || [];
 }
 
+/**
+ * Sanitizes a segment for canonical workspace folder naming.
+ */
+export function sanitizeFolderSegment(val: string): string {
+  return (val || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9_-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '') || 'default';
+}
+
+/**
+ * Ecosystem-wide canonical workspace folder name:
+ * ultrst_{app_name}_{user_name}_{workspace_name}
+ */
+export function formatCanonicalWorkspaceFolderName(
+  appName: string = 'app',
+  userName: string = 'user',
+  workspaceName: string = 'default'
+): string {
+  const app = sanitizeFolderSegment(appName);
+  const user = sanitizeFolderSegment(userName);
+  const ws = sanitizeFolderSegment(workspaceName);
+  return `ultrst_${app}_${user}_${ws}`;
+}
+
+export function formatCanonicalWorkspacePath(
+  appName: string = 'app',
+  userName: string = 'user',
+  workspaceName: string = 'default'
+): string {
+  return `./${formatCanonicalWorkspaceFolderName(appName, userName, workspaceName)}`;
+}
+
 export function addUserWorkspace(
   userId: string,
   wsData: Omit<UserWorkspaceRecord, 'id' | 'createdAt' | 'updatedAt'>
@@ -860,15 +842,19 @@ export function addUserWorkspace(
   const idx = users.findIndex((u) => u.id === userId);
   if (idx === -1) throw new Error('USER_NOT_FOUND');
 
+  const user = users[idx];
+  const userName = user.username || user.name || (user.email ? user.email.split('@')[0] : 'user');
+  const canonicalPath = formatCanonicalWorkspacePath(APP_ID, userName, wsData.name);
+
   const now = new Date().toISOString();
   const newWorkspace: UserWorkspaceRecord = {
     ...wsData,
+    workspacePath: canonicalPath,
     id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     createdAt: now,
     updatedAt: now,
   };
 
-  const user = users[idx];
   const workspaces = [...(user.workspaces || []), newWorkspace];
   
   user.workspaces = workspaces;
@@ -913,9 +899,14 @@ export function updateUserWorkspace(
   if (wsIdx === -1) throw new Error('WORKSPACE_NOT_FOUND');
 
   const now = new Date().toISOString();
+  const targetName = updates.name !== undefined ? updates.name : workspaces[wsIdx].name;
+  const userName = user.username || user.name || (user.email ? user.email.split('@')[0] : 'user');
+  const canonicalPath = formatCanonicalWorkspacePath(APP_ID, userName, targetName);
+
   const updatedWs: UserWorkspaceRecord = {
     ...workspaces[wsIdx],
     ...updates,
+    workspacePath: canonicalPath,
     updatedAt: now,
   };
 
@@ -923,8 +914,8 @@ export function updateUserWorkspace(
   user.workspaces = workspaces;
 
   if (user.activeWorkspaceId === workspaceId) {
-    if (updatedWs.workspacePath) user.workspacePath = updatedWs.workspacePath;
-    if (updatedWs.name) user.workspaceName = updatedWs.name;
+    user.workspacePath = updatedWs.workspacePath;
+    user.workspaceName = updatedWs.name;
   }
 
   users[idx] = user;

@@ -195,10 +195,18 @@ export const DiagnosticsControlButton: React.FC<DiagnosticsControlButtonProps> =
  *    - Back navigation in the Admin UI MUST return to the Admin Login Portal (/admin/login) or trigger logout.
  *    - Route protection on root (/): If an authenticated administrator arrives at '/', redirect them
  *      immediately to '/admin' so they are NEVER dumped into an unconfigured workspace window.
- * 2. STRICT ZERO-DEMO UI INVARIANT:
+ * 2. STRICT ZERO-DEMO & ZERO-FALLBACK ADMIN INVARIANT:
  *    - NEVER render "QUICK ACCESS PRESETS", "AUTO-FILL ADMIN", or "AUTO-FILL DEMO USER" buttons.
  *    - NEVER hardcode mock accounts (demo@..., admin@...vault, analyst@...) into UI presets.
+ *    - NEVER hardcode default admin fallback credentials (todadjp@gmail.com, password123, admin123) in code or templates.
  *    - All email input placeholders MUST be generic (e.g. user@example.com, admin@example.com).
+ *    - Admin credentials MUST strictly be derived from environment variables (ADMIN_EMAIL, ADMIN_PASSWORD).
  *    - All users must authenticate with real credentials against the environment-configured cluster.
+ * 3. CANONICAL WORKSPACE FOLDER NAMING & UI DISPLAY RULES:
+ *    - FOLDER FORMAT: ultrst_{app_name}_{user_name}_{workspace_name}.
+ *    - NO MANUAL PATH INPUT: Never expose an editable "Vault Folder Path" input in workspace creation or edit modals.
+ *    - PRIMARY TITLE + COPYABLE SUBTITLE: Workspace name is the primary display; raw folder name is rendered underneath as small, monospace copyable text with 1-click clipboard copy.
+ *    - NATURAL MIXED-CASE: Description inputs and textareas must never force CSS uppercase; allow natural typing of upper and lower case letters.
+ *    - REAL OAUTH CLOUD STORAGE: Selecting Google Drive must trigger a real OAuth connection flow, never a dummy local path.
  */
 ```

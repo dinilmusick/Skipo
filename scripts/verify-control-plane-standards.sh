@@ -98,6 +98,37 @@ if [ -f "$TARGET_DIR/components/settings/SettingsModal.tsx" ]; then
   fi
 fi
 
+# Check 7: Forbidden hardcoded admin fallback credentials (todadjp@gmail.com, password123, admin123)
+echo "→ Checking for forbidden hardcoded admin credentials / fallbacks in source code..."
+for forbidden_cred in "todadjp@gmail.com" "password123" "admin123"; do
+  CRED_MATCHES=$(grep -rn --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" \
+    --exclude-dir={node_modules,.git,.next,target,scripts,backups} -i "$forbidden_cred" "$TARGET_DIR" | grep -v "email !== 'todadjp@gmail.com'" || true)
+  if [ -n "$CRED_MATCHES" ]; then
+    echo "❌ VIOLATION: Found forbidden hardcoded credential '$forbidden_cred' in code!"
+    echo "$CRED_MATCHES"
+    ERRORS=$((ERRORS + 1))
+  fi
+done
+# Check 8: Canonical Workspace Folder Naming Law & UI Standards
+echo "→ Checking canonical workspace folder naming & UI standards..."
+if [ -f "$TARGET_DIR/lib/workspaceFS.ts" ] || [ -f "$TARGET_DIR/lib/auth-storage.ts" ]; then
+  if grep -q "formatCanonicalWorkspaceFolderName" "$TARGET_DIR/lib/"*.ts; then
+    echo "✅ PASS: formatCanonicalWorkspaceFolderName is properly implemented in backend libraries."
+  else
+    echo "❌ VIOLATION: formatCanonicalWorkspaceFolderName helper missing in lib/! Must enforce ultrst_{app}_{user}_{workspace}."
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
+if [ -f "$TARGET_DIR/components/workspace/WorkspaceTilesMenu.tsx" ]; then
+  if grep -q "Vault Folder Path" "$TARGET_DIR/components/workspace/WorkspaceTilesMenu.tsx"; then
+    echo "❌ VIOLATION: WorkspaceTilesMenu.tsx still has manual 'Vault Folder Path' input! Folder path must be auto-derived."
+    ERRORS=$((ERRORS + 1))
+  else
+    echo "✅ PASS: WorkspaceTilesMenu.tsx does not expose manual folder path inputs."
+  fi
+fi
+
 # Summary
 echo "══════════════════════════════════════════════════════════════════════════════════════════"
 if [ "$ERRORS" -gt 0 ]; then
