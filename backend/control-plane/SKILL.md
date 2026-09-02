@@ -66,28 +66,28 @@ CONTROL PLANE (Application-Owned)
 >      Input fields and textareas for workspace descriptions, notes, and metadata MUST NOT have CSS `uppercase` or force uppercase text. They must allow users to type and display both upper and lower case letters naturally.
 >    - **Cloud Storage OAuth Integration (Google Drive, OneDrive, etc.)**:
 >      When a user selects a cloud storage provider such as Google Drive for a workspace, the system MUST NOT silently fall back to a dummy local path. It MUST provide a proper OAuth connection interface (e.g. "Connect Google Drive Account" button launching the Google OAuth consent popup) and create the canonical folder in the cloud provider upon authorization.
-> 7. **User-Scoped Third-Party Workspace Credentials Law**:
+> 7. **User-Scoped Third-Party Workspace Credentials & Browser Local Filesystem Law**:
 >    - **Strict Separation of Infrastructure Credentials vs. User Workspace Credentials**:
 >      - Server environment variables (`.env.local`, Vercel Env Vars, Cloud Run Secrets) are strictly reserved for **system database infrastructure**: `NEON_DATABASE_URL`, `SUPABASE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `AUTH_SECRET`, etc.
->      - **Third-party workspace storage credentials** (Google Drive OAuth `clientId`/`clientSecret`, OneDrive credentials, S3 access keys) belong to **individual users** and MUST be stored inside the user's profile record in the system database under `appProfiles.{appName}.{provider}`.
->    - **UI-Only Credential Entry**:
->      - When a user selects a cloud storage provider (Google Drive, OneDrive, S3, etc.) for a workspace, the UI MUST display an inline credential input form where the user enters their own OAuth Client ID and Secret.
->      - These credentials are saved to the user's profile via a protected API endpoint (e.g. `POST /api/auth/google-drive/credentials`) with full authentication (`Authorization: Bearer <token>`).
->      - The OAuth flow (`GET /api/auth/google-drive/auth`) reads `clientId` from the authenticated user's profile — never from `process.env`.
->      - The OAuth callback (`GET /api/auth/google-drive/callback`) decodes `userId` from the OAuth state parameter and saves the received tokens directly into `user.appProfiles.{appName}.google_drive.accounts` in the system database cluster.
->    - **Prohibition of Env Var References for User Credentials**:
->      - ZERO references to `process.env.GOOGLE_CLIENT_ID`, `process.env.GOOGLE_CLIENT_SECRET`, `process.env.ONEDRIVE_CLIENT_ID`, etc. for workspace-level credentials.
->      - The status API (`GET /api/auth/google-drive/status`) reads from the user's profile, returning `hasCredentials: true/false` based on whether the user has entered their own credentials.
->      - If a user has not yet entered credentials, the UI shows an inline input drawer — NOT an error message instructing them to set server env vars.
+>      - **Third-party workspace storage credentials** (Backblaze B2, Cloudflare R2, AWS S3, Supabase Storage, Google Drive OAuth) belong to **individual users** and MUST be stored inside the user's profile record in the system database under `appProfiles.{appName}.storage_connections` or `appProfiles.{appName}.google_drive`.
+>    - **Browser Local Folder Storage (File System Access API + IndexedDB)**:
+>      - For offline/local storage when loaded from the web (e.g. deployed on Vercel), the app MUST support `window.showDirectoryPicker()` to open a native OS folder selector.
+>      - The returned `FileSystemDirectoryHandle` is stored inside the browser's **IndexedDB** (`DocuStack_LocalFS_Vault`), while the reference key (`localFolderKey`) and folder name (`localFolderName`) are recorded on the workspace record in the system database.
+>      - On subsequent sessions, the app re-retrieves the handle from IndexedDB and prompts for permission verification seamlessly.
+>    - **Direct Credential Input & Live Connectivity Probing for Cloud Storage**:
+>      - Providers with generous free tiers (Backblaze B2 [10GB free], Cloudflare R2 [10GB/mo free, zero egress], AWS S3, Supabase Storage [1GB free]) are connected by having the user enter simple credential fields (Key ID, Application Key, Bucket Name) directly in the UI.
+>      - The UI MUST provide a **"TEST CONNECTIVITY"** button calling `POST /api/auth/storage/test` to probe read/list access and measure round-trip latency (in milliseconds) before saving.
+>      - Saved connections persist to `user.appProfiles.{appName}.storage_connections` and can be selected immediately for any workspace without re-entering credentials.
 >    - **Implementation Pattern** (TypeScript):
 >      ```typescript
->      // ✅ CORRECT: Read from user profile
->      const gdCreds = user.appProfiles?.docustack?.google_drive;
->      const clientId = gdCreds?.clientId;
+>      // ✅ CORRECT: Storage credentials stored on user profile in system database
+>      const connections = user.appProfiles?.docustack?.storage_connections || [];
+>      const activeConn = connections.find(c => c.id === workspace.storageConnectionId);
 >
->      // ❌ WRONG: Never read user workspace credentials from env vars
->      // const clientId = process.env.GOOGLE_CLIENT_ID;
+>      // ❌ WRONG: Never read user workspace credentials from server env vars
+>      // const key = process.env.BACKBLAZE_KEY_ID;
 >      ```
+
 
 ---
 
