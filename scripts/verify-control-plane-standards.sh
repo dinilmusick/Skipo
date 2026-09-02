@@ -212,6 +212,33 @@ if [ -n "$HEADER_FILE" ]; then
   fi
 fi
 
+# Check 14: Cloud-first async loaders and canonical decoupled control plane directory
+echo "→ Checking cloud-first async loaders & decoupled control plane directory..."
+WS_FS_FILE=""
+if [ -f "$TARGET_DIR/lib/workspaceFS.ts" ]; then
+  WS_FS_FILE="$TARGET_DIR/lib/workspaceFS.ts"
+elif [ -f "$TARGET_DIR/backend/control-plane/code/lib/workspaceFS.ts" ]; then
+  WS_FS_FILE="$TARGET_DIR/backend/control-plane/code/lib/workspaceFS.ts"
+fi
+
+if [ -n "$WS_FS_FILE" ]; then
+  if grep -q "loadGraphFromFSAsync" "$WS_FS_FILE" && grep -q "saveGraphToFSAsync" "$WS_FS_FILE"; then
+    echo "✅ PASS: $WS_FS_FILE exports loadGraphFromFSAsync and saveGraphToFSAsync."
+  else
+    echo "❌ VIOLATION: $WS_FS_FILE missing cloud-first async graph loader/saver!"
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
+if [ -n "$AUTH_STORAGE_FILE" ]; then
+  if grep -q "getControlPlaneDir" "$AUTH_STORAGE_FILE"; then
+    echo "✅ PASS: $AUTH_STORAGE_FILE exports getControlPlaneDir to decouple control plane from active workspace."
+  else
+    echo "❌ VIOLATION: $AUTH_STORAGE_FILE missing getControlPlaneDir!"
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
 # Summary
 echo "══════════════════════════════════════════════════════════════════════════════════════════"
 if [ "$ERRORS" -gt 0 ]; then

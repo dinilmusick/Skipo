@@ -74,8 +74,9 @@ CONTROL PLANE (Application-Owned)
 >      - For offline/local storage when loaded from the web (e.g. deployed on Vercel), the app MUST support `window.showDirectoryPicker()` to open a native OS folder selector.
 >      - The returned `FileSystemDirectoryHandle` is stored inside the browser's **IndexedDB** (`DocuStack_LocalFS_Vault`), while the reference key (`localFolderKey`) and folder name (`localFolderName`) are recorded on the workspace record in the system database.
 >      - On subsequent sessions, the app re-retrieves the handle from IndexedDB and prompts for permission verification seamlessly.
+>    - **Universal Storage Connection Structure**:
+>      Every storage connection saved by a user contains `id`, `provider` (`backblaze_b2`, `cloudflare_r2`, `aws_s3`, `supabase_storage`, `local_fs`), `label`, `bucketName`, `endpoint`, `credentials` (`b2KeyId`, `b2ApplicationKey`, `accessKeyId`, `secretAccessKey`, `supabaseUrl`, `supabaseServiceRoleKey`), `createdAt`, and `lastTestedAt`.
 >    - **Direct Credential Input & Live Connectivity Probing for Cloud Storage**:
->      - Supported storage engines (Backblaze B2, Cloudflare R2, AWS S3, Supabase Storage) are connected by having the user enter simple credential fields (Key ID, Application Key, Bucket Name) directly in the UI.
 >      - The UI MUST provide a **"TEST CONNECTIVITY"** button calling `POST /api/auth/storage/test` to probe read/list access and measure round-trip latency (in milliseconds) before saving.
 >      - Saved connections persist to `user.appProfiles.{appName}.storage_connections` and can be selected immediately for any workspace without re-entering credentials.
 >    - **Backblaze B2 S3 Regional Endpoint Resolution Law**:
@@ -127,7 +128,10 @@ CONTROL PLANE (Application-Owned)
 >      - `.docustack/documents_index.json`
 >      - `inbox/WELCOME_TO_{workspace_name}.MD`
 >    - The Workspace Tiles Menu MUST query `/api/auth/workspaces` on mount (`useEffect(() => { refreshWorkspaces(); }, [])`) and maintain functional state synchronization so newly created workspaces appear as active selectable tiles immediately.
-
+> 10. **Decoupled Canonical Control Plane Storage Root Law**:
+>    - Control plane metadata files (`accounts.json`, `revoked_sessions.json`, `audit_logs.json`) are GLOBAL to the server tenant and MUST NEVER be co-located inside dynamic workspace paths.
+>    - Function `getControlPlaneDir()` MUST return a fixed path relative to project root (`path.join(process.cwd(), 'docustack_vault', '.docustack', 'control_plane')`) or `/tmp/.docustack/control_plane`.
+>    - Switching active workspaces or pointing `workspaceFS` to arbitrary custom paths (`./ultrst_docustack_user_workspace`) MUST NEVER change the resolution of `accounts.json` or cause user lookup to fail.
 
 ---
 

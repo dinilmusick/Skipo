@@ -212,6 +212,11 @@ USER ──► APPLICATION ──► WorkspaceFS.write(path, data)
    - The primary application header MUST feature a prominent Auto-Save toggle button with live status indicators (`🟢 AUTO-SAVE ON`, `⚪ AUTO-SAVE OFF`, `⚡ SAVING...`, `✓ SAVED`, `● UNSAVED (CMD+S)`).
    - When Auto-Save is OFF, the system MUST listen for global `Cmd+S` (Mac) / `Ctrl+S` (Windows/Linux) to trigger an atomic full workspace sync (`POST /api/workspace` with `action: 'save_all'`).
    - Client requests MUST automatically inject `Authorization: Bearer <token>` and `x-workspace-id` headers so serverless API routes (`/api/graph`, `/api/categories`, `/api/documents`, `/api/workspace`) can resolve the active workspace storage context via `resolveRequestContextVault(req)`.
+7. **Cloud-First Async Loaders & Serverless Awaitable Savers**:
+   - In serverless environments (Vercel, AWS Lambda), background un-awaited promises are immediately frozen and terminated upon returning the HTTP response.
+   - All workspace mutation routes (`/api/graph`, `/api/categories`, `/api/documents`) MUST `await` all physical filesystem writes and cloud storage network operations (`writeCloudWorkspaceFile`, `syncFolderNodeToCloud`, `syncKanbanNodeToCloud`) prior to responding.
+   - When switching or re-entering workspaces, loaders (`loadGraphFromFSAsync`, `loadCategoriesFromFSAsync`, `loadDocumentsFromFSAsync`) MUST read from Cloud Storage (`.docustack/graph.json`, `.docustack/categories.json`, `.docustack/documents_index.json`) when a cloud storage connection is active, cache them to disk, and restore the exact topology without resetting to default initial states.
+   - Control plane user accounts (`accounts.json`, `revoked_sessions.json`, `audit_logs.json`) MUST NEVER be stored dynamically under a workspace path; they MUST reside in a fixed canonical root control plane directory (`docustack_vault/.docustack/control_plane`) so user and storage credential resolution survives workspace switches.
 
 ---
 
