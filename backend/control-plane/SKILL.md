@@ -78,6 +78,32 @@ CONTROL PLANE (Application-Owned)
 >      - Supported storage engines (Backblaze B2, Cloudflare R2, AWS S3, Supabase Storage) are connected by having the user enter simple credential fields (Key ID, Application Key, Bucket Name) directly in the UI.
 >      - The UI MUST provide a **"TEST CONNECTIVITY"** button calling `POST /api/auth/storage/test` to probe read/list access and measure round-trip latency (in milliseconds) before saving.
 >      - Saved connections persist to `user.appProfiles.{appName}.storage_connections` and can be selected immediately for any workspace without re-entering credentials.
+>    - **Backblaze B2 S3 Regional Endpoint Resolution Law**:
+>      - In Backblaze B2, every bucket belongs to a regional cluster (e.g. `s3.us-east-005.backblazeb2.com`, `s3.us-west-004.backblazeb2.com`, `s3.eu-central-003.backblazeb2.com`).
+>      - Sending a key created on one cluster to a different cluster causes Backblaze to reject the key with `InvalidAccessKeyId: The key '...' is not valid`.
+>      - All Ultrst apps MUST auto-detect the region from the Key ID prefix (`005...` -> `us-east-005`, `004...` -> `us-west-004`, `003...` -> `eu-central-003`, etc.) while also allowing the user to paste their bucket's exact S3 Endpoint.
+>      - If the user inadvertently pastes the Application Key (starting with `K00`) into the Key ID field, the system MUST auto-detect and resolve the swap.
+>    - **Universal Ecosystem Storage Config JSON Export & Import Standard**:
+>      - Every app in the Ultrst ecosystem MUST provide a **"DOWNLOAD JSON"** (Export) and **"IMPORT JSON"** (Upload) button in its storage connector drawer.
+>      - Standard Schema:
+>        ```json
+>        {
+>          "$schema": "https://ultrst.org/schemas/storage-config.v1.json",
+>          "version": 1,
+>          "ecosystem": "ultrst",
+>          "exportedAt": "2026-09-02T19:55:00.000Z",
+>          "appName": "docustack",
+>          "storage": {
+>            "provider": "backblaze_b2",
+>            "label": "My B2 Vault",
+>            "b2KeyId": "005...",
+>            "b2ApplicationKey": "K00...",
+>            "b2BucketName": "vault",
+>            "b2Endpoint": "s3.us-east-005.backblazeb2.com"
+>          }
+>        }
+>        ```
+>      - Importing this JSON file into any Ultrst app immediately populates credentials, switches the provider tab, tests connectivity, and saves to the user's profile.
 >    - **Implementation Pattern** (TypeScript):
 >      ```typescript
 >      // ✅ CORRECT: Storage credentials stored on user profile in system database

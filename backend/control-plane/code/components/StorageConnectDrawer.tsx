@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   HardDrive,
   FolderOpen,
@@ -10,14 +10,22 @@ import {
   Zap,
   Activity,
   Trash2,
+  Download,
+  Upload,
+  FileText,
 } from 'lucide-react';
 import {
   UserStorageConnection,
   UserStorageProvider,
   DatabaseEngine,
+  UltrstStorageExport,
+  UltrstStorageBundleExport,
 } from '@/lib/types';
 import {
   STORAGE_PROVIDER_CONFIGS,
+  exportStorageConnectionToJson,
+  exportStorageBundleToJson,
+  parseStorageImportJson,
 } from '@/lib/storage-providers';
 import {
   isFileSystemAccessSupported,
@@ -77,6 +85,10 @@ export default function StorageConnectDrawer({
   } | null>(null);
   const [saving, setSaving] = useState(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
+  const [importNotification, setImportNotification] = useState<string | null>(null);
+
+  // File Input Ref for JSON Import
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setIsLocalFsSupported(isFileSystemAccessSupported());
@@ -124,8 +136,25 @@ export default function StorageConnectDrawer({
   };
 
   const handleFieldChange = (key: string, value: string) => {
+    // Smart detection if user pasted the entire Backblaze key creation modal snippet:
+    if (selectedProvider === 'backblaze_b2' && (value.includes('keyID') || value.includes('applicationKey'))) {
+      const idMatch = value.match(/keyID[:\s]+([0-9a-fA-F]{12,32})/i);
+      const secretMatch = value.match(/applicationKey[:\s]+([0-9a-zA-Z]{20,40})/i);
+      if (idMatch || secretMatch) {
+        setFormData((prev) => ({
+          ...prev,
+          ...(idMatch ? { b2KeyId: idMatch[1].trim() } : {}),
+          ...(secretMatch ? { b2ApplicationKey: secretMatch[1].trim() } : {}),
+        }));
+        setTestResult(null);
+        setImportNotification('✓ Automatically parsed Key ID and Application Key from pasted text.');
+        return;
+      }
+    }
+
     setFormData((prev) => ({ ...prev, [key]: value }));
     setTestResult(null);
+    setImportNotification(null);
   };
 
   const buildConnectionPayload = (): UserStorageConnection => {
@@ -134,17 +163,18 @@ export default function StorageConnectDrawer({
       provider: selectedProvider,
       label: connectionLabel.trim() || `${STORAGE_PROVIDER_CONFIGS[selectedProvider]?.shortName || selectedProvider} Vault`,
       createdAt: new Date().toISOString(),
+      localFolderName: selectedProvider === 'local_fs' ? localFolderName : undefined,
+      localFolderKey: selectedProvider === 'local_fs' ? localFolderKey : undefined,
       ...formData,
     };
   };
 
-  const handleTestConnection = async () => {
+  const runProbeTest = async (payload: UserStorageConnection) => {
     try {
       setTesting(true);
       setTestResult(null);
       setGeneralError(null);
 
-      const payload = buildConnectionPayload();
       const res = await fetch('/api/auth/storage/test', {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -175,6 +205,11 @@ export default function StorageConnectDrawer({
     } finally {
       setTesting(false);
     }
+  };
+
+  const handleTestConnection = async () => {
+    const payload = buildConnectionPayload();
+    await runProbeTest(payload);
   };
 
   const handleSaveAndUse = async () => {
@@ -222,23 +257,175 @@ export default function StorageConnectDrawer({
     }
   };
 
+  // EXPORT CURRENT CREDENTIALS AS JSON
+  const handleExportJson = () => {
+    try {
+      const payload = buildConnectionPayload();
+      const exportDoc = exportStorageConnectionToJson(payload, 'docustack');
+      const jsonString = JSON.stringify(exportDoc, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+
+      const safeLabel = (payload.label || payload.provider).toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      const filename = `ultrst_storage_${safeLabel}.json`;
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setGeneralError(`Export failed: ${err.message}`);
+    }
+  };
+
+  // IMPORT CREDENTIALS FROM JSON
+  const handleTriggerImport = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setGeneralError(null);
+      setImportNotification(null);
+
+      const text = await file.text();
+      const parsed = parseStorageImportJson(text);
+
+      if (parsed.isBundle && parsed.connections && parsed.connections.length > 0) {
+        // Multi-connection bundle: import the first into active view, and offer to save all
+        const first = parsed.connections[0];
+        loadConnectionIntoForm(first);
+        setImportNotification(`✓ Imported bundle containing ${parsed.connections.length} storage connections. Active: ${first.label}`);
+        // Run test probe on first
+        if (first.provider !== 'local_fs') {
+          runProbeTest(first);
+        }
+      } else if (parsed.connection) {
+        const conn = parsed.connection;
+        loadConnectionIntoForm(conn);
+        setImportNotification(`✓ Successfully loaded credentials for "${conn.label || conn.provider}".`);
+        if (conn.provider !== 'local_fs') {
+          runProbeTest(conn);
+        }
+      }
+    } catch (err: any) {
+      setGeneralError(`Import failed: ${err.message}`);
+    }
+  };
+
+  const loadConnectionIntoForm = (conn: UserStorageConnection) => {
+    if (conn.provider) {
+      setSelectedProvider(conn.provider);
+      if (conn.provider === 'local_fs') {
+        onSelectEngine('local_fs');
+        if (conn.localFolderName) setLocalFolderName(conn.localFolderName);
+        if (conn.localFolderKey) setLocalFolderKey(conn.localFolderKey);
+      } else {
+        onSelectEngine('s3_blob');
+      }
+    }
+
+    if (conn.label) setConnectionLabel(conn.label);
+
+    const newFormData: Record<string, string> = {};
+    if (conn.b2KeyId) newFormData['b2KeyId'] = conn.b2KeyId;
+    if (conn.b2ApplicationKey) newFormData['b2ApplicationKey'] = conn.b2ApplicationKey;
+    if (conn.b2BucketName) newFormData['b2BucketName'] = conn.b2BucketName;
+    if (conn.b2Region) newFormData['b2Region'] = conn.b2Region;
+    if (conn.b2Endpoint) newFormData['b2Endpoint'] = conn.b2Endpoint;
+
+    if (conn.r2AccountId) newFormData['r2AccountId'] = conn.r2AccountId;
+    if (conn.r2AccessKeyId) newFormData['r2AccessKeyId'] = conn.r2AccessKeyId;
+    if (conn.r2SecretAccessKey) newFormData['r2SecretAccessKey'] = conn.r2SecretAccessKey;
+    if (conn.r2BucketName) newFormData['r2BucketName'] = conn.r2BucketName;
+
+    if (conn.s3AccessKeyId) newFormData['s3AccessKeyId'] = conn.s3AccessKeyId;
+    if (conn.s3SecretAccessKey) newFormData['s3SecretAccessKey'] = conn.s3SecretAccessKey;
+    if (conn.s3BucketName) newFormData['s3BucketName'] = conn.s3BucketName;
+    if (conn.s3Region) newFormData['s3Region'] = conn.s3Region;
+    if (conn.s3Endpoint) newFormData['s3Endpoint'] = conn.s3Endpoint;
+
+    if (conn.supabaseUrl) newFormData['supabaseUrl'] = conn.supabaseUrl;
+    if (conn.supabaseAnonKey) newFormData['supabaseAnonKey'] = conn.supabaseAnonKey;
+    if (conn.supabaseServiceKey) newFormData['supabaseServiceKey'] = conn.supabaseServiceKey;
+    if (conn.supabaseBucketName) newFormData['supabaseBucketName'] = conn.supabaseBucketName;
+
+    setFormData(newFormData);
+  };
+
   const currentProviderConfig = STORAGE_PROVIDER_CONFIGS[selectedProvider];
   const activeSavedConnsForProvider = savedConnections.filter((c) => c.provider === selectedProvider);
 
+  // Diagnostic warning check for Backblaze B2 key swap
+  const isBackblazeKeySwapped =
+    selectedProvider === 'backblaze_b2' &&
+    formData['b2KeyId']?.startsWith('K00');
+
   return (
     <div className="space-y-3.5 border-2 border-brutalist bg-[var(--color-surface-subtle)] p-3.5">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-brutalist/40 pb-2">
+      {/* Hidden File Input for JSON Import */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept=".json,application/json"
+        className="hidden"
+      />
+
+      {/* Header with Export & Import Action Buttons */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-brutalist/40 pb-2 gap-2">
         <div className="flex items-center gap-2">
           <HardDrive size={15} className="text-[var(--color-accent)]" />
           <span className="text-xs font-black uppercase text-[var(--color-text)]">
             WORKSPACE STORAGE ENGINE
           </span>
         </div>
-        <span className="text-[9px] font-mono font-bold text-[var(--color-accent)] bg-black/40 px-2 py-0.5 border border-brutalist/40">
-          USER OWNED
-        </span>
+
+        <div className="flex items-center gap-1.5 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={handleTriggerImport}
+            className="text-[9px] font-mono font-bold uppercase px-2 py-1 border border-brutalist/50 bg-black/40 hover:bg-black/80 hover:border-[var(--color-accent)] text-[var(--color-text)] flex items-center gap-1 cursor-pointer transition-colors"
+            title="Import storage configuration from JSON file"
+          >
+            <Upload size={10} className="text-[var(--color-accent)]" />
+            <span>IMPORT JSON</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportJson}
+            className="text-[9px] font-mono font-bold uppercase px-2 py-1 border border-brutalist/50 bg-black/40 hover:bg-black/80 hover:border-[var(--color-accent)] text-[var(--color-text)] flex items-center gap-1 cursor-pointer transition-colors"
+            title="Download current storage credentials as portable JSON file"
+          >
+            <Download size={10} className="text-emerald-400" />
+            <span>DOWNLOAD JSON</span>
+          </button>
+        </div>
       </div>
+
+      {/* Import Notification Banner */}
+      {importNotification && (
+        <div className="p-2 border border-emerald-500/50 bg-emerald-500/10 text-emerald-400 text-xs font-mono flex items-center justify-between gap-2">
+          <span>{importNotification}</span>
+          <button
+            type="button"
+            onClick={() => setImportNotification(null)}
+            className="underline text-[10px] cursor-pointer"
+          >
+            DISMISS
+          </button>
+        </div>
+      )}
 
       {/* Provider Selector Clean Tiles */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -254,6 +441,7 @@ export default function StorageConnectDrawer({
                 setSelectedProvider(provId);
                 setTestResult(null);
                 setGeneralError(null);
+                setImportNotification(null);
                 if (provId === 'local_fs') {
                   onSelectEngine('local_fs');
                 } else {
@@ -406,10 +594,17 @@ export default function StorageConnectDrawer({
               />
             </div>
 
+            {/* Backblaze Key Swap Warning Banner */}
+            {isBackblazeKeySwapped && (
+              <div className="p-2 border border-amber-500/50 bg-amber-500/10 text-amber-300 text-[10px] font-mono leading-tight">
+                ⚠️ Notice: In Backblaze B2, the <strong>Key ID</strong> is 25 characters (starts with 000–005), and the <strong>Application Key</strong> is the 31-character secret starting with K00. If entered in opposite fields, our engine will automatically swap and resolve them for you.
+              </div>
+            )}
+
             {/* Dynamic Provider Fields */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {currentProviderConfig.fields.map((field) => (
-                <div key={field.key} className={field.key.includes('Key') || field.key.includes('Secret') ? 'sm:col-span-2' : ''}>
+                <div key={field.key} className={field.key.includes('Key') || field.key.includes('Secret') || field.key.includes('Endpoint') ? 'sm:col-span-2' : ''}>
                   <label className="text-[9px] font-black uppercase opacity-60 block mb-0.5">
                     {field.label} {field.required && <span className="text-red-400">*</span>}
                   </label>
@@ -447,7 +642,7 @@ export default function StorageConnectDrawer({
                   <div className="font-bold uppercase">
                     {testResult.ok ? `✓ CONNECTED SUCCESSFULLY (${testResult.latencyMs}ms latency)` : 'CONNECTIVITY FAILED'}
                   </div>
-                  {testResult.error && <div className="text-[10px] mt-0.5 break-all">{testResult.error}</div>}
+                  {testResult.error && <div className="text-[10px] mt-1 whitespace-pre-line leading-relaxed">{testResult.error}</div>}
                 </div>
               </div>
             )}

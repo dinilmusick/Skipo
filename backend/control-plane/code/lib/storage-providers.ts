@@ -13,7 +13,12 @@
 
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { createClient } from '@supabase/supabase-js';
-import { UserStorageConnection, UserStorageProvider } from './types';
+import {
+  UserStorageConnection,
+  UserStorageProvider,
+  UltrstStorageExport,
+  UltrstStorageBundleExport,
+} from './types';
 
 export interface StorageFieldDef {
   key: keyof UserStorageConnection;
@@ -60,16 +65,16 @@ export const STORAGE_PROVIDER_CONFIGS: Record<UserStorageProvider, StorageProvid
         key: 'b2KeyId',
         label: 'Key ID (Access Key ID)',
         type: 'text',
-        placeholder: '004a1b2c3d...',
-        helpText: 'From Backblaze B2 -> App Keys -> keyID',
+        placeholder: '005a1b2c3d...',
+        helpText: 'From Backblaze B2 -> Application Keys -> keyID (25 characters, e.g. 005...)',
         required: true,
       },
       {
         key: 'b2ApplicationKey',
         label: 'Application Key (Secret Key)',
         type: 'password',
-        placeholder: 'K004xXyYzZ...',
-        helpText: 'The secret key shown when creating your B2 App Key',
+        placeholder: 'K005xXyYzZ...',
+        helpText: 'The secret key shown when creating your B2 App Key (31 characters, starts with K00...)',
         required: true,
       },
       {
@@ -79,13 +84,6 @@ export const STORAGE_PROVIDER_CONFIGS: Record<UserStorageProvider, StorageProvid
         placeholder: 'my-docustack-vault',
         helpText: 'The exact bucket name created in your Backblaze account',
         required: true,
-      },
-      {
-        key: 'b2Region',
-        label: 'Endpoint Region (Optional)',
-        type: 'text',
-        placeholder: 'us-west-004',
-        helpText: 'Region prefix from your bucket S3 endpoint (defaults to us-west-004)',
       },
     ],
   },
@@ -219,22 +217,103 @@ export const STORAGE_PROVIDER_CONFIGS: Record<UserStorageProvider, StorageProvid
 };
 
 /**
+ * Intelligently resolve Backblaze B2 S3 endpoint and region
+ * Supports:
+ * - Full endpoint URLs: e.g. "s3.us-east-005.backblazeb2.com" or "https://s3.us-east-005.backblazeb2.com"
+ * - Region names: e.g. "us-east-005", "us-west-004", "eu-central-003"
+ * - Auto-detection from Key ID prefix:
+ *   005... -> us-east-005
+ *   004... -> us-west-004
+ *   003... -> eu-central-003
+ *   002... -> us-west-002
+ *   001... -> us-west-001
+ *   000... -> us-west-000
+ */
+export function resolveBackblazeEndpoint(
+  inputEndpointOrRegion?: string,
+  keyId?: string
+): { endpoint: string; region: string } {
+  let raw = (inputEndpointOrRegion || '').trim().toLowerCase();
+  raw = raw.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+
+  // 1. Full B2 S3 Endpoint: "s3.us-east-005.backblazeb2.com"
+  const endpointMatch = raw.match(/s3\.([a-z0-9-]+)\.backblazeb2\.com/i);
+  if (endpointMatch) {
+    return {
+      region: endpointMatch[1],
+      endpoint: `https://${raw}`,
+    };
+  }
+
+  // 2. Region name entered directly: "us-east-005"
+  if (raw && /^[a-z0-9-]+$/.test(raw) && !raw.includes('.')) {
+    return {
+      region: raw,
+      endpoint: `https://s3.${raw}.backblazeb2.com`,
+    };
+  }
+
+  // 3. Custom gateway: e.g. proxy.mydomain.com
+  if (raw && raw.includes('.')) {
+    return {
+      region: 'us-west-004',
+      endpoint: `https://${raw}`,
+    };
+  }
+
+  // 4. Auto-detect region from Key ID prefix
+  let derivedRegion = 'us-west-004';
+  if (keyId) {
+    const cleanKey = keyId.trim();
+    if (cleanKey.startsWith('005')) derivedRegion = 'us-east-005';
+    else if (cleanKey.startsWith('004')) derivedRegion = 'us-west-004';
+    else if (cleanKey.startsWith('003')) derivedRegion = 'eu-central-003';
+    else if (cleanKey.startsWith('002')) derivedRegion = 'us-west-002';
+    else if (cleanKey.startsWith('001')) derivedRegion = 'us-west-001';
+    else if (cleanKey.startsWith('000')) derivedRegion = 'us-west-000';
+  }
+
+  return {
+    region: derivedRegion,
+    endpoint: `https://s3.${derivedRegion}.backblazeb2.com`,
+  };
+}
+
+/**
  * Build S3Client instance for Backblaze B2, Cloudflare R2, or AWS S3
  */
 export function buildS3Client(conn: UserStorageConnection): { s3: S3Client; bucketName: string } {
   if (conn.provider === 'backblaze_b2') {
-    const keyId = (conn.b2KeyId || '').trim();
-    const appKey = (conn.b2ApplicationKey || '').trim();
+    let keyId = (conn.b2KeyId || '').trim();
+    let appKey = (conn.b2ApplicationKey || '').trim();
     const bucket = (conn.b2BucketName || '').trim();
-    const region = (conn.b2Region || 'us-west-004').trim();
+
+    // 1. Auto-extract if user pasted multi-line block containing "keyID: ... applicationKey: ..."
+    const rawCombined = `${keyId}\n${appKey}`;
+    const idMatch = rawCombined.match(/keyID[:\s]+([0-9a-fA-F]{12,32})/i);
+    const secretMatch = rawCombined.match(/applicationKey[:\s]+([0-9a-zA-Z]{20,40})/i);
+    if (idMatch && secretMatch) {
+      keyId = idMatch[1].trim();
+      appKey = secretMatch[1].trim();
+    }
+
+    // 2. Auto-detect if user swapped Key ID and Application Key
+    // (B2 Application Key secret starts with 'K00' and is 31 chars; Key ID is 25 chars starting with '00')
+    if (keyId.startsWith('K00') && (!appKey || appKey.startsWith('00') || appKey.length === 25)) {
+      const temp = keyId;
+      keyId = appKey || temp;
+      appKey = temp;
+    }
 
     if (!keyId || !appKey || !bucket) {
       throw new Error('MISSING_BACKBLAZE_CREDENTIALS: Key ID, Application Key, and Bucket Name are required.');
     }
 
+    const { endpoint, region } = resolveBackblazeEndpoint(undefined, keyId);
+
     const s3 = new S3Client({
       region,
-      endpoint: `https://s3.${region}.backblazeb2.com`,
+      endpoint,
       credentials: {
         accessKeyId: keyId,
         secretAccessKey: appKey,
@@ -361,10 +440,21 @@ export async function testStorageConnection(
     throw new Error(`PROBING_NOT_IMPLEMENTED: Connectivity test not supported for provider '${conn.provider}'.`);
   } catch (err: any) {
     const latencyMs = Math.round(performance.now() - start);
+    let errorMessage = err?.message || 'Storage connection probe failed';
+
+    if (conn.provider === 'backblaze_b2') {
+      if (err.name === 'InvalidAccessKeyId' || errorMessage.includes('not valid') || errorMessage.includes('Malformed')) {
+        errorMessage = `Backblaze B2 rejected the Key ID. Check:
+1. Make sure you entered the 25-character 'keyID' (starts with 000-005) and NOT the Key Name.
+2. In Backblaze B2 -> Buckets, check the 'Endpoint' of your bucket (e.g. s3.us-east-005.backblazeb2.com) and paste it into the S3 Endpoint field.
+3. If your key was restricted to a specific bucket when created, make sure the Bucket Name matches exactly.`;
+      }
+    }
+
     return {
       ok: false,
       latencyMs,
-      error: err?.message || 'Storage connection probe failed',
+      error: errorMessage,
     };
   }
 }
@@ -383,4 +473,63 @@ export function maskStorageConnection(conn: UserStorageConnection): UserStorageC
     supabaseAnonKey: conn.supabaseAnonKey ? mask(conn.supabaseAnonKey) : undefined,
     supabaseServiceKey: conn.supabaseServiceKey ? mask(conn.supabaseServiceKey) : undefined,
   };
+}
+
+/**
+ * Universal Ultrst JSON Export Helper
+ */
+export function exportStorageConnectionToJson(
+  conn: UserStorageConnection,
+  appName: string = 'docustack'
+): UltrstStorageExport {
+  return {
+    $schema: 'https://ultrst.org/schemas/storage-config.v1.json',
+    version: 1,
+    ecosystem: 'ultrst',
+    exportedAt: new Date().toISOString(),
+    appName,
+    storage: conn,
+  };
+}
+
+/**
+ * Universal Ultrst JSON Bundle Export Helper
+ */
+export function exportStorageBundleToJson(
+  connections: UserStorageConnection[],
+  appName: string = 'docustack'
+): UltrstStorageBundleExport {
+  return {
+    $schema: 'https://ultrst.org/schemas/storage-bundle.v1.json',
+    version: 1,
+    ecosystem: 'ultrst',
+    exportedAt: new Date().toISOString(),
+    appName,
+    connections,
+  };
+}
+
+/**
+ * Universal Ultrst JSON Import Parser
+ */
+export function parseStorageImportJson(jsonText: string): {
+  isBundle: boolean;
+  connection?: UserStorageConnection;
+  connections?: UserStorageConnection[];
+} {
+  try {
+    const parsed = JSON.parse(jsonText);
+    if (Array.isArray(parsed.connections)) {
+      return { isBundle: true, connections: parsed.connections };
+    }
+    if (parsed.storage && parsed.storage.provider) {
+      return { isBundle: false, connection: parsed.storage };
+    }
+    if (parsed.provider) {
+      return { isBundle: false, connection: parsed };
+    }
+    throw new Error('Unrecognized JSON structure.');
+  } catch (err: any) {
+    throw new Error(`INVALID_STORAGE_CONFIG_JSON: ${err.message}`);
+  }
 }
