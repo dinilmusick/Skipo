@@ -117,7 +117,7 @@ export interface AdminDatabaseClusterConfig {
 export interface AdminBackendConfig {
   engine: AdminBackendEngine;
   activeProfile: string;
-  sqlite: {
+  sqlite?: {
     dbPath: string;
     walMode: boolean;
   };

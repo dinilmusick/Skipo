@@ -184,4 +184,21 @@ export const DiagnosticsControlButton: React.FC<DiagnosticsControlButtonProps> =
  * 5. Action controls (Test, Reconfigure, Disconnect) rendered strictly as icon-only with hover tooltips.
  */
 
+// ══════════════════════════════════════════════════════════════════════════════════════════
+// 5. ADMIN CONTROL PLANE UI & AUTHENTICATION ISOLATION STANDARDS
+// ══════════════════════════════════════════════════════════════════════════════════════════
+/**
+ * Invariants for Admin UI & Authentication Pages:
+ * 1. ADMIN UI ISOLATION & BACK-BUTTON GUARD:
+ *    - The Admin Control Plane (/admin) is a dedicated system governance portal.
+ *    - NEVER place a "Return to Workspace" back button (<Link href="/" />) in the Admin UI header.
+ *    - Back navigation in the Admin UI MUST return to the Admin Login Portal (/admin/login) or trigger logout.
+ *    - Route protection on root (/): If an authenticated administrator arrives at '/', redirect them
+ *      immediately to '/admin' so they are NEVER dumped into an unconfigured workspace window.
+ * 2. STRICT ZERO-DEMO UI INVARIANT:
+ *    - NEVER render "QUICK ACCESS PRESETS", "AUTO-FILL ADMIN", or "AUTO-FILL DEMO USER" buttons.
+ *    - NEVER hardcode mock accounts (demo@..., admin@...vault, analyst@...) into UI presets.
+ *    - All email input placeholders MUST be generic (e.g. user@example.com, admin@example.com).
+ *    - All users must authenticate with real credentials against the environment-configured cluster.
+ */
 ```

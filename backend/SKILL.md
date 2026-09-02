@@ -137,14 +137,11 @@ APPLICATION
 
 $$\begin{array}{|c|c|l|}
 \hline
-\textbf{Account Backend} & \textbf{Workspace Backend} & \textbf{Deployment / Target Use Case} \\
+\textbf{Account Backend (Control Plane)} & \textbf{Workspace Backend (Data Plane)} & \textbf{Deployment / Target Use Case} \\
 \hline
-\text{Local SQLite} & \text{Local FS + SQLite} & \text{Fully offline desktop / local-first} \\
-\text{Local SQLite} & \text{Local Supabase / BaaS} & \text{Local identity + local containerized BaaS} \\
-\text{Local SQLite} & \text{Remote Supabase / S3} & \text{Local identity + cloud-backed workspace} \\
-\text{Hosted PostgreSQL} & \text{Local FS + SQLite} & \text{Cloud identity + local cached/hybrid workspace} \\
-\text{Hosted PostgreSQL} & \text{Local BaaS (LAN)} & \text{Enterprise SSO + on-prem LAN storage} \\
-\text{Hosted Supabase / Auth} & \text{Remote Supabase / S3} & \text{Fully cloud-hosted / Vercel Serverless} \\
+\text{Cluster (Neon/Postgres via .env)} & \text{Local FS (WorkspaceFS)} & \text{Standard Hybrid Desktop / Cloud Identity} \\
+\text{Cluster (Neon/Postgres via .env)} & \text{Local-Hosted BaaS (LAN/Docker)} & \text{LAN / On-prem secure storage} \\
+\text{Cluster (Neon/Postgres via .env)} & \text{Remote Cloud (S3 / Supabase)} & \text{Fully cloud-hosted / Vercel Serverless} \\
 \hline
 \end{array}$$
 
@@ -166,8 +163,8 @@ $$\begin{array}{|c|c|l|}
         │                │          │                │
      Accounts          Admin      Database         Storage
         │                │          │                │
-   Local SQLite      Protected   SQLite/Postgres   Files/S3/
-   Hosted DB         Control     /Supabase/etc.    Supabase/etc.
+    Cluster DB       Protected   Filesystem/       Files/S3/
+    (via .env)        Control    Supabase/etc.     Supabase/etc.
 ```
 
 ---
@@ -176,10 +173,10 @@ $$\begin{array}{|c|c|l|}
 
 Before implementing backend logic for any application or sub-app, execute this classification:
 
-1. **Classify Account System**:
-   - [ ] Local SQLite (`accounts.sqlite`)
-   - [ ] Hosted BaaS / PostgreSQL / Supabase Auth
-2. **Classify Workspace Data**:
+1. **Classify Account System (Control Plane)**:
+   - [ ] Environment-Driven Database Cluster (`NEON_DATABASE_URL` / `SUPABASE_URL` via `.env.local` / Vercel)
+   - [ ] **NO local-only SQLite credential files (`accounts.sqlite`) or redundant local files**.
+2. **Classify Workspace Data (Data Plane)**:
    - [ ] Local SQLite per workspace
    - [ ] Local-Hosted BaaS (LAN/Docker)
    - [ ] Remote Cloud BaaS (Supabase / Postgres)

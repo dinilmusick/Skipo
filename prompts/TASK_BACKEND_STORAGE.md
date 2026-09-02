@@ -6,11 +6,15 @@ ASSERT(\text{WorkspaceData} \equiv \text{FilesystemHierarchy}) \quad \land \quad
 1. **NO DATABASES FOR USER WORKSPACES**:
    - User workspace data (documents, projects, settings, notes, tracks, media) MUST NEVER use database engines (No SQLite, No PostgreSQL, No MongoDB, No Turso, No DynamoDB).
    - User workspace data is **STRICTLY FILE-BASED**, organized in directories and files (`.json`, `.md`, binary files) mimicking a local filesystem.
-   - The ONLY internal database permitted in the system is a lightweight SQLite file dedicated exclusively to the Control Plane for user accounts (`accounts.sqlite`).
-2. **USER STORAGE PROVIDERS (VIRTUAL FILESYSTEM ADAPTERS)**:
+2. **ZERO-DIVERGENCE CONTROL PLANE & ZERO LOCAL CREDENTIAL STORING**:
+   - The Control Plane (user accounts, authentication, workspace registries) is strictly powered by environment-configured database clusters (Neon Serverless Postgres via `@neondatabase/serverless`, Supabase, or Cloud PostgreSQL).
+   - **STRICT PROHIBITION**: NEVER create local-only SQLite databases (`accounts.sqlite`), ephemeral `/tmp` files, or redundant local files storing credentials.
+   - Environment variables (`.env.local` locally, Vercel/Cloud variables in production) are the **sole authoritative source of truth** (`NEON_DATABASE_URL`, `SUPABASE_URL`, `POSTGRES_DATABASE_URL`).
+   - If no database is configured, both local dev and production must report the exact same standby state: `System Backend Database (Awaiting .env)`.
+3. **USER STORAGE PROVIDERS (VIRTUAL FILESYSTEM ADAPTERS)**:
    $$\text{StorageProviders} \in \{ \text{Local FS}, \text{iCloud Drive}, \text{Google Drive}, \text{OneDrive}, \text{Supabase Storage / S3}, \text{Firebase Storage} \}$$
    - All providers implement the unified `WorkspaceStorageAdapter` contract mimicking a native OS filesystem.
-3. **APPLICATION ACCESS VIA `WorkspaceFS`**:
+4. **APPLICATION ACCESS VIA `WorkspaceFS`**:
    - Application logic reads and writes files **exclusively** through `WorkspaceFS` (e.g., `fs.write("vault/doc1.json", data)`, `fs.read("vault/doc1.json")`).
    - `SyncEngine` asynchronously replicates file mutations from Primary Storage to configured Backup Storage replicas (e.g., Google Drive, iCloud, OneDrive).
 
@@ -24,21 +28,22 @@ ASSERT(\text{WorkspaceData} \equiv \text{FilesystemHierarchy}) \quad \land \quad
 ---
 
 ## 2. CONTROL PLANE SETUP (USER ACCOUNTS & AUTH ONLY)
-Control Plane manages global user accounts, authentication tokens, and app-scoped workspace registries:
+Control Plane manages global user accounts, authentication tokens, and app-scoped workspace registries via persistent environment-configured clusters:
 ```typescript
 // ══════════════════════════════════════════════════════════════════════════════════════════
-// 1. CONTROL PLANE & USER ACCOUNT AUTHENTICATION (INTERNAL ACCOUNTS ONLY)
+// 1. CONTROL PLANE & USER ACCOUNT AUTHENTICATION (ENVIRONMENT-DRIVEN CLUSTER)
 // ══════════════════════════════════════════════════════════════════════════════════════════
-import { LocalSQLiteAccountProvider } from "@dinilmusick/krnlts";
+import { getControlPlaneManager } from "@/lib/control-plane";
+import { authenticateUserAsync, registerUserAsync } from "@/lib/auth-storage";
 
-// 1. Initialize Account Provider (stores ONLY user credentials & workspace configs)
-const accountProvider = new LocalSQLiteAccountProvider("./accounts.sqlite");
+// 1. Resolve Control Plane Manager (strictly driven by NEON_DATABASE_URL / env vars)
+const controlPlane = getControlPlaneManager();
 
-// 2. Authenticate User Session
-const authSession = await accountProvider.authenticate({ username: "dinil", password: "pwd" });
+// 2. Authenticate User Session (verified directly against Neon/Cloud Postgres)
+const { user, token } = await authenticateUserAsync("user@example.com", "secure_password");
 
-// 3. Resolve App-Scoped User Context & Workspace Order
-const appCtx = await accountProvider.getAppUserContext(authSession.userId, "MY_APP");
+// 3. Resolve Active User Workspaces
+console.log("Active Workspaces:", user.workspaces);
 ```
 
 ---

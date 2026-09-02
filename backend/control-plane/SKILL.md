@@ -35,10 +35,19 @@ CONTROL PLANE (Application-Owned)
 > [!IMPORTANT]
 > **Cardinal Invariants**:
 > 1. **Data Isolation**: The Control Plane **never** contains project documents, database records of a workspace, or user media files ($\text{Control Plane} \cap \text{Data Plane} = \emptyset$).
-> 2. **Zero-Divergence Environment Parity**: Environment variables (`.env.local` in local development, or Vercel Environment Variables in cloud) are the **sole source of truth** for system backend database credentials (`NEON_DATABASE_URL`, `SUPABASE_URL`, `POSTGRES_DATABASE_URL`).
->    - **NO local-only SQLite or ephemeral file fallbacks for user accounts**.
->    - If no database is configured, both local dev and production report the exact same standby state: `System Backend Database (Awaiting .env)`.
+> 2. **Zero-Divergence Environment Parity & Zero Redundant Local Storing**:
+>    - Environment variables (`.env.local` in local development, or Vercel Environment Variables in cloud) are the **sole authoritative source of truth** for system backend database credentials (`NEON_DATABASE_URL`, `SUPABASE_URL`, `POSTGRES_DATABASE_URL`).
+>    - **NO local-only SQLite (`accounts.sqlite`) or ephemeral `/tmp` file fallbacks for user accounts**. Never branch on `if (isVercel)` to create a local SQLite database that fakes working state locally while failing in cloud serverless environments.
+>    - If no database is configured in `.env`, both local dev and production report the exact same standby state: `System Backend Database (Awaiting .env)` with instructions to provide `.env.local` or hosting variables.
 >    - Registration and authentication strictly require and verify against the configured database, eliminating phantom local accounts and guaranteeing 100% parity across local and hosted environments.
+> 3. **Admin UI Isolation & Back-Navigation Guard**:
+>    - The Admin Control Plane (`/admin`) is an isolated governance portal.
+>    - **NEVER** place a "Return to Workspace" back button (`<Link href="/" />`) with a back arrow (`<ArrowLeft />`) in the Admin UI header. Clicking back from the Admin UI must return to the **Admin Login Portal** (`/admin/login`) or trigger a session sign-out, NEVER plunge the administrator into a workspace window (`/`).
+>    - **Route Protection on Root (`/`)**: If an authenticated administrator (`role === 'admin'`) arrives at `/` (e.g. via browser history or back button), the system must immediately redirect them to `/admin` to keep them inside the Admin Control Plane rather than dumping them into an unconfigured or empty workspace window.
+> 4. **Strict Zero-Demo Accounts Mandate**:
+>    - **ZERO hardcoded demo accounts** (`demo@...`, `admin@docustack.vault`, `alex@...`, `sam@...`, etc.) in production code, default seed arrays, or UI auto-fill buttons.
+>    - **NO "QUICK ACCESS PRESETS" or "AUTO-FILL ADMIN / DEMO" buttons** in login interfaces.
+>    - Authentication bootstrap accounts are strictly derived from environment variables (`ADMIN_EMAIL` / `ADMIN_PASSWORD`) and project owner configuration. All other users must be authentic accounts registered directly against the persistent database.
 
 ---
 

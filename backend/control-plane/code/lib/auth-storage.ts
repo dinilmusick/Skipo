@@ -231,11 +231,11 @@ export function loadUsers(): UserAccount[] {
   // Purge any legacy demo or default placeholder accounts
   users = users.filter((u) => {
     const email = (u.email || '').toLowerCase().trim();
-    return email !== 'demo@docustack.vault' &&
-           email !== 'admin@docustack.vault' &&
-           email !== 'analyst@docustack.vault' &&
-           u.id !== 'user-demo-03' &&
-           u.id !== 'user-admin-fallback';
+    return !email.endsWith('.vault') &&
+           !email.startsWith('demo@') &&
+           !email.startsWith('analyst@') &&
+           !u.id.includes('demo') &&
+           !u.id.includes('fallback');
   });
 
   // Always keep admin account synchronized with active env vars

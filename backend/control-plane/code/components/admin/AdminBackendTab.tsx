@@ -16,8 +16,8 @@ interface AdminBackendTabProps {
 
 export default function AdminBackendTab({ config, engine, onSaveConfig, onTestConnection, userToken }: AdminBackendTabProps) {
   const [profileName, setProfileName] = useState(config.activeProfile || 'Primary Control Plane');
-  const [sqlitePath, setSqlitePath] = useState(config.sqlite?.dbPath || './docustack_vault/control_plane/accounts.sqlite');
-  const [walMode, setWalMode] = useState(config.sqlite?.walMode ?? true);
+  const [sqlitePath, setSqlitePath] = useState(config.sqlite?.dbPath || '');
+  const [walMode, setWalMode] = useState(config.sqlite?.walMode ?? false);
   const [pgConn, setPgConn] = useState(config.postgres?.connectionString || '');
   const [pgHost, setPgHost] = useState(config.postgres?.host || 'localhost');
   const [pgPort, setPgPort] = useState(config.postgres?.port || 5432);
@@ -149,15 +149,8 @@ ALTER TABLE public.${isQuoted} ENABLE ROW LEVEL SECURITY;`;
     <div className="space-y-4 font-mono text-xs select-none">
 
       {engine === 'sqlite' && (
-        <div className="p-3 border-2 border-[#D4AF37]/50 bg-[#16151B] space-y-3">
-          <div>
-            <label className="font-black uppercase block mb-1 opacity-80">Accounts Storage Path</label>
-            <BrutalistInput value={sqlitePath} onChange={(e) => setSqlitePath(e.target.value)} placeholder="./docustack_vault/control_plane/accounts.sqlite" />
-          </div>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={walMode} onChange={(e) => setWalMode(e.target.checked)} className="w-4 h-4 accent-[#D4AF37]" />
-            <span className="font-black uppercase">Enable WAL & Locks</span>
-          </label>
+        <div className="p-3 border-2 border-amber-500/50 bg-[#16151B] text-amber-300">
+          <p className="font-bold">⚠️ SQLite Control Plane is deprecated to enforce Zero-Divergence Environment Parity with cloud serverless deployments. Use Neon Serverless Postgres, Supabase, or Cloud PostgreSQL.</p>
         </div>
       )}
 

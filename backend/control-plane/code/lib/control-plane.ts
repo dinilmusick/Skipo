@@ -368,16 +368,16 @@ export class UserAccountStorageProvider {
 
 export class ControlPlaneManager {
   public accountProvider: UserAccountStorageProvider;
-  private dbPath: string;
+  private clusterName: string;
 
-  constructor(dbPath: string = './accounts.sqlite') {
+  constructor(clusterName: string = 'Primary Cluster') {
     assertStorageIsolation();
-    this.dbPath = dbPath;
+    this.clusterName = clusterName;
     this.accountProvider = new UserAccountStorageProvider();
   }
 
-  static createLocal(dbPath: string = './accounts.sqlite'): ControlPlaneManager {
-    return new ControlPlaneManager(dbPath);
+  static create(clusterName: string = 'Primary Cluster'): ControlPlaneManager {
+    return new ControlPlaneManager(clusterName);
   }
 
   async login(credentials: { username?: string; email?: string; password?: string }): Promise<{
@@ -1250,7 +1250,6 @@ export function loadAdminBackendConfig(): AdminBackendConfig {
   return {
     engine: (primary?.engine as AdminBackendEngine) || 'neon',
     activeProfile: primary?.name || 'Primary Storage',
-    sqlite: primary?.sqlite || { dbPath: './docustack_vault/control_plane/accounts.sqlite', walMode: true },
     postgres: primary?.postgres || { host: 'localhost', database: 'docustack', ssl: true },
     supabase: primary?.supabase || { url: '' },
     neon: primary?.neon || { connectionString: '', tableName: 'ultrst-users' },

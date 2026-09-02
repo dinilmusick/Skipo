@@ -39,7 +39,9 @@ When deploying backends to Vercel, Next.js API routes, or Cloudflare Workers:
 ## 3. Local Desktop (Electron / Tauri / Node) Invariants
 
 When running backends locally on the user's workstation:
-1. **Zero-Network Fallback**: The app must boot, read user accounts from `accounts.sqlite`, and open workspaces using `database.sqlite` + `./storage` without checking the internet.
+1. **Zero-Divergence Control Plane Parity**: The Control Plane resolves user accounts and authentication identically across local development and cloud hosting via environment variables (`.env.local`).
+   - **STRICT PROHIBITION**: NEVER create local-only SQLite credential files (`accounts.sqlite`), ephemeral `/tmp` files, or redundant local files storing credentials.
+   - If no database is configured, report `System Backend Database (Awaiting .env)` locally and remotely.
 2. **Path Resolution**: Use normalized local paths (e.g., `path.resolve(appDataDir, "workspaces", workspaceId)`).
 3. **SQLite WAL Mode**:
    ```typescript
