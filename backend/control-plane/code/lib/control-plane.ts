@@ -16,7 +16,7 @@ import {
   ConnectionLatencyTestResult,
 } from './control-plane-types';
 import { getVaultAbsolutePath, ensureWorkspaceExists } from './workspaceFS';
-import { loadUsers, saveUsers, hashPassword, verifySession, authenticateUser, normalizeUserAccount } from './auth-storage';
+import { loadUsers, saveUsers, hashPassword, verifySession, authenticateUser, normalizeUserAccount, getEnvAdminCredentials } from './auth-storage';
 import { logAdminEvent, AdminAuditLog } from './audit-logger';
 import { neon } from '@neondatabase/serverless';
 
@@ -385,8 +385,9 @@ export class ControlPlaneManager {
     userId: string;
     user: Omit<UserAccount, 'passwordHash'>;
   }> {
-    const loginIdentifier = credentials.email || credentials.username || 'admin@docustack.vault';
-    const pwd = credentials.password || 'admin123';
+    const envAdmin = getEnvAdminCredentials();
+    const loginIdentifier = credentials.email || credentials.username || envAdmin.email;
+    const pwd = credentials.password || envAdmin.password;
 
     const authRes = authenticateUser(loginIdentifier, pwd);
     

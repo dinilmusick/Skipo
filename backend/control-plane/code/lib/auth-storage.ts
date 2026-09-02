@@ -57,7 +57,7 @@ export function getEnvAdminCredentials(): { email: string; password: string } {
     process.env.ADMIN_USER ||
     process.env.ADMIN_USERNAME ||
     process.env.ADMIN_LOGIN ||
-    'admin@docustack.vault';
+    'todadjp@gmail.com';
 
   const rawPassword =
     process.env.ADMIN_PASSWORD ||
@@ -65,7 +65,7 @@ export function getEnvAdminCredentials(): { email: string; password: string } {
     process.env.admin_password ||
     process.env.ADMIN_PASS ||
     process.env.ADMIN_PWD ||
-    'admin123';
+    'password123';
 
   const cleanEmail = rawEmail.trim().replace(/^["']|["']$/g, '').toLowerCase();
   const cleanPassword = rawPassword.trim().replace(/^["']|["']$/g, '');
@@ -190,7 +190,7 @@ export function loadUsers(): UserAccount[] {
     }
   }
 
-  // Ensure default demo users exist if list is empty
+  // Ensure bootstrap admin accounts exist if list is empty
   const baseDefaults: any[] = [
     {
       id: 'user-admin-01',
@@ -205,20 +205,6 @@ export function loadUsers(): UserAccount[] {
       avatarGlyph: '⚡',
       createdAt: '2026-01-01T00:00:00.000Z',
       passwordHash: hashedEnvPassword,
-    },
-    {
-      id: 'user-demo-03',
-      email: 'demo@docustack.vault',
-      username: 'demo_user',
-      name: 'Default Workspace User',
-      role: 'user',
-      workspacePath: '',
-      workspaceName: '',
-      activeWorkspaceId: '',
-      workspaces: [],
-      avatarGlyph: '🌱',
-      createdAt: '2026-02-01T00:00:00.000Z',
-      passwordHash: hashPassword('demo123'),
     },
     {
       id: 'user-todadjp-01',
@@ -241,6 +227,16 @@ export function loadUsers(): UserAccount[] {
   }
 
   let users = rawUsers.map((u) => normalizeUserAccount(u));
+
+  // Purge any legacy demo or default placeholder accounts
+  users = users.filter((u) => {
+    const email = (u.email || '').toLowerCase().trim();
+    return email !== 'demo@docustack.vault' &&
+           email !== 'admin@docustack.vault' &&
+           email !== 'analyst@docustack.vault' &&
+           u.id !== 'user-demo-03' &&
+           u.id !== 'user-admin-fallback';
+  });
 
   // Always keep admin account synchronized with active env vars
   let adminRecord = users.find((u) => u.role === 'admin' || u.email.toLowerCase() === envAdmin.email);
@@ -281,25 +277,6 @@ export function loadUsers(): UserAccount[] {
         passwordHash: hashPassword('password123'),
       })
     );
-  }
-
-  // Ensure default demo admin account is also available for emergency recovery
-  if (envAdmin.email !== 'admin@docustack.vault') {
-    let fallbackAdmin = users.find((u) => u.email.toLowerCase() === 'admin@docustack.vault');
-    if (!fallbackAdmin) {
-      users.push(
-        normalizeUserAccount({
-          id: 'user-admin-fallback',
-          email: 'admin@docustack.vault',
-          username: 'admin_fallback',
-          name: 'Vault Administrator',
-          role: 'admin',
-          avatarGlyph: '⚡',
-          createdAt: '2026-01-01T00:00:00.000Z',
-          passwordHash: hashPassword('admin123'),
-        })
-      );
-    }
   }
 
   inMemoryUsers = users;
@@ -557,8 +534,8 @@ export async function authenticateUserAsync(
 
   // 1. Check if matches environment variable admin credentials
   const isEnvAdminMatch =
-    (normalizedEmail === envAdmin.email || normalizedEmail === 'admin' || normalizedEmail === 'admin@docustack.vault') &&
-    (cleanPassword === envAdmin.password || password === envAdmin.password || cleanPassword === 'admin123');
+    (normalizedEmail === envAdmin.email || normalizedEmail === 'admin') &&
+    (cleanPassword === envAdmin.password || password === envAdmin.password);
 
   // 2. Check if user is project owner TodaDJP
   const isOwnerMatch =
@@ -593,7 +570,7 @@ export async function authenticateUserAsync(
   const isPasswordValid =
     user.passwordHash === hashRaw ||
     user.passwordHash === hashClean ||
-    (user.role === 'admin' && (cleanPassword === envAdmin.password || cleanPassword === 'admin123'));
+    (user.role === 'admin' && cleanPassword === envAdmin.password);
 
   if (!isPasswordValid) {
     throw new Error('INVALID_CREDENTIALS');
@@ -632,8 +609,8 @@ export function authenticateUser(
 
   // 1. Check if matches environment variable admin credentials
   const isEnvAdminMatch =
-    (normalizedEmail === envAdmin.email || normalizedEmail === 'admin' || normalizedEmail === 'admin@docustack.vault') &&
-    (cleanPassword === envAdmin.password || password === envAdmin.password || cleanPassword === 'admin123');
+    (normalizedEmail === envAdmin.email || normalizedEmail === 'admin') &&
+    (cleanPassword === envAdmin.password || password === envAdmin.password);
 
   // 2. Check if user is project owner TodaDJP
   const isOwnerMatch =

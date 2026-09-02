@@ -14,12 +14,6 @@ interface LoginModalProps {
   onOpenAdminPanel?: () => void;
 }
 
-const PRESET_ACCOUNTS = [
-  { email: 'admin@docustack.vault', pass: 'admin123', label: 'ADMIN', role: 'admin' as UserRole, glyph: '⚡' },
-  { email: 'analyst@docustack.vault', pass: 'pro123', label: 'PRO ANALYST', role: 'pro' as UserRole, glyph: '💎' },
-  { email: 'demo@docustack.vault', pass: 'demo123', label: 'DEMO USER', role: 'user' as UserRole, glyph: '🌱' },
-];
-
 export default function LoginModal({ isOpen, onClose, currentUser, onLoginSuccess, onLogout, onOpenAdminPanel }: LoginModalProps) {
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -31,26 +25,6 @@ export default function LoginModal({ isOpen, onClose, currentUser, onLoginSucces
   const [showPassword, setShowPassword] = useState(false);
 
   if (!isOpen) return null;
-
-  const handleQuickLogin = async (pEmail: string, pPass: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: pEmail, password: pPass }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || 'Authentication failed');
-      onLoginSuccess(data.user, data.token);
-      onClose();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,24 +99,6 @@ export default function LoginModal({ isOpen, onClose, currentUser, onLoginSucces
           </div>
         ) : (
           <div className="mt-4 space-y-4">
-            {/* Quick Demo Switcher */}
-            <div>
-              <div className="font-mono text-[10px] uppercase font-bold opacity-70 mb-1.5">QUICK ACCESS PRESETS</div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {PRESET_ACCOUNTS.map((acc) => (
-                  <button
-                    key={acc.email}
-                    type="button"
-                    onClick={() => handleQuickLogin(acc.email, acc.pass)}
-                    className="p-2 text-left border-2 border-brutalist bg-black/10 hover:bg-[var(--color-accent)] hover:text-white transition-all cursor-pointer font-mono text-xs"
-                  >
-                    <div className="font-black flex items-center justify-between">{acc.glyph} {acc.label}</div>
-                    <div className="text-[10px] opacity-80 uppercase">{acc.role}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Tab switch */}
             <div className="flex border-2 border-brutalist">
               <button
