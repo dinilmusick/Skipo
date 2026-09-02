@@ -3,7 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { UserAccount, UserRole, UserWorkspaceRecord, DocuStackAppProfile, UltrstIdentity, UserStorageConnection } from './types';
-import { getVaultAbsolutePath, ensureWorkspaceExists } from './workspaceFS';
+import { getVaultAbsolutePath, ensureWorkspaceExists, setActiveVaultConfig } from './workspaceFS';
 import {
   formatCanonicalWorkspaceFolderName,
   formatCanonicalWorkspacePath,
@@ -770,6 +770,90 @@ export function attachSessionCookie(response: NextResponse, token: string): Next
     maxAge: 7 * 24 * 3600,
   });
   return response;
+}
+
+export interface RequestContextVault {
+  user: UserAccount | null;
+  activeWs: UserWorkspaceRecord | null;
+  storageConn: UserStorageConnection | null;
+  folderPrefix: string | null;
+  vaultPath: string;
+  vaultName: string;
+}
+
+/**
+ * Server-Side Context Resolver: Resolves active workspace and storage connection per request.
+ * Automatically initializes setActiveVaultConfig so serverless lambdas can write to Cloud Storage.
+ */
+export async function resolveRequestContextVault(req: NextRequest): Promise<RequestContextVault> {
+  const cookieToken = req.cookies.get('docustack_session')?.value;
+  const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
+  const headerToken = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : null;
+  const token = cookieToken || headerToken;
+
+  let user: UserAccount | null = null;
+  if (token) {
+    const sessionData = verifySessionToken(token);
+    if (sessionData) {
+      user = findUserById(sessionData.userId) || (await findUserByIdAsync(sessionData.userId)) || null;
+    }
+  }
+
+  const requestedWsId = req.headers.get('x-workspace-id');
+  const requestedWsPath = req.headers.get('x-workspace-path');
+
+  let activeWs: UserWorkspaceRecord | null = null;
+  let storageConn: UserStorageConnection | null = null;
+  let folderPrefix: string | null = null;
+  let vaultPath = './docustack_vault';
+  let vaultName = 'DocuStack Vault';
+
+  if (user) {
+    const userWorkspaces: UserWorkspaceRecord[] =
+      (user.workspaces && user.workspaces.length > 0 ? user.workspaces : user.appProfiles?.[APP_ID]?.workspaces) || [];
+
+    if (requestedWsId) {
+      activeWs = userWorkspaces.find((w) => w.id === requestedWsId) || null;
+    }
+    if (!activeWs && requestedWsPath) {
+      activeWs = userWorkspaces.find((w) => w.workspacePath === requestedWsPath) || null;
+    }
+    if (!activeWs) {
+      const activeId = user.activeWorkspaceId || user.appProfiles?.[APP_ID]?.activeWorkspaceId;
+      activeWs = userWorkspaces.find((w) => w.id === activeId) || userWorkspaces[0] || null;
+    }
+
+    const userConns: UserStorageConnection[] =
+      user.appProfiles?.[APP_ID]?.storage_connections || user.storage_connections || [];
+
+    if (activeWs) {
+      vaultPath = activeWs.workspacePath || vaultPath;
+      vaultName = activeWs.name || vaultName;
+      if (activeWs.storageConnectionId) {
+        const wsConnId = activeWs.storageConnectionId;
+        storageConn = userConns.find((c) => c.id === wsConnId) || null;
+      }
+      const rawWs = activeWs as any;
+      if (!storageConn && (rawWs.storageEngine === 's3_blob' || rawWs.storageProvider !== 'local_fs')) {
+        storageConn = userConns.find((c) => c.provider !== 'local_fs') || null;
+      }
+    } else if (userConns.length > 0) {
+      storageConn = userConns.find((c) => c.provider !== 'local_fs') || userConns[0] || null;
+    }
+  }
+
+  folderPrefix = vaultPath.replace(/^\.\//, '');
+  setActiveVaultConfig(vaultPath, vaultName, storageConn, folderPrefix);
+  ensureWorkspaceExists(vaultPath);
+
+  return {
+    user,
+    activeWs,
+    storageConn,
+    folderPrefix,
+    vaultPath: getVaultAbsolutePath(vaultPath),
+    vaultName,
+  };
 }
 
 /**

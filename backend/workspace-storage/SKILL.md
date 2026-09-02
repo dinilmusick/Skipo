@@ -204,6 +204,14 @@ USER ──► APPLICATION ──► WorkspaceFS.write(path, data)
    - Workspace creation dialogues MUST dynamically render user-connected storage options from `savedConnections`.
    - **FORBID static, unremovable "Local Disk Folder" default tiles**. Show only active user-configured storage options with live connectivity status.
    - Upon creating a cloud workspace, automatically initialize the remote bucket hierarchy (`.docustack/workspace_manifest.json`, `.docustack/graph.json`, `.docustack/categories.json`, `.docustack/documents_index.json`, `inbox/WELCOME_TO_{workspace_name}.MD`).
+5. **Physical Folder & Kanban Board Cloud Directory Mandate**:
+   - Every **Folder Node** created in a workspace graph MUST create a corresponding physical directory on disk and real object prefix in the cloud bucket (`${folderPrefix}/${cleanFolderName}/.keep` and `README.md`).
+   - Every **Kanban Board** created in a workspace MUST create a dedicated board folder (`${folderPrefix}/${boardFolderName}/kanban_board.json`) with subfolders for each column (`To_Do/.keep`, `In_Progress/.keep`, `Done/.keep`).
+   - Documents belonging to a board column must be stored physically inside `${boardFolderName}/${columnName}/${docName}.md`.
+6. **Auto-Save Toggle & Universal `Cmd+S` / `Ctrl+S` Protocol**:
+   - The primary application header MUST feature a prominent Auto-Save toggle button with live status indicators (`🟢 AUTO-SAVE ON`, `⚪ AUTO-SAVE OFF`, `⚡ SAVING...`, `✓ SAVED`, `● UNSAVED (CMD+S)`).
+   - When Auto-Save is OFF, the system MUST listen for global `Cmd+S` (Mac) / `Ctrl+S` (Windows/Linux) to trigger an atomic full workspace sync (`POST /api/workspace` with `action: 'save_all'`).
+   - Client requests MUST automatically inject `Authorization: Bearer <token>` and `x-workspace-id` headers so serverless API routes (`/api/graph`, `/api/categories`, `/api/documents`, `/api/workspace`) can resolve the active workspace storage context via `resolveRequestContextVault(req)`.
 
 ---
 

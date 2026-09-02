@@ -183,6 +183,35 @@ if [ -n "$STORAGE_PROV_FILE" ]; then
   fi
 fi
 
+# Check 12: Per-request serverless context vault resolution check
+echo "→ Checking per-request serverless context vault resolution..."
+if [ -n "$AUTH_STORAGE_FILE" ]; then
+  if grep -q "resolveRequestContextVault" "$AUTH_STORAGE_FILE"; then
+    echo "✅ PASS: $AUTH_STORAGE_FILE exports resolveRequestContextVault for serverless requests."
+  else
+    echo "❌ VIOLATION: $AUTH_STORAGE_FILE missing resolveRequestContextVault helper!"
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
+# Check 13: Auto-Save toggle & manual save protocol in Header component
+echo "→ Checking Auto-Save toggle & manual save protocol..."
+HEADER_FILE=""
+if [ -f "$TARGET_DIR/components/Header.tsx" ]; then
+  HEADER_FILE="$TARGET_DIR/components/Header.tsx"
+elif [ -f "$TARGET_DIR/backend/control-plane/code/components/Header.tsx" ]; then
+  HEADER_FILE="$TARGET_DIR/backend/control-plane/code/components/Header.tsx"
+fi
+
+if [ -n "$HEADER_FILE" ]; then
+  if grep -q "autoSaveEnabled" "$HEADER_FILE"; then
+    echo "✅ PASS: $HEADER_FILE implements Auto-Save toggle and save controls."
+  else
+    echo "❌ VIOLATION: $HEADER_FILE lacks autoSaveEnabled controls!"
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
 # Summary
 echo "══════════════════════════════════════════════════════════════════════════════════════════"
 if [ "$ERRORS" -gt 0 ]; then

@@ -12,7 +12,7 @@ import {
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
 import { createClient } from '@supabase/supabase-js';
-import { UserStorageConnection, GraphNode, DocumentItem, DocCategory } from './types';
+import { UserStorageConnection, GraphNode, DocumentItem, DocCategory, GraphEdge, GraphGroup } from './types';
 import { buildS3Client } from './storage-providers';
 
 export interface CloudStorageFileInfo {
@@ -356,4 +356,188 @@ All markdown notes, graph structures, tags, and media uploaded here are saved di
   filesCreated.push(`inbox/WELCOME_TO_${safeWsTitle}.MD`);
 
   return { success: true, filesCreated };
+}
+
+/**
+ * Sanitize folder title into a valid S3 key / filesystem directory name
+ */
+export function getSafeCloudFolderName(rawTitle: string): string {
+  const sanitized = (rawTitle || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9_\-\s]/g, '')
+    .replace(/\s+/g, '_');
+  return sanitized || 'folder';
+}
+
+/**
+ * Persist a Folder node physically to user Cloud Storage (Backblaze B2, R2, S3, Supabase)
+ * Creates real S3 prefix with .keep and README.md so the folder appears in bucket browser
+ */
+export async function syncFolderNodeToCloud(
+  conn: UserStorageConnection,
+  folderPrefix: string,
+  node: GraphNode
+): Promise<void> {
+  const folderName = getSafeCloudFolderName(node.title || 'Folder');
+  const readme = `# ${node.title || 'Folder'}\n\nFolder created in DocuStack Workspace.\n- Tags: ${(node.tags || []).join(', ') || 'none'}\n- Created: ${new Date().toISOString()}\n`;
+
+  await writeCloudWorkspaceFile(conn, folderPrefix, `${folderName}/.keep`, '', 'text/plain');
+  await writeCloudWorkspaceFile(conn, folderPrefix, `${folderName}/README.md`, readme, 'text/markdown');
+}
+
+/**
+ * Persist a Kanban board node physically to user Cloud Storage
+ * Creates dedicated Board folder with kanban_board.json and column subfolders
+ */
+export async function syncKanbanNodeToCloud(
+  conn: UserStorageConnection,
+  folderPrefix: string,
+  node: GraphNode,
+  columns: DocCategory[] = []
+): Promise<void> {
+  const boardFolder = getSafeCloudFolderName(node.title || 'Kanban_Board');
+
+  // 1. Board Manifest
+  const boardManifest = {
+    id: node.collectionId || node.id,
+    title: node.title || 'Kanban Board',
+    glyph: node.glyph || 'Kanban',
+    color: node.color || '#D4AF37',
+    tags: node.tags || ['Kanban'],
+    columns: columns.map((c) => ({
+      id: c.id,
+      title: c.title,
+      glyph: c.glyph,
+      color: c.color,
+      description: c.description,
+    })),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await writeCloudWorkspaceFile(
+    conn,
+    folderPrefix,
+    `${boardFolder}/kanban_board.json`,
+    JSON.stringify(boardManifest, null, 2),
+    'application/json'
+  );
+
+  // 2. Ensure each column has physical folder in cloud bucket
+  const colsToSync = columns.length > 0 ? columns : [
+    { id: 'todo', title: 'To Do' },
+    { id: 'progress', title: 'In Progress' },
+    { id: 'done', title: 'Done' },
+  ];
+
+  for (const col of colsToSync) {
+    const colName = getSafeCloudFolderName(col.title);
+    const readme = `# ${col.title}\nColumn for Kanban board **${node.title}**.\n`;
+    await writeCloudWorkspaceFile(conn, folderPrefix, `${boardFolder}/${colName}/.keep`, '', 'text/plain');
+    await writeCloudWorkspaceFile(conn, folderPrefix, `${boardFolder}/${colName}/README.md`, readme, 'text/markdown');
+  }
+}
+
+/**
+ * Sync entire workspace state (graph, categories, documents, folders, and kanban boards) to Cloud Storage
+ */
+export async function syncEntireWorkspaceToCloud(
+  conn: UserStorageConnection,
+  folderPrefix: string,
+  data: {
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+    groups: GraphGroup[];
+    categories: DocCategory[];
+    documents: DocumentItem[];
+  }
+): Promise<{ success: boolean; syncedCount: number }> {
+  let syncedCount = 0;
+
+  // 1. Graph State
+  await writeCloudWorkspaceFile(
+    conn,
+    folderPrefix,
+    '.docustack/graph.json',
+    JSON.stringify({ nodes: data.nodes, edges: data.edges, groups: data.groups }, null, 2),
+    'application/json'
+  );
+  syncedCount++;
+
+  // 2. Categories State
+  await writeCloudWorkspaceFile(
+    conn,
+    folderPrefix,
+    '.docustack/categories.json',
+    JSON.stringify(data.categories, null, 2),
+    'application/json'
+  );
+  syncedCount++;
+
+  // 3. Documents Index
+  await writeCloudWorkspaceFile(
+    conn,
+    folderPrefix,
+    '.docustack/documents_index.json',
+    JSON.stringify(data.documents, null, 2),
+    'application/json'
+  );
+  syncedCount++;
+
+  // 4. Physical Folder & Kanban Nodes Sync
+  for (const node of data.nodes) {
+    if (node.isWorkspaceRoot) continue;
+    if (node.type === 'folder' || node.glyph === 'Folder') {
+      try {
+        await syncFolderNodeToCloud(conn, folderPrefix, node);
+        syncedCount++;
+      } catch (err) {
+        console.warn(`[CloudStorage] Error syncing folder node ${node.title}:`, err);
+      }
+    } else if (node.type === 'collection' || node.glyph === 'Kanban') {
+      try {
+        const boardId = node.collectionId || node.id;
+        const boardCols = data.categories.filter((c) => c.boardId === boardId);
+        await syncKanbanNodeToCloud(conn, folderPrefix, node, boardCols);
+        syncedCount++;
+      } catch (err) {
+        console.warn(`[CloudStorage] Error syncing kanban node ${node.title}:`, err);
+      }
+    }
+  }
+
+  // 5. Individual Document Physical Markdown Files
+  for (const doc of data.documents) {
+    try {
+      const safeTitle = (doc.title || 'untitled').toLowerCase().replace(/[^a-z0-9_.-]/g, '_');
+      const filename = safeTitle.includes('.') ? safeTitle : `${safeTitle}.md`;
+
+      // Check if document belongs to a Kanban column
+      const assignedCat = data.categories.find((c) => c.id === doc.categoryId);
+      let targetPath = `inbox/${filename}`;
+
+      if (assignedCat) {
+        const catFolder = getSafeCloudFolderName(assignedCat.title);
+        if (assignedCat.boardId) {
+          const boardNode = data.nodes.find((n) => (n.collectionId || n.id) === assignedCat.boardId);
+          const boardFolder = getSafeCloudFolderName(boardNode?.title || 'Kanban');
+          targetPath = `${boardFolder}/${catFolder}/${filename}`;
+        } else {
+          targetPath = `${catFolder}/${filename}`;
+        }
+      }
+
+      await writeCloudWorkspaceFile(
+        conn,
+        folderPrefix,
+        targetPath,
+        doc.content || `# ${doc.title}`,
+        doc.fileType === 'code' ? 'text/markdown' : 'text/plain'
+      );
+      syncedCount++;
+    } catch (err) {
+      console.warn(`[CloudStorage] Error writing document ${doc.title}:`, err);
+    }
+  }
+
+  return { success: true, syncedCount };
 }
