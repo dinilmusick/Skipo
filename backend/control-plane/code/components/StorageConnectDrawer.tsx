@@ -12,19 +12,16 @@ import {
   Trash2,
   Download,
   Upload,
-  FileText,
+  Plus,
 } from 'lucide-react';
 import {
   UserStorageConnection,
   UserStorageProvider,
   DatabaseEngine,
-  UltrstStorageExport,
-  UltrstStorageBundleExport,
 } from '@/lib/types';
 import {
   STORAGE_PROVIDER_CONFIGS,
   exportStorageConnectionToJson,
-  exportStorageBundleToJson,
   parseStorageImportJson,
 } from '@/lib/storage-providers';
 import {
@@ -63,10 +60,12 @@ export default function StorageConnectDrawer({
   onSelectEngine,
 }: StorageConnectDrawerProps) {
   const [selectedProvider, setSelectedProvider] = useState<UserStorageProvider>(currentProvider);
+  const [activeConnId, setActiveConnId] = useState<string | undefined>(currentConnectionId);
   const [savedConnections, setSavedConnections] = useState<UserStorageConnection[]>([]);
   const [loadingConnections, setLoadingConnections] = useState(false);
 
-  // Form Fields State
+  // Form Fields State for New Connection
+  const [showNewConnectionForm, setShowNewConnectionForm] = useState(false);
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [connectionLabel, setConnectionLabel] = useState('');
 
@@ -94,6 +93,12 @@ export default function StorageConnectDrawer({
     setIsLocalFsSupported(isFileSystemAccessSupported());
     fetchSavedConnections();
   }, []);
+
+  useEffect(() => {
+    if (currentConnectionId) {
+      setActiveConnId(currentConnectionId);
+    }
+  }, [currentConnectionId]);
 
   const getAuthHeaders = (): Record<string, string> => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -127,6 +132,8 @@ export default function StorageConnectDrawer({
 
       setLocalFolderName(name);
       setLocalFolderKey(generatedKey);
+      setActiveConnId(undefined);
+      setSelectedProvider('local_fs');
       onSelectLocalFolder(name, generatedKey);
       onSelectEngine('local_fs');
     } catch (err: any) {
@@ -169,7 +176,7 @@ export default function StorageConnectDrawer({
     };
   };
 
-  const runProbeTest = async (payload: UserStorageConnection) => {
+  const runProbeTest = async (payload: UserStorageConnection, autoSaveOnSuccess: boolean = true) => {
     try {
       setTesting(true);
       setTestResult(null);
@@ -188,6 +195,32 @@ export default function StorageConnectDrawer({
           ok: true,
           latencyMs: data.latencyMs,
         });
+
+        // Automatically save and register connection upon successful handshake
+        if (autoSaveOnSuccess && payload.provider !== 'local_fs') {
+          try {
+            const saveRes = await fetch('/api/auth/storage/connections', {
+              method: 'POST',
+              headers: getAuthHeaders(),
+              body: JSON.stringify({
+                ...payload,
+                testStatus: 'ok',
+                latencyMs: data.latencyMs,
+              }),
+            });
+            const saveData = await saveRes.json();
+            if (saveData.success && saveData.connection) {
+              await fetchSavedConnections();
+              setActiveConnId(saveData.connection.id);
+              onSelectCloudConnection(saveData.connection);
+              onSelectEngine('s3_blob');
+              setShowNewConnectionForm(false);
+              setImportNotification(`✓ Successfully connected & added "${saveData.connection.label}" as an active storage option.`);
+            }
+          } catch (saveErr) {
+            console.warn('Auto-save error after probe:', saveErr);
+          }
+        }
       } else {
         setTestResult({
           tested: true,
@@ -209,7 +242,7 @@ export default function StorageConnectDrawer({
 
   const handleTestConnection = async () => {
     const payload = buildConnectionPayload();
-    await runProbeTest(payload);
+    await runProbeTest(payload, true);
   };
 
   const handleSaveAndUse = async () => {
@@ -230,8 +263,10 @@ export default function StorageConnectDrawer({
       }
 
       await fetchSavedConnections();
+      setActiveConnId(data.connection.id);
       onSelectCloudConnection(data.connection);
       onSelectEngine('s3_blob');
+      setShowNewConnectionForm(false);
     } catch (err: any) {
       setGeneralError(err.message || 'Failed to save connection.');
     } finally {
@@ -251,22 +286,39 @@ export default function StorageConnectDrawer({
       const data = await res.json();
       if (data.success) {
         setSavedConnections((prev) => prev.filter((c) => c.id !== connId));
+        if (activeConnId === connId) {
+          setActiveConnId(undefined);
+          setSelectedProvider('local_fs');
+          onSelectEngine('local_fs');
+        }
       }
     } catch (err: any) {
       alert(`Failed to delete connection: ${err.message}`);
     }
   };
 
-  // EXPORT CURRENT CREDENTIALS AS JSON
+  const handleSelectSavedConn = (conn: UserStorageConnection) => {
+    setActiveConnId(conn.id);
+    setSelectedProvider(conn.provider);
+    onSelectCloudConnection(conn);
+    onSelectEngine('s3_blob');
+    setImportNotification(null);
+  };
+
   const handleExportJson = () => {
     try {
-      const payload = buildConnectionPayload();
-      const exportDoc = exportStorageConnectionToJson(payload, 'docustack');
+      let targetPayload = buildConnectionPayload();
+      if (activeConnId) {
+        const found = savedConnections.find((c) => c.id === activeConnId);
+        if (found) targetPayload = found;
+      }
+
+      const exportDoc = exportStorageConnectionToJson(targetPayload, 'docustack');
       const jsonString = JSON.stringify(exportDoc, null, 2);
       const blob = new Blob([jsonString], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
 
-      const safeLabel = (payload.label || payload.provider).toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      const safeLabel = (targetPayload.label || targetPayload.provider).toLowerCase().replace(/[^a-z0-9_-]/g, '_');
       const filename = `ultrst_storage_${safeLabel}.json`;
 
       const a = document.createElement('a');
@@ -281,7 +333,6 @@ export default function StorageConnectDrawer({
     }
   };
 
-  // IMPORT CREDENTIALS FROM JSON
   const handleTriggerImport = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -301,20 +352,20 @@ export default function StorageConnectDrawer({
       const parsed = parseStorageImportJson(text);
 
       if (parsed.isBundle && parsed.connections && parsed.connections.length > 0) {
-        // Multi-connection bundle: import the first into active view, and offer to save all
         const first = parsed.connections[0];
         loadConnectionIntoForm(first);
-        setImportNotification(`✓ Imported bundle containing ${parsed.connections.length} storage connections. Active: ${first.label}`);
-        // Run test probe on first
+        setShowNewConnectionForm(true);
+        setImportNotification(`✓ Imported storage bundle. Testing connection for "${first.label}"...`);
         if (first.provider !== 'local_fs') {
-          runProbeTest(first);
+          runProbeTest(first, true);
         }
       } else if (parsed.connection) {
         const conn = parsed.connection;
         loadConnectionIntoForm(conn);
-        setImportNotification(`✓ Successfully loaded credentials for "${conn.label || conn.provider}".`);
+        setShowNewConnectionForm(true);
+        setImportNotification(`✓ Loaded credentials for "${conn.label || conn.provider}". Testing connectivity...`);
         if (conn.provider !== 'local_fs') {
-          runProbeTest(conn);
+          runProbeTest(conn, true);
         }
       }
     } catch (err: any) {
@@ -363,12 +414,11 @@ export default function StorageConnectDrawer({
   };
 
   const currentProviderConfig = STORAGE_PROVIDER_CONFIGS[selectedProvider];
-  const activeSavedConnsForProvider = savedConnections.filter((c) => c.provider === selectedProvider);
-
-  // Diagnostic warning check for Backblaze B2 key swap
   const isBackblazeKeySwapped =
     selectedProvider === 'backblaze_b2' &&
     formData['b2KeyId']?.startsWith('K00');
+
+  const isLocalSelected = selectedProvider === 'local_fs' && !activeConnId;
 
   return (
     <div className="space-y-3.5 border-2 border-brutalist bg-[var(--color-surface-subtle)] p-3.5">
@@ -386,7 +436,7 @@ export default function StorageConnectDrawer({
         <div className="flex items-center gap-2">
           <HardDrive size={15} className="text-[var(--color-accent)]" />
           <span className="text-xs font-black uppercase text-[var(--color-text)]">
-            WORKSPACE STORAGE ENGINE
+            WORKSPACE STORAGE OPTIONS
           </span>
         </div>
 
@@ -413,7 +463,7 @@ export default function StorageConnectDrawer({
         </div>
       </div>
 
-      {/* Import Notification Banner */}
+      {/* Notification Banner */}
       {importNotification && (
         <div className="p-2 border border-emerald-500/50 bg-emerald-500/10 text-emerald-400 text-xs font-mono flex items-center justify-between gap-2">
           <span>{importNotification}</span>
@@ -427,258 +477,302 @@ export default function StorageConnectDrawer({
         </div>
       )}
 
-      {/* Provider Selector Clean Tiles */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {ACTIVE_STORAGE_PROVIDERS.map((provId) => {
-          const cfg = STORAGE_PROVIDER_CONFIGS[provId];
-          const isSelected = selectedProvider === provId;
+      {/* ─────────────────────────────────────────────────────────────
+          PRIMARY SECTION: SET STORAGE OPTION TILES
+          ───────────────────────────────────────────────────────────── */}
+      <div className="space-y-1.5">
+        <span className="text-[9px] font-mono font-black uppercase text-[var(--color-accent)] block">
+          SELECT ACTIVE STORAGE FOR THIS WORKSPACE:
+        </span>
 
-          return (
-            <button
-              key={provId}
-              type="button"
-              onClick={() => {
-                setSelectedProvider(provId);
-                setTestResult(null);
-                setGeneralError(null);
-                setImportNotification(null);
-                if (provId === 'local_fs') {
-                  onSelectEngine('local_fs');
-                } else {
-                  onSelectEngine('s3_blob');
-                }
-              }}
-              className={`p-2.5 text-left border-2 transition-all cursor-pointer flex flex-col justify-between ${
-                isSelected
-                  ? 'border-[var(--color-accent)] bg-black/40 shadow-[2px_2px_0px_var(--color-accent)]'
-                  : 'border-brutalist/40 bg-black/15 hover:border-brutalist hover:bg-black/25'
-              }`}
-            >
-              <div className="flex items-center justify-between w-full">
-                <span className="text-xs font-black uppercase tracking-tight text-[var(--color-text)]">
-                  {cfg.shortName}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {/* Tile 1: Local Disk Folder */}
+          <div
+            onClick={() => {
+              setSelectedProvider('local_fs');
+              setActiveConnId(undefined);
+              setShowNewConnectionForm(false);
+              onSelectEngine('local_fs');
+              if (localFolderName && localFolderKey) {
+                onSelectLocalFolder(localFolderName, localFolderKey);
+              }
+            }}
+            className={`p-2.5 border-2 text-left cursor-pointer transition-all flex flex-col justify-between ${
+              isLocalSelected
+                ? 'border-[var(--color-accent)] bg-black/40 shadow-[2px_2px_0px_var(--color-accent)]'
+                : 'border-brutalist/40 bg-black/15 hover:border-brutalist hover:bg-black/25'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FolderOpen size={14} className={isLocalSelected ? 'text-[var(--color-accent)]' : 'opacity-60'} />
+                <span className="text-xs font-black uppercase text-[var(--color-text)]">
+                  LOCAL DISK FOLDER
                 </span>
-                {isSelected && <Check size={13} className="text-[var(--color-accent)]" />}
               </div>
-              <div className="text-[9px] font-mono opacity-50 uppercase mt-1">
-                {cfg.tag}
-              </div>
-            </button>
-          );
-        })}
-      </div>
+              {isLocalSelected && (
+                <span className="text-[8px] bg-[var(--color-accent)] text-black px-1.5 py-0.5 font-bold uppercase">
+                  ACTIVE
+                </span>
+              )}
+            </div>
+            <div className="text-[9px] font-mono opacity-70 mt-1 truncate">
+              {localFolderName ? `Folder: ${localFolderName}` : 'Native Browser File System API'}
+            </div>
+          </div>
 
-      {/* Saved Connections Quick-Select */}
-      {activeSavedConnsForProvider.length > 0 && selectedProvider !== 'local_fs' && (
-        <div className="space-y-1.5 border border-brutalist/40 bg-black/30 p-2.5">
-          <span className="text-[9px] font-black uppercase text-[var(--color-accent)] block">
-            SAVED {currentProviderConfig?.shortName.toUpperCase()} CONNECTIONS ON YOUR PROFILE:
-          </span>
-          <div className="space-y-1">
-            {activeSavedConnsForProvider.map((conn) => {
-              const isSelected = currentConnectionId === conn.id;
-              return (
-                <div
-                  key={conn.id}
-                  onClick={() => onSelectCloudConnection(conn)}
-                  className={`p-2 border flex items-center justify-between cursor-pointer transition-all ${
-                    isSelected
-                      ? 'border-emerald-500 bg-emerald-500/10'
-                      : 'border-brutalist/40 bg-black/20 hover:border-brutalist hover:bg-black/40'
-                  }`}
-                >
+          {/* Tiles 2..N: User Saved Cloud Connections */}
+          {savedConnections.map((conn) => {
+            const isConnSelected = activeConnId === conn.id;
+            const cfg = STORAGE_PROVIDER_CONFIGS[conn.provider];
+            const bucketName =
+              conn.b2BucketName || conn.r2BucketName || conn.s3BucketName || conn.supabaseBucketName || '';
+
+            return (
+              <div
+                key={conn.id}
+                onClick={() => {
+                  handleSelectSavedConn(conn);
+                  setShowNewConnectionForm(false);
+                }}
+                className={`p-2.5 border-2 text-left cursor-pointer transition-all flex flex-col justify-between ${
+                  isConnSelected
+                    ? 'border-emerald-500 bg-emerald-500/10 shadow-[2px_2px_0px_#10B981]'
+                    : 'border-brutalist/40 bg-black/15 hover:border-brutalist hover:bg-black/25'
+                }`}
+              >
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 size={13} className={isSelected ? 'text-emerald-400' : 'opacity-40'} />
-                    <div>
-                      <div className="text-xs font-black text-[var(--color-text)] uppercase">{conn.label}</div>
-                      <div className="text-[9px] font-mono opacity-60">
-                        Bucket: {conn.b2BucketName || conn.r2BucketName || conn.s3BucketName || conn.supabaseBucketName}
-                        {conn.latencyMs ? ` · ${conn.latencyMs}ms` : ''}
-                      </div>
-                    </div>
+                    <CheckCircle2 size={14} className={isConnSelected ? 'text-emerald-400' : 'opacity-50'} />
+                    <span className="text-xs font-black uppercase text-[var(--color-text)] truncate max-w-[150px]">
+                      {conn.label}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {isSelected && (
-                      <span className="text-[8px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-1.5 py-0.5 font-bold uppercase">
+                  <div className="flex items-center gap-1.5">
+                    {isConnSelected && (
+                      <span className="text-[8px] bg-emerald-500 text-black px-1.5 py-0.5 font-bold uppercase">
                         ACTIVE
                       </span>
                     )}
                     <button
                       type="button"
                       onClick={(e) => handleDeleteSavedConnection(conn.id, e)}
-                      className="p-1 text-red-400 hover:bg-red-500/20 border border-red-500/30"
+                      className="p-1 text-red-400 hover:bg-red-500/20 border border-red-500/30 cursor-pointer"
                       title="Delete connection"
                     >
-                      <Trash2 size={11} />
+                      <Trash2 size={10} />
                     </button>
                   </div>
                 </div>
-              );
-            })}
+                <div className="text-[9px] font-mono opacity-70 mt-1 flex items-center justify-between">
+                  <span className="uppercase text-[var(--color-accent)]">{cfg?.shortName || conn.provider}</span>
+                  <span className="truncate max-w-[120px]">{bucketName} {conn.latencyMs ? `· ${conn.latencyMs}ms` : ''}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Toggle / Add New Connection Button */}
+        <button
+          type="button"
+          onClick={() => {
+            setShowNewConnectionForm(!showNewConnectionForm);
+            if (!showNewConnectionForm && selectedProvider === 'local_fs') {
+              setSelectedProvider('backblaze_b2');
+            }
+          }}
+          className="w-full py-1.5 px-2 border border-dashed border-brutalist/60 hover:border-[var(--color-accent)] bg-black/20 hover:bg-black/40 text-xs font-black uppercase flex items-center justify-center gap-1.5 cursor-pointer text-[var(--color-text)] mt-1"
+        >
+          <Plus size={12} className="text-[var(--color-accent)]" />
+          <span>{showNewConnectionForm ? 'HIDE CONNECT FORM' : '+ CONNECT ANOTHER STORAGE ENGINE'}</span>
+        </button>
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────
+          SECONDARY SECTION: LOCAL FOLDER EXPLORER SELECTION
+          ───────────────────────────────────────────────────────────── */}
+      {isLocalSelected && (
+        <div className="p-3 border border-brutalist/50 bg-black/25 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase text-[var(--color-accent)] flex items-center gap-1.5">
+              <FolderOpen size={13} />
+              LOCAL DISK FOLDER ATTACHMENT
+            </span>
+            <span className="text-[9px] font-mono opacity-60">OFFLINE FIRST</span>
+          </div>
+
+          {!isLocalFsSupported && (
+            <div className="p-2 border border-amber-500/40 bg-amber-500/10 text-amber-400 text-[10px]">
+              ⚠️ Your current browser does not support the native File System Access API. Chrome, Edge, or Opera recommended for local folder access.
+            </div>
+          )}
+
+          <div className="p-2.5 border-2 border-brutalist bg-black/40 flex items-center justify-between">
+            <div>
+              <span className="text-[9px] uppercase font-mono opacity-60 block">SELECTED FOLDER</span>
+              <span className="text-xs font-mono font-bold text-emerald-400">
+                {localFolderName || 'No local folder attached yet'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handlePickLocalFolder}
+              className="py-1.5 px-3 border-2 border-brutalist bg-[var(--color-accent)] text-black hover:bg-[#c5a059] font-black text-xs uppercase flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_var(--color-border)]"
+            >
+              <FolderOpen size={13} />
+              <span>{localFolderName ? 'CHANGE FOLDER' : 'SELECT FOLDER'}</span>
+            </button>
           </div>
         </div>
       )}
 
-      {/* Provider Details & Input Area */}
-      <div className="border border-brutalist/50 bg-black/25 p-3 space-y-3">
-        {/* LOCAL FOLDER AREA */}
-        {selectedProvider === 'local_fs' && (
-          <div className="space-y-2.5">
-            <div className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-[var(--color-accent)] flex items-center gap-1.5">
-                <FolderOpen size={13} />
-                BROWSER LOCAL DISK STORAGE
-              </span>
-              <p className="text-[11px] opacity-80 leading-snug">
-                Select any folder on your computer. When opening the app from the browser (Vercel or localhost),
-                the app connects directly to your local files using the standard File System Access API.
-              </p>
-            </div>
+      {/* ─────────────────────────────────────────────────────────────
+          TERTIARY SECTION: NEW CLOUD CONNECTION FORM
+          ───────────────────────────────────────────────────────────── */}
+      {showNewConnectionForm && (
+        <div className="border border-brutalist/60 bg-black/30 p-3 space-y-3">
+          <span className="text-[10px] font-black uppercase text-[var(--color-accent)] block">
+            CHOOSE PROVIDER TO CONNECT:
+          </span>
 
-            {!isLocalFsSupported && (
-              <div className="p-2 border border-amber-500/40 bg-amber-500/10 text-amber-400 text-[10px]">
-                ⚠️ Your current browser does not support the native File System Access API. Chrome, Edge, or Opera recommended for local folder access.
-              </div>
-            )}
+          {/* Provider Selector Tiles */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {ACTIVE_STORAGE_PROVIDERS.filter((p) => p !== 'local_fs').map((provId) => {
+              const cfg = STORAGE_PROVIDER_CONFIGS[provId];
+              const isSelected = selectedProvider === provId;
 
-            <div className="p-2.5 border-2 border-brutalist bg-black/40 flex items-center justify-between">
-              <div>
-                <span className="text-[9px] uppercase font-mono opacity-60 block">SELECTED LOCAL FOLDER</span>
-                <span className="text-xs font-mono font-bold text-emerald-400">
-                  {localFolderName || 'No folder selected yet'}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={handlePickLocalFolder}
-                className="py-1.5 px-3 border-2 border-brutalist bg-[var(--color-accent)] text-black hover:bg-[#c5a059] font-black text-xs uppercase flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_var(--color-border)]"
-              >
-                <FolderOpen size={13} />
-                <span>{localFolderName ? 'CHANGE FOLDER' : 'SELECT FOLDER'}</span>
-              </button>
-            </div>
-
-            {localFolderName && (
-              <p className="text-[9px] opacity-60 font-mono">
-                ✓ Handle stored in browser IndexedDB · Will auto-prompt permission on subsequent sessions.
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* CLOUD PROVIDERS (B2, R2, S3, Supabase) FORM */}
-        {selectedProvider !== 'local_fs' && currentProviderConfig && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-[10px] font-black uppercase text-[var(--color-accent)]">
-                  CONNECT NEW {currentProviderConfig.shortName.toUpperCase()} BUCKET
-                </span>
-                <p className="text-[10px] opacity-70 leading-tight mt-0.5">
-                  {currentProviderConfig.description}
-                </p>
-              </div>
-            </div>
-
-            {/* Connection Name */}
-            <div className="space-y-1">
-              <label className="text-[9px] font-black uppercase opacity-60 block">
-                Connection Label (e.g. My {currentProviderConfig.shortName} Vault)
-              </label>
-              <input
-                type="text"
-                value={connectionLabel}
-                onChange={(e) => setConnectionLabel(e.target.value)}
-                placeholder={`My ${currentProviderConfig.shortName} Vault`}
-                className="w-full bg-black border border-brutalist px-2 py-1.5 text-xs font-mono text-[var(--color-text)] focus:outline-none focus:border-[var(--color-accent)]"
-              />
-            </div>
-
-            {/* Backblaze Key Swap Warning Banner */}
-            {isBackblazeKeySwapped && (
-              <div className="p-2 border border-amber-500/50 bg-amber-500/10 text-amber-300 text-[10px] font-mono leading-tight">
-                ⚠️ Notice: In Backblaze B2, the <strong>Key ID</strong> is 25 characters (starts with 000–005), and the <strong>Application Key</strong> is the 31-character secret starting with K00. If entered in opposite fields, our engine will automatically swap and resolve them for you.
-              </div>
-            )}
-
-            {/* Dynamic Provider Fields */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {currentProviderConfig.fields.map((field) => (
-                <div key={field.key} className={field.key.includes('Key') || field.key.includes('Secret') || field.key.includes('Endpoint') ? 'sm:col-span-2' : ''}>
-                  <label className="text-[9px] font-black uppercase opacity-60 block mb-0.5">
-                    {field.label} {field.required && <span className="text-red-400">*</span>}
-                  </label>
-                  <input
-                    type={field.type}
-                    value={formData[field.key] || ''}
-                    onChange={(e) => handleFieldChange(field.key, e.target.value)}
-                    placeholder={field.placeholder}
-                    className="w-full bg-black border border-brutalist px-2 py-1.5 text-xs font-mono text-[var(--color-text)] focus:outline-none focus:border-[var(--color-accent)]"
-                  />
-                  {field.helpText && (
-                    <span className="text-[8px] opacity-50 font-mono block mt-0.5 leading-none">
-                      {field.helpText}
+              return (
+                <button
+                  key={provId}
+                  type="button"
+                  onClick={() => {
+                    setSelectedProvider(provId);
+                    setTestResult(null);
+                    setGeneralError(null);
+                  }}
+                  className={`p-2 text-left border transition-all cursor-pointer flex flex-col justify-between ${
+                    isSelected
+                      ? 'border-[var(--color-accent)] bg-black/60 shadow-[2px_2px_0px_var(--color-accent)]'
+                      : 'border-brutalist/40 bg-black/20 hover:border-brutalist hover:bg-black/30'
+                  }`}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <span className="text-xs font-black uppercase tracking-tight text-[var(--color-text)]">
+                      {cfg.shortName}
                     </span>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Test Result Display */}
-            {testResult && (
-              <div
-                className={`p-2 border text-xs font-mono flex items-start gap-2 ${
-                  testResult.ok
-                    ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400'
-                    : 'border-red-500/50 bg-red-500/10 text-red-400'
-                }`}
-              >
-                {testResult.ok ? (
-                  <CheckCircle2 size={14} className="shrink-0 mt-0.5" />
-                ) : (
-                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                )}
-                <div>
-                  <div className="font-bold uppercase">
-                    {testResult.ok ? `✓ CONNECTED SUCCESSFULLY (${testResult.latencyMs}ms latency)` : 'CONNECTIVITY FAILED'}
+                    {isSelected && <Check size={12} className="text-[var(--color-accent)]" />}
                   </div>
-                  {testResult.error && <div className="text-[10px] mt-1 whitespace-pre-line leading-relaxed">{testResult.error}</div>}
-                </div>
-              </div>
-            )}
-
-            {/* General Error */}
-            {generalError && (
-              <div className="p-2 border border-red-500/50 bg-red-500/10 text-red-400 text-[10px] font-mono">
-                {generalError}
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={handleTestConnection}
-                disabled={testing || saving}
-                className="py-1.5 px-3 border border-brutalist bg-black/40 hover:bg-black/70 font-black text-xs uppercase flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                <Activity size={12} className={testing ? 'animate-spin' : ''} />
-                <span>{testing ? 'PROBING...' : 'TEST CONNECTIVITY'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSaveAndUse}
-                disabled={testing || saving}
-                className="flex-1 py-1.5 px-3 border-2 border-brutalist bg-[var(--color-accent)] text-black hover:bg-[#c5a059] font-black text-xs uppercase flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-[2px_2px_0px_var(--color-border)]"
-              >
-                <Zap size={13} />
-                <span>{saving ? 'SAVING...' : 'SAVE & CONNECT STORAGE'}</span>
-              </button>
-            </div>
+                  <div className="text-[8px] font-mono opacity-50 uppercase mt-0.5">
+                    {cfg.tag}
+                  </div>
+                </button>
+              );
+            })}
           </div>
-        )}
-      </div>
+
+          {currentProviderConfig && selectedProvider !== 'local_fs' && (
+            <div className="space-y-3 pt-2 border-t border-brutalist/30">
+              {/* Connection Label */}
+              <div className="space-y-1">
+                <label className="text-[9px] font-black uppercase opacity-60 block">
+                  Connection Label (e.g. My {currentProviderConfig.shortName} Vault)
+                </label>
+                <input
+                  type="text"
+                  value={connectionLabel}
+                  onChange={(e) => setConnectionLabel(e.target.value)}
+                  placeholder={`My ${currentProviderConfig.shortName} Vault`}
+                  className="w-full bg-black border border-brutalist px-2 py-1.5 text-xs font-mono text-[var(--color-text)] focus:outline-none focus:border-[var(--color-accent)]"
+                />
+              </div>
+
+              {/* Backblaze Key Swap Warning Banner */}
+              {isBackblazeKeySwapped && (
+                <div className="p-2 border border-amber-500/50 bg-amber-500/10 text-amber-300 text-[10px] font-mono leading-tight">
+                  ⚠️ Notice: In Backblaze B2, the <strong>Key ID</strong> is 25 characters (starts with 000–005), and the <strong>Application Key</strong> is the 31-character secret starting with K00. Our engine will auto-detect and resolve the swap for you.
+                </div>
+              )}
+
+              {/* Dynamic Provider Fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {currentProviderConfig.fields.map((field) => (
+                  <div key={field.key} className={field.key.includes('Key') || field.key.includes('Secret') ? 'sm:col-span-2' : ''}>
+                    <label className="text-[9px] font-black uppercase opacity-60 block mb-0.5">
+                      {field.label} {field.required && <span className="text-red-400">*</span>}
+                    </label>
+                    <input
+                      type={field.type}
+                      value={formData[field.key] || ''}
+                      onChange={(e) => handleFieldChange(field.key, e.target.value)}
+                      placeholder={field.placeholder}
+                      className="w-full bg-black border border-brutalist px-2 py-1.5 text-xs font-mono text-[var(--color-text)] focus:outline-none focus:border-[var(--color-accent)]"
+                    />
+                    {field.helpText && (
+                      <span className="text-[8px] opacity-50 font-mono block mt-0.5 leading-none">
+                        {field.helpText}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Test Result Display */}
+              {testResult && (
+                <div
+                  className={`p-2 border text-xs font-mono flex items-start gap-2 ${
+                    testResult.ok
+                      ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400'
+                      : 'border-red-500/50 bg-red-500/10 text-red-400'
+                  }`}
+                >
+                  {testResult.ok ? (
+                    <CheckCircle2 size={14} className="shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                  )}
+                  <div>
+                    <div className="font-bold uppercase">
+                      {testResult.ok ? `✓ CONNECTED & ADDED AS ACTIVE TILE (${testResult.latencyMs}ms)` : 'CONNECTIVITY FAILED'}
+                    </div>
+                    {testResult.error && <div className="text-[10px] mt-1 whitespace-pre-line leading-relaxed">{testResult.error}</div>}
+                  </div>
+                </div>
+              )}
+
+              {/* General Error */}
+              {generalError && (
+                <div className="p-2 border border-red-500/50 bg-red-500/10 text-red-400 text-[10px] font-mono">
+                  {generalError}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleTestConnection}
+                  disabled={testing || saving}
+                  className="py-1.5 px-3 border-2 border-brutalist bg-[var(--color-accent)] text-black hover:bg-[#c5a059] font-black text-xs uppercase flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-[2px_2px_0px_var(--color-border)]"
+                >
+                  <Activity size={12} className={testing ? 'animate-spin' : ''} />
+                  <span>{testing ? 'TESTING & CONNECTING...' : 'TEST CONNECTIVITY & SET STORAGE'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSaveAndUse}
+                  disabled={testing || saving}
+                  className="py-1.5 px-3 border border-brutalist bg-black/40 hover:bg-black/70 font-black text-xs uppercase flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 text-[var(--color-text)]"
+                >
+                  <Zap size={13} />
+                  <span>{saving ? 'SAVING...' : 'SAVE MANUAL'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
