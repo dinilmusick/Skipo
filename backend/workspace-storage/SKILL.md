@@ -203,11 +203,13 @@ USER ──► APPLICATION ──► WorkspaceFS.write(path, data)
 4. **Dynamic Storage Options Selection & Cloud Bucket Initialization**:
    - Workspace creation dialogues MUST dynamically render user-connected storage options from `savedConnections`.
    - **FORBID static, unremovable "Local Disk Folder" default tiles**. Show only active user-configured storage options with live connectivity status.
-   - Upon creating a cloud workspace, automatically initialize the remote bucket hierarchy (`.docustack/workspace_manifest.json`, `.docustack/graph.json`, `.docustack/categories.json`, `.docustack/documents_index.json`, `inbox/WELCOME_TO_{workspace_name}.MD`).
+   - Upon creating a cloud workspace, automatically initialize the remote bucket hierarchy (`.docustack/workspace_manifest.json`, `.docustack/graph.json`, `.docustack/categories.json`, `.docustack/documents_index.json`, `Core_Kanban/To_Do/welcome_to_{workspace_name}.md`).
+   - **Idempotency Guard**: `initializeCloudWorkspaceBucket` must verify whether `.docustack/graph.json` exists in the bucket first to prevent overwriting user boards or cards upon workspace switches or re-logins.
 5. **Physical Folder & Kanban Board Cloud Directory Mandate**:
    - Every **Folder Node** created in a workspace graph MUST create a corresponding physical directory on disk and real object prefix in the cloud bucket (`${folderPrefix}/${cleanFolderName}/.keep` and `README.md`).
    - Every **Kanban Board** created in a workspace MUST create a dedicated board folder (`${folderPrefix}/${boardFolderName}/kanban_board.json`) with subfolders for each column (`To_Do/.keep`, `In_Progress/.keep`, `Done/.keep`).
    - Documents belonging to a board column must be stored physically inside `${boardFolderName}/${columnName}/${docName}.md`.
+   - **FORBID dummy fallback folders**: Never dump files into arbitrary legacy folders (`inbox`, `active`, `archive`).
 6. **Auto-Save Toggle & Universal `Cmd+S` / `Ctrl+S` Protocol**:
    - The primary application header MUST feature a prominent Auto-Save toggle button with live status indicators (`🟢 AUTO-SAVE ON`, `⚪ AUTO-SAVE OFF`, `⚡ SAVING...`, `✓ SAVED`, `● UNSAVED (CMD+S)`).
    - When Auto-Save is OFF, the system MUST listen for global `Cmd+S` (Mac) / `Ctrl+S` (Windows/Linux) to trigger an atomic full workspace sync (`POST /api/workspace` with `action: 'save_all'`).
@@ -217,6 +219,17 @@ USER ──► APPLICATION ──► WorkspaceFS.write(path, data)
    - All workspace mutation routes (`/api/graph`, `/api/categories`, `/api/documents`) MUST `await` all physical filesystem writes and cloud storage network operations (`writeCloudWorkspaceFile`, `syncFolderNodeToCloud`, `syncKanbanNodeToCloud`) prior to responding.
    - When switching or re-entering workspaces, loaders (`loadGraphFromFSAsync`, `loadCategoriesFromFSAsync`, `loadDocumentsFromFSAsync`) MUST read from Cloud Storage (`.docustack/graph.json`, `.docustack/categories.json`, `.docustack/documents_index.json`) when a cloud storage connection is active, cache them to disk, and restore the exact topology without resetting to default initial states.
    - Control plane user accounts (`accounts.json`, `revoked_sessions.json`, `audit_logs.json`) MUST NEVER be stored dynamically under a workspace path; they MUST reside in a fixed canonical root control plane directory (`docustack_vault/.docustack/control_plane`) so user and storage credential resolution survives workspace switches.
+8. **Physical Workspace Vault Explorer & Universal Cascade Deletion**:
+   - The Physical Workspace Vault Explorer (`WorkspaceExplorerModal`) provides bidirectional inspection and physical deletion of individual files and entire directories.
+   - **Single File Purge**: Unlinks the file from disk, purges it from cloud buckets (`deleteCloudWorkspaceFile`), and removes it from `documents_index.json`. The asset immediately disappears from the Kanban column, document table, and UI search.
+   - **Directory Cascade Purge**: Deletes all physical files and subfolders from disk, removes all cloud objects under that prefix (`deleteCloudWorkspaceFolder`), discovers and unlinks all contained documents from `documents_index.json`, and cascades deletion to:
+     - Attached Kanban Boards (`graph.json` node + edges + `categories.json` columns)
+     - Specific Kanban Columns (`categories.json`)
+     - Folder Nodes (`graph.json` node + edges)
+   - React state dispatches `handleAssetPurged` so the asset vanishes in real time across all tabs (Kanban, Graph, Documents, Media) without requiring a page reload.
+9. **Serverless Read-Only Filesystem Fallback & Fault Tolerance**:
+   - In serverless runtime environments (such as Vercel Lambdas where `process.cwd()` is read-only at `/var/task`), relative vault paths MUST resolve to `os.tmpdir()` (`/tmp/docustack`).
+   - All local disk writes (`fs.writeFileSync`, `fs.mkdirSync`, `fs.rmSync`, `fs.unlinkSync`) MUST be wrapped in safe `try/catch` blocks so that local filesystem write restrictions never abort HTTP requests or crash cloud bucket synchronization to Backblaze B2.
 
 ---
 

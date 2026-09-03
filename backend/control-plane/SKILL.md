@@ -119,15 +119,17 @@ CONTROL PLANE (Application-Owned)
 >    - **NEVER hardcode a static, unremovable "Local Disk Folder" tile** in the primary storage selector. If no storage options have been added yet, the UI must render an instructional empty state prompting the user to connect a cloud provider or local folder below.
 >    - Newly connected or tested storage options (`Test Connectivity & Set Storage`) MUST automatically register to `user.appProfiles.{appName}.storage_connections`, auto-select, and render immediately as active tiles.
 >    - `normalizeUserAccount` MUST strictly preserve `storage_connections` and `workspaces`, ensuring user accounts loaded from disk or database never drop connected storage options or reset workspace arrays to empty.
-> 9. **End-to-End Cloud Bucket Initialization & Workspace Menu Sync**:
+> 9. **End-to-End Cloud Bucket Initialization & Idempotency Guard**:
 >    - When creating a workspace backed by cloud storage (Backblaze B2, Cloudflare R2, AWS S3, Supabase), the server endpoint (`POST /api/auth/workspaces`) MUST immediately invoke `initializeCloudWorkspaceBucket`.
 >    - It must create the core vault files directly in the cloud bucket under the canonical folder prefix:
 >      - `.docustack/workspace_manifest.json`
 >      - `.docustack/graph.json`
 >      - `.docustack/categories.json`
 >      - `.docustack/documents_index.json`
->      - `inbox/WELCOME_TO_{workspace_name}.MD`
->    - The Workspace Tiles Menu MUST query `/api/auth/workspaces` on mount (`useEffect(() => { refreshWorkspaces(); }, [])`) and maintain functional state synchronization so newly created workspaces appear as active selectable tiles immediately.
+>      - `Core_Kanban/To_Do/welcome_to_{workspace_name}.md`
+>    - **Idempotency Guard**: `initializeCloudWorkspaceBucket` must never overwrite existing `.docustack/graph.json` or wipe user boards during workspace switches or re-logins.
+>    - **Physical Hierarchy Mapping**: Files map to actual boards and columns (`<Board>/<Column>/<file>.md`) or folder nodes (`<Folder>/<file>.md`). Dummy folders (`inbox`, `active`) are strictly prohibited.
+>    - **Cascade Asset Deletion**: Deletion of files or folders from the Physical Workspace Vault Explorer cascades across local disk, cloud storage, manifests, and live UI tabs without page refresh.
 > 10. **Decoupled Canonical Control Plane Storage Root Law**:
 >    - Control plane metadata files (`accounts.json`, `revoked_sessions.json`, `audit_logs.json`) are GLOBAL to the server tenant and MUST NEVER be co-located inside dynamic workspace paths.
 >    - Function `getControlPlaneDir()` MUST return a fixed path relative to project root (`path.join(process.cwd(), 'docustack_vault', '.docustack', 'control_plane')`) or `/tmp/.docustack/control_plane`.

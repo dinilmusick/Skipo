@@ -305,6 +305,8 @@ export type UserStorageProvider =
   | 'supabase_storage'
   | 'aws_s3';
 
+export type StorageRole = 'primary' | 'redundant_clone';
+
 /**
  * User-Scoped Storage Connection Record
  * Stores user-owned cloud storage credentials (Backblaze B2, Cloudflare R2, AWS S3, Supabase)
@@ -314,6 +316,8 @@ export interface UserStorageConnection {
   id: string;
   provider: UserStorageProvider;
   label: string;
+  role?: StorageRole;
+  enabled?: boolean;
   createdAt: string;
   updatedAt?: string;
   testedAt?: string;

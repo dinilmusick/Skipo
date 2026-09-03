@@ -216,6 +216,73 @@ export async function deleteCloudWorkspaceFile(
 }
 
 /**
+ * Recursively delete an entire folder and all contained objects in Cloud Storage
+ */
+export async function deleteCloudWorkspaceFolder(
+  conn: UserStorageConnection,
+  folderPrefix: string,
+  folderRelativePath: string
+): Promise<{ success: boolean; deletedCount: number }> {
+  const cleanRel = folderRelativePath.replace(/^\/+|\/+$/g, '');
+  if (!cleanRel) return { success: false, deletedCount: 0 };
+
+  const targetPrefix = buildKey(folderPrefix, cleanRel).replace(/\/+$/, '') + '/';
+  let deletedCount = 0;
+
+  try {
+    if (conn.provider === 'backblaze_b2' || conn.provider === 'cloudflare_r2' || conn.provider === 'aws_s3') {
+      const { s3, bucketName } = buildS3Client(conn);
+
+      const listRes = await s3.send(
+        new ListObjectsV2Command({
+          Bucket: bucketName,
+          Prefix: targetPrefix,
+        })
+      );
+
+      const objects = listRes.Contents || [];
+      if (objects.length > 0) {
+        for (const obj of objects) {
+          if (!obj.Key) continue;
+          try {
+            await s3.send(
+              new DeleteObjectCommand({
+                Bucket: bucketName,
+                Key: obj.Key,
+              })
+            );
+            deletedCount++;
+          } catch (e) {
+            console.warn(`[CloudStorage] Failed to delete object ${obj.Key}:`, e);
+          }
+        }
+      }
+      return { success: true, deletedCount };
+    }
+
+    if (conn.provider === 'supabase_storage') {
+      const url = (conn.supabaseUrl || '').trim();
+      const key = (conn.supabaseServiceKey || conn.supabaseAnonKey || '').trim();
+      const bucket = (conn.supabaseBucketName || '').trim();
+
+      const supabase = createClient(url, key, { auth: { persistSession: false } });
+      const { data } = await supabase.storage.from(bucket).list(targetPrefix);
+      if (data && data.length > 0) {
+        const keys = data.map((item) => `${targetPrefix}${item.name}`);
+        const { error } = await supabase.storage.from(bucket).remove(keys);
+        if (!error) deletedCount = keys.length;
+      }
+      return { success: true, deletedCount };
+    }
+  } catch (err) {
+    console.warn(`[CloudStorage] Error deleting cloud folder ${folderRelativePath}:`, err);
+    return { success: false, deletedCount };
+  }
+
+  return { success: false, deletedCount: 0 };
+}
+
+/**
  * Initialize a full workspace folder layout on Cloud Storage
  * Creates the canonical directory structure, manifests, graph topology, categories, and welcome document.
  */
@@ -228,6 +295,47 @@ export async function initializeCloudWorkspaceBucket(
   const cleanPrefix = folderPrefix.replace(/^\/+|\/+$/g, '');
   const filesCreated: string[] = [];
 
+  // CRITICAL IDEMPOTENCY GUARD:
+  // Check if .docustack/graph.json already exists in the cloud bucket.
+  // If it already exists, the workspace has already been created/configured with user nodes and cards.
+  // Never overwrite existing user data!
+  try {
+    const existingGraph = await readCloudWorkspaceFile(conn, cleanPrefix, '.docustack/graph.json');
+    if (existingGraph && existingGraph.trim().length > 0) {
+      return { success: true, filesCreated: [] };
+    }
+  } catch {
+    // If not found or read error, proceed with safe initialization
+  }
+
+  const boardTitle = 'Core_Kanban';
+  const initialCategories: DocCategory[] = [
+    {
+      id: 'cat-todo',
+      boardId: 'kanban-main',
+      title: 'To Do',
+      description: 'Tasks and documents to start',
+      glyph: 'Inbox',
+      color: '#3B82F6',
+    },
+    {
+      id: 'cat-progress',
+      boardId: 'kanban-main',
+      title: 'In Progress',
+      description: 'Active tasks and documents in progress',
+      glyph: 'Flame',
+      color: '#F97316',
+    },
+    {
+      id: 'cat-done',
+      boardId: 'kanban-main',
+      title: 'Done',
+      description: 'Completed items and documentation',
+      glyph: 'Shield',
+      color: '#10B981',
+    },
+  ];
+
   const manifest = {
     workspaceName,
     folderPrefix: cleanPrefix,
@@ -237,7 +345,11 @@ export async function initializeCloudWorkspaceBucket(
     owner: userName,
     ecosystem: 'ultrst',
     app: 'docustack',
-    directories: ['inbox', 'active', 'vault', 'archive', 'engineering'],
+    directories: [
+      `${boardTitle}/To_Do`,
+      `${boardTitle}/In_Progress`,
+      `${boardTitle}/Done`,
+    ],
   };
 
   const initialRootNode: GraphNode = {
@@ -253,29 +365,17 @@ export async function initializeCloudWorkspaceBucket(
     color: '#D4AF37',
   };
 
-  const initialCategories: DocCategory[] = [
-    {
-      id: 'cat-inbox',
-      title: 'Inbox',
-      description: 'Incoming unorganized documents & quick captures',
-      glyph: 'Inbox',
-      color: '#3B82F6',
-    },
-    {
-      id: 'cat-active',
-      title: 'Active Projects',
-      description: 'Ongoing documents and active workspaces',
-      glyph: 'Flame',
-      color: '#F97316',
-    },
-    {
-      id: 'cat-vault',
-      title: 'Vault Archive',
-      description: 'Long-term immutable knowledge storage',
-      glyph: 'Archive',
-      color: '#10B981',
-    },
-  ];
+  const initialBoardNode: GraphNode = {
+    id: 'node-core-kanban',
+    collectionId: 'kanban-main',
+    type: 'collection',
+    title: boardTitle,
+    x: 640,
+    y: 240,
+    glyph: 'Kanban',
+    tags: ['Kanban', 'Workflow'],
+    color: '#D4AF37',
+  };
 
   const safeWsTitle = workspaceName.toUpperCase().replace(/[^A-Z0-9_-]/g, '_');
   const welcomeDocContent = `# ${workspaceName}
@@ -287,13 +387,13 @@ Welcome to **${workspaceName}**, powered by DocuStack and connected to your user
 - **Initialized**: ${new Date().toLocaleString()}
 - **Ecosystem**: Ultrst Open Ecosystem
 
-All markdown notes, graph structures, tags, and media uploaded here are saved directly into your cloud storage bucket.
+All markdown notes, Kanban boards, folders, and documents uploaded here are saved directly into your cloud storage bucket.
 `;
 
   const initialDocuments: DocumentItem[] = [
     {
       id: 'doc-welcome',
-      categoryId: 'cat-inbox',
+      categoryId: 'cat-todo',
       title: `WELCOME_TO_${safeWsTitle}.MD`,
       description: `Cloud workspace guide for ${workspaceName}`,
       content: welcomeDocContent,
@@ -315,12 +415,12 @@ All markdown notes, graph structures, tags, and media uploaded here are saved di
   );
   filesCreated.push('.docustack/workspace_manifest.json');
 
-  // 2. Write graph.json with root node titled with workspaceName
+  // 2. Write graph.json with root and initial Kanban board node
   await writeCloudWorkspaceFile(
     conn,
     cleanPrefix,
     '.docustack/graph.json',
-    JSON.stringify({ nodes: [initialRootNode], edges: [], groups: [] }, null, 2),
+    JSON.stringify({ nodes: [initialRootNode, initialBoardNode], edges: [], groups: [] }, null, 2),
     'application/json'
   );
   filesCreated.push('.docustack/graph.json');
@@ -345,15 +445,28 @@ All markdown notes, graph structures, tags, and media uploaded here are saved di
   );
   filesCreated.push('.docustack/documents_index.json');
 
-  // 5. Write actual physical markdown file in inbox/
+  // 5. Create physical column directories with .keep
+  for (const col of initialCategories) {
+    const colFolder = getSafeCloudFolderName(col.title);
+    await writeCloudWorkspaceFile(
+      conn,
+      cleanPrefix,
+      `${boardTitle}/${colFolder}/.keep`,
+      '',
+      'text/plain'
+    );
+    filesCreated.push(`${boardTitle}/${colFolder}/.keep`);
+  }
+
+  // 6. Write actual welcome document into the To Do column of the Kanban board
   await writeCloudWorkspaceFile(
     conn,
     cleanPrefix,
-    `inbox/WELCOME_TO_${safeWsTitle}.MD`,
+    `${boardTitle}/To_Do/WELCOME_TO_${safeWsTitle}.MD`,
     welcomeDocContent,
     'text/markdown'
   );
-  filesCreated.push(`inbox/WELCOME_TO_${safeWsTitle}.MD`);
+  filesCreated.push(`${boardTitle}/To_Do/WELCOME_TO_${safeWsTitle}.MD`);
 
   return { success: true, filesCreated };
 }
@@ -540,4 +653,135 @@ export async function syncEntireWorkspaceToCloud(
   }
 
   return { success: true, syncedCount };
+}
+
+export interface FileTreeNode {
+  name: string;
+  relativePath: string;
+  absolutePath: string;
+  isDirectory: boolean;
+  sizeBytes?: number;
+  sizeFormatted?: string;
+  modifiedAt?: string;
+  children?: FileTreeNode[];
+}
+
+function formatBytes(bytes?: number): string {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
+/**
+ * Build a hierarchical FileTreeNode representation of user-owned Cloud Storage
+ * directly from Backblaze B2, Cloudflare R2, AWS S3, or Supabase.
+ */
+export async function buildCloudWorkspaceFileTree(
+  conn: UserStorageConnection,
+  folderPrefix: string
+): Promise<{ tree: FileTreeNode; stats: { fileCount: number; folderCount: number } }> {
+  const cleanPrefix = folderPrefix.replace(/^\/+|\/+$/g, '');
+  let files = await listCloudWorkspaceFiles(conn, cleanPrefix);
+
+  if (files.length === 0) {
+    try {
+      await initializeCloudWorkspaceBucket(conn, cleanPrefix, cleanPrefix, 'User');
+      files = await listCloudWorkspaceFiles(conn, cleanPrefix);
+    } catch (e) {
+      console.warn('[CloudStorage] Auto init during build tree fallback:', e);
+    }
+  }
+
+  const bucketLabel =
+    conn.provider === 'backblaze_b2'
+      ? `Backblaze B2: ${conn.b2BucketName || 'bucket'}`
+      : conn.provider === 'cloudflare_r2'
+      ? `Cloudflare R2: ${conn.r2BucketName || 'bucket'}`
+      : conn.provider === 'aws_s3'
+      ? `AWS S3: ${conn.s3BucketName || 'bucket'}`
+      : `Supabase: ${conn.supabaseBucketName || 'bucket'}`;
+
+  const root: FileTreeNode = {
+    name: cleanPrefix,
+    relativePath: '',
+    absolutePath: `[${bucketLabel}] / ${cleanPrefix}`,
+    isDirectory: true,
+    children: [],
+  };
+
+  let fileCount = 0;
+  let folderCount = 0;
+
+  for (const item of files) {
+    const cleanRel = item.name.replace(/^\/+/, '');
+    if (!cleanRel) continue;
+
+    // Filter out internal control plane metadata directory from user-facing tree
+    if (cleanRel.startsWith('.docustack/') || cleanRel === '.docustack') continue;
+
+    const parts = cleanRel.split('/');
+    let current = root;
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      const isLast = i === parts.length - 1;
+      const subRel = parts.slice(0, i + 1).join('/');
+
+      if (isLast) {
+        // Filter out S3 keep tokens so empty folders show up without cluttering file count
+        if (part === '.keep') continue;
+
+        // File node
+        if (!current.children) current.children = [];
+        let existingFile = current.children.find((c) => !c.isDirectory && c.name === part);
+        if (!existingFile) {
+          fileCount++;
+          current.children.push({
+            name: part,
+            relativePath: subRel,
+            absolutePath: `[${bucketLabel}] / ${cleanPrefix}/${subRel}`,
+            isDirectory: false,
+            sizeBytes: item.size,
+            sizeFormatted: formatBytes(item.size),
+            modifiedAt: item.lastModified ? item.lastModified.toLocaleDateString() : undefined,
+          });
+        }
+      } else {
+        // Directory node
+        if (!current.children) current.children = [];
+        let folder = current.children.find((c) => c.isDirectory && c.name === part);
+        if (!folder) {
+          folderCount++;
+          folder = {
+            name: part,
+            relativePath: subRel,
+            absolutePath: `[${bucketLabel}] / ${cleanPrefix}/${subRel}`,
+            isDirectory: true,
+            children: [],
+          };
+          current.children.push(folder);
+        }
+        current = folder;
+      }
+    }
+  }
+
+  function sortNode(node: FileTreeNode) {
+    if (!node.children) return;
+    node.children.sort((a, b) => {
+      if (a.isDirectory === b.isDirectory) {
+        return a.name.localeCompare(b.name);
+      }
+      return a.isDirectory ? -1 : 1;
+    });
+    node.children.forEach(sortNode);
+  }
+  sortNode(root);
+
+  return {
+    tree: root,
+    stats: { fileCount, folderCount },
+  };
 }

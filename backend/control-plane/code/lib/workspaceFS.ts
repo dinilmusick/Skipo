@@ -8,6 +8,7 @@ import {
   writeCloudWorkspaceFile,
   readCloudWorkspaceFile,
   deleteCloudWorkspaceFile,
+  deleteCloudWorkspaceFolder,
   initializeCloudWorkspaceBucket,
   syncFolderNodeToCloud,
   syncKanbanNodeToCloud,
@@ -360,12 +361,18 @@ let globalActiveStorageConn: UserStorageConnection | null = null;
 let globalActiveFolderPrefix: string | null = null;
 
 export function resolveCustomPath(rawPath: string): string {
+  const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+  const baseDir = isServerless ? path.join(os.tmpdir(), 'docustack') : process.cwd();
+
   if (!rawPath || rawPath.trim() === '') {
-    return path.join(process.cwd(), VAULT_DIR_NAME);
+    return path.join(baseDir, VAULT_DIR_NAME);
   }
   let clean = rawPath.trim();
   if (clean.startsWith('~')) {
     clean = path.join(os.homedir(), clean.slice(1));
+  }
+  if (isServerless && !path.isAbsolute(clean)) {
+    return path.resolve(baseDir, clean.replace(/^\.\//, ''));
   }
   return path.isAbsolute(clean) ? path.normalize(clean) : path.resolve(process.cwd(), clean);
 }
@@ -411,7 +418,7 @@ export function getVaultAbsolutePath(customPath?: string): string {
   if (globalActiveVaultPath) {
     return globalActiveVaultPath;
   }
-  return path.join(process.cwd(), VAULT_DIR_NAME);
+  return resolveCustomPath('');
 }
 
 export function ensureWorkspaceExists(customVaultPath?: string) {
@@ -422,15 +429,7 @@ export function ensureWorkspaceExists(customVaultPath?: string) {
       fs.mkdirSync(vaultPath, { recursive: true });
     }
 
-    const subDirs = ['inbox', 'active', 'vault', 'archive', 'engineering'];
-    for (const dir of subDirs) {
-      const p = path.join(vaultPath, dir);
-      if (!fs.existsSync(p)) {
-        fs.mkdirSync(p, { recursive: true });
-      }
-    }
-
-    // Create initial workspace meta directory
+    // Create initial workspace meta directory (internal control plane metadata)
     const metaDir = path.join(vaultPath, '.docustack');
     if (!fs.existsSync(metaDir)) {
       fs.mkdirSync(metaDir, { recursive: true });
@@ -463,84 +462,6 @@ export function ensureWorkspaceExists(customVaultPath?: string) {
   } catch (err) {
     console.warn('Workspace directory initialization bypassed due to read-only filesystem:', err);
   }
-}
-
-function seedInitialPhysicalDocuments(vaultPath: string) {
-  const metaDir = path.join(vaultPath, '.docustack');
-  const seededDocs: DocumentItem[] = [];
-
-  const initialFiles = [
-    {
-      doc: {
-        id: 'doc-welcome',
-        categoryId: 'cat-inbox',
-        title: 'WELCOME_TO_docustack_VAULT.MD',
-        description: 'Physical file system workspace guide & setup instructions',
-        fileType: 'code' as const,
-        fileSize: '4 KB',
-        uploadedAt: new Date().toISOString().split('T')[0],
-        tags: ['WORKSPACE', 'PHYSICAL_FS', 'VAULT'],
-        aiSummary: 'Welcome document saved directly inside the local docustack_vault physical file system.',
-      },
-      folder: 'inbox',
-      fileName: 'welcome_to_docustack_vault.md',
-      rawContent: `# docustack PHYSICAL WORKSPACE VAULT
-==================================================
-This workspace is backed by real file system read/write operations in Node.js.
-
-LOCATION: ${vaultPath}
-
-FEATURES:
-- Real-time disk sync for documents, folders, and stacks
-- Physical .md / .txt file reading & writing
-- D3-force graph layout persistence
-- Automatic AI analysis on real local documents
-
-Created automatically at server startup.`,
-    },
-    {
-      doc: INITIAL_DOCUMENTS[0],
-      folder: 'vault',
-      fileName: 'financial_ledger_q3.txt',
-      rawContent: INITIAL_DOCUMENTS[0].content,
-    },
-    {
-      doc: INITIAL_DOCUMENTS[1],
-      folder: 'active',
-      fileName: 'system_spec_gateway.md',
-      rawContent: INITIAL_DOCUMENTS[1].content,
-    },
-    {
-      doc: INITIAL_DOCUMENTS[2],
-      folder: 'vault',
-      fileName: 'protocol_security_nda.md',
-      rawContent: INITIAL_DOCUMENTS[2].content,
-    },
-    {
-      doc: INITIAL_DOCUMENTS[3],
-      folder: 'archive',
-      fileName: 'telemetry_log_v1.log',
-      rawContent: INITIAL_DOCUMENTS[3].content,
-    },
-  ];
-
-  for (const item of initialFiles) {
-    const dir = path.join(vaultPath, item.folder);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-
-    const filePath = path.join(dir, item.fileName);
-    const docItem: DocumentItem = {
-      ...item.doc,
-      content: item.rawContent,
-      fileUrl: filePath,
-    };
-
-    // Write physical file content to disk
-    fs.writeFileSync(filePath, item.rawContent, 'utf-8');
-    seededDocs.push(docItem);
-  }
-
-  fs.writeFileSync(path.join(metaDir, 'documents_index.json'), JSON.stringify(seededDocs, null, 2), 'utf-8');
 }
 
 // ----------------------------------------------------------------------
@@ -583,6 +504,124 @@ export function loadDocumentsFromFS(): DocumentItem[] {
   }
 }
 
+export async function loadDocumentsFromFSAsync(): Promise<DocumentItem[]> {
+  ensureWorkspaceExists();
+  const vaultPath = getVaultAbsolutePath();
+  const metaDir = path.join(vaultPath, '.docustack');
+  const indexFile = path.join(metaDir, 'documents_index.json');
+
+  if (globalActiveStorageConn && globalActiveFolderPrefix) {
+    try {
+      const cloudRaw = await readCloudWorkspaceFile(
+        globalActiveStorageConn,
+        globalActiveFolderPrefix,
+        '.docustack/documents_index.json'
+      );
+      if (cloudRaw) {
+        const cloudDocs: DocumentItem[] = JSON.parse(cloudRaw);
+        if (Array.isArray(cloudDocs) && cloudDocs.length > 0) {
+          try {
+            fs.writeFileSync(indexFile, cloudRaw, 'utf-8');
+          } catch {}
+          return cloudDocs;
+        }
+      }
+    } catch (e) {
+      console.warn('[CloudStorage] loadDocumentsFromFSAsync fallback:', e);
+    }
+  }
+
+  return loadDocumentsFromFS();
+}
+
+/**
+ * Dynamically resolves the physical directory and full relative path for a document
+ * based on the user's actual Kanban boards, categories (columns), and folder nodes.
+ *
+ * Pattern:
+ * - Kanban card: <Board_Folder>/<Column_Folder>/<filename>.md
+ * - Independent category card: <Category_Folder>/<filename>.md
+ * - Folder document: <Folder_Name>/<filename>.md
+ * - Root document: <filename>.md
+ *
+ * Never falls back to dummy legacy folders like 'inbox'.
+ */
+export function resolveDocumentStoragePath(
+  doc: DocumentItem,
+  categories?: DocCategory[],
+  nodes?: GraphNode[]
+): { folderPath: string; fullRelativePath: string; fileName: string } {
+  const currentCategories = categories || loadCategoriesFromFS();
+  let currentNodes = nodes;
+  if (!currentNodes) {
+    try {
+      currentNodes = loadGraphFromFS().nodes;
+    } catch {
+      currentNodes = [];
+    }
+  }
+
+  let folderPath = '';
+  const assignedCat = currentCategories.find((c) => c.id === doc.categoryId);
+
+  if (assignedCat) {
+    const catFolder = getSafeCloudFolderName(assignedCat.title);
+    if (assignedCat.boardId) {
+      const boardNode = currentNodes.find((n) => (n.collectionId || n.id) === assignedCat.boardId);
+      const boardFolder = getSafeCloudFolderName(boardNode?.title || 'Kanban_Board');
+      folderPath = `${boardFolder}/${catFolder}`;
+    } else {
+      folderPath = catFolder;
+    }
+  } else if (doc.categoryId) {
+    const folderNode = currentNodes.find(
+      (n) => n.id === doc.categoryId || n.title === doc.categoryId
+    );
+    if (folderNode) {
+      folderPath = getSafeCloudFolderName(folderNode.title);
+    }
+  }
+
+  const safeFileName = (doc.title || 'untitled')
+    .toLowerCase()
+    .replace(/[^a-z0-9_.-]/g, '_')
+    .concat(doc.title && doc.title.includes('.') ? '' : '.md');
+
+  const fullRelativePath = folderPath ? `${folderPath}/${safeFileName}` : safeFileName;
+
+  return { folderPath, fullRelativePath, fileName: safeFileName };
+}
+
+export async function saveDocumentToFSAsync(doc: DocumentItem): Promise<DocumentItem> {
+  const updatedDoc = saveDocumentToFS(doc);
+
+  if (globalActiveStorageConn && globalActiveFolderPrefix) {
+    const { fullRelativePath } = resolveDocumentStoragePath(doc);
+    const fileContent = doc.content || '# ' + doc.title;
+    try {
+      await writeCloudWorkspaceFile(
+        globalActiveStorageConn,
+        globalActiveFolderPrefix,
+        fullRelativePath,
+        fileContent,
+        doc.fileType === 'code' ? 'text/markdown' : 'text/plain'
+      );
+      const currentDocs = loadDocumentsFromFS();
+      await writeCloudWorkspaceFile(
+        globalActiveStorageConn,
+        globalActiveFolderPrefix,
+        '.docustack/documents_index.json',
+        JSON.stringify(currentDocs, null, 2),
+        'application/json'
+      );
+    } catch (err) {
+      console.warn('[CloudStorage] saveDocumentToFSAsync error:', err);
+    }
+  }
+
+  return updatedDoc;
+}
+
 export function saveDocumentToFS(doc: DocumentItem): DocumentItem {
   ensureWorkspaceExists();
   const vaultPath = getVaultAbsolutePath();
@@ -591,34 +630,38 @@ export function saveDocumentToFS(doc: DocumentItem): DocumentItem {
 
   const currentDocs = loadDocumentsFromFS();
   const existingIndex = currentDocs.findIndex((d) => d.id === doc.id);
+  const existingDoc = existingIndex >= 0 ? currentDocs[existingIndex] : undefined;
 
-  // Map category to subfolder
-  let folderName = 'inbox';
-  if (doc.categoryId === 'cat-active') folderName = 'active';
-  else if (doc.categoryId === 'cat-vault') folderName = 'vault';
-  else if (doc.categoryId === 'cat-archive') folderName = 'archive';
-  else if (doc.categoryId.includes('eng')) folderName = 'engineering';
+  const { folderPath, fullRelativePath } = resolveDocumentStoragePath(doc);
+  const physicalPath = path.join(vaultPath, fullRelativePath);
 
-  const folderPath = path.join(vaultPath, folderName);
-  if (!fs.existsSync(folderPath)) {
-    fs.mkdirSync(folderPath, { recursive: true });
+  let fileSizeFormatted = doc.fileSize || '1.0 KB';
+
+  try {
+    const targetDir = folderPath ? path.join(vaultPath, folderPath) : vaultPath;
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    // If document moved between categories/folders, unlink old physical path
+    if (existingDoc?.fileUrl && existingDoc.fileUrl !== physicalPath && fs.existsSync(existingDoc.fileUrl)) {
+      try {
+        fs.unlinkSync(existingDoc.fileUrl);
+      } catch {}
+    }
+
+    // Write content directly to physical disk file
+    fs.writeFileSync(physicalPath, doc.content || '# ' + doc.title, 'utf-8');
+    const stat = fs.statSync(physicalPath);
+    fileSizeFormatted = `${(stat.size / 1024).toFixed(1)} KB`;
+  } catch (fsErr) {
+    console.warn('[workspaceFS] Local document disk write bypassed (read-only filesystem):', fsErr);
   }
-
-  const safeFileName = doc.title
-    .toLowerCase()
-    .replace(/[^a-z0-9_.-]/g, '_')
-    .concat(doc.title.includes('.') ? '' : '.md');
-
-  const physicalPath = doc.fileUrl && fs.existsSync(doc.fileUrl) ? doc.fileUrl : path.join(folderPath, safeFileName);
-
-  // Write content directly to physical disk file
-  fs.writeFileSync(physicalPath, doc.content || '# ' + doc.title, 'utf-8');
-  const stat = fs.statSync(physicalPath);
 
   const updatedDoc: DocumentItem = {
     ...doc,
     fileUrl: physicalPath,
-    fileSize: `${(stat.size / 1024).toFixed(1)} KB`,
+    fileSize: fileSizeFormatted,
   };
 
   let updatedDocsList: DocumentItem[];
@@ -629,7 +672,9 @@ export function saveDocumentToFS(doc: DocumentItem): DocumentItem {
     updatedDocsList = [updatedDoc, ...currentDocs];
   }
 
-  fs.writeFileSync(indexFile, JSON.stringify(updatedDocsList, null, 2), 'utf-8');
+  try {
+    fs.writeFileSync(indexFile, JSON.stringify(updatedDocsList, null, 2), 'utf-8');
+  } catch {}
 
   // Sync directly to Cloud Storage (Backblaze B2, R2, S3, Supabase) if active
   if (globalActiveStorageConn && globalActiveFolderPrefix) {
@@ -637,10 +682,22 @@ export function saveDocumentToFS(doc: DocumentItem): DocumentItem {
     writeCloudWorkspaceFile(
       globalActiveStorageConn,
       globalActiveFolderPrefix,
-      `${folderName}/${safeFileName}`,
+      fullRelativePath,
       fileContent,
       doc.fileType === 'code' ? 'text/markdown' : 'text/plain'
     ).catch((err) => console.warn('[CloudStorage] write file error:', err));
+
+    // If file moved in cloud storage, remove old cloud object
+    if (existingDoc) {
+      const oldResolved = resolveDocumentStoragePath(existingDoc);
+      if (oldResolved.fullRelativePath !== fullRelativePath) {
+        deleteCloudWorkspaceFile(
+          globalActiveStorageConn,
+          globalActiveFolderPrefix,
+          oldResolved.fullRelativePath
+        ).catch(() => {});
+      }
+    }
 
     writeCloudWorkspaceFile(
       globalActiveStorageConn,
@@ -672,25 +729,18 @@ export function deleteDocumentFromFS(docId: string): boolean {
   }
 
   const remaining = currentDocs.filter((d) => d.id !== docId);
-  fs.writeFileSync(indexFile, JSON.stringify(remaining, null, 2), 'utf-8');
+  try {
+    fs.writeFileSync(indexFile, JSON.stringify(remaining, null, 2), 'utf-8');
+  } catch {}
 
   // Sync deletion to Cloud Storage if active
   if (globalActiveStorageConn && globalActiveFolderPrefix && target) {
-    let folderName = 'inbox';
-    if (target.categoryId === 'cat-active') folderName = 'active';
-    else if (target.categoryId === 'cat-vault') folderName = 'vault';
-    else if (target.categoryId === 'cat-archive') folderName = 'archive';
-    else if (target.categoryId.includes('eng')) folderName = 'engineering';
-
-    const safeFileName = target.title
-      .toLowerCase()
-      .replace(/[^a-z0-9_.-]/g, '_')
-      .concat(target.title.includes('.') ? '' : '.md');
+    const { fullRelativePath } = resolveDocumentStoragePath(target);
 
     deleteCloudWorkspaceFile(
       globalActiveStorageConn,
       globalActiveFolderPrefix,
-      `${folderName}/${safeFileName}`
+      fullRelativePath
     ).catch((err) => console.warn('[CloudStorage] delete file error:', err));
 
     writeCloudWorkspaceFile(
@@ -715,7 +765,9 @@ export function deleteCategoryAndDocumentsFromFS(categoryId: string): { purgedDo
   // 1. Remove category from categories.json
   const currentCategories = loadCategoriesFromFS();
   const remainingCategories = currentCategories.filter((c) => c.id !== categoryId);
-  fs.writeFileSync(catFile, JSON.stringify(remainingCategories, null, 2), 'utf-8');
+  try {
+    fs.writeFileSync(catFile, JSON.stringify(remainingCategories, null, 2), 'utf-8');
+  } catch {}
 
   // 2. Remove all documents matching categoryId from documents_index.json and unlink physical files
   const currentDocs = loadDocumentsFromFS();
@@ -731,9 +783,232 @@ export function deleteCategoryAndDocumentsFromFS(categoryId: string): { purgedDo
   }
 
   const remainingDocs = currentDocs.filter((d) => d.categoryId !== categoryId);
-  fs.writeFileSync(indexFile, JSON.stringify(remainingDocs, null, 2), 'utf-8');
+  try {
+    fs.writeFileSync(indexFile, JSON.stringify(remainingDocs, null, 2), 'utf-8');
+  } catch {}
 
   return { purgedDocsCount: docsToDelete.length, purgedCategory: true };
+}
+
+export interface PurgeAssetResult {
+  success: boolean;
+  purgedPath: string;
+  isDirectory: boolean;
+  purgedDocIds: string[];
+  purgedCategoryIds: string[];
+  purgedNodeIds: string[];
+  message: string;
+}
+
+/**
+ * Universal physical asset purger: handles deleting files OR entire folders from
+ * physical disk and cloud storage, cascading to manifests, categories, and graph nodes.
+ */
+export async function purgeAssetFromPhysicalWorkspace(relativePath: string): Promise<PurgeAssetResult> {
+  ensureWorkspaceExists();
+  const cleanRel = relativePath.replace(/^\/+|\/+$/g, '');
+  if (!cleanRel) {
+    return {
+      success: false,
+      purgedPath: relativePath,
+      isDirectory: false,
+      purgedDocIds: [],
+      purgedCategoryIds: [],
+      purgedNodeIds: [],
+      message: 'EMPTY_PATH',
+    };
+  }
+
+  const vaultPath = getVaultAbsolutePath();
+  const targetPath = path.normalize(path.join(vaultPath, cleanRel));
+
+  // Determine if target is a directory
+  let isDirectory = false;
+  if (fs.existsSync(targetPath)) {
+    try {
+      isDirectory = fs.statSync(targetPath).isDirectory();
+    } catch {}
+  } else {
+    // If not on local disk (e.g. cloud-only/serverless), check extension
+    const hasExt = path.extname(cleanRel).length > 0;
+    isDirectory = !hasExt;
+  }
+
+  const purgedDocIds: string[] = [];
+  const purgedCategoryIds: string[] = [];
+  const purgedNodeIds: string[] = [];
+
+  const currentDocs = loadDocumentsFromFS();
+  let remainingDocs = [...currentDocs];
+
+  if (isDirectory) {
+    // 1. Discover all documents whose storage path resides inside this directory
+    const folderPrefixWithSlash = `${cleanRel}/`;
+    for (const doc of currentDocs) {
+      const { fullRelativePath } = resolveDocumentStoragePath(doc);
+      if (fullRelativePath.startsWith(folderPrefixWithSlash) || fullRelativePath === cleanRel) {
+        purgedDocIds.push(doc.id);
+      }
+    }
+
+    remainingDocs = currentDocs.filter((d) => !purgedDocIds.includes(d.id));
+
+    // 2. Remove directory from local disk
+    try {
+      if (fs.existsSync(targetPath)) {
+        fs.rmSync(targetPath, { recursive: true, force: true });
+      }
+    } catch (e) {
+      console.warn('[workspaceFS] Local folder rmSync warning:', e);
+    }
+
+    // 3. Remove from Cloud Storage
+    if (globalActiveStorageConn && globalActiveFolderPrefix) {
+      try {
+        await deleteCloudWorkspaceFolder(globalActiveStorageConn, globalActiveFolderPrefix, cleanRel);
+      } catch (cloudErr) {
+        console.warn('[CloudStorage] deleteCloudWorkspaceFolder warning:', cloudErr);
+      }
+    }
+
+    // 4. Check if directory maps to a Kanban Board, Kanban Column, or Folder Node
+    const currentCategories = loadCategoriesFromFS();
+    let updatedCategories = [...currentCategories];
+
+    const currentGraph = await loadGraphFromFSAsync();
+    let updatedNodes = [...currentGraph.nodes];
+    let updatedEdges = [...currentGraph.edges];
+
+    // Check if matching a Board node
+    const matchingBoardNode = currentGraph.nodes.find(
+      (n) =>
+        (n.type === 'collection' || n.glyph === 'Kanban') &&
+        (getSafeCloudFolderName(n.title) === cleanRel || n.title === cleanRel)
+    );
+
+    if (matchingBoardNode) {
+      const boardId = matchingBoardNode.collectionId || matchingBoardNode.id;
+      purgedNodeIds.push(matchingBoardNode.id);
+      updatedNodes = updatedNodes.filter((n) => n.id !== matchingBoardNode.id);
+      updatedEdges = updatedEdges.filter(
+        (e) => e.source !== matchingBoardNode.id && e.target !== matchingBoardNode.id
+      );
+
+      // Purge all categories associated with this board
+      const boardCategories = currentCategories.filter((c) => c.boardId === boardId);
+      for (const cat of boardCategories) {
+        purgedCategoryIds.push(cat.id);
+      }
+      updatedCategories = updatedCategories.filter((c) => c.boardId !== boardId);
+    }
+
+    // Check if matching a Folder Node on canvas
+    const matchingFolderNode = currentGraph.nodes.find(
+      (n) =>
+        (n.type === 'folder' || n.glyph === 'Folder') &&
+        (getSafeCloudFolderName(n.title) === cleanRel || n.title === cleanRel)
+    );
+    if (matchingFolderNode) {
+      purgedNodeIds.push(matchingFolderNode.id);
+      updatedNodes = updatedNodes.filter((n) => n.id !== matchingFolderNode.id);
+      updatedEdges = updatedEdges.filter(
+        (e) => e.source !== matchingFolderNode.id && e.target !== matchingFolderNode.id
+      );
+    }
+
+    // Check if matching a specific Kanban Column (e.g. "BoardName/ColumnName" or "ColumnName")
+    const matchingCategory = currentCategories.find((c) => {
+      const safeCat = getSafeCloudFolderName(c.title);
+      if (c.boardId) {
+        const bNode = currentGraph.nodes.find((n) => (n.collectionId || n.id) === c.boardId);
+        if (bNode) {
+          const bFolder = getSafeCloudFolderName(bNode.title || 'Kanban_Board');
+          return `${bFolder}/${safeCat}` === cleanRel || `${bFolder}/${c.title}` === cleanRel;
+        }
+      }
+      return safeCat === cleanRel || c.title === cleanRel;
+    });
+
+    if (matchingCategory) {
+      purgedCategoryIds.push(matchingCategory.id);
+      updatedCategories = updatedCategories.filter((c) => c.id !== matchingCategory.id);
+    }
+
+    // Save updated categories and graph
+    try {
+      saveCategoriesToFS(updatedCategories);
+    } catch {}
+    try {
+      await saveGraphToFSAsync(updatedNodes, updatedEdges, currentGraph.groups || []);
+    } catch {}
+
+  } else {
+    // Single file deletion
+    // 1. Discover matching document
+    for (const doc of currentDocs) {
+      const { fullRelativePath } = resolveDocumentStoragePath(doc);
+      if (
+        fullRelativePath === cleanRel ||
+        path.basename(fullRelativePath) === path.basename(cleanRel) ||
+        (doc.fileUrl && (doc.fileUrl.endsWith(cleanRel) || doc.fileUrl === targetPath))
+      ) {
+        purgedDocIds.push(doc.id);
+      }
+    }
+
+    remainingDocs = currentDocs.filter((d) => !purgedDocIds.includes(d.id));
+
+    // 2. Remove physical file from local disk
+    try {
+      if (fs.existsSync(targetPath)) {
+        fs.unlinkSync(targetPath);
+      }
+    } catch (e) {
+      console.warn('[workspaceFS] Local file unlink warning:', e);
+    }
+
+    // 3. Remove from Cloud Storage
+    if (globalActiveStorageConn && globalActiveFolderPrefix) {
+      try {
+        await deleteCloudWorkspaceFile(globalActiveStorageConn, globalActiveFolderPrefix, cleanRel);
+      } catch (cloudErr) {
+        console.warn('[CloudStorage] deleteCloudWorkspaceFile warning:', cloudErr);
+      }
+    }
+  }
+
+  // 4. Save updated documents_index.json to disk and cloud
+  const metaDir = path.join(vaultPath, '.docustack');
+  const indexFile = path.join(metaDir, 'documents_index.json');
+  try {
+    fs.writeFileSync(indexFile, JSON.stringify(remainingDocs, null, 2), 'utf-8');
+  } catch {}
+
+  if (globalActiveStorageConn && globalActiveFolderPrefix) {
+    try {
+      await writeCloudWorkspaceFile(
+        globalActiveStorageConn,
+        globalActiveFolderPrefix,
+        '.docustack/documents_index.json',
+        JSON.stringify(remainingDocs, null, 2),
+        'application/json'
+      );
+    } catch (cloudErr) {
+      console.warn('[CloudStorage] documents_index update error:', cloudErr);
+    }
+  }
+
+  return {
+    success: true,
+    purgedPath: cleanRel,
+    isDirectory,
+    purgedDocIds,
+    purgedCategoryIds,
+    purgedNodeIds,
+    message: isDirectory
+      ? `DIRECTORY "${cleanRel}" AND CASCADED ASSETS PURGED`
+      : `FILE "${cleanRel}" PURGED FROM WORKSPACE`,
+  };
 }
 
 // ----------------------------------------------------------------------
@@ -755,20 +1030,108 @@ export function loadCategoriesFromFS(): DocCategory[] {
   }
 }
 
+export async function loadCategoriesFromFSAsync(): Promise<DocCategory[]> {
+  ensureWorkspaceExists();
+  const vaultPath = getVaultAbsolutePath();
+  const metaDir = path.join(vaultPath, '.docustack');
+  const file = path.join(metaDir, 'categories.json');
+
+  if (globalActiveStorageConn && globalActiveFolderPrefix) {
+    try {
+      const cloudRaw = await readCloudWorkspaceFile(
+        globalActiveStorageConn,
+        globalActiveFolderPrefix,
+        '.docustack/categories.json'
+      );
+      if (cloudRaw) {
+        const cloudCats: DocCategory[] = JSON.parse(cloudRaw);
+        if (Array.isArray(cloudCats) && cloudCats.length > 0) {
+          try {
+            fs.writeFileSync(file, cloudRaw, 'utf-8');
+          } catch {}
+          return cloudCats;
+        }
+      }
+    } catch (e) {
+      console.warn('[CloudStorage] loadCategoriesFromFSAsync fallback:', e);
+    }
+  }
+
+  return loadCategoriesFromFS();
+}
+
+export async function saveCategoriesToFSAsync(categories: DocCategory[]): Promise<void> {
+  saveCategoriesToFS(categories);
+
+  if (globalActiveStorageConn && globalActiveFolderPrefix) {
+    try {
+      await writeCloudWorkspaceFile(
+        globalActiveStorageConn,
+        globalActiveFolderPrefix,
+        '.docustack/categories.json',
+        JSON.stringify(categories, null, 2),
+        'application/json'
+      );
+
+      for (const cat of categories) {
+        const safeCat = getSafeCloudFolderName(cat.title);
+        let catRelPath = safeCat;
+        if (cat.boardId) {
+          try {
+            const allNodes = loadGraphFromFS().nodes;
+            const boardNode = allNodes.find((n) => (n.collectionId || n.id) === cat.boardId);
+            if (boardNode) {
+              const boardFolder = getSafeCloudFolderName(boardNode.title || 'Kanban_Board');
+              catRelPath = `${boardFolder}/${safeCat}`;
+            }
+          } catch {}
+        }
+        await writeCloudWorkspaceFile(
+          globalActiveStorageConn,
+          globalActiveFolderPrefix,
+          `${catRelPath}/.keep`,
+          '',
+          'text/plain'
+        ).catch(() => {});
+      }
+    } catch (err) {
+      console.warn('[CloudStorage] saveCategoriesToFSAsync error:', err);
+    }
+  }
+}
+
 export function saveCategoriesToFS(categories: DocCategory[]) {
   ensureWorkspaceExists();
   const vaultPath = getVaultAbsolutePath();
   const metaDir = path.join(vaultPath, '.docustack');
   const file = path.join(metaDir, 'categories.json');
-  fs.writeFileSync(file, JSON.stringify(categories, null, 2), 'utf-8');
 
-  // Ensure category subfolders exist on physical disk
-  for (const cat of categories) {
-    const safeCat = getSafeCloudFolderName(cat.title);
-    const catDir = path.join(vaultPath, safeCat);
-    if (!fs.existsSync(catDir)) {
-      try { fs.mkdirSync(catDir, { recursive: true }); } catch {}
+  let allNodes: GraphNode[] = [];
+  try {
+    allNodes = loadGraphFromFS().nodes;
+  } catch {}
+
+  try {
+    fs.writeFileSync(file, JSON.stringify(categories, null, 2), 'utf-8');
+
+    // Ensure category subfolders exist on physical disk
+    for (const cat of categories) {
+      const safeCat = getSafeCloudFolderName(cat.title);
+      let catRelPath = safeCat;
+      if (cat.boardId) {
+        const boardNode = allNodes.find((n) => (n.collectionId || n.id) === cat.boardId);
+        if (boardNode) {
+          const boardFolder = getSafeCloudFolderName(boardNode.title || 'Kanban_Board');
+          catRelPath = `${boardFolder}/${safeCat}`;
+        }
+      }
+      const catDir = path.join(vaultPath, catRelPath);
+      if (!fs.existsSync(catDir)) {
+        try { fs.mkdirSync(catDir, { recursive: true }); } catch {}
+      }
     }
+  } catch (fsErr) {
+    console.warn('[workspaceFS] Local disk categories save bypassed (read-only filesystem):', fsErr);
   }
 
   if (globalActiveStorageConn && globalActiveFolderPrefix) {
@@ -782,10 +1145,18 @@ export function saveCategoriesToFS(categories: DocCategory[]) {
 
     for (const cat of categories) {
       const safeCat = getSafeCloudFolderName(cat.title);
+      let catRelPath = safeCat;
+      if (cat.boardId) {
+        const boardNode = allNodes.find((n) => (n.collectionId || n.id) === cat.boardId);
+        if (boardNode) {
+          const boardFolder = getSafeCloudFolderName(boardNode.title || 'Kanban_Board');
+          catRelPath = `${boardFolder}/${safeCat}`;
+        }
+      }
       writeCloudWorkspaceFile(
         globalActiveStorageConn,
         globalActiveFolderPrefix,
-        `${safeCat}/.keep`,
+        `${catRelPath}/.keep`,
         '',
         'text/plain'
       ).catch(() => {});
@@ -802,8 +1173,7 @@ export function syncStickyNoteToDisk(node: GraphNode): GraphNode {
 
   ensureWorkspaceExists();
   const vaultPath = getVaultAbsolutePath();
-  const inboxDir = path.join(vaultPath, 'inbox');
-  if (!fs.existsSync(inboxDir)) fs.mkdirSync(inboxDir, { recursive: true });
+  const notesDir = path.join(vaultPath, 'notes');
 
   const safeName = (node.id || 'quick_note')
     .toLowerCase()
@@ -811,18 +1181,21 @@ export function syncStickyNoteToDisk(node: GraphNode): GraphNode {
     .replace(/\.txt$/i, '');
   
   const fileName = `${safeName}.txt`;
-  const filePath = path.join(inboxDir, fileName);
+  const filePath = path.join(notesDir, fileName);
 
   const fileContent = node.content || '';
 
   try {
+    if (!fs.existsSync(notesDir)) {
+      fs.mkdirSync(notesDir, { recursive: true });
+    }
     fs.writeFileSync(filePath, fileContent, 'utf-8');
     return {
       ...node,
       txtFilePath: filePath,
     };
   } catch (err) {
-    console.error('Error writing sticky note to disk:', err);
+    console.warn('[workspaceFS] Sticky note local write bypassed:', err);
     return node;
   }
 }
@@ -844,9 +1217,11 @@ export function loadGraphFromFS(): { nodes: GraphNode[]; edges: GraphEdge[]; gro
   try {
     const raw = fs.readFileSync(file, 'utf-8');
     const data = JSON.parse(raw);
-    const nodes = (data.nodes || defaultNodes).map((n: GraphNode) => {
-      const updated = n.isWorkspaceRoot ? { ...n, workspacePath: vaultPath, title: globalActiveVaultName || n.title } : n;
-      // Re-read content for sticky notes if file exists
+    const nodes: GraphNode[] = (data.nodes || defaultNodes).map((n: GraphNode) => {
+      let updated = { ...n };
+      if (updated.isWorkspaceRoot && globalActiveVaultName) {
+        updated.title = globalActiveVaultName;
+      }
       if (updated.type === 'sticky' && updated.txtFilePath && fs.existsSync(updated.txtFilePath)) {
         try {
           updated.content = fs.readFileSync(updated.txtFilePath, 'utf-8');
@@ -859,6 +1234,96 @@ export function loadGraphFromFS(): { nodes: GraphNode[]; edges: GraphEdge[]; gro
     return { nodes, edges: data.edges || INITIAL_EDGES, groups: data.groups || [] };
   } catch {
     return { nodes: defaultNodes, edges: INITIAL_EDGES, groups: [] };
+  }
+}
+
+export async function loadGraphFromFSAsync(): Promise<{
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  groups: GraphGroup[];
+}> {
+  ensureWorkspaceExists();
+  const vaultPath = getVaultAbsolutePath();
+  const metaDir = path.join(vaultPath, '.docustack');
+  const file = path.join(metaDir, 'graph.json');
+
+  if (globalActiveStorageConn && globalActiveFolderPrefix) {
+    try {
+      const cloudRaw = await readCloudWorkspaceFile(
+        globalActiveStorageConn,
+        globalActiveFolderPrefix,
+        '.docustack/graph.json'
+      );
+      if (cloudRaw) {
+        const cloudData = JSON.parse(cloudRaw);
+        if (cloudData && Array.isArray(cloudData.nodes) && cloudData.nodes.length > 0) {
+          const mappedNodes = cloudData.nodes.map((n: GraphNode) => {
+            if (n.isWorkspaceRoot && globalActiveVaultName) {
+              return { ...n, title: globalActiveVaultName, workspacePath: globalActiveVaultPath || n.workspacePath };
+            }
+            return n;
+          });
+          try {
+            fs.writeFileSync(
+              file,
+              JSON.stringify({ nodes: mappedNodes, edges: cloudData.edges || [], groups: cloudData.groups || [] }, null, 2),
+              'utf-8'
+            );
+          } catch {}
+          return {
+            nodes: mappedNodes,
+            edges: cloudData.edges || INITIAL_EDGES,
+            groups: cloudData.groups || [],
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('[CloudStorage] loadGraphFromFSAsync fallback:', e);
+    }
+  }
+
+  return loadGraphFromFS();
+}
+
+export async function saveGraphToFSAsync(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  groups: GraphGroup[] = []
+): Promise<void> {
+  saveGraphToFS(nodes, edges, groups);
+
+  if (globalActiveStorageConn && globalActiveFolderPrefix) {
+    const syncedNodes = nodes.map((n) => {
+      let current = n.type === 'sticky' ? syncStickyNoteToDisk(n) : n;
+      if (current.isWorkspaceRoot && globalActiveVaultName) {
+        current = { ...current, title: globalActiveVaultName };
+      }
+      return current;
+    });
+
+    try {
+      await writeCloudWorkspaceFile(
+        globalActiveStorageConn,
+        globalActiveFolderPrefix,
+        '.docustack/graph.json',
+        JSON.stringify({ nodes: syncedNodes, edges, groups }, null, 2),
+        'application/json'
+      );
+
+      const allCategories = loadCategoriesFromFS();
+      for (const n of syncedNodes) {
+        if (n.isWorkspaceRoot) continue;
+        if (n.type === 'folder' || n.glyph === 'Folder') {
+          await syncFolderNodeToCloud(globalActiveStorageConn, globalActiveFolderPrefix, n);
+        } else if (n.type === 'collection' || n.glyph === 'Kanban') {
+          const boardId = n.collectionId || n.id;
+          const boardCols = allCategories.filter((c) => c.boardId === boardId);
+          await syncKanbanNodeToCloud(globalActiveStorageConn, globalActiveFolderPrefix, n, boardCols);
+        }
+      }
+    } catch (err) {
+      console.warn('[CloudStorage] saveGraphToFSAsync error:', err);
+    }
   }
 }
 
@@ -876,37 +1341,51 @@ export function saveGraphToFS(nodes: GraphNode[], edges: GraphEdge[], groups: Gr
     return current;
   });
 
-  fs.writeFileSync(file, JSON.stringify({ nodes: syncedNodes, edges, groups }, null, 2), 'utf-8');
+  const allCategories = loadCategoriesFromFS();
 
-  // Ensure physical directory and README exist on disk for each folder and kanban collection
-  const vaultPath = getVaultAbsolutePath();
-  for (const n of syncedNodes) {
-    if (n.isWorkspaceRoot) continue;
-    const safeTitle = getSafeCloudFolderName(n.title);
-    if (n.type === 'folder' || n.glyph === 'Folder') {
-      const folderDir = path.join(vaultPath, safeTitle);
-      if (!fs.existsSync(folderDir)) {
-        try { fs.mkdirSync(folderDir, { recursive: true }); } catch {}
-      }
-      const readmePath = path.join(folderDir, 'README.md');
-      if (!fs.existsSync(readmePath)) {
-        try {
-          fs.writeFileSync(readmePath, `# ${n.title}\nFolder created in DocuStack.\n`, 'utf-8');
-        } catch {}
-      }
-    } else if (n.type === 'collection' || n.glyph === 'Kanban') {
-      const kanbanDir = path.join(vaultPath, safeTitle);
-      if (!fs.existsSync(kanbanDir)) {
-        try { fs.mkdirSync(kanbanDir, { recursive: true }); } catch {}
-      }
-      const cols = ['To_Do', 'In_Progress', 'Done'];
-      for (const col of cols) {
-        const colDir = path.join(kanbanDir, col);
-        if (!fs.existsSync(colDir)) {
-          try { fs.mkdirSync(colDir, { recursive: true }); } catch {}
+  try {
+    fs.writeFileSync(file, JSON.stringify({ nodes: syncedNodes, edges, groups }, null, 2), 'utf-8');
+
+    // Ensure physical directory and README exist on disk for each folder and kanban collection
+    const vaultPath = getVaultAbsolutePath();
+
+    for (const n of syncedNodes) {
+      if (n.isWorkspaceRoot) continue;
+      const safeTitle = getSafeCloudFolderName(n.title);
+      if (n.type === 'folder' || n.glyph === 'Folder') {
+        const folderDir = path.join(vaultPath, safeTitle);
+        if (!fs.existsSync(folderDir)) {
+          try { fs.mkdirSync(folderDir, { recursive: true }); } catch {}
+        }
+        const readmePath = path.join(folderDir, 'README.md');
+        if (!fs.existsSync(readmePath)) {
+          try {
+            fs.writeFileSync(readmePath, `# ${n.title}\nFolder created in DocuStack.\n`, 'utf-8');
+          } catch {}
+        }
+      } else if (n.type === 'collection' || n.glyph === 'Kanban') {
+        const kanbanDir = path.join(vaultPath, safeTitle);
+        if (!fs.existsSync(kanbanDir)) {
+          try { fs.mkdirSync(kanbanDir, { recursive: true }); } catch {}
+        }
+        const boardId = n.collectionId || n.id;
+        const boardCols = allCategories.filter((c) => c.boardId === boardId);
+        const colsToEnsure = boardCols.length > 0 ? boardCols : [
+          { id: 'todo', title: 'To Do' },
+          { id: 'progress', title: 'In Progress' },
+          { id: 'done', title: 'Done' },
+        ];
+        for (const col of colsToEnsure) {
+          const colFolder = getSafeCloudFolderName(col.title);
+          const colDir = path.join(kanbanDir, colFolder);
+          if (!fs.existsSync(colDir)) {
+            try { fs.mkdirSync(colDir, { recursive: true }); } catch {}
+          }
         }
       }
     }
+  } catch (fsErr) {
+    console.warn('[workspaceFS] Local disk graph save bypassed (read-only or restricted filesystem):', fsErr);
   }
 
   // Sync to Cloud Storage if active
@@ -925,7 +1404,9 @@ export function saveGraphToFS(nodes: GraphNode[], edges: GraphEdge[], groups: Gr
         syncFolderNodeToCloud(globalActiveStorageConn, globalActiveFolderPrefix, n)
           .catch((err) => console.warn(`[CloudStorage] syncFolderNode error for ${n.title}:`, err));
       } else if (n.type === 'collection' || n.glyph === 'Kanban') {
-        syncKanbanNodeToCloud(globalActiveStorageConn, globalActiveFolderPrefix, n)
+        const boardId = n.collectionId || n.id;
+        const boardCols = allCategories.filter((c) => c.boardId === boardId);
+        syncKanbanNodeToCloud(globalActiveStorageConn, globalActiveFolderPrefix, n, boardCols)
           .catch((err) => console.warn(`[CloudStorage] syncKanbanNode error for ${n.title}:`, err));
       }
     }
@@ -946,10 +1427,18 @@ export async function syncEntireWorkspaceToDiskAndCloud(data: {
   ensureWorkspaceExists();
 
   // 1. Save Graph
-  saveGraphToFS(data.nodes, data.edges, data.groups || []);
+  try {
+    saveGraphToFS(data.nodes, data.edges, data.groups || []);
+  } catch (err) {
+    console.warn('[syncEntireWorkspace] Local saveGraphToFS warning:', err);
+  }
 
   // 2. Save Categories
-  saveCategoriesToFS(data.categories);
+  try {
+    saveCategoriesToFS(data.categories);
+  } catch (err) {
+    console.warn('[syncEntireWorkspace] Local saveCategoriesToFS warning:', err);
+  }
 
   // 3. Save Documents
   for (const doc of data.documents) {
@@ -1008,7 +1497,7 @@ export function getWorkspaceFileTree(): FileTreeNode {
     const nodes: FileTreeNode[] = [];
 
     for (const entry of entries) {
-      if (entry.name === '.docustack') continue; // Hide internal meta directory from tree view
+      if (entry.name === '.docustack' || entry.name === '.keep') continue; // Hide internal meta directory & keep tokens from tree view
 
       const fullPath = path.join(dirPath, entry.name);
       const relative = path.join(relPath, entry.name);

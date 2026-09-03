@@ -60,7 +60,12 @@ export async function requestApi<T>(
   try {
     const res = await fetch(endpoint, mergedOptions);
     if (!res.ok) {
-      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      let serverMsg = '';
+      try {
+        const errJson = await res.json();
+        serverMsg = errJson.error || errJson.message || '';
+      } catch {}
+      throw new Error(serverMsg ? `HTTP ${res.status}: ${serverMsg}` : `HTTP ${res.status}: ${res.statusText}`);
     }
     const data = await res.json();
     emitTelemetry({

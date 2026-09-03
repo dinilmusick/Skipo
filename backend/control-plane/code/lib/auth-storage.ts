@@ -139,8 +139,18 @@ export function normalizeUserAccount(rawUser: any): UserAccount {
       : (existingDocuStackProfile.workspaceName || activeWs?.name || '');
 
   // Preserve user-saved storage connections (Backblaze B2, R2, S3, Supabase, Local)
-  const storageConnections: UserStorageConnection[] =
+  const rawConns: UserStorageConnection[] =
     existingDocuStackProfile.storage_connections || (rawUser as any).storage_connections || [];
+
+  let storageConnections = rawConns;
+  if (rawConns.length > 0 && !rawConns.some((c) => c.role === 'primary')) {
+    const cloudIdx = rawConns.findIndex((c) => c.provider !== 'local_fs');
+    const targetIdx = cloudIdx >= 0 ? cloudIdx : 0;
+    storageConnections = rawConns.map((c, idx) => ({
+      ...c,
+      role: idx === targetIdx ? 'primary' : (c.role || 'redundant_clone'),
+    }));
+  }
 
   const docustackProfile: DocuStackAppProfile = {
     ...existingDocuStackProfile,
@@ -826,6 +836,12 @@ export async function resolveRequestContextVault(req: NextRequest): Promise<Requ
     const userConns: UserStorageConnection[] =
       user.appProfiles?.[APP_ID]?.storage_connections || user.storage_connections || [];
 
+    const primaryConn =
+      userConns.find((c) => c.role === 'primary') ||
+      userConns.find((c) => c.provider !== 'local_fs') ||
+      userConns[0] ||
+      null;
+
     if (activeWs) {
       vaultPath = activeWs.workspacePath || vaultPath;
       vaultName = activeWs.name || vaultName;
@@ -833,12 +849,11 @@ export async function resolveRequestContextVault(req: NextRequest): Promise<Requ
         const wsConnId = activeWs.storageConnectionId;
         storageConn = userConns.find((c) => c.id === wsConnId) || null;
       }
-      const rawWs = activeWs as any;
-      if (!storageConn && (rawWs.storageEngine === 's3_blob' || rawWs.storageProvider !== 'local_fs')) {
-        storageConn = userConns.find((c) => c.provider !== 'local_fs') || null;
+      if (!storageConn) {
+        storageConn = primaryConn;
       }
     } else if (userConns.length > 0) {
-      storageConn = userConns.find((c) => c.provider !== 'local_fs') || userConns[0] || null;
+      storageConn = primaryConn;
     }
   }
 

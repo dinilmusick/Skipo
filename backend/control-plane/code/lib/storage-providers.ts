@@ -237,19 +237,24 @@ export const STORAGE_PROVIDER_CONFIGS: Record<UserStorageProvider, StorageProvid
  *   001... -> us-west-001
  *   000... -> us-west-000
  */
+export function isSecretMasked(str?: string): boolean {
+  return Boolean(str && (str.includes('•') || str.includes('***')));
+}
+
 export function resolveBackblazeEndpoint(
   inputEndpointOrRegion?: string,
   keyId?: string
 ): { endpoint: string; region: string } {
   let raw = (inputEndpointOrRegion || '').trim().toLowerCase();
-  raw = raw.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  raw = raw.replace(/^https?:\/\//, '').replace(/[\/?#].*$/, '').trim();
 
-  // 1. Full B2 S3 Endpoint: "s3.us-east-005.backblazeb2.com"
-  const endpointMatch = raw.match(/s3\.([a-z0-9-]+)\.backblazeb2\.com/i);
+  // 1. Full B2 S3 Endpoint: "s3.us-east-005.backblazeb2.com" or "us-east-005.backblazeb2.com"
+  const endpointMatch = raw.match(/(?:s3\.)?([a-z0-9-]+)\.backblazeb2\.com/i);
   if (endpointMatch) {
+    const region = endpointMatch[1];
     return {
-      region: endpointMatch[1],
-      endpoint: `https://${raw}`,
+      region,
+      endpoint: `https://s3.${region}.backblazeb2.com`,
     };
   }
 
@@ -322,6 +327,7 @@ export function buildS3Client(conn: UserStorageConnection): { s3: S3Client; buck
     const s3 = new S3Client({
       region,
       endpoint,
+      forcePathStyle: true,
       credentials: {
         accessKeyId: keyId,
         secretAccessKey: appKey,
