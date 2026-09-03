@@ -194,3 +194,123 @@ export async function promptSelectLocalFolder(): Promise<{
     throw err;
   }
 }
+
+export interface LocalSyncProgress {
+  percent: number;
+  statusMessage: string;
+  currentFile: string;
+  completedFiles: number;
+  totalFiles: number;
+}
+
+/**
+ * Synchronize all workspace files, categories, manifests, and documents directly
+ * into a native FileSystemDirectoryHandle on the user's host machine.
+ */
+export async function syncWorkspaceToDirectoryHandle(
+  dirHandle: FileSystemDirectoryHandle,
+  workspaceName: string,
+  data: {
+    nodes?: any[];
+    categories?: any[];
+    documents?: any[];
+    edges?: any[];
+    groups?: any[];
+  },
+  onProgress?: (progress: LocalSyncProgress) => void
+): Promise<{ filesWritten: number }> {
+  async function writeHandleFile(relPath: string, content: string): Promise<void> {
+    const parts = relPath.split('/').filter(Boolean);
+    const fileName = parts.pop()!;
+    let current = dirHandle;
+    for (const part of parts) {
+      current = await current.getDirectoryHandle(part, { create: true });
+    }
+    const fileHandle = await current.getFileHandle(fileName, { create: true });
+    const writable = await (fileHandle as any).createWritable();
+    await writable.write(content);
+    await writable.close();
+  }
+
+  const defaultCols = [
+    { title: 'To Do', folder: 'To_Do' },
+    { title: 'In Progress', folder: 'In_Progress' },
+    { title: 'Done', folder: 'Done' },
+  ];
+  const boardName = 'Core_Kanban';
+  const docs = data.documents || [];
+  const categories = data.categories || [];
+  const totalFiles = 4 + defaultCols.length + Math.max(1, docs.length);
+  let completed = 0;
+
+  function report(file: string) {
+    completed++;
+    const pct = Math.round((completed / totalFiles) * 100);
+    onProgress?.({
+      percent: Math.min(100, pct),
+      statusMessage: `Writing ${file}...`,
+      currentFile: file,
+      completedFiles: completed,
+      totalFiles,
+    });
+  }
+
+  // 1. .docustack/manifest.json
+  const manifest = {
+    workspaceName,
+    app: 'docustack',
+    ecosystem: 'ultrst',
+    syncedAt: new Date().toISOString(),
+    totalDocuments: docs.length,
+    totalCategories: categories.length,
+  };
+  await writeHandleFile('.docustack/manifest.json', JSON.stringify(manifest, null, 2));
+  report('.docustack/manifest.json');
+
+  // 2. .docustack/graph.json
+  const graph = {
+    nodes: data.nodes || [],
+    edges: data.edges || [],
+    groups: data.groups || [],
+  };
+  await writeHandleFile('.docustack/graph.json', JSON.stringify(graph, null, 2));
+  report('.docustack/graph.json');
+
+  // 3. .docustack/categories.json
+  await writeHandleFile('.docustack/categories.json', JSON.stringify(categories, null, 2));
+  report('.docustack/categories.json');
+
+  // 4. .docustack/documents_index.json
+  await writeHandleFile('.docustack/documents_index.json', JSON.stringify(docs, null, 2));
+  report('.docustack/documents_index.json');
+
+  // 5. Kanban Column folders & READMEs
+  for (const col of defaultCols) {
+    const readmeContent = `# ${col.title}\nColumn for Kanban board **${boardName}**.\n\nDocuments placed here appear on your workspace board.\n`;
+    await writeHandleFile(`${boardName}/${col.folder}/README.md`, readmeContent);
+    report(`${boardName}/${col.folder}/README.md`);
+  }
+
+  // 6. Documents
+  if (docs.length === 0) {
+    const welcome = `# Welcome to ${workspaceName}\n\nThis workspace is synced to your local machine folder.\nAll changes here are synchronized automatically.\n`;
+    await writeHandleFile(`${boardName}/To_Do/welcome_guide.md`, welcome);
+    report(`${boardName}/To_Do/welcome_guide.md`);
+  } else {
+    for (const doc of docs) {
+      const safeTitle = (doc.title || 'untitled').toLowerCase().replace(/[^a-z0-9_.-]/g, '_');
+      const filename = safeTitle.endsWith('.md') ? safeTitle : `${safeTitle}.md`;
+      const cat = categories.find((c: any) => c.id === doc.categoryId);
+      let targetPath = `inbox/${filename}`;
+      if (cat) {
+        const catFolder = cat.title.replace(/[^a-zA-Z0-9_-]/g, '_');
+        targetPath = `${boardName}/${catFolder}/${filename}`;
+      }
+      const frontmatter = `---\nid: "${doc.id}"\ntitle: "${doc.title}"\ncategory: "${cat?.title || 'Inbox'}"\ntags: ${JSON.stringify(doc.tags || [])}\ncreated: "${doc.createdAt || new Date().toISOString()}"\n---\n\n${doc.content || `# ${doc.title}`}`;
+      await writeHandleFile(targetPath, frontmatter);
+      report(targetPath);
+    }
+  }
+
+  return { filesWritten: completed };
+}

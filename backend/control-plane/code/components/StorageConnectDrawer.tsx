@@ -17,6 +17,7 @@ import {
   Copy,
   ShieldAlert,
   Info,
+  RefreshCw,
 } from 'lucide-react';
 import {
   UserStorageConnection,
@@ -32,6 +33,8 @@ import {
   isFileSystemAccessSupported,
   promptSelectLocalFolder,
   saveLocalDirectoryHandle,
+  getLocalDirectoryHandle,
+  syncWorkspaceToDirectoryHandle,
 } from '@/lib/local-fs-handle';
 
 interface StorageConnectDrawerProps {
@@ -52,17 +55,6 @@ const ACTIVE_STORAGE_PROVIDERS: UserStorageProvider[] = [
   'aws_s3',
   'local_fs',
 ];
-
-interface StorageConnectDrawerProps {
-  userToken?: string | null;
-  currentConnectionId?: string;
-  currentProvider?: UserStorageProvider;
-  currentLocalFolderName?: string;
-  currentLocalFolderKey?: string;
-  onSelectLocalFolder: (folderName: string, folderKey: string) => void;
-  onSelectCloudConnection: (connection: UserStorageConnection) => void;
-  onSelectEngine: (engine: DatabaseEngine) => void;
-}
 
 export default function StorageConnectDrawer({
   userToken,
@@ -102,6 +94,19 @@ export default function StorageConnectDrawer({
   const [saving, setSaving] = useState(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [importNotification, setImportNotification] = useState<string | null>(null);
+
+  // Synchronization & Clones Replication State
+  const [syncProgress, setSyncProgress] = useState<{
+    active: boolean;
+    title: string;
+    percent: number;
+    statusMessage: string;
+    currentFile?: string;
+    completedFiles?: number;
+    totalFiles?: number;
+  } | null>(null);
+  const [syncingClones, setSyncingClones] = useState(false);
+  const activeDirectoryHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
 
   // File Input Ref for JSON Import & HTML5 directory fallback
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -204,6 +209,7 @@ export default function StorageConnectDrawer({
         const generatedKey = `ws_handle_${Date.now()}`;
 
         await saveLocalDirectoryHandle(generatedKey, handle);
+        activeDirectoryHandleRef.current = handle;
 
         setLocalFolderName(name);
         setLocalFolderKey(generatedKey);
@@ -211,7 +217,7 @@ export default function StorageConnectDrawer({
         setSelectedProvider('local_fs');
         onSelectLocalFolder(name, generatedKey);
         onSelectEngine('local_fs');
-        setImportNotification(`✓ Successfully connected local folder "${name}".`);
+        setImportNotification(`✓ Successfully connected local folder "${name}". Click SAVE LOCAL STORAGE OPTION to synchronize files.`);
         return;
       }
 
@@ -366,6 +372,71 @@ export default function StorageConnectDrawer({
     await runProbeTest(payload, true);
   };
 
+  const fetchWorkspaceDataForSync = async () => {
+    const headers = getAuthHeaders();
+    const [docsRes, catsRes, graphRes] = await Promise.all([
+      fetch('/api/documents', { headers }).then((r) => r.json()).catch(() => ({ documents: [] })),
+      fetch('/api/categories', { headers }).then((r) => r.json()).catch(() => ({ categories: [] })),
+      fetch('/api/graph', { headers }).then((r) => r.json()).catch(() => ({ nodes: [], edges: [], groups: [] })),
+    ]);
+    return {
+      documents: docsRes.documents || [],
+      categories: catsRes.categories || [],
+      nodes: graphRes.nodes || [],
+      edges: graphRes.edges || [],
+      groups: graphRes.groups || [],
+    };
+  };
+
+  const performLocalHandleSync = async (
+    handle: FileSystemDirectoryHandle,
+    folderName: string,
+    title: string = 'SYNCHRONIZING LOCAL STORAGE'
+  ): Promise<number> => {
+    setSyncProgress({
+      active: true,
+      title,
+      percent: 5,
+      statusMessage: 'Loading active workspace documents and structure...',
+      completedFiles: 0,
+      totalFiles: 1,
+    });
+
+    const workspaceData = await fetchWorkspaceDataForSync();
+
+    const result = await syncWorkspaceToDirectoryHandle(
+      handle,
+      folderName || 'DocuStack Vault',
+      workspaceData,
+      (progress) => {
+        setSyncProgress({
+          active: true,
+          title,
+          percent: progress.percent,
+          statusMessage: progress.statusMessage,
+          currentFile: progress.currentFile,
+          completedFiles: progress.completedFiles,
+          totalFiles: progress.totalFiles,
+        });
+      }
+    );
+
+    setSyncProgress({
+      active: true,
+      title,
+      percent: 100,
+      statusMessage: `✓ Synchronized ${result.filesWritten} files directly to "${folderName}".`,
+      completedFiles: result.filesWritten,
+      totalFiles: result.filesWritten,
+    });
+
+    setTimeout(() => {
+      setSyncProgress(null);
+    }, 3500);
+
+    return result.filesWritten;
+  };
+
   const handleSaveAndUse = async () => {
     try {
       setSaving(true);
@@ -388,11 +459,215 @@ export default function StorageConnectDrawer({
       onSelectCloudConnection(data.connection);
       onSelectEngine(data.connection.provider === 'local_fs' ? 'local_fs' : 's3_blob');
       setShowNewConnectionForm(false);
+
+      // If local_fs, immediately sync workspace files to the folder handle
+      if (data.connection.provider === 'local_fs') {
+        let handleToUse = activeDirectoryHandleRef.current;
+        if (!handleToUse && data.connection.localFolderKey) {
+          handleToUse = await getLocalDirectoryHandle(data.connection.localFolderKey);
+        }
+        if (handleToUse) {
+          try {
+            const filesWritten = await performLocalHandleSync(
+              handleToUse,
+              data.connection.localFolderName || data.connection.label,
+              `INITIALIZING & SYNCHRONIZING LOCAL STORAGE: ${data.connection.label}`
+            );
+            setImportNotification(
+              `✓ Added "${data.connection.label}" and synchronized ${filesWritten} files directly to your Mac folder.`
+            );
+            return;
+          } catch (syncErr: any) {
+            console.warn('[LocalFS Initial Sync Warning]', syncErr);
+          }
+        }
+      }
+
       setImportNotification(`✓ Added "${data.connection.label}" as an active storage option.`);
     } catch (err: any) {
       setGeneralError(err.message || 'Failed to save connection.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSyncToClones = async () => {
+    const cloneConnections = savedConnections.filter((c) => c.role !== 'primary');
+    if (cloneConnections.length === 0) {
+      setGeneralError('No clone storage options available to replicate.');
+      return;
+    }
+
+    try {
+      setSyncingClones(true);
+      setGeneralError(null);
+      setSyncProgress({
+        active: true,
+        title: `REPLICATING WORKSPACE TO ${cloneConnections.length} CLONES`,
+        percent: 10,
+        statusMessage: 'Preparing workspace files and clone endpoints...',
+      });
+
+      let cloudSynced = 0;
+      let localSynced = 0;
+
+      // 1. Cloud Clones Replication
+      const cloudClones = cloneConnections.filter((c) => c.provider !== 'local_fs');
+      if (cloudClones.length > 0) {
+        setSyncProgress((prev) => ({
+          active: true,
+          title: `REPLICATING WORKSPACE TO ${cloneConnections.length} CLONES`,
+          percent: 30,
+          statusMessage: `Syncing ${cloudClones.length} cloud clones (${cloudClones.map((c) => c.label).join(', ')})...`,
+        }));
+
+        const res = await fetch('/api/auth/storage/sync-clones', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ cloneIds: cloudClones.map((c) => c.id) }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          cloudSynced = data.totalFilesSynced || 0;
+        }
+      }
+
+      // 2. Local FS Clones Replication
+      const localClones = cloneConnections.filter((c) => c.provider === 'local_fs');
+      if (localClones.length > 0) {
+        setSyncProgress((prev) => ({
+          active: true,
+          title: `REPLICATING WORKSPACE TO ${cloneConnections.length} CLONES`,
+          percent: 70,
+          statusMessage: `Syncing local folder clone (${localClones.map((c) => c.label).join(', ')})...`,
+        }));
+
+        for (const localClone of localClones) {
+          let handle: FileSystemDirectoryHandle | null = null;
+          if (localClone.localFolderKey) {
+            handle = await getLocalDirectoryHandle(localClone.localFolderKey);
+          }
+          if (!handle && activeDirectoryHandleRef.current) {
+            handle = activeDirectoryHandleRef.current;
+          }
+
+          if (handle) {
+            const written = await performLocalHandleSync(
+              handle,
+              localClone.localFolderName || localClone.label,
+              `SYNCING CLONE: ${localClone.label}`
+            );
+            localSynced += written;
+          }
+        }
+      }
+
+      setSyncProgress({
+        active: true,
+        title: 'REPLICATION COMPLETE',
+        percent: 100,
+        statusMessage: `✓ Synced all workspace files to ${cloneConnections.length} clone storage options.`,
+      });
+
+      setImportNotification(
+        `✓ Replicated workspace to ${cloneConnections.length} clones (${cloudSynced + localSynced} files written).`
+      );
+
+      await fetchSavedConnections(activeConnId);
+      setTimeout(() => setSyncProgress(null), 5000);
+    } catch (err: any) {
+      setGeneralError(`Clone synchronization failed: ${err.message}`);
+      setSyncProgress(null);
+    } finally {
+      setSyncingClones(false);
+    }
+  };
+
+  const handleSyncSingleClone = async (conn: UserStorageConnection) => {
+    try {
+      setSyncingClones(true);
+      setGeneralError(null);
+
+      if (conn.provider === 'local_fs') {
+        let handle: FileSystemDirectoryHandle | null = null;
+        if (conn.localFolderKey) {
+          handle = await getLocalDirectoryHandle(conn.localFolderKey);
+        }
+        if (!handle && activeDirectoryHandleRef.current) {
+          handle = activeDirectoryHandleRef.current;
+        }
+
+        if (!handle) {
+          throw new Error('Local folder handle not found. Please click CHANGE FOLDER to re-grant permission.');
+        }
+
+        const written = await performLocalHandleSync(
+          handle,
+          conn.localFolderName || conn.label,
+          `SYNCING CLONE TO DISK: ${conn.label}`
+        );
+        setImportNotification(`✓ Synced ${written} files to local clone "${conn.label}".`);
+      } else {
+        setSyncProgress({
+          active: true,
+          title: `SYNCING CLONE: ${conn.label}`,
+          percent: 40,
+          statusMessage: `Replicating workspace to ${conn.label}...`,
+        });
+
+        const res = await fetch('/api/auth/storage/sync-clones', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ cloneIds: [conn.id] }),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Failed to sync clone.');
+
+        setSyncProgress({
+          active: true,
+          title: `SYNCING CLONE: ${conn.label}`,
+          percent: 100,
+          statusMessage: `✓ Synced ${data.totalFilesSynced || 0} files to ${conn.label}.`,
+        });
+        setImportNotification(`✓ Replicated workspace to ${conn.label} (${data.totalFilesSynced || 0} files).`);
+        setTimeout(() => setSyncProgress(null), 4000);
+      }
+      await fetchSavedConnections(activeConnId);
+    } catch (err: any) {
+      setGeneralError(`Failed to sync clone: ${err.message}`);
+      setSyncProgress(null);
+    } finally {
+      setSyncingClones(false);
+    }
+  };
+
+  const handleSyncCurrentLocalFolder = async (conn: UserStorageConnection) => {
+    try {
+      setSyncingClones(true);
+      setGeneralError(null);
+
+      let handle: FileSystemDirectoryHandle | null = null;
+      if (conn.localFolderKey) {
+        handle = await getLocalDirectoryHandle(conn.localFolderKey);
+      }
+      if (!handle && activeDirectoryHandleRef.current) {
+        handle = activeDirectoryHandleRef.current;
+      }
+
+      if (!handle) {
+        throw new Error('Local folder handle not found. Please click CHANGE FOLDER to re-select.');
+      }
+
+      const written = await performLocalHandleSync(
+        handle,
+        conn.localFolderName || conn.label,
+        `SYNCING WORKSPACE TO LOCAL DISK: ${conn.label}`
+      );
+      setImportNotification(`✓ Synchronized ${written} files directly to disk folder "${conn.label}".`);
+    } catch (err: any) {
+      setGeneralError(`Failed to sync to local disk: ${err.message}`);
+    } finally {
+      setSyncingClones(false);
     }
   };
 
@@ -571,7 +846,20 @@ export default function StorageConnectDrawer({
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5 self-start sm:self-auto">
+        <div className="flex items-center gap-1.5 self-start sm:self-auto flex-wrap">
+          {savedConnections.some((c) => c.role !== 'primary') && (
+            <button
+              type="button"
+              onClick={handleSyncToClones}
+              disabled={syncingClones}
+              className="text-[9px] font-mono font-black uppercase px-2 py-1 border-2 border-sky-500/70 bg-sky-950/60 hover:bg-sky-900/80 text-sky-300 flex items-center gap-1 cursor-pointer disabled:opacity-40 transition-all shadow-[1px_1px_0px_#000000]"
+              title="Replicate all files and structure from Primary Storage to all Clone storages"
+            >
+              <RefreshCw size={10} className={syncingClones ? 'animate-spin text-sky-400' : 'text-sky-400'} />
+              <span>{syncingClones ? 'REPLICATING...' : `SYNC TO CLONES (${savedConnections.filter((c) => c.role !== 'primary').length})`}</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleTriggerImport}
@@ -594,6 +882,36 @@ export default function StorageConnectDrawer({
         </div>
       </div>
 
+      {/* Synchronization Progress Bar Banner */}
+      {syncProgress && (
+        <div className="p-3 border-2 border-[var(--color-accent)] bg-black/90 space-y-2 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between text-xs font-mono">
+            <span className="font-black uppercase text-[var(--color-accent)] flex items-center gap-1.5">
+              <RefreshCw size={13} className={syncProgress.percent < 100 ? 'animate-spin' : ''} />
+              {syncProgress.title}
+            </span>
+            <span className="font-bold text-emerald-400">{syncProgress.percent}%</span>
+          </div>
+
+          {/* Brutalist Progress Track */}
+          <div className="w-full h-2.5 bg-black border border-brutalist overflow-hidden p-0.5">
+            <div
+              className="h-full bg-gradient-to-r from-amber-500 via-sky-400 to-emerald-400 transition-all duration-300"
+              style={{ width: `${Math.min(100, Math.max(0, syncProgress.percent))}%` }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-[10px] font-mono opacity-90 truncate">
+            <span className="truncate text-[var(--color-text)]">{syncProgress.statusMessage}</span>
+            {syncProgress.totalFiles !== undefined && syncProgress.completedFiles !== undefined && (
+              <span className="shrink-0 ml-2 font-bold text-sky-300">
+                {syncProgress.completedFiles} / {syncProgress.totalFiles} files
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Notification Banner */}
       {importNotification && (
         <div className="p-2 border border-emerald-500/50 bg-emerald-500/10 text-emerald-400 text-xs font-mono flex items-center justify-between gap-2">
@@ -612,9 +930,16 @@ export default function StorageConnectDrawer({
           PRIMARY SECTION: SET STORAGE OPTION TILES
           ───────────────────────────────────────────────────────────── */}
       <div className="space-y-1.5">
-        <span className="text-[9px] font-mono font-black uppercase text-[var(--color-accent)] block">
-          SELECT ACTIVE STORAGE FOR THIS WORKSPACE:
-        </span>
+        <div className="flex items-center justify-between">
+          <span className="text-[9px] font-mono font-black uppercase text-[var(--color-accent)] block">
+            SELECT ACTIVE STORAGE FOR THIS WORKSPACE:
+          </span>
+          {savedConnections.some((c) => c.role !== 'primary') && (
+            <span className="text-[9px] font-mono text-sky-400 opacity-80">
+              {savedConnections.filter((c) => c.role !== 'primary').length} CLONE(S) READY FOR SYNC
+            </span>
+          )}
+        </div>
 
         {savedConnections.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -676,17 +1001,46 @@ export default function StorageConnectDrawer({
                     </div>
                   </div>
 
-                  {conn.role !== 'primary' && (
+                  {conn.role !== 'primary' ? (
+                    <div className="flex items-center gap-1.5 mt-2.5">
+                      <button
+                        type="button"
+                        onClick={(e) => handleSetPrimaryConnection(conn, e)}
+                        className="flex-1 py-1 px-2 border border-[#D4AF37]/60 bg-[#D4AF37]/10 hover:bg-[#D4AF37] text-[#D4AF37] hover:text-black text-[9px] font-mono font-black uppercase transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        title="Promote this storage option to Primary"
+                      >
+                        <Star size={10} />
+                        <span>SET AS PRIMARY</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSyncSingleClone(conn);
+                        }}
+                        disabled={syncingClones}
+                        className="py-1 px-2 border border-sky-500/60 bg-sky-950/40 hover:bg-sky-900/60 text-sky-300 text-[9px] font-mono font-black uppercase transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-40"
+                        title="Sync all files from Primary Storage directly to this clone"
+                      >
+                        <RefreshCw size={9} className={syncingClones ? 'animate-spin' : ''} />
+                        <span>SYNC</span>
+                      </button>
+                    </div>
+                  ) : conn.provider === 'local_fs' ? (
                     <button
                       type="button"
-                      onClick={(e) => handleSetPrimaryConnection(conn, e)}
-                      className="mt-2.5 py-1 px-2 border border-[#D4AF37]/60 bg-[#D4AF37]/10 hover:bg-[#D4AF37] text-[#D4AF37] hover:text-black text-[9px] font-mono font-black uppercase transition-all flex items-center justify-center gap-1 cursor-pointer"
-                      title="Promote this storage option to Primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSyncCurrentLocalFolder(conn);
+                      }}
+                      disabled={syncingClones}
+                      className="mt-2.5 w-full py-1 px-2 border border-emerald-500/60 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 text-[9px] font-mono font-black uppercase transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-40"
+                      title="Synchronize active workspace files to this local disk folder"
                     >
-                      <Star size={10} />
-                      <span>SET AS PRIMARY</span>
+                      <RefreshCw size={9} className={syncingClones ? 'animate-spin' : ''} />
+                      <span>SYNC WORKSPACE TO DISK</span>
                     </button>
-                  )}
+                  ) : null}
                 </div>
               );
             })}
@@ -816,8 +1170,9 @@ export default function StorageConnectDrawer({
                       <li>Set <strong>File System Access API</strong> to <strong>Enabled</strong></li>
                       <li>Click <strong>Relaunch</strong> at the bottom of Brave</li>
                     </ol>
-                    <div className="pt-0.5 text-[10px] text-amber-400/90 font-mono">
-                      ⚡ Tip: Clicking <strong>SELECT FOLDER</strong> below will open your native system Explorer/Finder immediately via fallback mode.
+                    <div className="pt-0.5 text-[10px] text-amber-400/90 font-mono space-y-0.5">
+                      <div>⚡ <strong>Why macOS shows &quot;Upload&quot; currently:</strong> Without the flag, macOS treats the fallback folder picker as a file upload input and labels the button &quot;Upload&quot;.</div>
+                      <div>✓ <strong>To get the native &quot;Select&quot; button:</strong> Enable the flag above and relaunch Brave. macOS will then display the native Directory Chooser with the <strong>Select</strong> button!</div>
                     </div>
                   </div>
                 ) : (
@@ -827,14 +1182,14 @@ export default function StorageConnectDrawer({
                       <span className="font-bold text-xs uppercase">Browser Directory Access Notice</span>
                     </div>
                     <p className="text-[10px] leading-relaxed opacity-80">
-                      Your browser does not support the W3C File System Access API. Clicking <strong>SELECT FOLDER</strong> will open your system file explorer via HTML5 directory mode. For full persistent background disk syncing, use Chrome, Edge, or enable the flag in Brave. Alternatively, connect a cloud bucket (Backblaze B2, Cloudflare R2, Supabase, or AWS S3).
+                      Your browser does not support the W3C File System Access API. Clicking <strong>BROWSE DISK</strong> will open your system file explorer via HTML5 directory mode. For full persistent background disk syncing and native &quot;Select&quot; button, use Chrome, Edge, or enable the flag in Brave.
                     </p>
                   </div>
                 )
               ) : (
                 <div className="p-2 border border-emerald-500/40 bg-emerald-950/20 flex items-center gap-2 text-emerald-400 text-[11px] font-mono">
                   <CheckCircle2 size={13} className="shrink-0" />
-                  <span>Native File System Access API active & ready for disk folder mapping.</span>
+                  <span>Native File System Access API active & ready (macOS native &quot;Select&quot; button enabled).</span>
                 </div>
               )}
 
@@ -851,21 +1206,41 @@ export default function StorageConnectDrawer({
                 />
               </div>
 
-              <div className="p-2.5 border-2 border-brutalist bg-black/40 flex items-center justify-between">
-                <div>
-                  <span className="text-[9px] uppercase font-mono opacity-60 block">SELECTED FOLDER</span>
-                  <span className="text-xs font-mono font-bold text-emerald-400">
-                    {localFolderName || 'No local folder selected yet'}
+              {/* Local Folder Name Input & Browse Button */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-[9px] font-black uppercase opacity-60 block">
+                    Target Local Folder Name
+                  </label>
+                  <span className="text-[8px] font-mono text-[var(--color-accent)] uppercase">
+                    TYPE DIRECTLY OR BROWSE
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={handlePickLocalFolder}
-                  className="py-1.5 px-3 border-2 border-brutalist bg-[var(--color-accent)] text-black hover:bg-[#c5a059] font-black text-xs uppercase flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_var(--color-border)]"
-                >
-                  <FolderOpen size={13} />
-                  <span>{localFolderName ? 'CHANGE FOLDER' : 'SELECT FOLDER'}</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={localFolderName}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setLocalFolderName(val);
+                      const key = localFolderKey || `ws_folder_${Date.now()}`;
+                      setLocalFolderKey(key);
+                      onSelectLocalFolder(val, key);
+                      onSelectEngine('local_fs');
+                    }}
+                    placeholder="e.g. MyDocuments or DocuStackVault"
+                    className="flex-1 bg-black border border-brutalist px-2 py-1.5 text-xs font-mono text-emerald-400 font-bold focus:outline-none focus:border-[var(--color-accent)]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handlePickLocalFolder}
+                    className="py-1.5 px-3 border-2 border-brutalist bg-[var(--color-accent)] text-black hover:bg-[#c5a059] font-black text-xs uppercase flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_var(--color-border)] shrink-0"
+                    title={isLocalFsSupported ? 'Open native folder picker with Select button' : 'Browse disk folder'}
+                  >
+                    <FolderOpen size={13} />
+                    <span>{localFolderName ? 'CHANGE FOLDER' : 'BROWSE DISK'}</span>
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center gap-2 pt-1">
