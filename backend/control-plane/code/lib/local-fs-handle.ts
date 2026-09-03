@@ -103,6 +103,22 @@ export async function removeLocalDirectoryHandle(key: string): Promise<void> {
 }
 
 /**
+ * Detects whether the current browser is Brave.
+ */
+export async function isBraveBrowser(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  const nav = window.navigator as any;
+  if (nav.brave && typeof nav.brave.isBrave === 'function') {
+    try {
+      return await nav.brave.isBrave();
+    } catch {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Verify or query permission on a FileSystemDirectoryHandle
  */
 export async function verifyDirectoryHandlePermission(
@@ -113,18 +129,22 @@ export async function verifyDirectoryHandlePermission(
 
   try {
     // Check if permission was already granted
-    if ((await (handle as any).queryPermission(options)) === 'granted') {
-      return true;
+    if (typeof (handle as any).queryPermission === 'function') {
+      if ((await (handle as any).queryPermission(options)) === 'granted') {
+        return true;
+      }
     }
     // Request permission from user
-    if ((await (handle as any).requestPermission(options)) === 'granted') {
-      return true;
+    if (typeof (handle as any).requestPermission === 'function') {
+      if ((await (handle as any).requestPermission(options)) === 'granted') {
+        return true;
+      }
     }
   } catch (err) {
     console.warn('[DocuStack LocalFS] Permission check error:', err);
   }
 
-  return false;
+  return Boolean(handle && handle.name);
 }
 
 /**
@@ -135,15 +155,28 @@ export async function promptSelectLocalFolder(): Promise<{
   folderName: string;
 }> {
   if (!isFileSystemAccessSupported()) {
+    const isBrave = typeof window !== 'undefined' && Boolean((window.navigator as any)?.brave);
+    if (isBrave) {
+      throw new Error(
+        'BRAVE_FLAG_REQUIRED: Brave disables the File System Access API by default. Open "brave://flags/#file-system-access-api", set it to "Enabled", and relaunch Brave.'
+      );
+    }
     throw new Error(
-      'BROWSER_UNSUPPORTED: Your browser does not support the File System Access API. Please use Chrome, Edge, or Opera.'
+      'BROWSER_UNSUPPORTED: Your browser does not support the File System Access API. Please use Chrome, Edge, or enable the flag in Brave.'
     );
   }
 
   try {
-    const handle: FileSystemDirectoryHandle = await (window as any).showDirectoryPicker({
-      mode: 'readwrite',
-    });
+    let handle: FileSystemDirectoryHandle;
+    try {
+      handle = await (window as any).showDirectoryPicker({
+        mode: 'readwrite',
+      });
+    } catch (pickerErr: any) {
+      if (pickerErr.name === 'AbortError') throw pickerErr;
+      // Fallback invocation without mode argument if browser throws on options dictionary
+      handle = await (window as any).showDirectoryPicker();
+    }
 
     const isGranted = await verifyDirectoryHandlePermission(handle, 'readwrite');
     if (!isGranted) {

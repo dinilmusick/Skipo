@@ -13,6 +13,10 @@ import {
   Download,
   Upload,
   Plus,
+  Star,
+  Copy,
+  ShieldAlert,
+  Info,
 } from 'lucide-react';
 import {
   UserStorageConnection,
@@ -84,6 +88,8 @@ export default function StorageConnectDrawer({
   const [localFolderName, setLocalFolderName] = useState<string>(currentLocalFolderName || '');
   const [localFolderKey, setLocalFolderKey] = useState<string>(currentLocalFolderKey || '');
   const [isLocalFsSupported, setIsLocalFsSupported] = useState(true);
+  const [isBrave, setIsBrave] = useState(false);
+  const [copiedFlagUrl, setCopiedFlagUrl] = useState(false);
 
   // Testing & Saving State
   const [testing, setTesting] = useState(false);
@@ -97,11 +103,25 @@ export default function StorageConnectDrawer({
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [importNotification, setImportNotification] = useState<string | null>(null);
 
-  // File Input Ref for JSON Import
+  // File Input Ref for JSON Import & HTML5 directory fallback
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const html5FolderInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setIsLocalFsSupported(isFileSystemAccessSupported());
+    if (typeof window !== 'undefined') {
+      const nav = window.navigator as any;
+      if (nav?.brave) {
+        if (typeof nav.brave.isBrave === 'function') {
+          nav.brave
+            .isBrave()
+            .then((res: boolean) => setIsBrave(Boolean(res)))
+            .catch(() => setIsBrave(true));
+        } else {
+          setIsBrave(true);
+        }
+      }
+    }
     fetchSavedConnections();
   }, []);
 
@@ -130,7 +150,8 @@ export default function StorageConnectDrawer({
         } else {
           const targetId = preferredId || activeConnId;
           const matched = targetId ? data.connections.find((c: any) => c.id === targetId) : undefined;
-          const chosen = matched || data.connections[0];
+          const primary = data.connections.find((c: any) => c.role === 'primary');
+          const chosen = matched || primary || data.connections[0];
           if (chosen) {
             setActiveConnId(chosen.id);
             setSelectedProvider(chosen.provider);
@@ -151,23 +172,94 @@ export default function StorageConnectDrawer({
     }
   };
 
+  const handleSetPrimaryConnection = async (conn: UserStorageConnection, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      setGeneralError(null);
+      const res = await fetch('/api/auth/storage/connections', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ action: 'set_primary', id: conn.id }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setGeneralError(data.error || 'Failed to elevate storage to primary');
+        return;
+      }
+      setImportNotification(`✓ "${conn.label}" elevated to Primary Workspace Storage.`);
+      await fetchSavedConnections(conn.id);
+      handleSelectSavedConn(conn);
+    } catch (err: any) {
+      setGeneralError(err.message || 'Failed to set primary storage');
+    }
+  };
+
   const handlePickLocalFolder = async () => {
     try {
       setGeneralError(null);
-      const { handle, folderName: name } = await promptSelectLocalFolder();
-      const generatedKey = `ws_handle_${Date.now()}`;
 
-      await saveLocalDirectoryHandle(generatedKey, handle);
+      // If native File System Access API is supported, use it for direct read/write disk access
+      if (isFileSystemAccessSupported()) {
+        const { handle, folderName: name } = await promptSelectLocalFolder();
+        const generatedKey = `ws_handle_${Date.now()}`;
 
-      setLocalFolderName(name);
-      setLocalFolderKey(generatedKey);
-      setActiveConnId(undefined);
-      setSelectedProvider('local_fs');
-      onSelectLocalFolder(name, generatedKey);
-      onSelectEngine('local_fs');
+        await saveLocalDirectoryHandle(generatedKey, handle);
+
+        setLocalFolderName(name);
+        setLocalFolderKey(generatedKey);
+        setActiveConnId(undefined);
+        setSelectedProvider('local_fs');
+        onSelectLocalFolder(name, generatedKey);
+        onSelectEngine('local_fs');
+        setImportNotification(`✓ Successfully connected local folder "${name}".`);
+        return;
+      }
+
+      // Fallback: trigger HTML5 folder selector (Finder on Mac, Explorer on Windows)
+      if (html5FolderInputRef.current) {
+        html5FolderInputRef.current.click();
+      } else {
+        throw new Error('No folder explorer available in this browser.');
+      }
     } catch (err: any) {
       if (err.message?.includes('USER_CANCELLED')) return;
       setGeneralError(err.message || 'Failed to select local folder.');
+    }
+  };
+
+  const handleHtml5FolderSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const firstFile = files[0];
+      const relPath = firstFile.webkitRelativePath || '';
+      const folderName = relPath.split('/')[0] || firstFile.name || 'Local Workspace';
+      const generatedKey = `ws_html5_${Date.now()}`;
+
+      setLocalFolderName(folderName);
+      setLocalFolderKey(generatedKey);
+      setActiveConnId(undefined);
+      setSelectedProvider('local_fs');
+      onSelectLocalFolder(folderName, generatedKey);
+      onSelectEngine('local_fs');
+
+      if (isBrave) {
+        setImportNotification(
+          `✓ Folder "${folderName}" selected via File Explorer. Note: Enable brave://flags/#file-system-access-api for persistent read/write disk sync.`
+        );
+      } else {
+        setImportNotification(`✓ Folder "${folderName}" selected via File Explorer.`);
+      }
+    }
+    if (e.target) {
+      e.target.value = '';
+    }
+  };
+
+  const handleCopyBraveFlagUrl = () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText('brave://flags/#file-system-access-api');
+      setCopiedFlagUrl(true);
+      setTimeout(() => setCopiedFlagUrl(false), 2500);
     }
   };
 
@@ -545,33 +637,56 @@ export default function StorageConnectDrawer({
                       : 'border-brutalist/40 bg-black/15 hover:border-brutalist hover:bg-black/25'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 size={14} className={isConnSelected ? 'text-[var(--color-accent)]' : 'opacity-40'} />
-                      <span className="text-xs font-black uppercase text-[var(--color-text)] truncate max-w-[150px]">
-                        {conn.label}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      {isConnSelected && (
-                        <span className="text-[8px] bg-[var(--color-accent)] text-black px-1.5 py-0.5 font-bold uppercase">
-                          ACTIVE
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 size={14} className={isConnSelected ? 'text-[var(--color-accent)]' : 'opacity-40'} />
+                        <span className="text-xs font-black uppercase text-[var(--color-text)] truncate max-w-[140px]">
+                          {conn.label}
                         </span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteSavedConnection(conn.id, e)}
-                        className="p-1 text-red-400 hover:bg-red-500/20 border border-red-500/30 cursor-pointer"
-                        title="Delete connection"
-                      >
-                        <Trash2 size={10} />
-                      </button>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {conn.role === 'primary' ? (
+                          <span className="text-[8px] bg-[#D4AF37] text-black font-black px-1.5 py-0.5 uppercase shadow-[1px_1px_0px_#000000]">
+                            ★ PRIMARY
+                          </span>
+                        ) : (
+                          <span className="text-[8px] bg-sky-950 text-sky-300 border border-sky-500/40 font-black px-1.5 py-0.5 uppercase">
+                            CLONE
+                          </span>
+                        )}
+                        {isConnSelected && (
+                          <span className="text-[8px] bg-[var(--color-accent)] text-black px-1.5 py-0.5 font-bold uppercase">
+                            ACTIVE
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteSavedConnection(conn.id, e)}
+                          className="p-1 text-red-400 hover:bg-red-500/20 border border-red-500/30 cursor-pointer"
+                          title="Delete connection"
+                        >
+                          <Trash2 size={10} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-[9px] font-mono opacity-70 mt-1 flex items-center justify-between">
+                      <span className="uppercase text-[var(--color-accent)] font-bold">{cfg?.shortName || conn.provider}</span>
+                      <span className="truncate max-w-[120px]">{bucketName} {conn.latencyMs ? `· ${conn.latencyMs}ms` : ''}</span>
                     </div>
                   </div>
-                  <div className="text-[9px] font-mono opacity-70 mt-1 flex items-center justify-between">
-                    <span className="uppercase text-[var(--color-accent)]">{cfg?.shortName || conn.provider}</span>
-                    <span className="truncate max-w-[120px]">{bucketName} {conn.latencyMs ? `· ${conn.latencyMs}ms` : ''}</span>
-                  </div>
+
+                  {conn.role !== 'primary' && (
+                    <button
+                      type="button"
+                      onClick={(e) => handleSetPrimaryConnection(conn, e)}
+                      className="mt-2.5 py-1 px-2 border border-[#D4AF37]/60 bg-[#D4AF37]/10 hover:bg-[#D4AF37] text-[#D4AF37] hover:text-black text-[9px] font-mono font-black uppercase transition-all flex items-center justify-center gap-1 cursor-pointer"
+                      title="Promote this storage option to Primary"
+                    >
+                      <Star size={10} />
+                      <span>SET AS PRIMARY</span>
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -649,6 +764,80 @@ export default function StorageConnectDrawer({
 
           {selectedProvider === 'local_fs' && (
             <div className="space-y-3 pt-2 border-t border-brutalist/30">
+              {/* Hidden HTML5 directory input for guaranteed system explorer opening in all browsers */}
+              <input
+                type="file"
+                ref={html5FolderInputRef}
+                {...({ webkitdirectory: '', directory: '' } as any)}
+                multiple
+                className="hidden"
+                onChange={handleHtml5FolderSelect}
+              />
+
+              {/* Local Storage General Error Box */}
+              {generalError && (
+                <div className="p-2.5 border border-red-500/60 bg-red-950/40 text-red-400 text-xs font-mono space-y-1">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <AlertCircle size={14} className="shrink-0" />
+                    <span>LOCAL STORAGE ERROR</span>
+                  </div>
+                  <div className="text-[11px] leading-relaxed">{generalError}</div>
+                </div>
+              )}
+
+              {/* Status Banner: File System Access API State */}
+              {!isLocalFsSupported ? (
+                isBrave ? (
+                  <div className="p-3 border-2 border-amber-500/60 bg-amber-950/25 text-[var(--color-text)] space-y-2">
+                    <div className="flex items-center gap-2 text-amber-400">
+                      <ShieldAlert size={16} className="shrink-0" />
+                      <span className="font-black text-xs uppercase tracking-wide">
+                        Brave Privacy Guard Active
+                      </span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed opacity-90">
+                      Brave is Chromium-based, but disables the <strong>File System Access API</strong> by default for anti-fingerprinting. To enable persistent local folder write sync, enable this flag:
+                    </p>
+                    <div className="flex items-center gap-2 p-1.5 bg-black border border-amber-500/40">
+                      <code className="text-[11px] font-mono text-amber-300 flex-1 truncate select-all">
+                        brave://flags/#file-system-access-api
+                      </code>
+                      <button
+                        type="button"
+                        onClick={handleCopyBraveFlagUrl}
+                        className="py-1 px-2 text-[10px] font-mono font-bold uppercase bg-amber-500 text-black hover:bg-amber-400 flex items-center gap-1 cursor-pointer shrink-0"
+                      >
+                        {copiedFlagUrl ? <Check size={11} /> : <Copy size={11} />}
+                        <span>{copiedFlagUrl ? 'COPIED!' : 'COPY URL'}</span>
+                      </button>
+                    </div>
+                    <ol className="text-[10px] space-y-0.5 opacity-80 list-decimal list-inside font-mono">
+                      <li>Open a new tab and paste the copied URL</li>
+                      <li>Set <strong>File System Access API</strong> to <strong>Enabled</strong></li>
+                      <li>Click <strong>Relaunch</strong> at the bottom of Brave</li>
+                    </ol>
+                    <div className="pt-0.5 text-[10px] text-amber-400/90 font-mono">
+                      ⚡ Tip: Clicking <strong>SELECT FOLDER</strong> below will open your native system Explorer/Finder immediately via fallback mode.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-2.5 border border-cyan-500/50 bg-cyan-950/20 text-[var(--color-text)] space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-cyan-400">
+                      <Info size={14} className="shrink-0" />
+                      <span className="font-bold text-xs uppercase">Browser Directory Access Notice</span>
+                    </div>
+                    <p className="text-[10px] leading-relaxed opacity-80">
+                      Your browser does not support the W3C File System Access API. Clicking <strong>SELECT FOLDER</strong> will open your system file explorer via HTML5 directory mode. For full persistent background disk syncing, use Chrome, Edge, or enable the flag in Brave. Alternatively, connect a cloud bucket (Backblaze B2, Cloudflare R2, Supabase, or AWS S3).
+                    </p>
+                  </div>
+                )
+              ) : (
+                <div className="p-2 border border-emerald-500/40 bg-emerald-950/20 flex items-center gap-2 text-emerald-400 text-[11px] font-mono">
+                  <CheckCircle2 size={13} className="shrink-0" />
+                  <span>Native File System Access API active & ready for disk folder mapping.</span>
+                </div>
+              )}
+
               <div className="space-y-1">
                 <label className="text-[9px] font-black uppercase opacity-60 block">
                   Storage Option Label
