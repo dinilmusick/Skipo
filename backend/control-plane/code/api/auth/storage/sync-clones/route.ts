@@ -93,24 +93,29 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Persist updated lastTestedAt on synced connections
+    // Persist updated lastTestedAt on synced connections safely
     const nowIso = new Date().toISOString();
-    const updatedConnections = allConnections.map((conn) => {
+    const freshUser = await findUserByIdAsync(session.userId);
+    const targetUser = freshUser || user;
+    const currentConnections: UserStorageConnection[] =
+      targetUser.appProfiles?.docustack?.storage_connections || (targetUser as any)?.storage_connections || allConnections;
+
+    const mergedConnections = currentConnections.map((conn) => {
       const wasSynced = results.some((r) => r.id === conn.id && r.filesSynced > 0);
       return wasSynced ? { ...conn, lastTestedAt: nowIso } : conn;
     });
 
     const updatedAppProfiles = {
-      ...(user.appProfiles || {}),
+      ...(targetUser.appProfiles || {}),
       docustack: {
-        ...(user.appProfiles?.docustack || {}),
-        storage_connections: updatedConnections,
+        ...(targetUser.appProfiles?.docustack || {}),
+        storage_connections: mergedConnections,
       },
     };
 
     await updateUserProfileAsync(session.userId, {
       appProfiles: updatedAppProfiles,
-      storage_connections: updatedConnections,
+      storage_connections: mergedConnections,
     } as any);
 
     return NextResponse.json({

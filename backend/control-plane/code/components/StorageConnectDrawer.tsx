@@ -374,17 +374,39 @@ export default function StorageConnectDrawer({
 
   const fetchWorkspaceDataForSync = async () => {
     const headers = getAuthHeaders();
-    const [docsRes, catsRes, graphRes] = await Promise.all([
+    const [docsRes, catsRes, graphRes, wsRes, userWsRes] = await Promise.all([
       fetch('/api/documents', { headers }).then((r) => r.json()).catch(() => ({ documents: [] })),
       fetch('/api/categories', { headers }).then((r) => r.json()).catch(() => ({ categories: [] })),
       fetch('/api/graph', { headers }).then((r) => r.json()).catch(() => ({ nodes: [], edges: [], groups: [] })),
+      fetch('/api/workspace', { headers }).then((r) => r.json()).catch(() => ({})),
+      fetch('/api/auth/workspaces', { headers }).then((r) => r.json()).catch(() => ({})),
     ]);
+
+    // Find the canonical folder prefix from active workspace (e.g. ultrst_docustack_dinil_test-backblaze-workspace)
+    let canonicalFolderPrefix: string | null = wsRes.folderPrefix || null;
+    if (!canonicalFolderPrefix && userWsRes.workspaces && Array.isArray(userWsRes.workspaces)) {
+      const active = userWsRes.workspaces.find((w: any) => w.id === userWsRes.activeWorkspaceId) || userWsRes.workspaces[0];
+      if (active?.workspacePath) {
+        canonicalFolderPrefix = active.workspacePath.replace(/^\.\//, '');
+      }
+    }
+    if (canonicalFolderPrefix) {
+      canonicalFolderPrefix = canonicalFolderPrefix.replace(/^\.\//, '').replace(/^\/+/, '');
+      if (canonicalFolderPrefix.includes('/')) {
+        const segments = canonicalFolderPrefix.split('/').filter(Boolean);
+        const ultrstSegment = segments.find((s: string) => s.startsWith('ultrst_'));
+        canonicalFolderPrefix = ultrstSegment || segments[segments.length - 1];
+      }
+    }
+
     return {
       documents: docsRes.documents || [],
       categories: catsRes.categories || [],
       nodes: graphRes.nodes || [],
       edges: graphRes.edges || [],
       groups: graphRes.groups || [],
+      folderPrefix: canonicalFolderPrefix,
+      vaultName: wsRes.vaultName || null,
     };
   };
 
@@ -397,7 +419,7 @@ export default function StorageConnectDrawer({
       active: true,
       title,
       percent: 5,
-      statusMessage: 'Loading active workspace documents and structure...',
+      statusMessage: 'Loading active workspace documents, graph structure, and folder prefix...',
       completedFiles: 0,
       totalFiles: 1,
     });
@@ -418,7 +440,8 @@ export default function StorageConnectDrawer({
           completedFiles: progress.completedFiles,
           totalFiles: progress.totalFiles,
         });
-      }
+      },
+      workspaceData.folderPrefix || undefined
     );
 
     setSyncProgress({
@@ -456,8 +479,13 @@ export default function StorageConnectDrawer({
 
       await fetchSavedConnections(data.connection.id);
       setActiveConnId(data.connection.id);
-      onSelectCloudConnection(data.connection);
-      onSelectEngine(data.connection.provider === 'local_fs' ? 'local_fs' : 's3_blob');
+      if (data.connection.provider === 'local_fs') {
+        onSelectLocalFolder(data.connection.localFolderName || '', data.connection.localFolderKey || '');
+        onSelectEngine('local_fs');
+      } else {
+        onSelectCloudConnection(data.connection);
+        onSelectEngine('s3_blob');
+      }
       setShowNewConnectionForm(false);
 
       // If local_fs, immediately sync workspace files to the folder handle
@@ -573,7 +601,13 @@ export default function StorageConnectDrawer({
         `✓ Replicated workspace to ${cloneConnections.length} clones (${cloudSynced + localSynced} files written).`
       );
 
-      await fetchSavedConnections(activeConnId);
+      // Update lastTestedAt in local state without re-fetching (prevents tile state reset)
+      const nowIso = new Date().toISOString();
+      setSavedConnections((prev) =>
+        prev.map((c) =>
+          cloneConnections.some((cl) => cl.id === c.id) ? { ...c, lastTestedAt: nowIso } : c
+        )
+      );
       setTimeout(() => setSyncProgress(null), 5000);
     } catch (err: any) {
       setGeneralError(`Clone synchronization failed: ${err.message}`);
@@ -632,7 +666,11 @@ export default function StorageConnectDrawer({
         setImportNotification(`✓ Replicated workspace to ${conn.label} (${data.totalFilesSynced || 0} files).`);
         setTimeout(() => setSyncProgress(null), 4000);
       }
-      await fetchSavedConnections(activeConnId);
+      // Update lastTestedAt in local tile state without re-fetching (prevents tile state reset)
+      const nowIso = new Date().toISOString();
+      setSavedConnections((prev) =>
+        prev.map((c) => (c.id === conn.id ? { ...c, lastTestedAt: nowIso } : c))
+      );
     } catch (err: any) {
       setGeneralError(`Failed to sync clone: ${err.message}`);
       setSyncProgress(null);
