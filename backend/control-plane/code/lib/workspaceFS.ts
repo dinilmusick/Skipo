@@ -9,6 +9,7 @@ import {
   readCloudWorkspaceFile,
   deleteCloudWorkspaceFile,
   deleteCloudWorkspaceFolder,
+  deleteCloudNodeAssets,
   initializeCloudWorkspaceBucket,
   syncFolderNodeToCloud,
   syncKanbanNodeToCloud,
@@ -354,27 +355,26 @@ export {
   formatCanonicalWorkspacePath,
 } from './workspace-canonical';
 
-const VAULT_DIR_NAME = 'docustack_vault';
+const VAULT_DIR_NAME = 'docustack_workspace';
 let globalActiveVaultPath: string | null = null;
 let globalActiveVaultName: string = 'DocuStack Vault';
 let globalActiveStorageConn: UserStorageConnection | null = null;
 let globalActiveFolderPrefix: string | null = null;
 
 export function resolveCustomPath(rawPath: string): string {
-  const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
-  const baseDir = isServerless ? path.join(os.tmpdir(), 'docustack') : process.cwd();
+  const baseDir = path.join(os.tmpdir(), 'docustack_workspace');
 
-  if (!rawPath || rawPath.trim() === '') {
-    return path.join(baseDir, VAULT_DIR_NAME);
+  if (!rawPath || rawPath.trim() === '' || rawPath === './docustack_vault' || rawPath === 'docustack_vault') {
+    return baseDir;
   }
   let clean = rawPath.trim();
   if (clean.startsWith('~')) {
     clean = path.join(os.homedir(), clean.slice(1));
   }
-  if (isServerless && !path.isAbsolute(clean)) {
+  if (!path.isAbsolute(clean)) {
     return path.resolve(baseDir, clean.replace(/^\.\//, ''));
   }
-  return path.isAbsolute(clean) ? path.normalize(clean) : path.resolve(process.cwd(), clean);
+  return path.normalize(clean);
 }
 
 export function setActiveVaultConfig(
@@ -423,6 +423,11 @@ export function getVaultAbsolutePath(customPath?: string): string {
 
 export function ensureWorkspaceExists(customVaultPath?: string) {
   try {
+    // If active storage is cloud, do not create physical disk folders
+    if (globalActiveStorageConn && globalActiveStorageConn.provider !== 'local_fs') {
+      return;
+    }
+
     const vaultPath = getVaultAbsolutePath(customVaultPath);
 
     if (!fs.existsSync(vaultPath)) {
@@ -788,6 +793,111 @@ export function deleteCategoryAndDocumentsFromFS(categoryId: string): { purgedDo
   } catch {}
 
   return { purgedDocsCount: docsToDelete.length, purgedCategory: true };
+}
+
+export async function deleteCategoryAndDocumentsFromFSAsync(
+  categoryId: string
+): Promise<{ purgedDocsCount: number; purgedCategory: boolean; purgedPaths: string[] }> {
+  const currentCategories = loadCategoriesFromFS();
+  const targetCat = currentCategories.find((c) => c.id === categoryId);
+  const result = deleteCategoryAndDocumentsFromFS(categoryId);
+  const purgedPaths: string[] = [];
+
+  if (targetCat) {
+    const catFolder = getSafeCloudFolderName(targetCat.title);
+    purgedPaths.push(catFolder);
+
+    // If cloud storage active, delete cloud folder and update indices
+    if (globalActiveStorageConn && globalActiveFolderPrefix) {
+      try {
+        await deleteCloudWorkspaceFolder(globalActiveStorageConn, globalActiveFolderPrefix, catFolder);
+
+        const remainingCats = loadCategoriesFromFS();
+        const remainingDocs = loadDocumentsFromFS();
+
+        await writeCloudWorkspaceFile(
+          globalActiveStorageConn,
+          globalActiveFolderPrefix,
+          '.docustack/categories.json',
+          JSON.stringify(remainingCats, null, 2),
+          'application/json'
+        );
+
+        await writeCloudWorkspaceFile(
+          globalActiveStorageConn,
+          globalActiveFolderPrefix,
+          '.docustack/documents_index.json',
+          JSON.stringify(remainingDocs, null, 2),
+          'application/json'
+        );
+      } catch (cloudErr) {
+        console.warn('[CloudStorage] Error deleting category from cloud:', cloudErr);
+      }
+    }
+
+    // Unlink physical directory on local vault if present
+    const vaultPath = getVaultAbsolutePath();
+    try {
+      const dirOnDisk = path.join(vaultPath, catFolder);
+      if (fs.existsSync(dirOnDisk)) {
+        fs.rmSync(dirOnDisk, { recursive: true, force: true });
+      }
+    } catch {}
+  }
+
+  return { ...result, purgedPaths };
+}
+
+/**
+ * Universally delete all cloud and physical assets for a graph node
+ * (e.g. folder nodes, Kanban board folders, sticky notes)
+ */
+export async function deleteNodeAssetsAsync(
+  node: GraphNode,
+  categories: DocCategory[] = []
+): Promise<{ success: boolean; purgedPaths: string[] }> {
+  const purgedPaths: string[] = [];
+  if (node.isWorkspaceRoot) return { success: false, purgedPaths };
+
+  const safeTitle = getSafeCloudFolderName(node.title);
+
+  // 1. If cloud storage active, delete from cloud
+  if (globalActiveStorageConn && globalActiveFolderPrefix) {
+    try {
+      const cloudRes = await deleteCloudNodeAssets(
+        globalActiveStorageConn,
+        globalActiveFolderPrefix,
+        node,
+        categories
+      );
+      purgedPaths.push(...cloudRes.purgedPaths);
+    } catch (err) {
+      console.warn(`[CloudStorage] Error deleting node ${node.title} from cloud:`, err);
+    }
+  }
+
+  // 2. Unlink from local vault disk if directory/file exists
+  const vaultPath = getVaultAbsolutePath();
+  try {
+    if (node.type === 'folder' || node.glyph === 'Folder' || node.type === 'collection' || node.glyph === 'Kanban') {
+      const dirOnDisk = path.join(vaultPath, safeTitle);
+      if (fs.existsSync(dirOnDisk)) {
+        fs.rmSync(dirOnDisk, { recursive: true, force: true });
+        if (!purgedPaths.includes(safeTitle)) purgedPaths.push(safeTitle);
+      }
+    } else if (node.type === 'sticky') {
+      const fileName = `${(node.title || 'sticky').toLowerCase().replace(/[^a-z0-9_.-]/g, '_')}.txt`;
+      const fileOnDisk = path.join(vaultPath, fileName);
+      if (fs.existsSync(fileOnDisk)) {
+        fs.unlinkSync(fileOnDisk);
+        if (!purgedPaths.includes(fileName)) purgedPaths.push(fileName);
+      }
+    }
+  } catch (e) {
+    console.warn(`[workspaceFS] Error unlinking node assets for ${node.title}:`, e);
+  }
+
+  return { success: true, purgedPaths };
 }
 
 export interface PurgeAssetResult {

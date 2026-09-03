@@ -283,6 +283,47 @@ export async function deleteCloudWorkspaceFolder(
 }
 
 /**
+ * Delete all cloud storage files and directories associated with a graph node
+ * (e.g. folder nodes, Kanban board folders and column subfolders, sticky note txt files)
+ */
+export async function deleteCloudNodeAssets(
+  conn: UserStorageConnection,
+  folderPrefix: string,
+  node: GraphNode,
+  categories: DocCategory[] = []
+): Promise<{ success: boolean; purgedPaths: string[] }> {
+  const purgedPaths: string[] = [];
+  if (!conn || !folderPrefix || node.isWorkspaceRoot) {
+    return { success: false, purgedPaths };
+  }
+
+  const safeTitle = getSafeCloudFolderName(node.title);
+
+  if (node.type === 'folder' || node.glyph === 'Folder') {
+    await deleteCloudWorkspaceFolder(conn, folderPrefix, safeTitle);
+    purgedPaths.push(safeTitle);
+  } else if (node.type === 'collection' || node.glyph === 'Kanban') {
+    const boardId = node.collectionId || node.id;
+    await deleteCloudWorkspaceFolder(conn, folderPrefix, safeTitle);
+    purgedPaths.push(safeTitle);
+
+    // Also purge any categories for this board that were stored at root
+    const cols = categories.filter((c) => c.boardId === boardId);
+    for (const col of cols) {
+      const colTitle = getSafeCloudFolderName(col.title);
+      await deleteCloudWorkspaceFolder(conn, folderPrefix, colTitle);
+      purgedPaths.push(colTitle);
+    }
+  } else if (node.type === 'sticky') {
+    const fileName = `${(node.title || 'sticky').toLowerCase().replace(/[^a-z0-9_.-]/g, '_')}.txt`;
+    await deleteCloudWorkspaceFile(conn, folderPrefix, fileName);
+    purgedPaths.push(fileName);
+  }
+
+  return { success: true, purgedPaths };
+}
+
+/**
  * Initialize a full workspace folder layout on Cloud Storage
  * Creates the canonical directory structure, manifests, graph topology, categories, and welcome document.
  */
@@ -650,6 +691,120 @@ export async function syncEntireWorkspaceToCloud(
     } catch (err) {
       console.warn(`[CloudStorage] Error writing document ${doc.title}:`, err);
     }
+  }
+
+  // 6. Reconcile / Prune Orphaned Objects from Cloud Bucket
+  try {
+    const validRelativeKeys = new Set<string>([
+      '.docustack/manifest.json',
+      '.docustack/graph.json',
+      '.docustack/categories.json',
+      '.docustack/documents_index.json',
+      '.docustack/theme.json',
+      'inbox/.keep',
+    ]);
+
+    // Active folder and kanban nodes
+    for (const node of data.nodes) {
+      if (node.isWorkspaceRoot) continue;
+      const safeTitle = getSafeCloudFolderName(node.title);
+      if (node.type === 'folder' || node.glyph === 'Folder') {
+        validRelativeKeys.add(`${safeTitle}/.keep`);
+        validRelativeKeys.add(`${safeTitle}/README.md`);
+      } else if (node.type === 'collection' || node.glyph === 'Kanban') {
+        validRelativeKeys.add(`${safeTitle}/kanban_board.json`);
+        const boardId = node.collectionId || node.id;
+        const boardCols = data.categories.filter((c) => c.boardId === boardId);
+        for (const col of boardCols) {
+          const colFolder = getSafeCloudFolderName(col.title);
+          validRelativeKeys.add(`${safeTitle}/${colFolder}/.keep`);
+          validRelativeKeys.add(`${safeTitle}/${colFolder}/README.md`);
+        }
+      } else if (node.type === 'sticky') {
+        const safeSticky = (node.title || 'sticky').toLowerCase().replace(/[^a-z0-9_.-]/g, '_');
+        validRelativeKeys.add(`${safeSticky}.txt`);
+      }
+    }
+
+    // Active root categories
+    for (const cat of data.categories) {
+      if (!cat.boardId) {
+        const colFolder = getSafeCloudFolderName(cat.title);
+        validRelativeKeys.add(`${colFolder}/.keep`);
+        validRelativeKeys.add(`${colFolder}/README.md`);
+      }
+    }
+
+    // Active documents
+    for (const doc of data.documents) {
+      const safeTitle = (doc.title || 'untitled').toLowerCase().replace(/[^a-z0-9_.-]/g, '_');
+      const filename = safeTitle.includes('.') ? safeTitle : `${safeTitle}.md`;
+      const assignedCat = data.categories.find((c) => c.id === doc.categoryId);
+      if (assignedCat) {
+        const catFolder = getSafeCloudFolderName(assignedCat.title);
+        if (assignedCat.boardId) {
+          const boardNode = data.nodes.find((n) => (n.collectionId || n.id) === assignedCat.boardId);
+          const boardFolder = getSafeCloudFolderName(boardNode?.title || 'Kanban');
+          validRelativeKeys.add(`${boardFolder}/${catFolder}/${filename}`);
+        } else {
+          validRelativeKeys.add(`${catFolder}/${filename}`);
+        }
+      } else {
+        validRelativeKeys.add(`inbox/${filename}`);
+      }
+    }
+
+    // Prune orphaned objects from bucket
+    if (conn.provider === 'backblaze_b2' || conn.provider === 'cloudflare_r2' || conn.provider === 'aws_s3') {
+      const { s3, bucketName } = buildS3Client(conn);
+      const prefixClean = folderPrefix.replace(/^\/+|\/+$/g, '') + '/';
+
+      const listRes = await s3.send(
+        new ListObjectsV2Command({
+          Bucket: bucketName,
+          Prefix: prefixClean,
+        })
+      );
+
+      const objects = listRes.Contents || [];
+      for (const obj of objects) {
+        if (!obj.Key) continue;
+        const rel = obj.Key.substring(prefixClean.length);
+        if (!rel || rel.endsWith('/')) continue;
+        // Do not delete uploaded wallpapers or media
+        if (rel.startsWith('.docustack/wallpapers') || rel.startsWith('media/')) continue;
+
+        if (!validRelativeKeys.has(rel)) {
+          try {
+            await s3.send(
+              new DeleteObjectCommand({
+                Bucket: bucketName,
+                Key: obj.Key,
+              })
+            );
+          } catch (delErr) {
+            console.warn(`[CloudStorage] Error deleting orphaned key ${obj.Key}:`, delErr);
+          }
+        }
+      }
+    } else if (conn.provider === 'supabase_storage') {
+      const url = (conn.supabaseUrl || '').trim();
+      const key = (conn.supabaseServiceKey || conn.supabaseAnonKey || '').trim();
+      const bucket = (conn.supabaseBucketName || '').trim();
+      const supabase = createClient(url, key, { auth: { persistSession: false } });
+      const prefixClean = folderPrefix.replace(/^\/+|\/+$/g, '');
+
+      const { data: listData } = await supabase.storage.from(bucket).list(prefixClean);
+      if (listData) {
+        for (const item of listData) {
+          if (!validRelativeKeys.has(item.name) && !item.name.startsWith('.docustack/wallpapers')) {
+            await supabase.storage.from(bucket).remove([`${prefixClean}/${item.name}`]);
+          }
+        }
+      }
+    }
+  } catch (reconcileErr) {
+    console.warn('[CloudStorage] Reconcile warning:', reconcileErr);
   }
 
   return { success: true, syncedCount };

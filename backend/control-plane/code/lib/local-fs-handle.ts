@@ -447,6 +447,49 @@ export async function syncWorkspaceToDirectoryHandle(
     }
   }
 
+  // 8. Reconciliation: Prune orphaned directories or files from wsDir
+  try {
+    const validTopLevelDirs = new Set<string>([
+      '.docustack',
+      'inbox',
+      ...folderNodes.map((n: any) => getSafeFolderName(n.title)),
+      ...kanbanNodes.map((n: any) => getSafeFolderName(n.title)),
+      ...categories.filter((c: any) => !c.boardId).map((c: any) => getSafeFolderName(c.title)),
+    ]);
+
+    const anyWsDir = wsDir as any;
+    if (typeof anyWsDir.entries === 'function') {
+      for await (const [entryName, handle] of anyWsDir.entries()) {
+        if (handle.kind === 'directory') {
+          if (!validTopLevelDirs.has(entryName)) {
+            try {
+              await anyWsDir.removeEntry(entryName, { recursive: true });
+            } catch {}
+          } else if (kanbanNodes.some((k: any) => getSafeFolderName(k.title) === entryName)) {
+            // Inside kanban board, prune orphaned column folders
+            const targetBoard = kanbanNodes.find((k: any) => getSafeFolderName(k.title) === entryName);
+            const boardId = targetBoard.collectionId || targetBoard.id;
+            const validColNames = new Set(
+              categories.filter((c: any) => c.boardId === boardId).map((c: any) => getSafeFolderName(c.title))
+            );
+            const subDirHandle = handle as any;
+            if (typeof subDirHandle.entries === 'function') {
+              for await (const [subName, subHandle] of subDirHandle.entries()) {
+                if (subHandle.kind === 'directory' && !validColNames.has(subName)) {
+                  try {
+                    await subDirHandle.removeEntry(subName, { recursive: true });
+                  } catch {}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (pruneErr) {
+    console.warn('[LocalSync] Pruning warning:', pruneErr);
+  }
+
   onProgress?.({
     percent: 100,
     statusMessage: `✓ Synced ${completed} files to "${workspaceSubfolder}"`,
@@ -456,4 +499,46 @@ export async function syncWorkspaceToDirectoryHandle(
   });
 
   return { filesWritten: completed };
+}
+
+/**
+ * Remove a specific relative file or directory entry from a local DirectoryHandle
+ */
+export async function removeEntryFromLocalHandle(
+  dirHandle: FileSystemDirectoryHandle,
+  relativePath: string,
+  subfolder?: string
+): Promise<boolean> {
+  try {
+    let rawSubfolder = (subfolder || '').trim();
+    if (rawSubfolder.includes('/')) {
+      const parts = rawSubfolder.split('/').filter(Boolean);
+      const ultrstPart = parts.find((p) => p.startsWith('ultrst_'));
+      rawSubfolder = ultrstPart || parts[parts.length - 1];
+    }
+    const workspaceSubfolder = rawSubfolder.replace(/^\.\//, '').replace(/\/+$/, '');
+
+    let wsDir = dirHandle;
+    if (workspaceSubfolder) {
+      const parts = workspaceSubfolder.split('/').filter(Boolean);
+      for (const part of parts) {
+        wsDir = await wsDir.getDirectoryHandle(part, { create: false });
+      }
+    }
+
+    const cleanRel = relativePath.replace(/^\/+|\/+$/g, '');
+    const parts = cleanRel.split('/').filter(Boolean);
+    const targetName = parts.pop();
+    if (!targetName) return false;
+
+    let current = wsDir;
+    for (const part of parts) {
+      current = await current.getDirectoryHandle(part, { create: false });
+    }
+
+    await (current as any).removeEntry(targetName, { recursive: true });
+    return true;
+  } catch (err) {
+    return false;
+  }
 }

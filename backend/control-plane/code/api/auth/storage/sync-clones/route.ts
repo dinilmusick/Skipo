@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySession, findUserByIdAsync, updateUserProfileAsync, resolveRequestContextVault } from '@/lib/auth-storage';
-import { loadDocumentsFromFSAsync, loadCategoriesFromFSAsync, loadGraphFromFSAsync } from '@/lib/workspaceFS';
+import { loadDocumentsFromFSAsync, loadCategoriesFromFSAsync, loadGraphFromFSAsync, formatCanonicalWorkspaceFolderName } from '@/lib/workspaceFS';
 import { syncEntireWorkspaceToCloud } from '@/lib/cloud-storage-service';
 import { UserStorageConnection } from '@/lib/types';
 
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const folderPrefix = vaultContext.folderPrefix || 'docustack_vault';
+    const folderPrefix = vaultContext.folderPrefix || formatCanonicalWorkspaceFolderName('DocuStack', vaultContext.user?.name || vaultContext.user?.username || 'user', 'workspace');
     const results: Array<{ id: string; label: string; provider: string; filesSynced: number }> = [];
     let totalFiles = 0;
 

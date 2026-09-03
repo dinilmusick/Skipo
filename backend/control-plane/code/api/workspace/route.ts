@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
     // 0. Action to verify / preview a workspace folder path
     if (body.action === 'verify') {
       const { workspacePath } = body;
-      const targetPath = getVaultAbsolutePath(workspacePath || './docustack_vault');
+      const targetPath = getVaultAbsolutePath(workspacePath || '');
       const exists = fs.existsSync(targetPath);
       let fileCount = 0;
       let folderCount = 0;

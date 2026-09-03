@@ -29,7 +29,7 @@ const DEFAULT_WORKSPACE_DATA_PLANE: WorkspaceDataPlaneConfig = {
   options: {
     walEnabled: true,
     strictSsl: true,
-    relativeStoragePrefix: './docustack_vault',
+    relativeStoragePrefix: '',
   },
 };
 
@@ -108,7 +108,7 @@ export class WorkspaceBackendFactory {
       options: {
         walEnabled: true,
         strictSsl: true,
-        relativeStoragePrefix: params.storage?.basePath || './docustack_vault',
+        relativeStoragePrefix: params.storage?.basePath || '',
       },
     };
   }

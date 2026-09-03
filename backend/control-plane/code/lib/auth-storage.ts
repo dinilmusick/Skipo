@@ -415,7 +415,6 @@ export function createAdminAccountServerSide(
   if (existing) {
     existing.role = 'admin';
     existing.passwordHash = hashPassword(password);
-    if (!existing.workspacePath) existing.workspacePath = './docustack_vault';
     if (!existing.workspaceName) existing.workspaceName = 'DocuStack Vault';
     saveUsers(users);
     getClusterPersister().then(({ persistUserToCluster }) => persistUserToCluster(existing)).catch(() => {});
@@ -429,7 +428,7 @@ export function createAdminAccountServerSide(
     username: normalizedEmail.split('@')[0],
     name: name || 'Control Plane Administrator',
     role: 'admin',
-    workspacePath: './docustack_vault',
+    workspacePath: '',
     workspaceName: 'DocuStack Vault',
     avatarGlyph: '⚡',
     createdAt: now,
@@ -700,7 +699,7 @@ export function authenticateUser(
         username: envAdmin.email.split('@')[0] || 'admin',
         name: 'Vault Administrator',
         role: 'admin',
-        workspacePath: './docustack_vault',
+        workspacePath: '',
         workspaceName: 'DocuStack Vault',
         avatarGlyph: '⚡',
         createdAt: new Date().toISOString(),
@@ -711,7 +710,6 @@ export function authenticateUser(
     } else {
       targetUser.role = 'admin';
       targetUser.lastLoginAt = new Date().toISOString();
-      if (!targetUser.workspacePath) targetUser.workspacePath = './docustack_vault';
       if (!targetUser.workspaceName) targetUser.workspaceName = 'DocuStack Vault';
       saveUsers(users);
     }
@@ -896,7 +894,7 @@ export async function resolveRequestContextVault(req: NextRequest): Promise<Requ
   let activeWs: UserWorkspaceRecord | null = null;
   let storageConn: UserStorageConnection | null = null;
   let folderPrefix: string | null = null;
-  let vaultPath = './docustack_vault';
+  let vaultPath = '';
   let vaultName = 'DocuStack Vault';
 
   if (user) {
@@ -930,7 +928,7 @@ export async function resolveRequestContextVault(req: NextRequest): Promise<Requ
       null;
 
     if (activeWs) {
-      vaultPath = activeWs.workspacePath || vaultPath;
+      vaultPath = activeWs.workspacePath || '';
       vaultName = activeWs.name || vaultName;
       if (activeWs.storageConnectionId) {
         const wsConnId = activeWs.storageConnectionId;
@@ -947,9 +945,14 @@ export async function resolveRequestContextVault(req: NextRequest): Promise<Requ
     }
   }
 
-  folderPrefix = vaultPath.replace(/^\.\//, '');
+  folderPrefix = vaultPath ? vaultPath.replace(/^\.\//, '') : '';
+  if (!folderPrefix && user) {
+    folderPrefix = formatCanonicalWorkspaceFolderName('DocuStack', user.name || user.username, 'vault');
+  }
   setActiveVaultConfig(vaultPath, vaultName, storageConn, folderPrefix);
-  ensureWorkspaceExists(vaultPath);
+  if (storageConn && storageConn.provider === 'local_fs') {
+    ensureWorkspaceExists(vaultPath);
+  }
 
   return {
     user,
