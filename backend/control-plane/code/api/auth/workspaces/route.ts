@@ -8,8 +8,9 @@ import {
   deleteUserWorkspaceAsync,
   switchActiveWorkspaceAsync,
 } from '@/lib/auth-storage';
-import { setActiveVaultConfig, ensureWorkspaceExists } from '@/lib/workspaceFS';
-import { initializeCloudWorkspaceBucket } from '@/lib/cloud-storage-service';
+import fs from 'fs';
+import { setActiveVaultConfig, ensureWorkspaceExists, getVaultAbsolutePath } from '@/lib/workspaceFS';
+import { initializeCloudWorkspaceBucket, deleteCloudWorkspaceFolder } from '@/lib/cloud-storage-service';
 import { UserStorageConnection } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -171,7 +172,16 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'WORKSPACE_ID_REQUIRED' }, { status: 400 });
     }
 
-    const updated = await updateUserWorkspaceAsync(session.userId, workspaceId, updates || {});
+    const updatesToApply = updates || {
+      ...(body.storageConnectionId !== undefined ? { storageConnectionId: body.storageConnectionId } : {}),
+      ...(body.storageProvider !== undefined ? { storageProvider: body.storageProvider } : {}),
+      ...(body.engine !== undefined ? { engine: body.engine } : {}),
+      ...(body.name !== undefined ? { name: body.name } : {}),
+      ...(body.localFolderName !== undefined ? { localFolderName: body.localFolderName } : {}),
+      ...(body.localFolderKey !== undefined ? { localFolderKey: body.localFolderKey } : {}),
+      ...(body.storageSettings !== undefined ? { storageSettings: body.storageSettings } : {}),
+    };
+    const updated = await updateUserWorkspaceAsync(session.userId, workspaceId, updatesToApply);
     const user = await findUserByIdAsync(session.userId);
     const userConns =
       user?.appProfiles?.docustack?.storage_connections || (user as any)?.storage_connections || [];
@@ -218,16 +228,50 @@ export async function DELETE(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const workspaceId = searchParams.get('id');
+    const workspaceId = searchParams.get('id') || searchParams.get('workspaceId');
 
     if (!workspaceId) {
       return NextResponse.json({ success: false, error: 'WORKSPACE_ID_REQUIRED' }, { status: 400 });
     }
 
+    // 1. Fetch user to locate target workspace and its storage config before deleting
+    const user = await findUserByIdAsync(session.userId);
+    const targetWs = (user?.workspaces || []).find((w: any) => w.id === workspaceId);
+
+    if (targetWs) {
+      const folderPrefix = targetWs.workspacePath ? targetWs.workspacePath.replace(/^\.\//, '') : '';
+      const userConns: any[] =
+        user?.appProfiles?.docustack?.storage_connections || (user as any)?.storage_connections || [];
+      const storageConn = targetWs.storageConnectionId
+        ? userConns.find((c: any) => c.id === targetWs.storageConnectionId)
+        : null;
+
+      // 2. If cloud storage is connected, permanently purge all files, versions, and delete markers from bucket
+      if (storageConn && folderPrefix && storageConn.provider !== 'local_fs') {
+        try {
+          await deleteCloudWorkspaceFolder(storageConn, folderPrefix, '');
+        } catch (cloudErr) {
+          console.warn('[CloudStorage] Failed to purge workspace cloud folder on delete:', cloudErr);
+        }
+      }
+
+      // 3. If local workspace directory exists on disk, clean it up
+      if (targetWs.workspacePath) {
+        try {
+          const vaultPath = getVaultAbsolutePath(targetWs.workspacePath);
+          if (fs.existsSync(vaultPath)) {
+            fs.rmSync(vaultPath, { recursive: true, force: true });
+          }
+        } catch (fsErr) {
+          console.warn('[workspaceFS] Failed to remove local workspace directory on delete:', fsErr);
+        }
+      }
+    }
+
     await deleteUserWorkspaceAsync(session.userId, workspaceId);
 
-    const user = await findUserByIdAsync(session.userId);
-    const { passwordHash: _, ...safeUser } = user || ({} as any);
+    const updatedUser = await findUserByIdAsync(session.userId);
+    const { passwordHash: _, ...safeUser } = updatedUser || ({} as any);
 
     return NextResponse.json({
       success: true,

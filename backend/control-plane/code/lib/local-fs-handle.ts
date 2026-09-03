@@ -147,6 +147,138 @@ export async function verifyDirectoryHandlePermission(
   return Boolean(handle && handle.name);
 }
 
+let globalActiveLocalHandle: FileSystemDirectoryHandle | null = null;
+
+export function setActiveLocalDirectoryHandle(handle: FileSystemDirectoryHandle | null): void {
+  globalActiveLocalHandle = handle;
+}
+
+export function getActiveLocalDirectoryHandle(): FileSystemDirectoryHandle | null {
+  return globalActiveLocalHandle;
+}
+
+export interface LocalDirectoryInitResult {
+  status: 'connected' | 'unavailable_on_machine' | 'unsupported' | 'permission_denied' | 'error';
+  handle: FileSystemDirectoryHandle | null;
+  folderName: string;
+  message?: string;
+}
+
+/**
+ * Automatically initializes and establishes the connection to a saved local directory on page load.
+ * Does NOT require manual user clicks if the browser permits or if previously granted.
+ * If the directory handle does not exist in IndexedDB (e.g. opened on a different machine),
+ * it reports 'unavailable_on_machine', allowing the app to disable local storage for this session.
+ */
+export async function autoInitializeLocalDirectory(
+  folderKey: string,
+  folderName: string = 'Local Folder'
+): Promise<LocalDirectoryInitResult> {
+  if (!isFileSystemAccessSupported()) {
+    return {
+      status: 'unsupported',
+      handle: null,
+      folderName,
+      message: 'File System Access API is not supported in this browser.',
+    };
+  }
+
+  if (!folderKey) {
+    return {
+      status: 'unavailable_on_machine',
+      handle: null,
+      folderName,
+      message: 'No local folder key was provided.',
+    };
+  }
+
+  try {
+    const handle = await getLocalDirectoryHandle(folderKey);
+    if (!handle) {
+      return {
+        status: 'unavailable_on_machine',
+        handle: null,
+        folderName,
+        message: `Local directory "${folderName}" is not available on this machine/browser.`,
+      };
+    }
+
+    let isGranted = false;
+    try {
+      if (typeof (handle as any).queryPermission === 'function') {
+        const queryState = await (handle as any).queryPermission({ mode: 'readwrite' });
+        if (queryState === 'granted') {
+          isGranted = true;
+        }
+      }
+    } catch {}
+
+    if (!isGranted && typeof (handle as any).requestPermission === 'function') {
+      try {
+        const reqState = await (handle as any).requestPermission({ mode: 'readwrite' });
+        if (reqState === 'granted') {
+          isGranted = true;
+        }
+      } catch {
+        // In browser versions requiring user gesture for requestPermission,
+        // we catch and proceed to check whether basic read access exists
+      }
+    }
+
+    // Verify handle responsiveness
+    try {
+      if (isGranted) {
+        setActiveLocalDirectoryHandle(handle);
+        return {
+          status: 'connected',
+          handle,
+          folderName: handle.name || folderName,
+          message: `Connected directly to local directory "${handle.name || folderName}".`,
+        };
+      } else {
+        // Query read-only as fallback check
+        let canRead = false;
+        try {
+          if (typeof (handle as any).queryPermission === 'function') {
+            canRead = (await (handle as any).queryPermission({ mode: 'read' })) === 'granted';
+          }
+        } catch {}
+
+        if (canRead) {
+          setActiveLocalDirectoryHandle(handle);
+          return {
+            status: 'connected',
+            handle,
+            folderName: handle.name || folderName,
+            message: `Connected to local directory "${handle.name || folderName}".`,
+          };
+        }
+
+        return {
+          status: 'permission_denied',
+          handle,
+          folderName: handle.name || folderName,
+          message: `Permission to access local folder "${handle.name || folderName}" was not granted.`,
+        };
+      }
+    } catch (probeErr: any) {
+      return {
+        status: 'unavailable_on_machine',
+        handle: null,
+        folderName,
+        message: `Directory "${folderName}" could not be accessed on this machine: ${probeErr.message}`,
+      };
+    }
+  } catch (err: any) {
+    return {
+      status: 'error',
+      handle: null,
+      folderName,
+      message: err?.message || 'Failed to initialize local directory handle.',
+    };
+  }
+}
+
 /**
  * Launch native browser directory picker
  */

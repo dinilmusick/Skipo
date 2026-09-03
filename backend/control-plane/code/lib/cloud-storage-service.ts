@@ -10,6 +10,8 @@ import {
   GetObjectCommand,
   ListObjectsV2Command,
   DeleteObjectCommand,
+  ListObjectVersionsCommand,
+  DeleteObjectsCommand,
 } from '@aws-sdk/client-s3';
 import { createClient } from '@supabase/supabase-js';
 import { UserStorageConnection, GraphNode, DocumentItem, DocCategory, GraphEdge, GraphGroup } from './types';
@@ -178,6 +180,215 @@ export async function listCloudWorkspaceFiles(
 }
 
 /**
+ * Permanently deletes an S3 / Backblaze B2 object, including all historical versions
+ * and S3 Delete Markers, ensuring 0 asterisks or ghost files remain in Backblaze B2.
+ */
+export async function permanentDeleteS3Object(
+  s3: any,
+  bucketName: string,
+  fullKey: string
+): Promise<boolean> {
+  try {
+    let versionsToDelete: { Key: string; VersionId?: string }[] = [];
+    try {
+      const versionsRes: any = await s3.send(
+        new ListObjectVersionsCommand({
+          Bucket: bucketName,
+          Prefix: fullKey,
+        })
+      );
+
+      const versions = versionsRes.Versions || [];
+      const deleteMarkers = versionsRes.DeleteMarkers || [];
+
+      for (const v of versions) {
+        if (v.Key === fullKey) {
+          versionsToDelete.push({ Key: v.Key, VersionId: v.VersionId });
+        }
+      }
+      for (const dm of deleteMarkers) {
+        if (dm.Key === fullKey) {
+          versionsToDelete.push({ Key: dm.Key, VersionId: dm.VersionId });
+        }
+      }
+    } catch (verErr) {
+      console.warn('[CloudStorage] ListObjectVersions not supported or failed on single file, fallback to standard delete:', verErr);
+    }
+
+    if (versionsToDelete.length > 0) {
+      try {
+        await s3.send(
+          new DeleteObjectsCommand({
+            Bucket: bucketName,
+            Delete: {
+              Objects: versionsToDelete,
+              Quiet: true,
+            },
+          })
+        );
+        return true;
+      } catch (batchErr) {
+        for (const item of versionsToDelete) {
+          try {
+            await s3.send(
+              new DeleteObjectCommand({
+                Bucket: bucketName,
+                Key: item.Key,
+                VersionId: item.VersionId,
+              })
+            );
+          } catch {}
+        }
+        return true;
+      }
+    }
+
+    // Fallback standard delete
+    await s3.send(
+      new DeleteObjectCommand({
+        Bucket: bucketName,
+        Key: fullKey,
+      })
+    );
+    return true;
+  } catch (err) {
+    console.warn(`[CloudStorage] Error permanently deleting S3 object ${fullKey}:`, err);
+    return false;
+  }
+}
+
+/**
+ * Permanently deletes an S3 / Backblaze B2 directory prefix, including all historical
+ * versions and Delete Markers, ensuring 0 asterisks or ghost files remain in Backblaze B2.
+ */
+export async function permanentDeleteS3Folder(
+  s3: any,
+  bucketName: string,
+  targetPrefix: string
+): Promise<{ success: boolean; deletedCount: number }> {
+  let deletedCount = 0;
+
+  try {
+    // 1. Paginate through all versions and delete markers under targetPrefix
+    let keyMarker: string | undefined = undefined;
+    let versionIdMarker: string | undefined = undefined;
+    let isTruncated = true;
+    let versionsSupported = true;
+
+    while (isTruncated && versionsSupported) {
+      try {
+        const verRes: any = await s3.send(
+          new ListObjectVersionsCommand({
+            Bucket: bucketName,
+            Prefix: targetPrefix,
+            KeyMarker: keyMarker,
+            VersionIdMarker: versionIdMarker,
+          })
+        );
+
+        const itemsToDelete: { Key: string; VersionId?: string }[] = [];
+        if (verRes.Versions) {
+          for (const v of verRes.Versions) {
+            if (v.Key) itemsToDelete.push({ Key: v.Key, VersionId: v.VersionId });
+          }
+        }
+        if (verRes.DeleteMarkers) {
+          for (const dm of verRes.DeleteMarkers) {
+            if (dm.Key) itemsToDelete.push({ Key: dm.Key, VersionId: dm.VersionId });
+          }
+        }
+
+        if (itemsToDelete.length > 0) {
+          for (let i = 0; i < itemsToDelete.length; i += 1000) {
+            const batch = itemsToDelete.slice(i, i + 1000);
+            try {
+              await s3.send(
+                new DeleteObjectsCommand({
+                  Bucket: bucketName,
+                  Delete: {
+                    Objects: batch,
+                    Quiet: true,
+                  },
+                })
+              );
+              deletedCount += batch.length;
+            } catch (batchErr) {
+              for (const item of batch) {
+                try {
+                  await s3.send(
+                    new DeleteObjectCommand({
+                      Bucket: bucketName,
+                      Key: item.Key,
+                      VersionId: item.VersionId,
+                    })
+                  );
+                  deletedCount++;
+                } catch {}
+              }
+            }
+          }
+        }
+
+        isTruncated = Boolean(verRes.IsTruncated);
+        keyMarker = verRes.NextKeyMarker;
+        versionIdMarker = verRes.NextVersionIdMarker;
+      } catch (verErr) {
+        console.warn('[CloudStorage] ListObjectVersions pagination unsupported or failed:', verErr);
+        versionsSupported = false;
+      }
+    }
+
+    // 2. Also run ListObjectsV2Command to clean any unversioned files or if versions were unsupported
+    let contToken: string | undefined = undefined;
+    let moreV2 = true;
+
+    while (moreV2) {
+      const listRes: any = await s3.send(
+        new ListObjectsV2Command({
+          Bucket: bucketName,
+          Prefix: targetPrefix,
+          ContinuationToken: contToken,
+        })
+      );
+
+      const objects = listRes.Contents || [];
+      if (objects.length > 0) {
+        const batch = objects.filter((o: any) => o.Key).map((o: any) => ({ Key: o.Key }));
+        if (batch.length > 0) {
+          try {
+            await s3.send(
+              new DeleteObjectsCommand({
+                Bucket: bucketName,
+                Delete: {
+                  Objects: batch,
+                  Quiet: true,
+                },
+              })
+            );
+            deletedCount += batch.length;
+          } catch {
+            for (const obj of batch) {
+              try {
+                await s3.send(new DeleteObjectCommand({ Bucket: bucketName, Key: obj.Key }));
+                deletedCount++;
+              } catch {}
+            }
+          }
+        }
+      }
+
+      moreV2 = Boolean(listRes.IsTruncated);
+      contToken = listRes.NextContinuationToken;
+    }
+
+    return { success: true, deletedCount };
+  } catch (err) {
+    console.warn(`[CloudStorage] Error permanently deleting S3 folder ${targetPrefix}:`, err);
+    return { success: false, deletedCount };
+  }
+}
+
+/**
  * Delete a file in Cloud Storage
  */
 export async function deleteCloudWorkspaceFile(
@@ -190,13 +401,7 @@ export async function deleteCloudWorkspaceFile(
   try {
     if (conn.provider === 'backblaze_b2' || conn.provider === 'cloudflare_r2' || conn.provider === 'aws_s3') {
       const { s3, bucketName } = buildS3Client(conn);
-      await s3.send(
-        new DeleteObjectCommand({
-          Bucket: bucketName,
-          Key: fullKey,
-        })
-      );
-      return true;
+      return await permanentDeleteS3Object(s3, bucketName, fullKey);
     }
 
     if (conn.provider === 'supabase_storage') {
@@ -216,48 +421,24 @@ export async function deleteCloudWorkspaceFile(
 }
 
 /**
- * Recursively delete an entire folder and all contained objects in Cloud Storage
+ * Recursively delete an entire folder and all contained objects in Cloud Storage.
+ * When folderRelativePath is empty or root, purges the entire workspace folder prefix.
  */
 export async function deleteCloudWorkspaceFolder(
   conn: UserStorageConnection,
   folderPrefix: string,
-  folderRelativePath: string
+  folderRelativePath: string = ''
 ): Promise<{ success: boolean; deletedCount: number }> {
-  const cleanRel = folderRelativePath.replace(/^\/+|\/+$/g, '');
-  if (!cleanRel) return { success: false, deletedCount: 0 };
+  const cleanPrefix = folderPrefix.replace(/^\/+|\/+$/g, '');
+  const cleanRel = (folderRelativePath || '').replace(/^\/+|\/+$/g, '');
+  if (!cleanPrefix && !cleanRel) return { success: false, deletedCount: 0 };
 
-  const targetPrefix = buildKey(folderPrefix, cleanRel).replace(/\/+$/, '') + '/';
-  let deletedCount = 0;
+  const targetPrefix = cleanRel ? `${cleanPrefix}/${cleanRel}/` : `${cleanPrefix}/`;
 
   try {
     if (conn.provider === 'backblaze_b2' || conn.provider === 'cloudflare_r2' || conn.provider === 'aws_s3') {
       const { s3, bucketName } = buildS3Client(conn);
-
-      const listRes = await s3.send(
-        new ListObjectsV2Command({
-          Bucket: bucketName,
-          Prefix: targetPrefix,
-        })
-      );
-
-      const objects = listRes.Contents || [];
-      if (objects.length > 0) {
-        for (const obj of objects) {
-          if (!obj.Key) continue;
-          try {
-            await s3.send(
-              new DeleteObjectCommand({
-                Bucket: bucketName,
-                Key: obj.Key,
-              })
-            );
-            deletedCount++;
-          } catch (e) {
-            console.warn(`[CloudStorage] Failed to delete object ${obj.Key}:`, e);
-          }
-        }
-      }
-      return { success: true, deletedCount };
+      return await permanentDeleteS3Folder(s3, bucketName, targetPrefix);
     }
 
     if (conn.provider === 'supabase_storage') {
@@ -266,6 +447,7 @@ export async function deleteCloudWorkspaceFolder(
       const bucket = (conn.supabaseBucketName || '').trim();
 
       const supabase = createClient(url, key, { auth: { persistSession: false } });
+      let deletedCount = 0;
       const { data } = await supabase.storage.from(bucket).list(targetPrefix);
       if (data && data.length > 0) {
         const keys = data.map((item) => `${targetPrefix}${item.name}`);
@@ -275,8 +457,8 @@ export async function deleteCloudWorkspaceFolder(
       return { success: true, deletedCount };
     }
   } catch (err) {
-    console.warn(`[CloudStorage] Error deleting cloud folder ${folderRelativePath}:`, err);
-    return { success: false, deletedCount };
+    console.warn(`[CloudStorage] Error deleting cloud folder ${targetPrefix}:`, err);
+    return { success: false, deletedCount: 0 };
   }
 
   return { success: false, deletedCount: 0 };
@@ -776,12 +958,7 @@ export async function syncEntireWorkspaceToCloud(
 
         if (!validRelativeKeys.has(rel)) {
           try {
-            await s3.send(
-              new DeleteObjectCommand({
-                Bucket: bucketName,
-                Key: obj.Key,
-              })
-            );
+            await permanentDeleteS3Object(s3, bucketName, obj.Key);
           } catch (delErr) {
             console.warn(`[CloudStorage] Error deleting orphaned key ${obj.Key}:`, delErr);
           }
