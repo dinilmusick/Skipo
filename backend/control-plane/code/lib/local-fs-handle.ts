@@ -674,3 +674,42 @@ export async function removeEntryFromLocalHandle(
     return false;
   }
 }
+
+/**
+ * Completely purges a workspace folder and all its contents from a local FileSystemDirectoryHandle.
+ * Tests multiple candidate subfolder names (canonical, raw name, sanitized) to ensure
+ * the entire folder is expunged from the user's host machine.
+ */
+export async function purgeWorkspaceFromLocalHandle(
+  dirHandle: FileSystemDirectoryHandle,
+  candidateFolderNames: string[]
+): Promise<{ success: boolean; purgedFolders: string[] }> {
+  const purgedFolders: string[] = [];
+  const checked = new Set<string>();
+
+  for (const raw of candidateFolderNames) {
+    if (!raw) continue;
+    let target = raw.trim().replace(/^\.\//, '').replace(/\/+$/, '');
+    if (target.includes('/')) {
+      const parts = target.split('/').filter(Boolean);
+      const ultrstPart = parts.find((p) => p.startsWith('ultrst_'));
+      target = ultrstPart || parts[parts.length - 1];
+    }
+    if (!target || checked.has(target)) continue;
+    checked.add(target);
+
+    try {
+      if (typeof (dirHandle as any).removeEntry === 'function') {
+        await (dirHandle as any).removeEntry(target, { recursive: true });
+        purgedFolders.push(target);
+      }
+    } catch (err: any) {
+      if (err?.name !== 'NotFoundError') {
+        console.warn(`[LocalFS] Could not remove entry "${target}":`, err);
+      }
+    }
+  }
+
+  return { success: purgedFolders.length > 0, purgedFolders };
+}
+

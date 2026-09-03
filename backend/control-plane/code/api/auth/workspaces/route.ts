@@ -12,6 +12,7 @@ import fs from 'fs';
 import { setActiveVaultConfig, ensureWorkspaceExists, getVaultAbsolutePath } from '@/lib/workspaceFS';
 import { initializeCloudWorkspaceBucket, deleteCloudWorkspaceFolder } from '@/lib/cloud-storage-service';
 import { UserStorageConnection } from '@/lib/types';
+import { formatCanonicalWorkspaceFolderName } from '@/lib/workspace-canonical';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -228,7 +229,18 @@ export async function DELETE(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const workspaceId = searchParams.get('id') || searchParams.get('workspaceId');
+    let workspaceId = searchParams.get('id') || searchParams.get('workspaceId');
+    let extraCandidatePrefixes: string[] = [];
+    let extraStorageConnections: any[] = [];
+
+    // Also support JSON body payload if provided
+    try {
+      const body = await req.json();
+      if (body?.workspaceId) workspaceId = body.workspaceId;
+      if (body?.id) workspaceId = body.id;
+      if (Array.isArray(body?.candidatePrefixes)) extraCandidatePrefixes = body.candidatePrefixes;
+      if (Array.isArray(body?.storageConnections)) extraStorageConnections = body.storageConnections;
+    } catch {}
 
     if (!workspaceId) {
       return NextResponse.json({ success: false, error: 'WORKSPACE_ID_REQUIRED' }, { status: 400 });
@@ -238,33 +250,62 @@ export async function DELETE(req: NextRequest) {
     const user = await findUserByIdAsync(session.userId);
     const targetWs = (user?.workspaces || []).find((w: any) => w.id === workspaceId);
 
-    if (targetWs) {
-      const folderPrefix = targetWs.workspacePath ? targetWs.workspacePath.replace(/^\.\//, '') : '';
-      const userConns: any[] =
-        user?.appProfiles?.docustack?.storage_connections || (user as any)?.storage_connections || [];
-      const storageConn = targetWs.storageConnectionId
-        ? userConns.find((c: any) => c.id === targetWs.storageConnectionId)
-        : null;
+    const userName = user?.username || user?.name || (user?.email ? user.email.split('@')[0] : 'user');
+    const wsName = targetWs?.name || '';
+    const rawWsPath = targetWs?.workspacePath ? targetWs.workspacePath.replace(/^\.\//, '') : '';
 
-      // 2. If cloud storage is connected, permanently purge all files, versions, and delete markers from bucket
-      if (storageConn && folderPrefix && storageConn.provider !== 'local_fs') {
+    // 2. Gather all possible candidate folder prefixes used by this workspace
+    const candidatePrefixes = Array.from(
+      new Set(
+        [
+          rawWsPath,
+          wsName ? formatCanonicalWorkspaceFolderName('docustack', userName, wsName) : '',
+          wsName ? formatCanonicalWorkspaceFolderName('DocuStack', userName, wsName) : '',
+          wsName ? wsName.toLowerCase().replace(/[^a-z0-9_.-]/g, '_') : '',
+          wsName,
+          ...extraCandidatePrefixes,
+        ].filter(Boolean) as string[]
+      )
+    );
+
+    // 3. Aggregate all user cloud connections (Backblaze B2, Cloudflare R2, AWS S3, Supabase)
+    const userConns: any[] = [
+      ...(user?.appProfiles?.docustack?.storage_connections || []),
+      ...((user as any)?.storage_connections || []),
+      ...extraStorageConnections,
+    ];
+
+    const cloudConnsMap = new Map<string, UserStorageConnection>();
+    for (const conn of userConns) {
+      if (!conn || conn.provider === 'local_fs') continue;
+      const key = `${conn.provider}_${conn.b2BucketName || conn.r2BucketName || conn.s3BucketName || conn.supabaseBucketName || conn.id}`;
+      if (!cloudConnsMap.has(key)) {
+        cloudConnsMap.set(key, conn);
+      }
+    }
+    const cloudConns = Array.from(cloudConnsMap.values());
+
+    // 4. Permanently purge all candidate prefixes from ALL connected cloud buckets (Backblaze B2, R2, S3)
+    for (const cloudConn of cloudConns) {
+      for (const prefix of candidatePrefixes) {
         try {
-          await deleteCloudWorkspaceFolder(storageConn, folderPrefix, '');
+          console.log(`[CloudStorage] Permanently purging workspace prefix "${prefix}" from provider "${cloudConn.provider}"`);
+          await deleteCloudWorkspaceFolder(cloudConn, prefix, '');
         } catch (cloudErr) {
-          console.warn('[CloudStorage] Failed to purge workspace cloud folder on delete:', cloudErr);
+          console.warn(`[CloudStorage] Failed to purge prefix "${prefix}" from "${cloudConn.provider}":`, cloudErr);
         }
       }
+    }
 
-      // 3. If local workspace directory exists on disk, clean it up
-      if (targetWs.workspacePath) {
-        try {
-          const vaultPath = getVaultAbsolutePath(targetWs.workspacePath);
-          if (fs.existsSync(vaultPath)) {
-            fs.rmSync(vaultPath, { recursive: true, force: true });
-          }
-        } catch (fsErr) {
-          console.warn('[workspaceFS] Failed to remove local workspace directory on delete:', fsErr);
+    // 5. Clean up local workspace directories on server disk if present
+    for (const prefix of candidatePrefixes) {
+      try {
+        const vaultPath = getVaultAbsolutePath(prefix);
+        if (fs.existsSync(vaultPath)) {
+          fs.rmSync(vaultPath, { recursive: true, force: true });
         }
+      } catch (fsErr) {
+        console.warn('[workspaceFS] Failed to remove local workspace directory on delete:', fsErr);
       }
     }
 
@@ -277,6 +318,8 @@ export async function DELETE(req: NextRequest) {
       success: true,
       message: 'WORKSPACE_DELETED',
       user: safeUser,
+      purgedPrefixes: candidatePrefixes,
+      purgedCloudCount: cloudConns.length,
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 400 });

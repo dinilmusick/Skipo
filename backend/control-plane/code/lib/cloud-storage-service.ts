@@ -277,14 +277,14 @@ export async function permanentDeleteS3Folder(
 
     while (isTruncated && versionsSupported) {
       try {
-        const verRes: any = await s3.send(
-          new ListObjectVersionsCommand({
-            Bucket: bucketName,
-            Prefix: targetPrefix,
-            KeyMarker: keyMarker,
-            VersionIdMarker: versionIdMarker,
-          })
-        );
+        const cmdInput: any = {
+          Bucket: bucketName,
+          Prefix: targetPrefix,
+        };
+        if (keyMarker) cmdInput.KeyMarker = keyMarker;
+        if (versionIdMarker && keyMarker) cmdInput.VersionIdMarker = versionIdMarker;
+
+        const verRes: any = await s3.send(new ListObjectVersionsCommand(cmdInput));
 
         const itemsToDelete: { Key: string; VersionId?: string }[] = [];
         if (verRes.Versions) {
@@ -353,21 +353,12 @@ export async function permanentDeleteS3Folder(
 
       const objects = listRes.Contents || [];
       if (objects.length > 0) {
-        const batch = objects.filter((o: any) => o.Key).map((o: any) => ({ Key: o.Key }));
-        if (batch.length > 0) {
-          try {
-            await s3.send(
-              new DeleteObjectsCommand({
-                Bucket: bucketName,
-                Delete: {
-                  Objects: batch,
-                  Quiet: true,
-                },
-              })
-            );
-            deletedCount += batch.length;
-          } catch {
-            for (const obj of batch) {
+        for (const obj of objects) {
+          if (obj.Key) {
+            try {
+              await permanentDeleteS3Object(s3, bucketName, obj.Key);
+              deletedCount++;
+            } catch {
               try {
                 await s3.send(new DeleteObjectCommand({ Bucket: bucketName, Key: obj.Key }));
                 deletedCount++;
@@ -383,7 +374,7 @@ export async function permanentDeleteS3Folder(
 
     return { success: true, deletedCount };
   } catch (err) {
-    console.warn(`[CloudStorage] Error permanently deleting S3 folder ${targetPrefix}:`, err);
+    console.error('[CloudStorage] permanentDeleteS3Folder failed:', err);
     return { success: false, deletedCount };
   }
 }
@@ -438,7 +429,12 @@ export async function deleteCloudWorkspaceFolder(
   try {
     if (conn.provider === 'backblaze_b2' || conn.provider === 'cloudflare_r2' || conn.provider === 'aws_s3') {
       const { s3, bucketName } = buildS3Client(conn);
-      return await permanentDeleteS3Folder(s3, bucketName, targetPrefix);
+      const res = await permanentDeleteS3Folder(s3, bucketName, targetPrefix);
+      const bareKey = cleanRel ? `${cleanPrefix}/${cleanRel}` : cleanPrefix;
+      if (bareKey) {
+        await permanentDeleteS3Object(s3, bucketName, bareKey);
+      }
+      return res;
     }
 
     if (conn.provider === 'supabase_storage') {
