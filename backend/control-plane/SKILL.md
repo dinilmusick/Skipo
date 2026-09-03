@@ -134,6 +134,20 @@ CONTROL PLANE (Application-Owned)
 >    - Control plane metadata files (`accounts.json`, `revoked_sessions.json`, `audit_logs.json`) are GLOBAL to the server tenant and MUST NEVER be co-located inside dynamic workspace paths.
 >    - Function `getControlPlaneDir()` MUST return a fixed path relative to project root (`path.join(process.cwd(), 'docustack_vault', '.docustack', 'control_plane')`) or `/tmp/.docustack/control_plane`.
 >    - Switching active workspaces or pointing `workspaceFS` to arbitrary custom paths (`./ultrst_docustack_user_workspace`) MUST NEVER change the resolution of `accounts.json` or cause user lookup to fail.
+> 11. **Browser Local Filesystem Access, Brave Privacy Guard & Dual-Mode Folder Explorer**:
+>    - Offline/local storage uses the W3C File System Access API (`window.showDirectoryPicker()`) with persistent handles in IndexedDB (`DocuStack_LocalFS_Vault`).
+>    - Always include an HTML5 `<input type="file" webkitdirectory directory multiple className="hidden" />` fallback so clicking "SELECT/BROWSE FOLDER" opens Finder/Explorer on all browsers.
+>    - Detect Brave (`(navigator as any).brave?.isBrave?.()`) and render a high-visibility amber banner with 1-click URL copy (`brave://flags/#file-system-access-api`) to guide users in enabling the flag for native macOS "Select" button and background directory handle write sync.
+>    - Local storage errors must be rendered directly inside the local storage UI section and never hidden inside cloud-only blocks.
+> 12. **1:1 Cloud-Identical Local Folder Mirroring Law**:
+>    - Local synchronization MUST create the canonical workspace-named directory (`ultrst_{app}_{user}_{workspace}`) inside the selected folder, rather than dumping loose files into the selected folder root.
+>    - The local directory structure must be an exact 1:1 replica of the cloud bucket: `.docustack` manifests, Folder nodes, Kanban board nodes with column directories (`<Board>/<Column>`), standalone categories, and `inbox`.
+>    - Never hardcode placeholder board directories (`Core_Kanban/To_Do/In_Progress/Done`). Real workspace topology must be dynamically traversed from `nodes` and `categories`.
+> 13. **Interactive Primary Star-Toggle & Concurrency-Safe Clone Replication**:
+>    - Every storage option tile (Primary and Clones) MUST render an interactive star-toggle button (`★ PRIMARY / SET PRIMARY`). Clicking **SET PRIMARY** on any clone promotes it to `role: 'primary'` and demotes all others to `role: 'redundant_clone'` via `action: 'set_primary'`.
+>    - A prominent action panel rendered whenever 2+ storage options are registered: `SYNC ALL TO CLONES (<N>)`.
+>    - Serverless clone replication (`POST /api/auth/storage/sync-clones`) MUST safely merge connection timestamps against fresh database records instead of overwriting user profiles with stale in-memory snapshots.
+>    - The client UI MUST NOT perform a destructive full re-fetch (`fetchSavedConnections`) after clone replication; connection timestamps must be updated in local React state directly to prevent tile disappearance.
 
 ---
 
@@ -209,14 +223,15 @@ Any AI agent can copy these files directly into a new TypeScript/React applicati
 - [`code/api/admin/tables/route.ts`](./code/api/admin/tables/route.ts) — Live database table inspector.
 
 ### React UI Components (`./code/components/`):
-- [`code/components/admin/AdminPanelModal.tsx`](./code/components/admin/AdminPanelModal.tsx) — Main Admin Control Plane Modal container (Streamlined to 2 TABS: Databases & Logs).
-- [`code/components/admin/AdminDatabaseClusterTab.tsx`](./code/components/admin/AdminDatabaseClusterTab.tsx) — Tab 1: Database Storage & Redundancy Clones with latency pings, failover, .env badges & Vercel Drawer.
-- [`code/components/admin/AdminAuditTab.tsx`](./code/components/admin/AdminAuditTab.tsx) — Tab 2: Security & System Audit Logs Viewer with 1-click Copy & CSV/JSON export.
-- [`code/components/workspace/WorkspaceTilesMenu.tsx`](./code/components/workspace/WorkspaceTilesMenu.tsx) — Workspace selector & manager with canonical folder subtitle, 1-click copy, and mixed-case descriptions.
-- [`code/components/workspace/StorageConnectDrawer.tsx`](./code/components/workspace/StorageConnectDrawer.tsx) — Dynamic storage connection drawer with ★ PRIMARY and CLONE badges, and SET AS PRIMARY elevation.
+- [`code/components/admin/AdminPanelModal.tsx`](./code/components/admin/AdminPanelModal.tsx) — Main Admin Control Plane Modal container.
+- [`code/components/admin/AdminDatabaseClusterTab.tsx`](./code/components/admin/AdminDatabaseClusterTab.tsx) — Cluster management tab with latency pings, .env badges & Vercel Drawer.
+- [`code/components/admin/AdminUsersTab.tsx`](./code/components/admin/AdminUsersTab.tsx) — Users & Roles management tab.
+- [`code/components/admin/AdminAuditTab.tsx`](./code/components/admin/AdminAuditTab.tsx) — Audit Log Viewer with 1-click Copy & CSV/JSON export.
+- [`code/components/admin/AdminTablesTab.tsx`](./code/components/admin/AdminTablesTab.tsx) — Live raw database table record viewer.
+- [`code/components/admin/AdminBackendTab.tsx`](./code/components/admin/AdminBackendTab.tsx) — Legacy single-engine and storage engine testing tab.
+- [`code/components/admin/AdminWorkspacesTab.tsx`](./code/components/admin/AdminWorkspacesTab.tsx) — Multi-tenant workspace overview tab.
 - [`code/components/auth/LoginModal.tsx`](./code/components/auth/LoginModal.tsx) — User authentication modal.
-- [`code/components/BrutalistUi.tsx`](./code/components/BrutalistUi.tsx) — Neo-Brutalist UI primitives (Card, Button, Badge, Modal, Input, Textarea).
-- [`code/components/IconOnlyButton.tsx`](./code/components/IconOnlyButton.tsx) — Monochromatic icon-only button with hover tooltips.
+- [`code/components/BrutalistUi.tsx`](./code/components/BrutalistUi.tsx) — Neo-Brutalist UI primitives (Card, Button, Badge, Modal, Input).
 
 ---
 

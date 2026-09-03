@@ -1,6 +1,6 @@
 ---
 name: workspace-storage-architecture
-description: Workspace Storage Architecture specification governing User -> AppUserContext -> Workspace storage hierarchy, decoupled WorkspaceStorageAdapters (Local FS, Backblaze B2, Cloudflare R2, Supabase Storage, AWS S3), provider-independent WorkspaceFS, high-reliability SyncEngine, conflict resolution, and safe detachment semantics. Workspaces use PURE FILESYSTEM STORAGE with ZERO DATABASE ENGINES.
+description: Workspace Storage Architecture specification governing User -> AppUserContext -> Workspace storage hierarchy, decoupled WorkspaceStorageAdapters (Local, iCloud, Google Drive, OneDrive, Supabase, Firebase), provider-independent WorkspaceFS, high-reliability SyncEngine, conflict resolution, and safe detachment semantics. Workspaces use PURE FILESYSTEM STORAGE with ZERO DATABASE ENGINES.
 ---
 
 # WORKSPACE STORAGE ARCHITECTURE SPECIFICATION
@@ -32,7 +32,7 @@ $$\text{GlobalUser} \xrightarrow{1:N} \text{AppUserContext} \xrightarrow{1:N} \t
        │                      │
        │              ┌───────┼────────┬────────┐
        │              │       │        │        │
-    LOCAL FS        B2 S3    R2 S3   SUPABASE  AWS S3
+     LOCAL          iCLOUD  DRIVE   ONEDRIVE  SUPABASE
        │
        ▼
    WorkspaceFS (Provider-Independent Interface)
@@ -57,7 +57,7 @@ $$\text{AdminDatabase} \cap \text{WorkspaceData} = \emptyset$$
 2. **User Storage (Workspace Content = PURE VIRTUAL FILESYSTEM ONLY)**:
    - Project files & folders (stored as `.json`, `.md`, text, and binary assets).
    - **STRICT INVARIANT**: Normal user workspace backends DO NOT use database engines (No SQLite, No Postgres, No Mongo). User data is strictly stored as files in folders.
-   - Storage Adapters: **Local Filesystem** (`local_fs`), **Backblaze B2** (`backblaze_b2`), **Cloudflare R2** (`cloudflare_r2`), **Supabase Storage** (`supabase_storage`), **AWS S3** (`aws_s3`).
+   - Storage Adapters: **Local Filesystem**, **Apple iCloud Drive**, **Google Drive**, **Microsoft OneDrive**, **Supabase Storage / S3**, **Firebase Storage**.
 3. **Canonical Primary vs Replicated Backups**:
    - Each workspace has **exactly 1 Primary Storage** and **0..$N$ Backup Storages**.
    - Primary is the single source of truth; all Backups represent the same workspace.
@@ -112,7 +112,7 @@ interface Workspace {
 
 interface StorageEndpoint {
   id: string;
-  provider: "local_fs" | "backblaze_b2" | "cloudflare_r2" | "supabase_storage" | "aws_s3";
+  provider: "local" | "icloud" | "google_drive" | "onedrive" | "supabase_storage" | "firebase_storage" | "s3";
   configuration: ProviderConfiguration;
   enabled: boolean;
   status: "CONNECTED" | "DISCONNECTED" | "SYNCING" | "ERROR";
@@ -230,6 +230,71 @@ USER ──► APPLICATION ──► WorkspaceFS.write(path, data)
 9. **Serverless Read-Only Filesystem Fallback & Fault Tolerance**:
    - In serverless runtime environments (such as Vercel Lambdas where `process.cwd()` is read-only at `/var/task`), relative vault paths MUST resolve to `os.tmpdir()` (`/tmp/docustack`).
    - All local disk writes (`fs.writeFileSync`, `fs.mkdirSync`, `fs.rmSync`, `fs.unlinkSync`) MUST be wrapped in safe `try/catch` blocks so that local filesystem write restrictions never abort HTTP requests or crash cloud bucket synchronization to Backblaze B2.
+10. **Browser Local Filesystem Access Law & Dual-Mode Explorer Fallback (Brave & Safari Compatibility)**:
+    - **Dual-Mode File Picker Strategy**:
+      - For Chromium browsers (Chrome, Edge, and Brave with flag enabled), invoke the W3C File System Access API (`window.showDirectoryPicker({ mode: 'readwrite' })`) to obtain a persistent `FileSystemDirectoryHandle`.
+      - Store the directory handle in IndexedDB (Database: `DocuStack_LocalFS_Vault`, Store: `directory_handles`, Key: `ws_handle_{timestamp}`) so subsequent sessions seamlessly regain read/write access.
+      - Always provide an HTML5 fallback input:
+        ```html
+        <input type="file" ref={html5FolderInputRef} webkitdirectory directory multiple className="hidden" onChange={handleHtml5FolderSelect} />
+        ```
+        If `showDirectoryPicker` is unavailable, programmatically trigger this input to guarantee the native OS file explorer (macOS Finder / Windows Explorer) opens without exception.
+    - **"Upload" vs "Select" OS Button Discrepancy on macOS**:
+      - In macOS Finder, an HTML5 `<input type="file" webkitdirectory>` automatically brands the dialog confirmation button as **"Upload"**.
+      - The W3C `window.showDirectoryPicker()` causes macOS Finder to brand the confirmation button with its native **"Select"** label.
+    - **Brave Privacy Guard Detection & 1-Click Resolution Protocol**:
+      - Brave disables the File System Access API by default for anti-fingerprinting.
+      - When Brave is detected (`(navigator as any).brave?.isBrave?.()`), display an amber **Brave Privacy Guard** notification banner with a 1-click **COPY URL** button for `brave://flags/#file-system-access-api`.
+      - Instruct the user to set the flag to **Enabled** and relaunch Brave to unlock the native "Select" button and background directory handle write sync.
+    - **Error Visibility Surface**: Local storage errors must be rendered directly inside the local storage UI block and never hidden within cloud-only provider blocks.
+11. **1:1 Cloud-Identical Local Folder Mirroring Law & Subfolder Encapsulation**:
+    - **The Canonical Workspace Subfolder Rule**:
+      $$\text{TargetDiskFolder} \xrightarrow{} \text{SelectedRoot} / \text{ultrst\_\{app\}\_\{user\}\_\{workspace\}} / \dots$$
+      - When a user selects a local folder (e.g. `/Volumes/D Hard Disk/DocuStack`), local synchronization MUST NEVER dump loose files into the selected folder root.
+      - It MUST derive the canonical workspace prefix (`folderPrefix` from `/api/workspace` or `activeWorkspace.workspacePath` formatted as `ultrst_{app}_{user}_{workspace}`) and create that directory inside the selected folder:
+        `<SelectedRoot>/ultrst_{app}_{user}_{workspace}/`
+    - **Identical 1:1 Directory & File Layout**:
+      The local disk folder must be an exact physical mirror of the cloud storage bucket:
+      1. `.docustack/` directory:
+         - `manifest.json`: workspace metadata, ecosystem tag, total documents, and timestamps.
+         - `graph.json`: graph nodes, edges, and groups.
+         - `categories.json`: column definitions and category metadata.
+         - `documents_index.json`: complete document metadata array.
+      2. Folder Nodes:
+         - Each `folder`-type graph node creates `<FolderName>/.keep` and `<FolderName>/README.md`.
+      3. Kanban Boards & Columns:
+         - Each `collection`/`kanban`-type graph node creates `<BoardName>/kanban_board.json`.
+         - Subdirectories for each column: `<BoardName>/<ColumnName>/.keep` and `<BoardName>/<ColumnName>/README.md`.
+      4. Standalone Categories:
+         - Each workspace category also creates a physical root-level directory `<CategoryName>/.keep` and `<CategoryName>/README.md`.
+      5. Inbox Directory:
+         - Always creates `inbox/.keep` and `inbox/README.md` (or initial welcome guide).
+      6. Document Markdown Files:
+         - Documents assigned to a board column: `<BoardName>/<ColumnName>/<DocTitle>.md`.
+         - Documents assigned to a standalone category: `<CategoryName>/<DocTitle>.md`.
+         - Unassigned documents: `inbox/<DocTitle>.md`.
+         - Every document MUST include YAML frontmatter (`id`, `title`, `category`, `tags`, `created`).
+    - **Prohibition of Static Placeholder Layouts**:
+      - Sync engines must NEVER assume or hardcode arbitrary board structures (e.g. forcing `Core_Kanban/To_Do/In_Progress/Done`). Real workspace topology must be dynamically traversed from `nodes` and `categories`.
+12. **Storage Tile State Preservation, Star-Toggle Primary, and Concurrency-Safe Clone Replication**:
+    - **Interactive Primary Star-Toggle on Every Tile**:
+      - Every storage option tile (Primary and Clones) MUST render an interactive star-toggle button (`★ PRIMARY / SET PRIMARY`).
+      - Clicking **SET PRIMARY** on any clone promotes it to `role: 'primary'` and demotes all other options to `role: 'redundant_clone'` via `POST /api/auth/storage/connections` (`action: 'set_primary'`).
+      - The active primary tile clearly displays a solid gold `★ PRIMARY` badge, while clone tiles display `CLONE`.
+    - **Dedicated "SYNC ALL TO CLONES" Control Panel**:
+      - A prominent action panel rendered whenever 2+ storage options are registered:
+        `SYNC ALL TO CLONES (<N>)`
+      - Dispatches serverless cloud replication (`POST /api/auth/storage/sync-clones`) for cloud buckets and direct `syncWorkspaceToDirectoryHandle` for local folders.
+      - Individual clone tiles feature dedicated `SYNC` buttons to replicate on demand to a single target.
+      - Primary local storage tiles feature a `SYNC DISK` button to refresh local disk files from the active workspace.
+    - **Serverless Concurrency-Safe Profile Updating**:
+      - In `POST /api/auth/storage/sync-clones`, NEVER overwrite the user profile with an in-memory connection list captured at the start of the request.
+      - Fetch a fresh user account from storage (`findUserByIdAsync`) and safely merge connection timestamps by ID. This prevents newly created storage connections on other lambda instances from being dropped.
+    - **Client State Non-Destructive Update**:
+      - After running clone replication, the client UI MUST NOT perform a destructive full re-fetch (`fetchSavedConnections`) that wipes or re-initializes tiles.
+      - Update connection `lastTestedAt` timestamps in local React state directly to keep all tiles intact.
+    - **Immediate Initial Local Sync with Live Progress Bar**:
+      - Saving or selecting a local folder connection MUST immediately trigger `performLocalHandleSync` to populate disk files with an animated progress bar (percentage, active file, and file counter `N / Total files`).
 
 ---
 
@@ -238,7 +303,7 @@ USER ──► APPLICATION ──► WorkspaceFS.write(path, data)
 1. **Zero Leakage of Backend / System Jargon in UI**:
    $$\text{RenderedUI} \cap \{ \text{"Control Plane"}, \text{"Data Plane"}, \text{"RBAC"}, \text{"Storage Adapter"}, \text{"SyncEngine"}, \text{"WorkspaceFS"}, \text{"Cluster"}, \text{"Failover"}, \text{"Endpoint ID"} \} = \emptyset$$
    - Backend terms ("Control Plane", "Data Plane", "Storage Adapter", "SyncEngine", "WorkspaceFS", etc.) MUST NEVER be rendered as user-facing headers, labels, or UI views.
-   - Use high-level, human-friendly terms ("Account", "Workspaces", "Storage", "Local Folder", "Backblaze B2", "Cloudflare R2", "Supabase", "Replicas").
+   - Use high-level, human-friendly terms ("Account", "Workspaces", "Storage", "Google Drive", "Local", "Replicas").
 2. **Zero On-Screen Instructional / Promotional Text**:
    - FORBID direct text descriptions, tutorial paragraphs, marketing copy, or "how-to" guidance rendered into the UI viewport.
    - The UI must be quiet, minimal, and unobtrusive.
