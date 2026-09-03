@@ -934,17 +934,16 @@ export default function StorageConnectDrawer({
           <span className="text-[9px] font-mono font-black uppercase text-[var(--color-accent)] block">
             SELECT ACTIVE STORAGE FOR THIS WORKSPACE:
           </span>
-          {savedConnections.some((c) => c.role !== 'primary') && (
-            <span className="text-[9px] font-mono text-sky-400 opacity-80">
-              {savedConnections.filter((c) => c.role !== 'primary').length} CLONE(S) READY FOR SYNC
-            </span>
-          )}
+          <span className="text-[9px] font-mono text-sky-400/70">
+            {savedConnections.length} OPTION{savedConnections.length !== 1 ? 'S' : ''} SAVED
+          </span>
         </div>
 
         {savedConnections.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {savedConnections.map((conn) => {
               const isConnSelected = activeConnId === conn.id;
+              const isPrimary = conn.role === 'primary';
               const cfg = STORAGE_PROVIDER_CONFIGS[conn.provider];
               const bucketName =
                 conn.b2BucketName || conn.r2BucketName || conn.s3BucketName || conn.supabaseBucketName || conn.localFolderName || '';
@@ -971,15 +970,6 @@ export default function StorageConnectDrawer({
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        {conn.role === 'primary' ? (
-                          <span className="text-[8px] bg-[#D4AF37] text-black font-black px-1.5 py-0.5 uppercase shadow-[1px_1px_0px_#000000]">
-                            ★ PRIMARY
-                          </span>
-                        ) : (
-                          <span className="text-[8px] bg-sky-950 text-sky-300 border border-sky-500/40 font-black px-1.5 py-0.5 uppercase">
-                            CLONE
-                          </span>
-                        )}
                         {isConnSelected && (
                           <span className="text-[8px] bg-[var(--color-accent)] text-black px-1.5 py-0.5 font-bold uppercase">
                             ACTIVE
@@ -1001,17 +991,42 @@ export default function StorageConnectDrawer({
                     </div>
                   </div>
 
-                  {conn.role !== 'primary' ? (
-                    <div className="flex items-center gap-1.5 mt-2.5">
+                  {/* Bottom action row — PRIMARY toggle on ALL tiles + per-type sync actions */}
+                  <div className="flex items-center gap-1.5 mt-2.5">
+                    {/* Star toggle — promotes this to Primary, demotes others to Clone */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isPrimary) handleSetPrimaryConnection(conn, e);
+                      }}
+                      className={`flex-1 py-1 px-2 border text-[9px] font-mono font-black uppercase transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                        isPrimary
+                          ? 'border-[#D4AF37] bg-[#D4AF37] text-black shadow-[1px_1px_0px_#000000]'
+                          : 'border-[#D4AF37]/50 bg-[#D4AF37]/10 hover:bg-[#D4AF37]/30 text-[#D4AF37]'
+                      }`}
+                      title={isPrimary ? 'This is the Primary storage — all others are clones' : 'Set this as Primary storage'}
+                    >
+                      <Star size={10} className={isPrimary ? 'fill-current' : ''} />
+                      <span>{isPrimary ? '★ PRIMARY' : 'SET PRIMARY'}</span>
+                    </button>
+
+                    {/* Sync action: primary local → sync to disk; clone → sync from primary */}
+                    {isPrimary && conn.provider === 'local_fs' ? (
                       <button
                         type="button"
-                        onClick={(e) => handleSetPrimaryConnection(conn, e)}
-                        className="flex-1 py-1 px-2 border border-[#D4AF37]/60 bg-[#D4AF37]/10 hover:bg-[#D4AF37] text-[#D4AF37] hover:text-black text-[9px] font-mono font-black uppercase transition-all flex items-center justify-center gap-1 cursor-pointer"
-                        title="Promote this storage option to Primary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSyncCurrentLocalFolder(conn);
+                        }}
+                        disabled={syncingClones}
+                        className="py-1 px-2 border border-emerald-500/60 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 text-[9px] font-mono font-black uppercase transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-40"
+                        title="Synchronize active workspace files to this local disk folder"
                       >
-                        <Star size={10} />
-                        <span>SET AS PRIMARY</span>
+                        <RefreshCw size={9} className={syncingClones ? 'animate-spin' : ''} />
+                        <span>SYNC DISK</span>
                       </button>
+                    ) : !isPrimary ? (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1025,22 +1040,21 @@ export default function StorageConnectDrawer({
                         <RefreshCw size={9} className={syncingClones ? 'animate-spin' : ''} />
                         <span>SYNC</span>
                       </button>
-                    </div>
-                  ) : conn.provider === 'local_fs' ? (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSyncCurrentLocalFolder(conn);
-                      }}
-                      disabled={syncingClones}
-                      className="mt-2.5 w-full py-1 px-2 border border-emerald-500/60 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 text-[9px] font-mono font-black uppercase transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-40"
-                      title="Synchronize active workspace files to this local disk folder"
-                    >
-                      <RefreshCw size={9} className={syncingClones ? 'animate-spin' : ''} />
-                      <span>SYNC WORKSPACE TO DISK</span>
-                    </button>
-                  ) : null}
+                    ) : null}
+                  </div>
+
+                  {/* Role pill — shows below action row for clarity */}
+                  <div className="mt-1.5">
+                    {isPrimary ? (
+                      <div className="text-[8px] font-mono text-[#D4AF37]/80 uppercase tracking-wider">
+                        Primary — all other options are clones of this source
+                      </div>
+                    ) : (
+                      <div className="text-[8px] font-mono text-sky-400/70 uppercase tracking-wider">
+                        Clone — receives files replicated from Primary
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -1053,6 +1067,34 @@ export default function StorageConnectDrawer({
             <p className="text-[10px] opacity-75 max-w-md mx-auto leading-relaxed">
               Connect a storage provider below (such as <strong>Backblaze B2</strong>, <strong>Cloudflare R2</strong>, <strong>Supabase</strong>, or <strong>AWS S3</strong>) to set up and sync your workspace documents.
             </p>
+          </div>
+        )}
+        {/* ─── SYNC TO CLONES SECTION ─────────────────────────────────
+            Visible whenever there are 2+ storage options.
+            Replicates all workspace files from Primary to all Clones.
+            ───────────────────────────────────────────────────────── */}
+        {savedConnections.length > 1 && (
+          <div className="mt-2.5 p-2.5 border border-sky-500/40 bg-sky-950/20 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <span className="text-[9px] font-black uppercase text-sky-300 block flex items-center gap-1.5">
+                  <RefreshCw size={9} className="inline" /> REPLICATE WORKSPACE TO ALL CLONES
+                </span>
+                <span className="text-[8px] font-mono text-sky-400/70 block">
+                  Copies all files &amp; structure from ★ Primary → {savedConnections.filter(c => c.role !== 'primary').length} Clone{savedConnections.filter(c => c.role !== 'primary').length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleSyncToClones}
+                disabled={syncingClones || savedConnections.filter(c => c.role !== 'primary').length === 0}
+                className="text-[9px] font-mono font-black uppercase px-3 py-1.5 border-2 border-sky-500 bg-sky-950/60 hover:bg-sky-900/80 text-sky-300 flex items-center gap-1.5 cursor-pointer disabled:opacity-40 transition-all shadow-[2px_2px_0px_#000000] shrink-0"
+                title="Replicate all workspace files and structure from Primary Storage to every Clone"
+              >
+                <RefreshCw size={11} className={syncingClones ? 'animate-spin text-sky-300' : 'text-sky-400'} />
+                <span>{syncingClones ? 'REPLICATING...' : `SYNC ALL TO CLONES (${savedConnections.filter(c => c.role !== 'primary').length})`}</span>
+              </button>
+            </div>
           </div>
         )}
 

@@ -232,15 +232,19 @@ export async function syncWorkspaceToDirectoryHandle(
     await writable.close();
   }
 
-  const defaultCols = [
-    { title: 'To Do', folder: 'To_Do' },
-    { title: 'In Progress', folder: 'In_Progress' },
-    { title: 'Done', folder: 'Done' },
-  ];
-  const boardName = 'Core_Kanban';
   const docs = data.documents || [];
   const categories = data.categories || [];
-  const totalFiles = 4 + defaultCols.length + Math.max(1, docs.length);
+
+  // Use actual workspace categories as folder names, not hardcoded placeholders
+  // Each category becomes a real folder; documents go inside their category folder
+  const catFolderMap = new Map<string, string>(); // categoryId -> safe folder name
+  for (const cat of categories) {
+    const safeFolder = (cat.title || 'Uncategorized').replace(/[^a-zA-Z0-9_-]/g, '_');
+    catFolderMap.set(cat.id, safeFolder);
+  }
+
+  // Compute total file count: 4 manifests + 1 per category (README) + 1 per doc (or 1 welcome)
+  const totalFiles = 4 + Math.max(1, categories.length) + Math.max(1, docs.length);
   let completed = 0;
 
   function report(file: string) {
@@ -284,29 +288,33 @@ export async function syncWorkspaceToDirectoryHandle(
   await writeHandleFile('.docustack/documents_index.json', JSON.stringify(docs, null, 2));
   report('.docustack/documents_index.json');
 
-  // 5. Kanban Column folders & READMEs
-  for (const col of defaultCols) {
-    const readmeContent = `# ${col.title}\nColumn for Kanban board **${boardName}**.\n\nDocuments placed here appear on your workspace board.\n`;
-    await writeHandleFile(`${boardName}/${col.folder}/README.md`, readmeContent);
-    report(`${boardName}/${col.folder}/README.md`);
+  // 5. Create a README.md inside each actual category folder
+  if (categories.length === 0) {
+    // No real categories — create an Inbox placeholder folder
+    await writeHandleFile('Inbox/README.md', `# Inbox\nDocuments without a category are stored here.\n`);
+    report('Inbox/README.md');
+  } else {
+    for (const cat of categories) {
+      const safeFolder = catFolderMap.get(cat.id) || 'Uncategorized';
+      const readmeContent = `# ${cat.title || safeFolder}\n${cat.description ? cat.description + '\n' : ''}\nCategory folder for workspace **${workspaceName}**.\n`;
+      await writeHandleFile(`${safeFolder}/README.md`, readmeContent);
+      report(`${safeFolder}/README.md`);
+    }
   }
 
-  // 6. Documents
+  // 6. Documents — written into their real category folder
   if (docs.length === 0) {
-    const welcome = `# Welcome to ${workspaceName}\n\nThis workspace is synced to your local machine folder.\nAll changes here are synchronized automatically.\n`;
-    await writeHandleFile(`${boardName}/To_Do/welcome_guide.md`, welcome);
-    report(`${boardName}/To_Do/welcome_guide.md`);
+    const welcome = `# Welcome to ${workspaceName}\n\nThis workspace is synced to your local machine folder.\nCreate documents in DocuStack and sync again to see them here.\n`;
+    await writeHandleFile('Inbox/welcome_guide.md', welcome);
+    report('Inbox/welcome_guide.md');
   } else {
     for (const doc of docs) {
       const safeTitle = (doc.title || 'untitled').toLowerCase().replace(/[^a-z0-9_.-]/g, '_');
       const filename = safeTitle.endsWith('.md') ? safeTitle : `${safeTitle}.md`;
+      const catFolder = catFolderMap.get(doc.categoryId) || 'Inbox';
+      const targetPath = `${catFolder}/${filename}`;
       const cat = categories.find((c: any) => c.id === doc.categoryId);
-      let targetPath = `inbox/${filename}`;
-      if (cat) {
-        const catFolder = cat.title.replace(/[^a-zA-Z0-9_-]/g, '_');
-        targetPath = `${boardName}/${catFolder}/${filename}`;
-      }
-      const frontmatter = `---\nid: "${doc.id}"\ntitle: "${doc.title}"\ncategory: "${cat?.title || 'Inbox'}"\ntags: ${JSON.stringify(doc.tags || [])}\ncreated: "${doc.createdAt || new Date().toISOString()}"\n---\n\n${doc.content || `# ${doc.title}`}`;
+      const frontmatter = `---\nid: "${doc.id}"\ntitle: "${doc.title}"\ncategory: "${cat?.title || 'Inbox'}"\ntags: ${JSON.stringify(doc.tags || [])}\ncreated: "${doc.createdAt || doc.uploadedAt || new Date().toISOString()}"\n---\n\n${doc.content || `# ${doc.title}\n`}`;
       await writeHandleFile(targetPath, frontmatter);
       report(targetPath);
     }
