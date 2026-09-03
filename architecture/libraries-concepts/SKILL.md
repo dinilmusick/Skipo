@@ -35,10 +35,11 @@ description: Directives for the root-level libraries folder, {Name}Concepts nami
 ---
 
 ## 3. CONTENTS & RESPONSIBILITIES
-- **Shared Data Structures**: Canonical interfaces, types, schemas, and data structures utilized across multiple entities.
+- **Shared Data Structures**: Canonical interfaces, types, schemas, and data structures utilized across functionalities.
 - **Common Functions**: Pure, deterministic polymorphic template functions (`<TIn, TOut>`) invoked across diverse codebase assets.
 - **Uniform Calling Syntax**: Functions follow standard operator signatures (`Concept.transform`, `Concept.validate`, `Concept.query`, `Concept.extract`).
 - **Independence**: Concept files must remain decoupled from specific entity state or backend runtime bindings.
+- **Functionality-Exclusive Access Invariant**: Shared libraries (`src/libraries/*`) are callable **ONLY by functionalities and their helper functions**. Entities MUST NOT call or import shared libraries directly. If an entity needs logic from a library, that logic must be wrapped inside a shared functionality in `src/functionalities/`.
 
 ---
 

@@ -12,16 +12,16 @@ ASSERT(\text{WorkspaceData} \equiv \text{FilesystemHierarchy}) \quad \land \quad
    - Environment variables (`.env.local` locally, Vercel/Cloud variables in production) are the **sole authoritative source of truth** (`NEON_DATABASE_URL`, `SUPABASE_URL`, `POSTGRES_DATABASE_URL`).
    - If no database is configured, both local dev and production must report the exact same standby state: `System Backend Database (Awaiting .env)`.
 3. **USER STORAGE PROVIDERS (VIRTUAL FILESYSTEM ADAPTERS)**:
-   $$\text{StorageProviders} \in \{ \text{Local FS}, \text{iCloud Drive}, \text{Google Drive}, \text{OneDrive}, \text{Supabase Storage / S3}, \text{Firebase Storage} \}$$
+   $$\text{StorageProviders} \in \{ \text{Local FS}, \text{Backblaze B2}, \text{Cloudflare R2}, \text{Supabase Storage}, \text{AWS S3} \}$$
    - All providers implement the unified `WorkspaceStorageAdapter` contract mimicking a native OS filesystem.
 4. **APPLICATION ACCESS VIA `WorkspaceFS`**:
    - Application logic reads and writes files **exclusively** through `WorkspaceFS` (e.g., `fs.write("vault/doc1.json", data)`, `fs.read("vault/doc1.json")`).
-   - `SyncEngine` asynchronously replicates file mutations from Primary Storage to configured Backup Storage replicas (e.g., Google Drive, iCloud, OneDrive).
+   - `SyncEngine` asynchronously replicates file mutations from Primary Storage to configured Backup Storage replicas (e.g., Backblaze B2, Cloudflare R2, Supabase, AWS S3).
 
 ---
 
 ## 1. IN-CODE UTILITY DOCUMENTATION, SECTION DEMARCATION & NAMING
-- **Naming**: Use long, descriptive names for all classes and files (e.g., `UserWorkspaceFileStorageCoordinator.ts`, `ICloudWorkspaceStorageAdapter.ts`).
+- **Naming**: Use long, descriptive names for all classes and files (e.g., `UserWorkspaceFileStorageCoordinator.ts`, `LocalFileSystemWorkspaceStorageAdapter.ts`).
 - **Docblocks**: Document the utility of all functions and storage interfaces with ASCII flow charts showing file persistence and replication paths.
 - **Section Demarcation**: Partition imports, types, filesystem operations, and exports with bold borders `// ══════════════════════════════════════════════════════════════════════════════════════════`.
 
@@ -49,44 +49,45 @@ console.log("Active Workspaces:", user.workspaces);
 ---
 
 ## 3. WORKSPACE VIRTUAL FILESYSTEM & MULTI-CLOUD ADAPTERS
-All workspace data is stored as files and directories across Local, iCloud, Google Drive, OneDrive, Supabase Storage, or Firebase Storage:
+All workspace data is stored as files and directories across Local FS, Backblaze B2, Cloudflare R2, Supabase Storage, or AWS S3:
 
 ```typescript
 // ══════════════════════════════════════════════════════════════════════════════════════════
 // 2. WORKSPACE SPECIFICATION, FILESYSTEM (WorkspaceFS) & SYNC ENGINE
 // ══════════════════════════════════════════════════════════════════════════════════════════
 import {
-  WorkspaceRuntime,
-  StorageAdapterFactory,
-  Workspace,
+  WorkspaceVirtualFileSystemRuntime,
   WorkspaceFS,
-  SyncEngine
-} from "@dinilmusick/krnlts";
+} from "@/lib/WorkspaceVirtualFileSystemRuntime";
+import { WorkspaceSyncReplicationEngine } from "@/lib/WorkspaceSyncReplicationEngine";
+import { LocalFileSystemWorkspaceStorageAdapter } from "@/lib/LocalFileSystemWorkspaceStorageAdapter";
+import { SupabaseWorkspaceStorageAdapter } from "@/lib/SupabaseWorkspaceStorageAdapter";
+import { WorkspaceDataPlaneConfig } from "@/lib/control-plane-types";
 
-// 1. Define Workspace with Primary (Local / iCloud) + Backups (Google Drive / OneDrive / Supabase)
-const workspaceSpec: Workspace = {
+// 1. Define Workspace with Primary (Local FS) + Backups (Backblaze B2 / Supabase Storage)
+const workspaceSpec: any = {
   id: "ws_user_vault_01",
   name: "Personal Workspace",
   primaryStorage: {
-    id: "ep_local_or_icloud",
-    provider: "icloud", // "local" | "icloud" | "google_drive" | "onedrive" | "supabase_storage" | "firebase_storage"
-    configuration: { provider: "icloud" },
+    id: "ep_local_disk",
+    provider: "local_fs", // "local_fs" | "backblaze_b2" | "cloudflare_r2" | "supabase_storage" | "aws_s3"
+    configuration: { provider: "local_fs" },
     enabled: true,
     status: "CONNECTED",
     syncState: "SYNCED"
   },
   backupStorages: [
     {
-      id: "ep_gdrive_backup",
-      provider: "google_drive",
-      configuration: { provider: "google_drive", accountId: "user_google", rootFolderId: "root" },
+      id: "ep_b2_backup",
+      provider: "backblaze_b2",
+      configuration: { provider: "backblaze_b2", bucketName: "user-vault", endpoint: "s3.us-east-005.backblazeb2.com" },
       enabled: true,
       status: "CONNECTED"
     },
     {
-      id: "ep_onedrive_backup",
-      provider: "onedrive",
-      configuration: { provider: "onedrive", accountId: "user_ms", rootFolderId: "root" },
+      id: "ep_supabase_backup",
+      provider: "supabase_storage",
+      configuration: { provider: "supabase_storage", bucketName: "user-vault" },
       enabled: true,
       status: "CONNECTED"
     }
@@ -126,8 +127,8 @@ const filesList = await runtime.filesystem.list("documents");
 // Delete File (propagates to backups if deletePropagation is true)
 await runtime.filesystem.delete("documents/old_draft.json");
 
-// 4. Promote Backup to Primary (e.g. switch working copy to Google Drive)
-await runtime.changePrimary("ep_gdrive_backup");
+// 4. Promote Backup to Primary (e.g. switch working copy to Backblaze B2)
+await runtime.changePrimary("ep_b2_backup");
 
 // 5. Restore from Backup if needed (Explicit & Non-Destructive)
 const restoreResult = await runtime.syncEngine.restore(workspaceSpec.backupStorages[0]);
@@ -139,7 +140,7 @@ const restoreResult = await runtime.syncEngine.restore(workspaceSpec.backupStora
 1. **Zero Leakage of Backend / System Jargon in UI**:
    $$\text{RenderedUI} \cap \{ \text{"Control Plane"}, \text{"Data Plane"}, \text{"RBAC"}, \text{"Storage Adapter"}, \text{"SyncEngine"}, \text{"WorkspaceFS"}, \text{"Cluster"}, \text{"Failover"}, \text{"Endpoint ID"} \} = \emptyset$$
    - Technical terms belong exclusively in backend classes and in-code comments.
-   - User-facing UI MUST render ONLY high-level, human-friendly terms (e.g., "Account", "Workspaces", "Storage", "Google Drive", "iCloud", "OneDrive", "Local", "Replicas").
+   - User-facing UI MUST render ONLY high-level, human-friendly terms (e.g., "Account", "Workspaces", "Storage", "Local Folder", "Backblaze B2", "Cloudflare R2", "Supabase", "Replicas").
    - NEVER create UI views or modals titled with backend jargon.
 2. **Zero On-Screen Instructional / Promotional Text**:
    - FORBID direct text descriptions, tutorial paragraphs, marketing copy, or "how-to" guidance rendered into the UI viewport.
@@ -158,5 +159,5 @@ $$\Delta(\text{BusinessLogic}) = 0 \quad \land \quad \Delta(\text{UserExperience
 When refactoring an existing application:
 1. **REMOVE Database Tables & Queries**: Remove all SQLite, PostgreSQL, MongoDB, or ORM tables used for storing user data.
 2. **REPLACE with `WorkspaceFS`**: Persist all user items (documents, notes, assets, state) as `.json` or binary files using `runtime.filesystem.write()` / `read()`.
-3. **ADD Storage Provider Selection**: Allow users to select their storage endpoint (Local, iCloud, Google Drive, OneDrive, Supabase Storage, Firebase Storage) inside Settings or Workspace creation modal.
+3. **ADD Storage Provider Selection**: Allow users to select their storage endpoint (Local Folder, Backblaze B2, Cloudflare R2, Supabase Storage, AWS S3) inside Settings or Workspace creation modal.
 4. **Preserve Existing UI**: Keep user workflows intact; do not introduce complex architectural widgets into the main app view.

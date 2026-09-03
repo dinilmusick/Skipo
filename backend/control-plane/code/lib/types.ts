@@ -135,11 +135,10 @@ export interface StackCollection {
 
 export type DatabaseEngine =
   | 'local_fs'
-  | 'icloud'
-  | 'google_drive'
-  | 'onedrive'
-  | 's3_blob'
-  | 'firebase';
+  | 'backblaze_b2'
+  | 'cloudflare_r2'
+  | 'supabase_storage'
+  | 'aws_s3';
 
 export type WorkspaceStorageEngine = DatabaseEngine;
 
@@ -149,51 +148,8 @@ export interface LocalFsConfig {
   maxFileSizeMb: number;
 }
 
-export interface ICloudConfig {
-  containerId: string;
-  syncIntervalMinutes: number;
-}
-
-export interface GoogleDriveAccountRecord {
-  id: string;
-  accountEmail: string;
-  accountName?: string;
-  rootFolderId: string;
-  targetFolderPath?: string;
-  authStatus?: 'authorized' | 'connected' | 'unauthorized' | 'expired' | 'pending';
-  lastSyncedAt?: string;
-  clientId?: string;
-  clientSecret?: string;
-  accessToken?: string;
-  refreshToken?: string;
-  tokenExpiry?: number;
-  storageQuota?: {
-    usageBytes: number;
-    limitBytes: number;
-    usageFormatted: string;
-    limitFormatted: string;
-  };
-}
-
-export interface GoogleDriveConfig {
-  rootFolderId: string;
-  accountEmail?: string;
-  syncOnSave: boolean;
-  activeAccountId?: string;
-  accounts?: GoogleDriveAccountRecord[];
-  clientId?: string;
-  clientSecret?: string;
-  redirectUri?: string;
-}
-
-export interface OneDriveConfig {
-  rootFolderId: string;
-  accountEmail?: string;
-  syncOnSave: boolean;
-}
-
 export interface S3BlobConfig {
-  provider: 's3' | 'vercel_blob' | 'cloudflare_r2';
+  provider: 's3' | 'vercel_blob' | 'cloudflare_r2' | 'backblaze_b2';
   bucketName: string;
   region: string;
   accessKeyId?: string;
@@ -216,9 +172,6 @@ export interface DatabaseSettings {
   activeProfileName: string;
   autoSync: boolean;
   local_fs: LocalFsConfig;
-  icloud?: ICloudConfig;
-  google_drive?: GoogleDriveConfig;
-  onedrive?: OneDriveConfig;
   s3_blob?: S3BlobConfig;
   firebase?: FirebaseConfig;
   lastConnectedAt?: string;

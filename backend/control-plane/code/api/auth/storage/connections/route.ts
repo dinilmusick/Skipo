@@ -3,17 +3,36 @@
  *
  * User-Scoped Storage Connections Management.
  * Manages user's saved storage credentials (Backblaze B2, Cloudflare R2, AWS S3, Supabase, Local)
- * in their user profile inside the system database cluster.
+ * with Primary vs Redundant Clone role mechanism (mirroring the admin database cluster pattern).
  *
- * GET: List all saved connections for authenticated user (secrets masked)
- * POST: Create or update a storage connection
- * DELETE: Remove a connection by connectionId
+ * GET: List all saved connections for authenticated user (secrets masked), ensuring one primary exists.
+ * POST: Create or update a storage connection. Supports action: 'set_primary'.
+ * PUT: Update connection status, role, or elevate to primary.
+ * DELETE: Remove a connection by connectionId and reassign primary if necessary.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySession, findUserByIdAsync, updateUserProfileAsync } from '@/lib/auth-storage';
 import { maskStorageConnection, testStorageConnection } from '@/lib/storage-providers';
-import { UserStorageConnection } from '@/lib/types';
+import { UserStorageConnection, UserWorkspaceRecord } from '@/lib/types';
+import { initializeCloudWorkspaceBucket } from '@/lib/cloud-storage-service';
+import { setActiveVaultConfig } from '@/lib/workspaceFS';
+
+function ensurePrimaryRole(connections: UserStorageConnection[]): UserStorageConnection[] {
+  if (connections.length === 0) return [];
+  const hasExplicitPrimary = connections.some((c) => c.role === 'primary');
+  if (hasExplicitPrimary) return connections;
+
+  // If no primary is set, promote the first cloud connection (e.g. Backblaze B2) or the first connection
+  const cloudIdx = connections.findIndex((c) => c.provider !== 'local_fs');
+  const targetIdx = cloudIdx >= 0 ? cloudIdx : 0;
+
+  return connections.map((conn, idx) => ({
+    ...conn,
+    role: idx === targetIdx ? 'primary' : 'redundant_clone',
+    enabled: conn.enabled !== undefined ? conn.enabled : true,
+  }));
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -27,8 +46,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'USER_NOT_FOUND' }, { status: 404 });
     }
 
-    const connections: UserStorageConnection[] = user.appProfiles?.docustack?.storage_connections || [];
-    const masked = connections.map(maskStorageConnection);
+    const rawConnections: UserStorageConnection[] =
+      user.appProfiles?.docustack?.storage_connections || (user as any)?.storage_connections || [];
+    const normalizedConnections = ensurePrimaryRole(rawConnections);
+    const masked = normalizedConnections.map(maskStorageConnection);
 
     return NextResponse.json({
       success: true,
@@ -46,7 +67,85 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
     }
 
-    const body: UserStorageConnection = await req.json();
+    const body = await req.json();
+
+    const user = await findUserByIdAsync(session.userId);
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'USER_NOT_FOUND' }, { status: 404 });
+    }
+
+    const existingConnections: UserStorageConnection[] =
+      user.appProfiles?.docustack?.storage_connections || (user as any)?.storage_connections || [];
+
+    // Action: Set an existing connection as primary
+    if (body.action === 'set_primary' && body.id) {
+      const targetConn = existingConnections.find((c) => c.id === body.id);
+      if (!targetConn) {
+        return NextResponse.json({ success: false, error: 'CONNECTION_NOT_FOUND' }, { status: 404 });
+      }
+
+      const updatedConnections: UserStorageConnection[] = existingConnections.map((c) => ({
+        ...c,
+        role: c.id === body.id ? 'primary' : 'redundant_clone',
+        enabled: c.id === body.id ? true : c.enabled,
+      }));
+
+      // Bind active workspace to this new primary connection
+      const workspaces: UserWorkspaceRecord[] =
+        user.appProfiles?.docustack?.workspaces || user.workspaces || [];
+      const activeWsId = user.appProfiles?.docustack?.activeWorkspaceId || user.activeWorkspaceId;
+      const targetWs = workspaces.find((w) => w.id === activeWsId) || workspaces[0];
+
+      let updatedWorkspaces = workspaces;
+      if (targetWs) {
+        const engine = targetConn.provider === 'local_fs' ? 'local_fs' : 's3_blob';
+        const folderPrefix = targetWs.workspacePath ? targetWs.workspacePath.replace(/^\.\//, '') : '';
+        updatedWorkspaces = workspaces.map((w) =>
+          w.id === targetWs.id
+            ? {
+                ...w,
+                storageConnectionId: targetConn.id,
+                storageProvider: targetConn.provider,
+                engine,
+              }
+            : w
+        );
+
+        setActiveVaultConfig(targetWs.workspacePath, targetWs.name, targetConn, folderPrefix);
+
+        if (targetConn.provider !== 'local_fs') {
+          initializeCloudWorkspaceBucket(
+            targetConn,
+            folderPrefix,
+            targetWs.name,
+            user.name || user.username || 'User'
+          ).catch((e) => console.warn('[CloudStorage] Bucket init on set_primary warning:', e));
+        }
+      }
+
+      const updatedAppProfiles = {
+        ...(user.appProfiles || {}),
+        docustack: {
+          ...(user.appProfiles?.docustack || {}),
+          storage_connections: updatedConnections,
+          workspaces: updatedWorkspaces,
+        },
+      };
+
+      await updateUserProfileAsync(session.userId, {
+        appProfiles: updatedAppProfiles,
+        workspaces: updatedWorkspaces,
+        storage_connections: updatedConnections,
+      } as any);
+
+      return NextResponse.json({
+        success: true,
+        message: `STORAGE_ELEVATED_TO_PRIMARY: ${targetConn.label || targetConn.provider}`,
+        connections: updatedConnections.map(maskStorageConnection),
+      });
+    }
+
+    // Creating or Updating a Storage Connection
     if (!body || !body.provider) {
       return NextResponse.json(
         { success: false, error: 'MISSING_PROVIDER: provider is required.' },
@@ -54,12 +153,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const user = await findUserByIdAsync(session.userId);
-    if (!user) {
-      return NextResponse.json({ success: false, error: 'USER_NOT_FOUND' }, { status: 404 });
-    }
-
-    const existingConnections: UserStorageConnection[] = user.appProfiles?.docustack?.storage_connections || [];
     const connectionId = body.id || `conn_${body.provider}_${Date.now()}`;
     const targetIdx = existingConnections.findIndex((c) => c.id === connectionId);
     const existing = targetIdx >= 0 ? existingConnections[targetIdx] : undefined;
@@ -87,9 +180,17 @@ export async function POST(req: NextRequest) {
       latencyMs = probe.latencyMs;
     }
 
+    // Role assignment: if user specified role === 'primary' or it's the first connection, make it primary
+    const willBePrimary =
+      body.role === 'primary' ||
+      existingConnections.length === 0 ||
+      (existing && existing.role === 'primary');
+
     const newOrUpdatedConn: UserStorageConnection = {
       ...hydratedBody,
       label: body.label?.trim() || existing?.label || `${body.provider.toUpperCase()} Vault`,
+      role: willBePrimary ? 'primary' : body.role || 'redundant_clone',
+      enabled: body.enabled !== undefined ? body.enabled : true,
       createdAt: body.createdAt || existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       testedAt: new Date().toISOString(),
@@ -106,16 +207,60 @@ export async function POST(req: NextRequest) {
       updatedList = [...existingConnections, newOrUpdatedConn];
     }
 
+    if (willBePrimary) {
+      updatedList = updatedList.map((c) =>
+        c.id === newOrUpdatedConn.id ? { ...c, role: 'primary' } : { ...c, role: 'redundant_clone' }
+      );
+    } else {
+      updatedList = ensurePrimaryRole(updatedList);
+    }
+
+    // If primary, update active workspace binding
+    const workspaces: UserWorkspaceRecord[] =
+      user.appProfiles?.docustack?.workspaces || user.workspaces || [];
+    const activeWsId = user.appProfiles?.docustack?.activeWorkspaceId || user.activeWorkspaceId;
+    const targetWs = workspaces.find((w) => w.id === activeWsId) || workspaces[0];
+
+    let updatedWorkspaces = workspaces;
+    if (willBePrimary && targetWs) {
+      const engine = newOrUpdatedConn.provider === 'local_fs' ? 'local_fs' : 's3_blob';
+      const folderPrefix = targetWs.workspacePath ? targetWs.workspacePath.replace(/^\.\//, '') : '';
+      updatedWorkspaces = workspaces.map((w) =>
+        w.id === targetWs.id
+          ? {
+              ...w,
+              storageConnectionId: newOrUpdatedConn.id,
+              storageProvider: newOrUpdatedConn.provider,
+              engine,
+            }
+          : w
+      );
+
+      setActiveVaultConfig(targetWs.workspacePath, targetWs.name, newOrUpdatedConn, folderPrefix);
+
+      if (newOrUpdatedConn.provider !== 'local_fs' && testStatus === 'ok') {
+        initializeCloudWorkspaceBucket(
+          newOrUpdatedConn,
+          folderPrefix,
+          targetWs.name,
+          user.name || user.username || 'User'
+        ).catch((e) => console.warn('[CloudStorage] Auto bucket init on save warning:', e));
+      }
+    }
+
     const updatedAppProfiles = {
       ...(user.appProfiles || {}),
       docustack: {
         ...(user.appProfiles?.docustack || {}),
         storage_connections: updatedList,
+        workspaces: updatedWorkspaces,
       },
     };
 
     await updateUserProfileAsync(session.userId, {
       appProfiles: updatedAppProfiles,
+      workspaces: updatedWorkspaces,
+      storage_connections: updatedList,
     } as any);
 
     return NextResponse.json({
@@ -126,6 +271,10 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err?.message || 'Failed to save connection' }, { status: 500 });
   }
+}
+
+export async function PUT(req: NextRequest) {
+  return POST(req);
 }
 
 export async function DELETE(req: NextRequest) {
@@ -147,8 +296,15 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'USER_NOT_FOUND' }, { status: 404 });
     }
 
-    const existingConnections: UserStorageConnection[] = user.appProfiles?.docustack?.storage_connections || [];
-    const updatedList = existingConnections.filter((c) => c.id !== connectionId);
+    const existingConnections: UserStorageConnection[] =
+      user.appProfiles?.docustack?.storage_connections || (user as any)?.storage_connections || [];
+    const removedConn = existingConnections.find((c) => c.id === connectionId);
+    let updatedList = existingConnections.filter((c) => c.id !== connectionId);
+
+    // If deleted connection was primary, reassign primary to first remaining
+    if (removedConn?.role === 'primary' && updatedList.length > 0) {
+      updatedList = ensurePrimaryRole(updatedList);
+    }
 
     const updatedAppProfiles = {
       ...(user.appProfiles || {}),
@@ -160,6 +316,7 @@ export async function DELETE(req: NextRequest) {
 
     await updateUserProfileAsync(session.userId, {
       appProfiles: updatedAppProfiles,
+      storage_connections: updatedList,
     } as any);
 
     return NextResponse.json({

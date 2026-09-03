@@ -1,6 +1,6 @@
 ---
 name: workspace-storage-architecture
-description: Workspace Storage Architecture specification governing User -> AppUserContext -> Workspace storage hierarchy, decoupled WorkspaceStorageAdapters (Local, iCloud, Google Drive, OneDrive, Supabase, Firebase), provider-independent WorkspaceFS, high-reliability SyncEngine, conflict resolution, and safe detachment semantics. Workspaces use PURE FILESYSTEM STORAGE with ZERO DATABASE ENGINES.
+description: Workspace Storage Architecture specification governing User -> AppUserContext -> Workspace storage hierarchy, decoupled WorkspaceStorageAdapters (Local FS, Backblaze B2, Cloudflare R2, Supabase Storage, AWS S3), provider-independent WorkspaceFS, high-reliability SyncEngine, conflict resolution, and safe detachment semantics. Workspaces use PURE FILESYSTEM STORAGE with ZERO DATABASE ENGINES.
 ---
 
 # WORKSPACE STORAGE ARCHITECTURE SPECIFICATION
@@ -32,7 +32,7 @@ $$\text{GlobalUser} \xrightarrow{1:N} \text{AppUserContext} \xrightarrow{1:N} \t
        │                      │
        │              ┌───────┼────────┬────────┐
        │              │       │        │        │
-     LOCAL          iCLOUD  DRIVE   ONEDRIVE  SUPABASE
+    LOCAL FS        B2 S3    R2 S3   SUPABASE  AWS S3
        │
        ▼
    WorkspaceFS (Provider-Independent Interface)
@@ -57,7 +57,7 @@ $$\text{AdminDatabase} \cap \text{WorkspaceData} = \emptyset$$
 2. **User Storage (Workspace Content = PURE VIRTUAL FILESYSTEM ONLY)**:
    - Project files & folders (stored as `.json`, `.md`, text, and binary assets).
    - **STRICT INVARIANT**: Normal user workspace backends DO NOT use database engines (No SQLite, No Postgres, No Mongo). User data is strictly stored as files in folders.
-   - Storage Adapters: **Local Filesystem**, **Apple iCloud Drive**, **Google Drive**, **Microsoft OneDrive**, **Supabase Storage / S3**, **Firebase Storage**.
+   - Storage Adapters: **Local Filesystem** (`local_fs`), **Backblaze B2** (`backblaze_b2`), **Cloudflare R2** (`cloudflare_r2`), **Supabase Storage** (`supabase_storage`), **AWS S3** (`aws_s3`).
 3. **Canonical Primary vs Replicated Backups**:
    - Each workspace has **exactly 1 Primary Storage** and **0..$N$ Backup Storages**.
    - Primary is the single source of truth; all Backups represent the same workspace.
@@ -112,7 +112,7 @@ interface Workspace {
 
 interface StorageEndpoint {
   id: string;
-  provider: "local" | "icloud" | "google_drive" | "onedrive" | "supabase_storage" | "firebase_storage" | "s3";
+  provider: "local_fs" | "backblaze_b2" | "cloudflare_r2" | "supabase_storage" | "aws_s3";
   configuration: ProviderConfiguration;
   enabled: boolean;
   status: "CONNECTED" | "DISCONNECTED" | "SYNCING" | "ERROR";
@@ -238,7 +238,7 @@ USER ──► APPLICATION ──► WorkspaceFS.write(path, data)
 1. **Zero Leakage of Backend / System Jargon in UI**:
    $$\text{RenderedUI} \cap \{ \text{"Control Plane"}, \text{"Data Plane"}, \text{"RBAC"}, \text{"Storage Adapter"}, \text{"SyncEngine"}, \text{"WorkspaceFS"}, \text{"Cluster"}, \text{"Failover"}, \text{"Endpoint ID"} \} = \emptyset$$
    - Backend terms ("Control Plane", "Data Plane", "Storage Adapter", "SyncEngine", "WorkspaceFS", etc.) MUST NEVER be rendered as user-facing headers, labels, or UI views.
-   - Use high-level, human-friendly terms ("Account", "Workspaces", "Storage", "Google Drive", "Local", "Replicas").
+   - Use high-level, human-friendly terms ("Account", "Workspaces", "Storage", "Local Folder", "Backblaze B2", "Cloudflare R2", "Supabase", "Replicas").
 2. **Zero On-Screen Instructional / Promotional Text**:
    - FORBID direct text descriptions, tutorial paragraphs, marketing copy, or "how-to" guidance rendered into the UI viewport.
    - The UI must be quiet, minimal, and unobtrusive.

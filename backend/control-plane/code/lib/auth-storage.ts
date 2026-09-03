@@ -79,12 +79,25 @@ export function getEnvAdminCredentials(): { email: string; password: string } {
   return { email: cleanEmail, password: cleanPassword };
 }
 
+export function getControlPlaneDir(): string {
+  try {
+    const baseVaultDir = path.join(process.cwd(), 'docustack_vault');
+    const metaDir = path.join(baseVaultDir, '.docustack', 'control_plane');
+    if (!fs.existsSync(metaDir)) fs.mkdirSync(metaDir, { recursive: true });
+    return metaDir;
+  } catch {
+    return '/tmp';
+  }
+}
+
 function getUsersFilePath(): string {
   try {
-    ensureWorkspaceExists();
-    const metaDir = path.join(getVaultAbsolutePath(), '.docustack', 'control_plane');
-    if (!fs.existsSync(metaDir)) fs.mkdirSync(metaDir, { recursive: true });
-    return path.join(metaDir, 'accounts.json');
+    const metaDir = getControlPlaneDir();
+    const primaryPath = path.join(metaDir, 'accounts.json');
+    if (!fs.existsSync(primaryPath) && fs.existsSync('/tmp/accounts.json')) {
+      return '/tmp/accounts.json';
+    }
+    return primaryPath;
   } catch {
     return '/tmp/accounts.json';
   }
@@ -92,9 +105,7 @@ function getUsersFilePath(): string {
 
 function getRevocationFilePath(): string {
   try {
-    ensureWorkspaceExists();
-    const metaDir = path.join(getVaultAbsolutePath(), '.docustack', 'control_plane');
-    if (!fs.existsSync(metaDir)) fs.mkdirSync(metaDir, { recursive: true });
+    const metaDir = getControlPlaneDir();
     return path.join(metaDir, 'revoked_sessions.json');
   } catch {
     return '/tmp/revoked_sessions.json';
@@ -826,7 +837,13 @@ export async function resolveRequestContextVault(req: NextRequest): Promise<Requ
       activeWs = userWorkspaces.find((w) => w.id === requestedWsId) || null;
     }
     if (!activeWs && requestedWsPath) {
-      activeWs = userWorkspaces.find((w) => w.workspacePath === requestedWsPath) || null;
+      const cleanReq = requestedWsPath.replace(/^\.\//, '').trim();
+      activeWs =
+        userWorkspaces.find(
+          (w) =>
+            w.workspacePath === requestedWsPath ||
+            w.workspacePath.replace(/^\.\//, '').trim() === cleanReq
+        ) || null;
     }
     if (!activeWs) {
       const activeId = user.activeWorkspaceId || user.appProfiles?.[APP_ID]?.activeWorkspaceId;
@@ -852,6 +869,9 @@ export async function resolveRequestContextVault(req: NextRequest): Promise<Requ
       if (!storageConn) {
         storageConn = primaryConn;
       }
+    } else if (requestedWsPath && userConns.length > 0) {
+      vaultPath = requestedWsPath;
+      storageConn = primaryConn;
     } else if (userConns.length > 0) {
       storageConn = primaryConn;
     }

@@ -15,11 +15,11 @@ export interface AdminAuditLog {
 
 let inMemoryLogs: AdminAuditLog[] = [];
 
+import { getControlPlaneDir } from './auth-storage';
+
 function getAuditLogsFilePath(): string {
   try {
-    ensureWorkspaceExists();
-    const dir = path.join(getVaultAbsolutePath(), '.docustack', 'control_plane');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const dir = getControlPlaneDir();
     return path.join(dir, 'audit_logs.json');
   } catch {
     return '/tmp/audit_logs.json';

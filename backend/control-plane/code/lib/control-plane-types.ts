@@ -19,18 +19,11 @@ export type DataEngineType =
   | 'custom_api';
 
 export type StorageEngineType =
-  | 'filesystem'
-  | 'local'
   | 'local_fs'
-  | 'browser_local_fs'
-  | 'icloud_drive'
-  | 'google_drive'
-  | 'onedrive'
+  | 'backblaze_b2'
+  | 'cloudflare_r2'
   | 'supabase_storage'
-  | 'firebase_storage'
-  | 's3'
-  | 'vercel_blob'
-  | 'pocketbase_storage';
+  | 'aws_s3';
 
 export type ConflictResolutionStrategy = 'primary_wins' | 'backup_wins' | 'newest_wins';
 

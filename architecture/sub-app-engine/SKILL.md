@@ -166,7 +166,7 @@ $$\text{DISCOVERED} \longrightarrow \text{VALIDATING} \longrightarrow \text{LOAD
 
 ### Injected Context Services (`context.services`)
 - `context.services.get('workspace')`: Access to the host `WorkspaceRuntime` and `WorkspaceFS`.
-- `context.services.get('storage')`: Access to `WorkspaceStorageAdapter` (iCloud, Drive, Local, S3, Firebase, Supabase).
+- `context.services.get('storage')`: Access to `WorkspaceStorageAdapter` (Local FS, Backblaze B2, Cloudflare R2, Supabase, AWS S3).
 - `context.events.emit(event, data)`: Emits structured events onto host entity event emitters.
 - `context.events.on(event, handler)`: Listens for host entity events and state changes.
 - `context.logger`: Structured logger instance for diagnostic telemetry.

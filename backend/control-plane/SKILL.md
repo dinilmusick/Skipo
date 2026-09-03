@@ -209,15 +209,14 @@ Any AI agent can copy these files directly into a new TypeScript/React applicati
 - [`code/api/admin/tables/route.ts`](./code/api/admin/tables/route.ts) — Live database table inspector.
 
 ### React UI Components (`./code/components/`):
-- [`code/components/admin/AdminPanelModal.tsx`](./code/components/admin/AdminPanelModal.tsx) — Main Admin Control Plane Modal container.
-- [`code/components/admin/AdminDatabaseClusterTab.tsx`](./code/components/admin/AdminDatabaseClusterTab.tsx) — Cluster management tab with latency pings, .env badges & Vercel Drawer.
-- [`code/components/admin/AdminUsersTab.tsx`](./code/components/admin/AdminUsersTab.tsx) — Users & Roles management tab.
-- [`code/components/admin/AdminAuditTab.tsx`](./code/components/admin/AdminAuditTab.tsx) — Audit Log Viewer with 1-click Copy & CSV/JSON export.
-- [`code/components/admin/AdminTablesTab.tsx`](./code/components/admin/AdminTablesTab.tsx) — Live raw database table record viewer.
-- [`code/components/admin/AdminBackendTab.tsx`](./code/components/admin/AdminBackendTab.tsx) — Legacy single-engine and storage engine testing tab.
-- [`code/components/admin/AdminWorkspacesTab.tsx`](./code/components/admin/AdminWorkspacesTab.tsx) — Multi-tenant workspace overview tab.
+- [`code/components/admin/AdminPanelModal.tsx`](./code/components/admin/AdminPanelModal.tsx) — Main Admin Control Plane Modal container (Streamlined to 2 TABS: Databases & Logs).
+- [`code/components/admin/AdminDatabaseClusterTab.tsx`](./code/components/admin/AdminDatabaseClusterTab.tsx) — Tab 1: Database Storage & Redundancy Clones with latency pings, failover, .env badges & Vercel Drawer.
+- [`code/components/admin/AdminAuditTab.tsx`](./code/components/admin/AdminAuditTab.tsx) — Tab 2: Security & System Audit Logs Viewer with 1-click Copy & CSV/JSON export.
+- [`code/components/workspace/WorkspaceTilesMenu.tsx`](./code/components/workspace/WorkspaceTilesMenu.tsx) — Workspace selector & manager with canonical folder subtitle, 1-click copy, and mixed-case descriptions.
+- [`code/components/workspace/StorageConnectDrawer.tsx`](./code/components/workspace/StorageConnectDrawer.tsx) — Dynamic storage connection drawer with ★ PRIMARY and CLONE badges, and SET AS PRIMARY elevation.
 - [`code/components/auth/LoginModal.tsx`](./code/components/auth/LoginModal.tsx) — User authentication modal.
-- [`code/components/BrutalistUi.tsx`](./code/components/BrutalistUi.tsx) — Neo-Brutalist UI primitives (Card, Button, Badge, Modal, Input).
+- [`code/components/BrutalistUi.tsx`](./code/components/BrutalistUi.tsx) — Neo-Brutalist UI primitives (Card, Button, Badge, Modal, Input, Textarea).
+- [`code/components/IconOnlyButton.tsx`](./code/components/IconOnlyButton.tsx) — Monochromatic icon-only button with hover tooltips.
 
 ---
 
