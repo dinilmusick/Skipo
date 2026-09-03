@@ -295,6 +295,22 @@ USER ──► APPLICATION ──► WorkspaceFS.write(path, data)
       - Update connection `lastTestedAt` timestamps in local React state directly to keep all tiles intact.
     - **Immediate Initial Local Sync with Live Progress Bar**:
       - Saving or selecting a local folder connection MUST immediately trigger `performLocalHandleSync` to populate disk files with an animated progress bar (percentage, active file, and file counter `N / Total files`).
+13. **Strict Domain-Separated 4-File WorkspaceFS Architecture**:
+    - `workspaceFS.ts` must NEVER become an unmaintainable monolith. It is strictly decomposed into 4 domain-bound files with a backward-compatible facade barrel:
+      - `lib/workspace-fs-core.ts`: Core storage adapters (`LocalStorageAdapter`, `CloudStorageAdapter`), `StorageAdapterFactory`, `SyncEngine`, active vault configuration (`setActiveVaultConfig`, `getVaultAbsolutePath`), and path resolvers.
+      - `lib/workspace-fs-categories.ts`: Category loading and saving (`loadCategoriesFromFS`, `loadCategoriesFromFSAsync`, `saveCategoriesToFS`, `saveCategoriesToFSAsync`).
+      - `lib/workspace-fs-documents.ts`: Document CRUD (`loadDocumentsFromFS`, `saveDocumentToFS`, `deleteDocumentFromFS`, `deleteCategoryAndDocumentsFromFS`, `deleteNodeAssetsAsync`).
+      - `lib/workspace-fs-graph.ts`: Graph topology (`loadGraphFromFS`, `saveGraphToFS`), sticky note persistence, full atomic sync (`syncEntireWorkspaceToDiskAndCloud`), file tree inspection, asset purging, and vault wallpapers.
+      - `lib/workspaceFS.ts`: Barrel facade explicitly re-exporting all symbols for 100% backward compatibility.
+14. **Pure Event-Driven Workspace Persistence**:
+    - Save operations must NEVER run on arbitrary uncoordinated timers.
+    - Persistence is strictly **event-driven**, triggered solely by explicit user workspace mutations (document creation, card edits, board deletion, node movement).
+    - Auto-save debouncing must coalesce rapid events and execute atomic multi-tier saves across primary storage, cloud clones, and registered local directory handles.
+15. **Proactive Zero-Click Cross-Tab / Cross-Device Local Storage Initialization**:
+    - When the application mounts, it must proactively re-initialize active local folder handles stored in IndexedDB without requiring user clicks.
+    - If opened on a different machine or browser where the local directory handle does not exist on disk, the system must display an explicit notification banner:
+      `Local storage folder "<FolderName>" has no registered directory handle on this machine. Local storage is disabled for this session.`
+    - Local storage writes must be safely disabled for that session without crashing or disrupting cloud storage connections.
 
 ---
 

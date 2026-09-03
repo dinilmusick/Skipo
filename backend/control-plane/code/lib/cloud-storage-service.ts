@@ -433,6 +433,7 @@ export async function deleteCloudWorkspaceFolder(
       const bareKey = cleanRel ? `${cleanPrefix}/${cleanRel}` : cleanPrefix;
       if (bareKey) {
         await permanentDeleteS3Object(s3, bucketName, bareKey);
+        await permanentDeleteS3Folder(s3, bucketName, bareKey);
       }
       return res;
     }

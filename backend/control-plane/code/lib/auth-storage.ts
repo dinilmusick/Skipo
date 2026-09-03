@@ -150,13 +150,14 @@ export function normalizeUserAccount(rawUser: any): UserAccount {
       : (existingDocuStackProfile.workspaceName || activeWs?.name || '');
 
   // Preserve user-saved storage connections (Backblaze B2, R2, S3, Supabase, Local)
-  const profileConns = Array.isArray(existingDocuStackProfile.storage_connections) ? existingDocuStackProfile.storage_connections : [];
-  const rootConns = Array.isArray((rawUser as any).storage_connections) ? (rawUser as any).storage_connections : [];
-  
-  const connsMap = new Map<string, UserStorageConnection>();
-  profileConns.forEach((c: UserStorageConnection) => { if (c && c.id) connsMap.set(c.id, c); });
-  rootConns.forEach((c: UserStorageConnection) => { if (c && c.id) connsMap.set(c.id, { ...(connsMap.get(c.id) || {}), ...c }); });
-  const rawConns: UserStorageConnection[] = Array.from(connsMap.values());
+  let rawConns: UserStorageConnection[];
+  if (Array.isArray(existingDocuStackProfile.storage_connections)) {
+    rawConns = existingDocuStackProfile.storage_connections;
+  } else if (Array.isArray((rawUser as any).storage_connections)) {
+    rawConns = (rawUser as any).storage_connections;
+  } else {
+    rawConns = [];
+  }
 
   let storageConnections = rawConns;
   if (rawConns.length > 0 && !rawConns.some((c) => c.role === 'primary')) {
@@ -947,7 +948,8 @@ export async function resolveRequestContextVault(req: NextRequest): Promise<Requ
 
   folderPrefix = vaultPath ? vaultPath.replace(/^\.\//, '') : '';
   if (!folderPrefix && user) {
-    folderPrefix = formatCanonicalWorkspaceFolderName('DocuStack', user.name || user.username, 'vault');
+    const wsNameFallback = activeWs?.name || user.workspaceName || 'workspace';
+    folderPrefix = formatCanonicalWorkspaceFolderName('docustack', user.username || user.name || 'user', wsNameFallback);
   }
   setActiveVaultConfig(vaultPath, vaultName, storageConn, folderPrefix);
   if (storageConn && storageConn.provider === 'local_fs') {

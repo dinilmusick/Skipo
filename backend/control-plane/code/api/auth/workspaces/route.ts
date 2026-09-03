@@ -105,20 +105,33 @@ export async function POST(req: NextRequest) {
       ensureWorkspaceExists(newWs.workspacePath);
     }
 
-    let cloudInitStatus: { initialized: boolean; error?: string } = { initialized: false };
-    // Direct End-to-End initialization on user-owned cloud bucket (Backblaze B2, R2, S3, Supabase)
+    let cloudInitStatus: { initialized: boolean; count: number; error?: string } = { initialized: false, count: 0 };
+    // Direct End-to-End initialization on ALL user-owned cloud buckets (Backblaze B2, R2, S3, Supabase)
+    const cloudTargets: UserStorageConnection[] = [];
     if (storageConn && storageConn.provider !== 'local_fs') {
+      cloudTargets.push(storageConn);
+    }
+    for (const c of userConns) {
+      if (c && c.provider !== 'local_fs' && !cloudTargets.some((t) => t.id === c.id)) {
+        cloudTargets.push(c);
+      }
+    }
+
+    for (const target of cloudTargets) {
       try {
         await initializeCloudWorkspaceBucket(
-          storageConn,
+          target,
           folderPrefix,
           newWs.name,
           user?.name || user?.username || 'User'
         );
         cloudInitStatus.initialized = true;
+        cloudInitStatus.count++;
       } catch (cloudErr: any) {
-        console.error('[CloudStorage] Failed to initialize cloud storage bucket on creation:', cloudErr);
-        cloudInitStatus.error = cloudErr?.message || 'Failed to initialize cloud storage bucket';
+        console.error(`[CloudStorage] Failed to initialize cloud storage bucket on conn ${target.id}:`, cloudErr);
+        if (!cloudInitStatus.error) {
+          cloudInitStatus.error = cloudErr?.message || 'Failed to initialize cloud storage bucket';
+        }
       }
     }
 
@@ -261,6 +274,11 @@ export async function DELETE(req: NextRequest) {
           rawWsPath,
           wsName ? formatCanonicalWorkspaceFolderName('docustack', userName, wsName) : '',
           wsName ? formatCanonicalWorkspaceFolderName('DocuStack', userName, wsName) : '',
+          wsName ? `ultrst_docustack_${userName}_${wsName.toLowerCase().replace(/[^a-z0-9_.-]/g, '_')}` : '',
+          `ultrst_docustack_${userName}_vault`,
+          `ultrst_docustack_${userName}_docustack_vault`,
+          `docustack_vault`,
+          `vault`,
           wsName ? wsName.toLowerCase().replace(/[^a-z0-9_.-]/g, '_') : '',
           wsName,
           ...extraCandidatePrefixes,
@@ -269,20 +287,33 @@ export async function DELETE(req: NextRequest) {
     );
 
     // 3. Aggregate all user cloud connections (Backblaze B2, Cloudflare R2, AWS S3, Supabase)
-    const userConns: any[] = [
+    // Prioritize authentic, unmasked credentials stored in database
+    const dbConns: any[] = [
       ...(user?.appProfiles?.docustack?.storage_connections || []),
       ...((user as any)?.storage_connections || []),
-      ...extraStorageConnections,
     ];
 
     const cloudConnsMap = new Map<string, UserStorageConnection>();
-    for (const conn of userConns) {
+    for (const conn of dbConns) {
       if (!conn || conn.provider === 'local_fs') continue;
+      // Skip masked connections if unmasked exists
+      const isMasked = conn.b2ApplicationKey === '••••••••' || conn.s3SecretAccessKey === '••••••••';
+      if (isMasked) continue;
       const key = `${conn.provider}_${conn.b2BucketName || conn.r2BucketName || conn.s3BucketName || conn.supabaseBucketName || conn.id}`;
       if (!cloudConnsMap.has(key)) {
         cloudConnsMap.set(key, conn);
       }
     }
+
+    // Fallback: If map is empty, use any non-local_fs db connection
+    if (cloudConnsMap.size === 0) {
+      for (const conn of dbConns) {
+        if (!conn || conn.provider === 'local_fs') continue;
+        const key = `${conn.provider}_${conn.b2BucketName || conn.r2BucketName || conn.s3BucketName || conn.supabaseBucketName || conn.id}`;
+        if (!cloudConnsMap.has(key)) cloudConnsMap.set(key, conn);
+      }
+    }
+
     const cloudConns = Array.from(cloudConnsMap.values());
 
     // 4. Permanently purge all candidate prefixes from ALL connected cloud buckets (Backblaze B2, R2, S3)

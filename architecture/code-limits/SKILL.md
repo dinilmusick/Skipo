@@ -116,3 +116,18 @@ function onSimilarClassesDetected(class_A, class_B):
 
 FORBID: Copy-pasted boilerplate or parallel implementations of identical behavioral patterns.
 ```
+
+---
+
+## 5. CANONICAL APP MODULARIZATION PATTERN (ROOT ORCHESTRATORS)
+When major app hubs (like `app/page.tsx` or `workspaceFS.ts`) grow large:
+1. **Hook Separation**:
+   - Theme / canvas / wallpapers $\to$ `hooks/useWorkspaceTheme.ts`
+   - Persistence / multi-cloud replication / sync timers $\to$ `hooks/useWorkspacePersistence.ts`
+2. **View Router Component**:
+   - Routing between screens (Graph, Kanban, Workspace, Tags, Search) $\to `components/workspace/WorkspaceViewRouter.tsx`
+3. **Modals Container Component**:
+   - Encapsulating all dialogs, drawers, and overlays $\to$ `components/workspace/WorkspaceModalsContainer.tsx`
+4. **Filesystem Domain Decomposition**:
+   - Monolithic filesystem layers $\to$ Decomposed into core adapters, categories, documents, and graph topology sub-modules with a barrel facade.
+

@@ -22,9 +22,22 @@ export function formatCanonicalWorkspaceFolderName(
   userName: string = 'user',
   workspaceName: string = 'default'
 ): string {
+  const rawWs = (workspaceName || '').trim();
   const app = sanitizeFolderSegment(appName);
   const user = sanitizeFolderSegment(userName);
-  const ws = sanitizeFolderSegment(workspaceName);
+
+  // If user already entered the full canonical format (e.g. ultrst_docustack_dinil_test_workspace),
+  // or any ultrst_ prefix, preserve it without double-prefixing
+  if (rawWs.toLowerCase().startsWith('ultrst_')) {
+    return sanitizeFolderSegment(rawWs);
+  }
+
+  let ws = sanitizeFolderSegment(rawWs);
+  // Simplify redundant app_vault or app_workspace patterns
+  if (ws === `${app}_vault` || ws === `${app}_workspace`) {
+    ws = ws.replace(`${app}_`, '');
+  }
+
   return `ultrst_${app}_${user}_${ws}`;
 }
 

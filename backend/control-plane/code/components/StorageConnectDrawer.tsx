@@ -46,6 +46,7 @@ interface StorageConnectDrawerProps {
   onSelectLocalFolder: (folderName: string, folderKey: string) => void;
   onSelectCloudConnection: (connection: UserStorageConnection) => void;
   onSelectEngine: (engine: DatabaseEngine) => void;
+  onUserUpdated?: (updatedUser: any) => void;
 }
 
 const ACTIVE_STORAGE_PROVIDERS: UserStorageProvider[] = [
@@ -65,6 +66,7 @@ export default function StorageConnectDrawer({
   onSelectLocalFolder,
   onSelectCloudConnection,
   onSelectEngine,
+  onUserUpdated,
 }: StorageConnectDrawerProps) {
   const [selectedProvider, setSelectedProvider] = useState<UserStorageProvider>(currentProvider);
   const [activeConnId, setActiveConnId] = useState<string | undefined>(currentConnectionId);
@@ -159,8 +161,8 @@ export default function StorageConnectDrawer({
         setSavedConnections(data.connections);
         if (data.connections.length === 0) {
           setShowNewConnectionForm(true);
-        } else {
-          const targetId = preferredId || activeConnId;
+        } else if (preferredId || currentConnectionId) {
+          const targetId = preferredId || currentConnectionId;
           const matched = targetId ? data.connections.find((c: any) => c.id === targetId) : undefined;
           const primary = data.connections.find((c: any) => c.role === 'primary');
           const chosen = matched || primary || data.connections[0];
@@ -727,6 +729,9 @@ export default function StorageConnectDrawer({
       });
       const data = await res.json();
       if (data.success) {
+        if (data.user && onUserUpdated) {
+          onUserUpdated(data.user);
+        }
         setSavedConnections((prev) => {
           const remaining = prev.filter((c) => c.id !== connId);
           if (activeConnId === connId) {

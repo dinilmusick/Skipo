@@ -156,6 +156,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         message: 'WORKSPACE_SAVED_TO_ALL_TIERS',
         ...result,
+        folderPrefix: result.folderPrefix || '',
         storageProvider: getActiveStorageConn()?.provider || 'local_fs',
         savedAt: Date.now(),
       });

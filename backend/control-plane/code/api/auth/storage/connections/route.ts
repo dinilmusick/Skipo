@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySession, findUserByIdAsync, updateUserProfileAsync } from '@/lib/auth-storage';
 import { maskStorageConnection, testStorageConnection } from '@/lib/storage-providers';
-import { UserStorageConnection, UserWorkspaceRecord } from '@/lib/types';
+import { UserStorageConnection, UserWorkspaceRecord, DatabaseEngine } from '@/lib/types';
 import { initializeCloudWorkspaceBucket } from '@/lib/cloud-storage-service';
 import { setActiveVaultConfig } from '@/lib/workspaceFS';
 
@@ -306,22 +306,43 @@ export async function DELETE(req: NextRequest) {
       updatedList = ensurePrimaryRole(updatedList);
     }
 
+    const workspaces: UserWorkspaceRecord[] =
+      user.appProfiles?.docustack?.workspaces || user.workspaces || [];
+    const newPrimary = updatedList.find((c) => c.role === 'primary');
+    const updatedWorkspaces = workspaces.map((w) => {
+      if (w.storageConnectionId === connectionId) {
+        return {
+          ...w,
+          storageConnectionId: newPrimary?.id || undefined,
+          storageProvider: newPrimary?.provider || 'local_fs',
+          engine: (newPrimary && newPrimary.provider !== 'local_fs' ? 's3_blob' : 'local_fs') as DatabaseEngine,
+        };
+      }
+      return w;
+    });
+
     const updatedAppProfiles = {
       ...(user.appProfiles || {}),
       docustack: {
         ...(user.appProfiles?.docustack || {}),
         storage_connections: updatedList,
+        workspaces: updatedWorkspaces,
       },
     };
 
-    await updateUserProfileAsync(session.userId, {
+    const updatedUser = await updateUserProfileAsync(session.userId, {
       appProfiles: updatedAppProfiles,
       storage_connections: updatedList,
+      workspaces: updatedWorkspaces,
     } as any);
+
+    const { passwordHash: _, ...safeUser } = updatedUser || ({} as any);
 
     return NextResponse.json({
       success: true,
       message: 'CONNECTION_REMOVED',
+      user: safeUser,
+      connections: updatedList.map(maskStorageConnection),
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err?.message || 'Failed to delete connection' }, { status: 500 });
