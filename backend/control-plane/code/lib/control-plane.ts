@@ -1356,90 +1356,57 @@ export async function testAdminBackendConnection(config: AdminBackendConfig): Pr
 
 export async function fetchUsersFromCluster(): Promise<UserAccount[]> {
   const cluster = loadDatabaseClusterConfig();
-  const primaryDb =
-    cluster.databases.find((d) => d.role === 'primary' && d.enabled && d.id !== 'cluster_cloud_standby') ||
-    cluster.databases.find((d) => d.enabled && d.id !== 'cluster_cloud_standby');
+  const activeDatabases = cluster.databases.filter(
+    (d) => d.enabled && d.id !== 'cluster_cloud_standby'
+  );
 
-  if (!primaryDb) {
+  if (activeDatabases.length === 0) {
     return [];
   }
 
-  const isNeonOrPg = (primaryDb.engine === 'neon' && primaryDb.neon?.connectionString) ||
-                     (primaryDb.engine === 'postgres' && primaryDb.postgres?.connectionString);
+  // Primary database first, then remaining redundant databases
+  const sortedDatabases = [...activeDatabases].sort((a, b) => {
+    if (a.role === 'primary') return -1;
+    if (b.role === 'primary') return 1;
+    return 0;
+  });
 
-  if (isNeonOrPg) {
-    try {
-      const connStr = (primaryDb.engine === 'neon' ? primaryDb.neon?.connectionString : primaryDb.postgres?.connectionString)?.trim().replace(/^["']|["']$/g, '');
-      if (!connStr) return [];
-      const sql: any = neon(connStr);
-      const cleanTable = (primaryDb.neon?.tableName || 'ultrst-users').trim().replace(/^"|"$/g, '');
+  const usersMap = new Map<string, UserAccount>();
 
-      const checkTableSql = `
-        SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1 LIMIT 1;
-      `;
-      const tableCheck = await sql.query(checkTableSql, [cleanTable]);
-      if (!tableCheck || tableCheck.length === 0) {
-        await autoProvisionNeonTable(connStr, cleanTable);
-        return [];
-      }
+  for (const db of sortedDatabases) {
+    const isNeonOrPg = (db.engine === 'neon' && db.neon?.connectionString) ||
+                       (db.engine === 'postgres' && db.postgres?.connectionString);
 
-      const rows: any[] = await sql.query(
-        `SELECT id, email, username, name, role, avatar_glyph, password_hash, app_profiles, created_at, last_login_at, updated_at FROM public."${cleanTable}" ORDER BY created_at ASC`
-      );
+    if (isNeonOrPg) {
+      try {
+        const connStr = (db.engine === 'neon' ? db.neon?.connectionString : db.postgres?.connectionString)?.trim().replace(/^["']|["']$/g, '');
+        if (!connStr) continue;
+        const sql: any = neon(connStr);
+        const cleanTable = (db.neon?.tableName || 'ultrst-users').trim().replace(/^"|"$/g, '');
 
-      if (!Array.isArray(rows)) return [];
-
-      return rows.map((r: any) => {
-        let appProfiles = {};
-        if (typeof r.app_profiles === 'string') {
-          try { appProfiles = JSON.parse(r.app_profiles); } catch {}
-        } else if (typeof r.app_profiles === 'object' && r.app_profiles !== null) {
-          appProfiles = r.app_profiles;
+        const checkTableSql = `
+          SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1 LIMIT 1;
+        `;
+        const tableCheck = await sql.query(checkTableSql, [cleanTable]);
+        if (!tableCheck || tableCheck.length === 0) {
+          await autoProvisionNeonTable(connStr, cleanTable);
+          continue;
         }
 
-        return normalizeUserAccount({
-          id: r.id,
-          email: r.email,
-          username: r.username,
-          name: r.name,
-          role: r.role,
-          avatarGlyph: r.avatar_glyph || '👤',
-          passwordHash: r.password_hash,
-          appProfiles,
-          createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
-          lastLoginAt: r.last_login_at ? new Date(r.last_login_at).toISOString() : undefined,
-          updatedAt: r.updated_at ? new Date(r.updated_at).toISOString() : new Date().toISOString(),
-        });
-      });
-    } catch (err: any) {
-      console.warn('[DocuStack ControlPlane] Failed to fetch users from Neon/Postgres:', err.message);
-      return [];
-    }
-  }
+        const rows: any[] = await sql.query(
+          `SELECT id, email, username, name, role, avatar_glyph, password_hash, app_profiles, created_at, last_login_at, updated_at FROM public."${cleanTable}" ORDER BY created_at ASC`
+        );
 
-  if (primaryDb.engine === 'supabase' && primaryDb.supabase?.url && primaryDb.supabase?.serviceRoleKey) {
-    try {
-      const cleanUrl = primaryDb.supabase.url.replace(/\/+$/, '');
-      const cleanTable = primaryDb.supabase.tableName || 'ultrst-users';
-      const res = await fetch(`${cleanUrl}/rest/v1/${cleanTable}?select=*`, {
-        method: 'GET',
-        headers: {
-          apikey: primaryDb.supabase.serviceRoleKey,
-          Authorization: `Bearer ${primaryDb.supabase.serviceRoleKey}`,
-        },
-      });
-
-      if (res.ok) {
-        const rows = await res.json();
         if (Array.isArray(rows)) {
-          return rows.map((r: any) => {
+          for (const r of rows) {
             let appProfiles = {};
             if (typeof r.app_profiles === 'string') {
               try { appProfiles = JSON.parse(r.app_profiles); } catch {}
             } else if (typeof r.app_profiles === 'object' && r.app_profiles !== null) {
               appProfiles = r.app_profiles;
             }
-            return normalizeUserAccount({
+
+            const normalized = normalizeUserAccount({
               id: r.id,
               email: r.email,
               username: r.username,
@@ -1452,52 +1419,133 @@ export async function fetchUsersFromCluster(): Promise<UserAccount[]> {
               lastLoginAt: r.last_login_at ? new Date(r.last_login_at).toISOString() : undefined,
               updatedAt: r.updated_at ? new Date(r.updated_at).toISOString() : new Date().toISOString(),
             });
-          });
+
+            const existing = usersMap.get(normalized.id);
+            if (!existing) {
+              usersMap.set(normalized.id, normalized);
+            } else {
+              const existingConns = existing.appProfiles?.docustack?.storage_connections || [];
+              const newConns = normalized.appProfiles?.docustack?.storage_connections || [];
+              const existingTime = new Date(existing.updatedAt || 0).getTime();
+              const newTime = new Date(normalized.updatedAt || 0).getTime();
+              if (newConns.length > existingConns.length || newTime > existingTime) {
+                usersMap.set(normalized.id, normalized);
+              }
+            }
+          }
         }
+      } catch (err: any) {
+        console.warn(`[DocuStack ControlPlane] Failed to fetch users from Neon/Postgres [${db.name}]:`, err.message);
       }
-    } catch (err: any) {
-      console.warn('[DocuStack ControlPlane] Failed to fetch users from Supabase:', err.message);
+    } else if (db.engine === 'supabase' && db.supabase?.url && db.supabase?.serviceRoleKey) {
+      try {
+        const cleanUrl = db.supabase.url.replace(/\/+$/, '');
+        const cleanTable = db.supabase.tableName || 'ultrst-users';
+        const res = await fetch(`${cleanUrl}/rest/v1/${cleanTable}?select=*`, {
+          method: 'GET',
+          headers: {
+            apikey: db.supabase.serviceRoleKey,
+            Authorization: `Bearer ${db.supabase.serviceRoleKey}`,
+          },
+        });
+
+        if (res.ok) {
+          const rows = await res.json();
+          if (Array.isArray(rows)) {
+            for (const r of rows) {
+              let appProfiles = {};
+              if (typeof r.app_profiles === 'string') {
+                try { appProfiles = JSON.parse(r.app_profiles); } catch {}
+              } else if (typeof r.app_profiles === 'object' && r.app_profiles !== null) {
+                appProfiles = r.app_profiles;
+              }
+
+              const normalized = normalizeUserAccount({
+                id: r.id,
+                email: r.email,
+                username: r.username,
+                name: r.name,
+                role: r.role,
+                avatarGlyph: r.avatar_glyph || '👤',
+                passwordHash: r.password_hash,
+                appProfiles,
+                createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+                lastLoginAt: r.last_login_at ? new Date(r.last_login_at).toISOString() : undefined,
+                updatedAt: r.updated_at ? new Date(r.updated_at).toISOString() : new Date().toISOString(),
+              });
+
+              const existing = usersMap.get(normalized.id);
+              if (!existing) {
+                usersMap.set(normalized.id, normalized);
+              } else {
+                const existingConns = existing.appProfiles?.docustack?.storage_connections || [];
+                const newConns = normalized.appProfiles?.docustack?.storage_connections || [];
+                const existingTime = new Date(existing.updatedAt || 0).getTime();
+                const newTime = new Date(normalized.updatedAt || 0).getTime();
+                if (newConns.length > existingConns.length || newTime > existingTime) {
+                  usersMap.set(normalized.id, normalized);
+                }
+              }
+            }
+          }
+        }
+      } catch (err: any) {
+        console.warn(`[DocuStack ControlPlane] Failed to fetch users from Supabase [${db.name}]:`, err.message);
+      }
+    } else if (db.engine === 'firebase' && db.firebase?.projectId) {
+      try {
+        const projectId = db.firebase.projectId.trim();
+        const apiKey = db.firebase.apiKey?.trim();
+        const collection = (db.firebase.collectionName || 'ultrst-users').trim();
+        const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)/documents/${encodeURIComponent(collection)}?pageSize=100${apiKey ? `&key=${encodeURIComponent(apiKey)}` : ''}`;
+
+        const res = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.documents)) {
+            for (const doc of data.documents) {
+              const fields = doc.fields || {};
+              let appProfiles = {};
+              if (fields.appProfilesJson?.stringValue) {
+                try { appProfiles = JSON.parse(fields.appProfilesJson.stringValue); } catch {}
+              }
+
+              const normalized = normalizeUserAccount({
+                id: fields.id?.stringValue || doc.name.split('/').pop(),
+                email: fields.email?.stringValue,
+                username: fields.username?.stringValue,
+                name: fields.name?.stringValue,
+                role: fields.role?.stringValue,
+                avatarGlyph: fields.avatarGlyph?.stringValue || '👤',
+                passwordHash: fields.passwordHash?.stringValue,
+                appProfiles,
+                createdAt: fields.createdAt?.stringValue || new Date().toISOString(),
+                lastLoginAt: fields.lastLoginAt?.stringValue || undefined,
+                updatedAt: fields.updatedAt?.stringValue || new Date().toISOString(),
+              });
+
+              const existing = usersMap.get(normalized.id);
+              if (!existing) {
+                usersMap.set(normalized.id, normalized);
+              } else {
+                const existingConns = existing.appProfiles?.docustack?.storage_connections || [];
+                const newConns = normalized.appProfiles?.docustack?.storage_connections || [];
+                const existingTime = new Date(existing.updatedAt || 0).getTime();
+                const newTime = new Date(normalized.updatedAt || 0).getTime();
+                if (newConns.length > existingConns.length || newTime > existingTime) {
+                  usersMap.set(normalized.id, normalized);
+                }
+              }
+            }
+          }
+        }
+      } catch (err: any) {
+        console.warn(`[DocuStack ControlPlane] Failed to fetch users from Firebase [${db.name}]:`, err.message);
+      }
     }
   }
 
-  if (primaryDb.engine === 'firebase' && primaryDb.firebase?.projectId) {
-    try {
-      const projectId = primaryDb.firebase.projectId.trim();
-      const apiKey = primaryDb.firebase.apiKey?.trim();
-      const collection = (primaryDb.firebase.collectionName || 'ultrst-users').trim();
-      const listUrl = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)/documents/${encodeURIComponent(collection)}${apiKey ? `?key=${encodeURIComponent(apiKey)}` : ''}`;
-      const res = await fetch(listUrl);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.documents && Array.isArray(data.documents)) {
-          return data.documents.map((doc: any) => {
-            const f = doc.fields || {};
-            let appProfiles = {};
-            try {
-              if (f.app_profiles?.stringValue) appProfiles = JSON.parse(f.app_profiles.stringValue);
-            } catch {}
-            return normalizeUserAccount({
-              id: f.id?.stringValue || path.basename(doc.name),
-              email: f.email?.stringValue || '',
-              username: f.username?.stringValue || '',
-              name: f.name?.stringValue || '',
-              role: f.role?.stringValue || 'user',
-              avatarGlyph: f.avatar_glyph?.stringValue || '👤',
-              passwordHash: f.password_hash?.stringValue || '',
-              appProfiles,
-              createdAt: f.created_at?.stringValue || doc.createTime,
-              lastLoginAt: f.last_login_at?.stringValue,
-              updatedAt: f.updated_at?.stringValue || doc.updateTime,
-            });
-          });
-        }
-      }
-    } catch (err: any) {
-      console.warn('[DocuStack ControlPlane] Failed to fetch users from Firebase:', err.message);
-    }
-  }
-
-  return [];
+  return Array.from(usersMap.values());
 }
 
 export async function persistUserToCluster(user: UserAccount): Promise<{ success: boolean; targetsUpdated: string[] }> {

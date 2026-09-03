@@ -150,8 +150,13 @@ export function normalizeUserAccount(rawUser: any): UserAccount {
       : (existingDocuStackProfile.workspaceName || activeWs?.name || '');
 
   // Preserve user-saved storage connections (Backblaze B2, R2, S3, Supabase, Local)
-  const rawConns: UserStorageConnection[] =
-    existingDocuStackProfile.storage_connections || (rawUser as any).storage_connections || [];
+  const profileConns = Array.isArray(existingDocuStackProfile.storage_connections) ? existingDocuStackProfile.storage_connections : [];
+  const rootConns = Array.isArray((rawUser as any).storage_connections) ? (rawUser as any).storage_connections : [];
+  
+  const connsMap = new Map<string, UserStorageConnection>();
+  profileConns.forEach((c: UserStorageConnection) => { if (c && c.id) connsMap.set(c.id, c); });
+  rootConns.forEach((c: UserStorageConnection) => { if (c && c.id) connsMap.set(c.id, { ...(connsMap.get(c.id) || {}), ...c }); });
+  const rawConns: UserStorageConnection[] = Array.from(connsMap.values());
 
   let storageConnections = rawConns;
   if (rawConns.length > 0 && !rawConns.some((c) => c.role === 'primary')) {
@@ -327,7 +332,41 @@ export async function loadUsersAsync(): Promise<UserAccount[]> {
       const localUsers = loadUsers();
       const userMap = new Map<string, UserAccount>();
       localUsers.forEach((u) => userMap.set(u.id, u));
-      clusterUsers.forEach((u) => userMap.set(u.id, u));
+      
+      clusterUsers.forEach((u) => {
+        const local = userMap.get(u.id);
+        if (!local) {
+          userMap.set(u.id, u);
+        } else {
+          // Rehydrate local storage connections if local has them and cluster snapshot hasn't synced yet
+          const localConns = local.appProfiles?.docustack?.storage_connections || local.storage_connections || [];
+          const clusterConns = u.appProfiles?.docustack?.storage_connections || u.storage_connections || [];
+          const localFsOnly = localConns.filter((c: any) => c.provider === 'local_fs');
+          const mergedConns = [...clusterConns];
+          for (const lf of localFsOnly) {
+            if (!mergedConns.some((c: any) => c.id === lf.id)) {
+              mergedConns.push(lf);
+            }
+          }
+
+          const mergedProfile = {
+            ...(local.appProfiles?.docustack || {}),
+            ...(u.appProfiles?.docustack || {}),
+            storage_connections: mergedConns,
+          };
+          const mergedUser = {
+            ...local,
+            ...u,
+            appProfiles: {
+              ...(local.appProfiles || {}),
+              ...(u.appProfiles || {}),
+              docustack: mergedProfile,
+            },
+            storage_connections: mergedConns,
+          };
+          userMap.set(u.id, mergedUser);
+        }
+      });
 
       const merged = Array.from(userMap.values()).map((u) => normalizeUserAccount(u));
       saveUsers(merged);
@@ -341,19 +380,19 @@ export async function loadUsersAsync(): Promise<UserAccount[]> {
 
 export async function findUserByEmailAsync(email: string): Promise<UserAccount | undefined> {
   const normalized = (email || '').trim().toLowerCase();
-  const cached = findUserByEmail(normalized);
-  if (cached) return cached;
-
+  // Always query fresh canonical cluster database first to prevent stale cache returns
   const freshUsers = await loadUsersAsync();
-  return freshUsers.find((u) => u.email.toLowerCase() === normalized);
+  const matched = freshUsers.find((u) => u.email.toLowerCase() === normalized);
+  if (matched) return matched;
+  return findUserByEmail(normalized);
 }
 
 export async function findUserByIdAsync(id: string): Promise<UserAccount | undefined> {
-  const cached = findUserById(id);
-  if (cached) return cached;
-
+  // Always query fresh canonical cluster database first to prevent stale cache returns
   const freshUsers = await loadUsersAsync();
-  return freshUsers.find((u) => u.id === id);
+  const matched = freshUsers.find((u) => u.id === id);
+  if (matched) return matched;
+  return findUserById(id);
 }
 
 /**
@@ -547,21 +586,52 @@ export async function authenticateUserAsync(
     (cleanPassword === envAdmin.password || password === envAdmin.password);
 
   if (isEnvAdminMatch) {
-    const authResult = authenticateUser(email, password);
-    // Sync admin record timestamp
-    getClusterPersister()
-      .then(({ persistUserToCluster }) => {
+    // 1. Hydrate existing admin user from canonical cluster database first to preserve storage_connections
+    let adminUser = await findUserByEmailAsync(envAdmin.email);
+    if (!adminUser) {
+      adminUser = findUserByEmail(envAdmin.email);
+    }
+
+    if (!adminUser) {
+      const authResult = authenticateUser(email, password);
+      try {
+        const { persistUserToCluster } = await getClusterPersister();
         const fullUser = findUserById(authResult.user.id);
-        if (fullUser) persistUserToCluster(fullUser).catch(() => {});
-      })
-      .catch(() => {});
-    return authResult;
+        if (fullUser) await persistUserToCluster(fullUser);
+      } catch {}
+      return authResult;
+    }
+
+    // Preserve all existing storage_connections, workspaces, and appProfiles
+    adminUser.role = 'admin';
+    adminUser.lastLoginAt = new Date().toISOString();
+    adminUser.passwordHash = hashPassword(cleanPassword);
+
+    try {
+      const { persistUserToCluster } = await getClusterPersister();
+      await persistUserToCluster(adminUser);
+    } catch (err: any) {
+      console.warn('[DocuStack AuthStorage] Admin cluster sync warning:', err.message);
+    }
+
+    const localUsers = loadUsers();
+    const idx = localUsers.findIndex((u) => u.id === adminUser!.id);
+    if (idx >= 0) {
+      localUsers[idx] = adminUser;
+    } else {
+      localUsers.push(adminUser);
+    }
+    saveUsers(localUsers);
+
+    const token = createSessionToken(adminUser.id);
+    const { passwordHash: _, ...safeAdmin } = adminUser;
+    return { user: safeAdmin, token };
   }
 
-  // 2. User Lookup: check cache first, then fetch fresh from Cluster (Neon / Supabase)
-  let user = findUserByEmail(normalizedEmail);
+  // 2. User Lookup: ALWAYS query canonical cluster database directly first
+  let user = await findUserByEmailAsync(normalizedEmail);
   if (!user) {
-    user = await findUserByEmailAsync(normalizedEmail);
+    user = findUserByEmail(normalizedEmail);
   }
 
   if (!user) {
@@ -925,15 +995,88 @@ export function updateUserProfile(
 
 export async function updateUserProfileAsync(
   userId: string,
-  updates: Partial<Pick<UserAccount, 'name' | 'username' | 'avatarGlyph' | 'workspacePath' | 'workspaceName' | 'role' | 'workspaces' | 'activeWorkspaceId' | 'appProfiles'>>
+  updates: Partial<Pick<UserAccount, 'name' | 'username' | 'avatarGlyph' | 'workspacePath' | 'workspaceName' | 'role' | 'workspaces' | 'activeWorkspaceId' | 'appProfiles'>> & { storage_connections?: UserStorageConnection[] }
 ): Promise<UserAccount> {
-  const updated = updateUserProfile(userId, updates);
+  // 1. Fetch fresh user directly from canonical cluster database
+  let user = await findUserByIdAsync(userId);
+  if (!user) {
+    user = findUserById(userId);
+  }
+  if (!user) {
+    throw new Error('USER_NOT_FOUND');
+  }
+
+  const existingProfile = user.appProfiles?.[APP_ID] || {};
+  const newProfileUpdates = updates.appProfiles?.[APP_ID] || {};
+
+  const mergedStorageConnections =
+    updates.storage_connections !== undefined
+      ? updates.storage_connections
+      : (newProfileUpdates.storage_connections !== undefined
+          ? newProfileUpdates.storage_connections
+          : (existingProfile.storage_connections || user.storage_connections || []));
+
+  const updatedDocuStackProfile: any = {
+    ...existingProfile,
+    ...newProfileUpdates,
+    storage_connections: mergedStorageConnections,
+    lastActiveAt: new Date().toISOString(),
+  };
+
+  if (updates.workspaces !== undefined) {
+    updatedDocuStackProfile.workspaces = updates.workspaces;
+  }
+  if (updates.workspacePath !== undefined) {
+    updatedDocuStackProfile.workspacePath = updates.workspacePath;
+  }
+  if (updates.workspaceName !== undefined) {
+    updatedDocuStackProfile.workspaceName = updates.workspaceName;
+  }
+  if (updates.activeWorkspaceId !== undefined) {
+    updatedDocuStackProfile.activeWorkspaceId = updates.activeWorkspaceId;
+  }
+
+  const updatedAppProfiles = {
+    ...(user.appProfiles || {}),
+    ...(updates.appProfiles || {}),
+    [APP_ID]: updatedDocuStackProfile,
+  };
+
+  const updated: UserAccount = normalizeUserAccount({
+    ...user,
+    ...updates,
+    appProfiles: updatedAppProfiles,
+    storage_connections: mergedStorageConnections,
+    updatedAt: new Date().toISOString(),
+  });
+
+  if (updates.activeWorkspaceId && updated.workspaces) {
+    const ws = updated.workspaces.find((w) => w.id === updates.activeWorkspaceId);
+    if (ws) {
+      updated.workspacePath = ws.workspacePath;
+      updated.workspaceName = ws.name;
+    }
+  }
+
+  // 2. Persist directly to canonical cluster databases (Neon, Supabase, Postgres)
   try {
     const { persistUserToCluster } = await getClusterPersister();
     await persistUserToCluster(updated);
   } catch (err: any) {
-    console.warn('[DocuStack AuthStorage] updateUserProfileAsync cluster sync error:', err.message);
+    console.error('[DocuStack AuthStorage] updateUserProfileAsync cluster sync error:', err.message);
+    throw new Error(`DATABASE_SYNC_FAILED: Failed to save updates to system database: ${err.message}`);
   }
+
+  // 3. Update local cache with canonical result
+  const localUsers = loadUsers();
+  const idx = localUsers.findIndex((u) => u.id === userId);
+  if (idx >= 0) {
+    localUsers[idx] = updated;
+  } else {
+    localUsers.push(updated);
+  }
+  saveUsers(localUsers);
+
   return updated;
 }
 

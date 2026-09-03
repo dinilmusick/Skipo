@@ -96,6 +96,13 @@ export default function StorageConnectDrawer({
   const [importNotification, setImportNotification] = useState<string | null>(null);
 
   // Synchronization & Clones Replication State
+  const [autoSaveClones, setAutoSaveClones] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('docustack_auto_save_clones');
+      return stored !== null ? stored === 'true' : true;
+    }
+    return true;
+  });
   const [syncProgress, setSyncProgress] = useState<{
     active: boolean;
     title: string;
@@ -1132,6 +1139,31 @@ export default function StorageConnectDrawer({
                 <RefreshCw size={11} className={syncingClones ? 'animate-spin text-sky-300' : 'text-sky-400'} />
                 <span>{syncingClones ? 'REPLICATING...' : `SYNC ALL TO CLONES (${savedConnections.filter(c => c.role !== 'primary').length})`}</span>
               </button>
+            </div>
+
+            <div className="pt-2 border-t border-sky-500/25 flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={autoSaveClones}
+                  onChange={(e) => {
+                    const val = e.target.checked;
+                    setAutoSaveClones(val);
+                    if (typeof window !== 'undefined') {
+                      localStorage.setItem('docustack_auto_save_clones', String(val));
+                    }
+                  }}
+                  className="w-3.5 h-3.5 accent-cyan-400 cursor-pointer"
+                />
+                <span className="text-[9px] font-mono font-bold text-sky-200">
+                  Auto-replicate to all clones on auto-save
+                </span>
+              </label>
+              <span className={`text-[8px] font-mono font-black uppercase px-1.5 py-0.5 border ${
+                autoSaveClones ? 'border-cyan-500/60 bg-cyan-500/10 text-cyan-300' : 'border-zinc-700 bg-zinc-800 text-zinc-400'
+              }`}>
+                {autoSaveClones ? 'AUTO-SYNC ON' : 'MANUAL ONLY'}
+              </span>
             </div>
           </div>
         )}
