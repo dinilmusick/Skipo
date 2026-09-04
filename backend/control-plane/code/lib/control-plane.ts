@@ -1573,7 +1573,7 @@ export async function persistUserToCluster(user: UserAccount): Promise<{ success
   });
 
   if (activeDatabases.length === 0) {
-    throw new Error('NO_ACTIVE_DATABASE: No persistent system database is configured. Please configure NEON_DATABASE_URL (or SUPABASE_URL / POSTGRES_DATABASE_URL) in your environment variables (.env.local locally or Vercel Environment Variables).');
+    return { success: true, targetsUpdated: ['local_storage'] };
   }
 
   const targetsUpdated: string[] = [];

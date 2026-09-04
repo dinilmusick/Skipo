@@ -204,3 +204,14 @@ Before implementing backend logic for any application or sub-app, execute this c
    - Buttons MUST NOT render text labels directly on their surface.
    - Buttons contain strictly monochromatic vector/SVG icons.
    - All button labels, action descriptions, and keyboard shortcuts appear **exclusively on hover tooltips**.
+
+---
+
+## 8. Real-Time Event Bus & State Mirroring Invariant
+
+1. **Broadcast on Every Mutation**:
+   All backend route handlers modifying system state (`POST`, `PUT`, `DELETE` on documents, categories, nodes, workspaces, biomes) MUST invoke `publishRealtimeEvent()` from `lib/realtime-events.ts` before returning.
+2. **Multi-Tenant Workspace Header**:
+   Backend handlers must extract `x-workspace-id` and authenticate via `Authorization: Bearer <token>`, scoping all data operations to the specific workspace.
+3. **Zero-Crash Local Cluster Fallback**:
+   When external databases (`DATABASE_URL`, `SUPABASE_URL`) are omitted from `.env`, user persistence must gracefully persist to local storage (`{ success: true, targetsUpdated: ['local_storage'] }`) without throwing unhandled exceptions.

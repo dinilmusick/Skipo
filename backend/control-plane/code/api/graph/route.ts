@@ -12,6 +12,7 @@ import {
 import { extractTagsFromText } from '@/lib/tag-extractor';
 import { GraphNode } from '@/lib/types';
 import { resolveRequestContextVault } from '@/lib/auth-storage';
+import { publishRealtimeEvent } from '@/lib/realtime-events';
 
 export async function GET(req: NextRequest) {
   await resolveRequestContextVault(req);
@@ -29,6 +30,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     await resolveRequestContextVault(req);
+    const wsId = req.headers.get('x-workspace-id') || undefined;
     const payload = await req.json();
     const { action } = payload;
     const { nodes: currentNodes, edges: currentEdges, groups: currentGroups } = await loadGraphFromFSAsync();
@@ -51,6 +53,17 @@ export async function POST(req: NextRequest) {
       const newEdges = edge ? [...currentEdges, edge] : currentEdges;
 
       await saveGraphToFSAsync(newNodes, newEdges, currentGroups);
+
+      publishRealtimeEvent({
+        workspaceId: wsId,
+        source: 'api',
+        method: 'POST',
+        endpoint: '/api/graph',
+        action: 'GRAPH_UPDATED',
+        details: `Added graph node "${enrichedNode.title || enrichedNode.id}"`,
+        payload: { action: 'ADD_NODE', node: enrichedNode, edge },
+      });
+
       return NextResponse.json({ success: true, node: enrichedNode, edge }, { status: 201 });
     }
 
@@ -75,6 +88,17 @@ export async function POST(req: NextRequest) {
       await saveGraphToFSAsync(updatedNodes, currentEdges, currentGroups);
 
       const target = updatedNodes.find((n) => n.id === node.id);
+
+      publishRealtimeEvent({
+        workspaceId: wsId,
+        source: 'api',
+        method: 'POST',
+        endpoint: '/api/graph',
+        action: 'GRAPH_UPDATED',
+        details: `Updated graph node "${target?.title || node.id}"`,
+        payload: { action: 'UPDATE_NODE', node: target },
+      });
+
       return NextResponse.json({ success: true, node: target });
     }
 
@@ -148,6 +172,17 @@ export async function POST(req: NextRequest) {
         .filter((g: any) => g.nodeIds.length > 0);
 
       await saveGraphToFSAsync(newNodes, newEdges, updatedGroups);
+
+      publishRealtimeEvent({
+        workspaceId: wsId,
+        source: 'api',
+        method: 'POST',
+        endpoint: '/api/graph',
+        action: 'GRAPH_UPDATED',
+        details: `Deleted graph node ID ${id}`,
+        payload: { action: 'DELETE_NODE', deletedId: id, purgedNodeIds: orderedNodeIds },
+      });
+
       return NextResponse.json({
         success: true,
         deletedId: id,
@@ -159,12 +194,34 @@ export async function POST(req: NextRequest) {
     if (action === 'SAVE_GROUPS' || action === 'UPDATE_GROUPS') {
       const { groups } = payload;
       await saveGraphToFSAsync(currentNodes, currentEdges, groups || []);
+
+      publishRealtimeEvent({
+        workspaceId: wsId,
+        source: 'api',
+        method: 'POST',
+        endpoint: '/api/graph',
+        action: 'GRAPH_UPDATED',
+        details: `Saved graph groups (${groups?.length || 0})`,
+        payload: { action: 'SAVE_GROUPS', groups },
+      });
+
       return NextResponse.json({ success: true, groups });
     }
 
     if (action === 'SAVE_LAYOUT') {
       const { nodes, edges, groups } = payload;
       await saveGraphToFSAsync(nodes || currentNodes, edges || currentEdges, groups || currentGroups);
+
+      publishRealtimeEvent({
+        workspaceId: wsId,
+        source: 'api',
+        method: 'POST',
+        endpoint: '/api/graph',
+        action: 'GRAPH_UPDATED',
+        details: `Saved graph layout (${nodes?.length || currentNodes.length} nodes)`,
+        payload: { action: 'SAVE_LAYOUT', nodes, edges, groups },
+      });
+
       return NextResponse.json({ success: true });
     }
 

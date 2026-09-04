@@ -1,61 +1,127 @@
 ---
 name: api-guidelines
-description: Directives for API surface parity, external endpoint triggering, observable UI state synchronization, and endpoint contracts.
+description: Directives for full headless REST API parity, external endpoint triggering, real-time observable UI state synchronization, and automated test suite verification.
 ---
 
-# API DEVELOPMENT & EXPOSURE GUIDELINES
+# API DEVELOPMENT, HEADLESS PARITY & REAL-TIME UI MIRRORING
 
-## 1. FEATURE-TO-API PARITY
-```
-∀ feature ∈ Application_Features:
-  ∃ endpoint(feature) s.t. 
-    signature(endpoint) ≡ signature(feature) ∧ 
-    accessible(endpoint, scope = EXTERNAL_CALLABLE)
-```
-- **Rule**: Every single application feature MUST expose a matching REST API endpoint with identical functionality, callable by external services, subagents, or CLI automation just like a human user would interact via UI.
+## 1. INVIOLABLE API LAWS
+
+### Law 1: Absolute Feature-to-API Parity
+$$\forall \text{feature} \in \text{AppFeatures}, \quad \exists \text{endpoint}(\text{feature}) \quad \text{s.t.} \quad \text{signature}(\text{endpoint}) \equiv \text{signature}(\text{feature})$$
+Every application action executable by a human via UI (creating items, modifying stacks, moving nodes, toggling themes, switching workspaces, saving files) MUST be 100% executable programmatically via headless REST API endpoints.
+
+### Law 2: Zero Phantom Executions & Real-Time UI Mirroring
+$$\text{onExternalApiCall}(\text{req}, \text{action}) \implies \text{publishRealtimeEvent}(\text{action}) \land \text{mutateLiveUIState}(\text{screen})$$
+Silent / phantom API execution is strictly forbidden. Any mutation triggered externally by an agent, CLI, or test script MUST:
+1. Publish an event to the real-time event bus (`lib/realtime-events.ts`).
+2. Stream to connected browsers via SSE or fast-polling (`/api/events`).
+3. Trigger a visible toast notification and HUD telemetry log in the client.
+4. Mutate in-memory React state in place without requiring a page reload.
 
 ---
 
-## 2. OBSERVABLE STATE & LIVE UI MONITORING
+## 2. THE 5-STEP AGENT SCAFFOLDING BLUEPRINT
+
+When scaffolding or enhancing any Skipo-compliant application, the AI agent MUST execute these 5 steps:
+
 ```
-function onExternalEndpointInvocation(req, endpoint):
-    executeBackendLogic(endpoint, req.payload)
-    emitSyncEvent(event_type = "EXTERNAL_API_MUTATION", payload = req.payload)
-    triggerVisibleUIStateChange(screen_target = endpoint.domain)
-// Silent / phantom API execution is strictly forbidden. External calls MUST be visible in UI monitoring state.
+[ Step 1: Event Bus ] ──> [ Step 2: /api/events ] ──> [ Step 3: useRealtimeApiSync ]
+                                                              │
+[ Step 5: test-api-suite ] <── [ Step 4: Decorate Routes with publishRealtimeEvent ]
 ```
-- **Zero Phantom Operations**: Any mutation or execution triggered via an API endpoint must broadcast a structured telemetry event (`emitTelemetry` via `lib/api-client.ts`) and reflect immediately in the live UI `ActivityMonitor` and status toasts.
-- External services interacting with the app can see their commands reflected live on the UI screens.
+
+### Step 1: Event Bus (`lib/realtime-events.ts`)
+Maintain an in-memory rolling buffer (150-200 events) and event listener set. Preserve instance across development HMR via `globalThis`:
+```typescript
+import { publishRealtimeEvent, subscribeRealtimeEvents, getRecentEvents } from '@/lib/realtime-events';
+
+publishRealtimeEvent({
+  action: 'DOCUMENT_CREATED',
+  method: 'POST',
+  endpoint: '/api/documents',
+  workspaceId: 'ws-123',
+  details: 'Created document "Architecture.md"',
+  payload: newDocument,
+});
+```
+
+### Step 2: SSE / Polling Stream Route (`app/api/events/route.ts`)
+Expose `GET /api/events`:
+- If `?stream=true` or `Accept: text/event-stream`: Open SSE stream with a 15-second heartbeat (`: heartbeat <ts>\n\n`) to prevent Vercel/proxy timeouts.
+- If polling (`GET /api/events?since=<ts>`): Return `{ success: true, events: [...] }` containing events newer than `since`.
+- Always filter events by `x-workspace-id` or `?workspaceId=` query parameter.
+
+### Step 3: Client Sync Hook (`hooks/useRealtimeApiSync.ts`)
+Connect the client UI to `/api/events`. Wire it into the root application component (`app/page.tsx` or `AppShell.tsx`):
+```tsx
+useRealtimeApiSync({
+  enabled: true,
+  workspaceId: activeWorkspaceId,
+  onDocumentEvent: (event) => {
+    if (event.action === 'DOCUMENT_CREATED') setDocuments(prev => [event.payload, ...prev]);
+    if (event.action === 'DOCUMENT_UPDATED') setDocuments(prev => prev.map(d => d.id === event.payload.id ? event.payload : d));
+    if (event.action === 'DOCUMENT_DELETED') setDocuments(prev => prev.filter(d => d.id !== event.payload.id));
+  },
+  onCategoryEvent: (event) => { /* update stacks state */ },
+  onGraphEvent: (event) => { /* update nodes/edges state */ },
+  onBiomeEvent: (event) => { /* update theme state */ },
+  onApiAction: (msg) => showFloatingToast(msg),
+});
+```
+
+### Step 4: Decorate Route Handlers
+Every mutation route handler (`POST`, `PUT`, `DELETE`) must invoke `publishRealtimeEvent(...)` upon successful execution before returning the response.
+
+### Step 5: Automated Verification Suite (`scripts/test-api-suite.ts`)
+Add `"test:api": "npx tsx scripts/test-api-suite.ts"` to `package.json`. The suite must run against both `http://localhost:3000` and live deployments (e.g. `https://<app>.vercel.app`).
 
 ---
 
 ## 3. CANONICAL API REGISTRY & CONTRACTS
 
-| Domain | Route | Method | Payload / Params | Response | Telemetry Event |
+| Domain | Route | Method | Headers / Params | Response | Broadcast Event |
 |---|---|---|---|---|---|
-| **Workspace Tree** | `/api/workspace` | `GET` | `?source=primary\|local` | `{ success, tree, stats, vaultPath, isCloudPrimary, storageProvider }` | `FETCH_WORKSPACE_TREE` |
-| **Workspace File Read** | `/api/workspace` | `GET` | `?file=<relativePath>` | `{ success, content, relativePath, sizeBytes }` | `READ_VAULT_FILE` |
-| **Workspace Save-All** | `/api/workspace` | `POST` | `{ action: 'save_all', nodes, edges, groups, categories, documents }` | `{ success, cloudSynced, totalItems }` | `SAVE_ALL_WORKSPACE` |
-| **Workspace Switch** | `/api/workspace` | `POST` | `{ action: 'configure', path, connectionId }` | `{ success, activePath, isCloudPrimary, storageProvider }` | `CONFIGURE_WORKSPACE` |
-| **Workspace Verify** | `/api/workspace` | `POST` | `{ action: 'verify', path }` | `{ success, exists, isDirectory, fileCount }` | `VERIFY_WORKSPACE_PATH` |
-| **File / Folder Cascade Purge** | `/api/workspace` | `DELETE` | `?relativePath=<path>` or `{ relativePath }` | `{ success, purgedPath, isDirectory, purgedDocIds, purgedCategoryIds, purgedNodeIds }` | `DELETE_VAULT_FILE` / `DELETE_VAULT_FOLDER` |
-| **Document List** | `/api/documents` | `GET` | N/A | `{ success, documents: DocumentItem[] }` | `REFRESH_DOCS` |
-| **Document Create / Update** | `/api/documents` | `POST` / `PUT` | `{ document: DocumentItem }` | `{ success, document: DocumentItem }` | `SAVE_DOCUMENT` |
-| **Document Delete** | `/api/documents` | `DELETE` | `?id=<docId>` | `{ success, purgedId }` | `DELETE_DOCUMENT` |
-| **Category List** | `/api/categories` | `GET` | N/A | `{ success, categories: DocCategory[] }` | `FETCH_CATEGORIES` |
-| **Category Save** | `/api/categories` | `POST` / `PUT` | `{ categories: DocCategory[] }` | `{ success, categories }` | `SAVE_CATEGORIES` |
-| **Graph Topology** | `/api/graph` | `GET` | N/A | `{ success, nodes, edges, groups }` | `INIT_GRAPH` |
-| **Graph Mutation** | `/api/graph` | `POST` | `{ action: 'ADD_NODE'\|'UPDATE_NODE'\|'DELETE_NODE', payload }` | `{ success, graph }` | `MUTATE_GRAPH` |
-| **Storage Connections** | `/api/auth/storage/connections` | `GET`, `POST`, `DELETE` | User connection JSON | `{ success, connections, activeConnectionId }` | `SYNC_STORAGE_CONNECTIONS` |
-| **Storage Test** | `/api/auth/storage/test` | `POST` | Connection credentials | `{ success, provider, bucketName, latencyMs }` | `TEST_STORAGE_CONNECTION` |
-| **Workspaces CRUD** | `/api/auth/workspaces` | `GET`, `POST`, `PUT`, `DELETE` | Workspace metadata | `{ success, workspaces, activeWorkspaceId }` | `MANAGE_WORKSPACES` |
-| **Live Telemetry** | `/api/telemetry` | `GET`, `POST` | Telemetry event JSON | `{ success, events }` | `BROADCAST_TELEMETRY` |
+| **Real-Time Stream** | `/api/events` | `GET` | `?stream=true` or `?since=<ts>` | SSE Stream / `{ success, events }` | `SUBSCRIBE_EVENTS` |
+| **Auth Register** | `/api/auth/register` | `POST` | `{ email, password, name }` | `{ success, token, user }` (201) | `USER_REGISTERED` |
+| **Auth Login** | `/api/auth/login` | `POST` | `{ email, password }` | `{ success, token, user }` | `USER_LOGGED_IN` |
+| **Profile Me** | `/api/auth/me` | `GET` | `Authorization: Bearer <token>` | `{ success, user }` | N/A |
+| **Workspaces List** | `/api/auth/workspaces` | `GET` | `Authorization: Bearer <token>` | `{ success, workspaces, activeWorkspaceId }` | N/A |
+| **Workspace Create** | `/api/auth/workspaces` | `POST` | `{ name, engine, description }` | `{ success, workspace, activeWorkspaceId }` | `WORKSPACE_UPDATED` |
+| **Workspace Switch** | `/api/auth/workspaces` | `PUT` | `{ workspaceId }` | `{ success, activeWorkspaceId }` | `WORKSPACE_SWITCHED` |
+| **Stacks List** | `/api/categories` | `GET` | `x-workspace-id: <id>` | `{ success, categories: DocCategory[] }` | N/A |
+| **Stack Create** | `/api/categories` | `POST` | `{ title, glyph, color }` | `{ success, category }` (201) | `CATEGORY_CREATED` |
+| **Stack Update** | `/api/categories` | `PUT` | `{ id, title, color }` | `{ success, category }` | `CATEGORY_UPDATED` |
+| **Stack Delete** | `/api/categories` | `DELETE` | `?id=<catId>` or `{ id }` | `{ success, purgedId }` | `CATEGORY_DELETED` |
+| **Documents List** | `/api/documents` | `GET` | `?categoryId=<id>` or `?id=<docId>` | `{ success, documents }` or `{ document }` | N/A |
+| **Document Create** | `/api/documents` | `POST` | `{ title, content, categoryId }` | `{ success, document }` (201) | `DOCUMENT_CREATED` |
+| **Document Update** | `/api/documents` | `PUT` | `{ id, content, ... }` | `{ success, document }` | `DOCUMENT_UPDATED` |
+| **Document Delete** | `/api/documents` | `DELETE` | `?id=<docId>` or `{ id }` | `{ success, purgedId }` | `DOCUMENT_DELETED` |
+| **NLP Analysis** | `/api/analyze-doc` | `POST` | `{ title, content, fileType }` | `{ engine, summary, tags, categorySuggestion }` | `ANALYZE_DOC` |
+| **NLP Chat** | `/api/chat-doc` | `POST` | `{ documentTitle, documentContent, messages }` | `{ text, engine }` | `CHAT_DOC` |
+| **Graph Topology** | `/api/graph` | `GET` | `x-workspace-id: <id>` | `{ success, nodes, edges, groups }` | N/A |
+| **Graph Mutation** | `/api/graph` | `POST` | `{ action, payload }` | `{ success, graph }` | `GRAPH_UPDATED` |
+| **Biome / Theme** | `/api/biome` | `GET`, `POST` | `{ theme, biome }` | `{ success, theme, biome }` | `BIOME_CHANGED` |
+| **Workspace Vault** | `/api/workspace` | `GET`, `POST` | `?file=<path>` or `{ relativePath, content }` | `{ success, tree / content }` | `WRITE_VAULT_FILE` |
+| **Telemetry Ping** | `/api/telemetry` | `GET` | N/A | `{ status, runtime, uptimeSeconds }` | N/A |
 
 ---
 
-## 4. ERROR CONTRACT & STATUS CODES
-- `200 OK`: Successful synchronous execution with normalized JSON payload `{ success: true, ... }`.
-- `400 Bad Request`: Input validation failure or malformed payload. Body contains `{ success: false, error: "SPECIFIC_REASON" }`.
-- `401 Unauthorized`: Session token missing or expired.
-- `403 Forbidden`: Attempt to access resources outside active vault root.
-- `404 Not Found`: Target entity or physical file not found.
+## 4. MULTI-TENANCY & WORKSPACE ISOLATION
+
+1. **Authentication Token**: Send `Authorization: Bearer <token>` with every authenticated request.
+2. **Workspace Routing**: Send `x-workspace-id: <workspaceId>` header with every resource request.
+   - The backend resolves the workspace via `resolveRequestContextVault(req)`.
+   - Never hardcode filesystem paths or single-tenant global state.
+3. **Zero-Crash Local DB Fallback**:
+   - If no cloud database connection string (`DATABASE_URL`, `SUPABASE_URL`) is configured in the environment, the control plane MUST gracefully persist users to local file storage and return `{ success: true, targetsUpdated: ['local_storage'] }` rather than crashing with an unhandled exception.
+
+---
+
+## 5. REUSABLE ASSETS DIRECTORY
+
+The following drop-in assets are bundled in the Skipo framework for direct use in new projects:
+- **Hook**: `hooks/useRealtimeApiSync.ts`
+- **Event Bus**: `lib/realtime-events.ts`
+- **Route Template**: `api/events/route.ts`
+- **Headless Test Suite**: `scripts/test-api-suite.ts`

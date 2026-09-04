@@ -16,6 +16,7 @@ import { UserStorageConnection } from '@/lib/types';
 import { formatCanonicalWorkspaceFolderName, sanitizeFolderSegment } from '@/lib/workspace-canonical';
 import { buildS3Client } from '@/lib/storage-providers';
 import { ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { publishRealtimeEvent } from '@/lib/realtime-events';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -154,6 +155,17 @@ export async function POST(req: NextRequest) {
 
     const { passwordHash: _, ...safeUser } = freshUser || ({} as any);
 
+    publishRealtimeEvent({
+      userId: session.userId,
+      workspaceId: newWs.id,
+      source: 'api',
+      method: 'POST',
+      endpoint: '/api/auth/workspaces',
+      action: 'WORKSPACE_UPDATED',
+      details: `Created workspace "${newWs.name}"`,
+      payload: { action: 'CREATED', workspace: newWs },
+    });
+
     return NextResponse.json({
       success: true,
       message: 'WORKSPACE_CREATED',
@@ -191,6 +203,18 @@ export async function PUT(req: NextRequest) {
         ensureWorkspaceExists(activeWs.workspacePath);
       }
       const { passwordHash: _, ...safeUser } = user || ({} as any);
+
+      publishRealtimeEvent({
+        userId: session.userId,
+        workspaceId: activeWs.id,
+        source: 'api',
+        method: 'PUT',
+        endpoint: '/api/auth/workspaces',
+        action: 'WORKSPACE_SWITCHED',
+        details: `Switched active workspace to "${activeWs.name}"`,
+        payload: { action: 'SWITCHED', activeWorkspace: activeWs },
+      });
+
       return NextResponse.json({
         success: true,
         message: 'WORKSPACE_ACTIVATED',
@@ -239,6 +263,17 @@ export async function PUT(req: NextRequest) {
       }
     }
     const { passwordHash: _, ...safeUser } = user || ({} as any);
+
+    publishRealtimeEvent({
+      userId: session.userId,
+      workspaceId: updated.id,
+      source: 'api',
+      method: 'PUT',
+      endpoint: '/api/auth/workspaces',
+      action: 'WORKSPACE_UPDATED',
+      details: `Updated workspace "${updated.name}"`,
+      payload: { action: 'UPDATED', workspace: updated },
+    });
 
     return NextResponse.json({
       success: true,
@@ -442,6 +477,17 @@ export async function DELETE(req: NextRequest) {
 
     const updatedUser = await findUserByIdAsync(session.userId);
     const { passwordHash: _, ...safeUser } = updatedUser || ({} as any);
+
+    publishRealtimeEvent({
+      userId: session.userId,
+      workspaceId: workspaceId,
+      source: 'api',
+      method: 'DELETE',
+      endpoint: '/api/auth/workspaces',
+      action: 'WORKSPACE_UPDATED',
+      details: `Deleted workspace "${wsName || workspaceId}"`,
+      payload: { action: 'DELETED', workspaceId },
+    });
 
     return NextResponse.json({
       success: true,
