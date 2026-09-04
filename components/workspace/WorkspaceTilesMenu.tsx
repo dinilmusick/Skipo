@@ -98,6 +98,32 @@ export default function WorkspaceTilesMenu({
   const currentUserName =
     currentUser.username || currentUser.name || (currentUser.email ? currentUser.email.split('@')[0] : 'user');
 
+  const userConns: UserStorageConnection[] =
+    currentUser.appProfiles?.docustack?.storage_connections || (currentUser as any)?.storage_connections || [];
+  const primaryConn = userConns.find((c) => c.role === 'primary' || (c as any).isPrimary) || userConns[0] || null;
+
+  const openCreateWorkspaceModal = () => {
+    if (primaryConn) {
+      setNewWsStorageConnId(primaryConn.id);
+      setNewWsStorageProvider(primaryConn.provider);
+      setNewWsEngine(primaryConn.provider === 'local_fs' ? 'local_fs' : 's3_blob');
+      if (primaryConn.provider === 'local_fs') {
+        setNewWsLocalFolderName(primaryConn.localFolderName || '');
+        setNewWsLocalFolderKey(primaryConn.localFolderKey || '');
+      }
+    } else {
+      setNewWsStorageConnId('');
+      setNewWsStorageProvider('local_fs');
+      setNewWsEngine('local_fs');
+      setNewWsLocalFolderName('');
+      setNewWsLocalFolderKey('');
+    }
+    setNewWsName('');
+    setNewWsDescription('');
+    setError(null);
+    setIsCreatingWorkspace(true);
+  };
+
   const getAuthHeaders = (contentType: boolean = false): Record<string, string> => {
     const headers: Record<string, string> = {};
     if (contentType) headers['Content-Type'] = 'application/json';
@@ -189,6 +215,10 @@ export default function WorkspaceTilesMenu({
 
     setLoading(true);
     setError(null);
+    const effectiveStorageConnId = newWsStorageConnId || primaryConn?.id || undefined;
+    const effectiveStorageProvider = newWsStorageProvider || primaryConn?.provider || undefined;
+    const effectiveEngine = effectiveStorageProvider === 'local_fs' ? 'local_fs' : newWsEngine;
+
     try {
       const res = await fetch('/api/auth/workspaces', {
         method: 'POST',
@@ -196,9 +226,9 @@ export default function WorkspaceTilesMenu({
         body: JSON.stringify({
           name: newWsName.trim(),
           description: newWsDescription.trim(),
-          engine: newWsEngine,
-          storageConnectionId: newWsStorageConnId || undefined,
-          storageProvider: newWsStorageProvider || undefined,
+          engine: effectiveEngine,
+          storageConnectionId: effectiveStorageConnId,
+          storageProvider: effectiveStorageProvider,
           localFolderName: newWsLocalFolderName || undefined,
           localFolderKey: newWsLocalFolderKey || undefined,
         }),
@@ -219,22 +249,27 @@ export default function WorkspaceTilesMenu({
           onUserUpdated(data.user);
         }
 
-        // Initialize local directory handle immediately if configured
-        if (data.workspace.localFolderKey) {
-          try {
-            const handle = await getLocalDirectoryHandle(data.workspace.localFolderKey);
-            if (handle) {
-              const prefix = data.workspace.workspacePath ? data.workspace.workspacePath.replace(/^\.\//, '') : '';
-              await syncWorkspaceToDirectoryHandle(handle, data.workspace.localFolderName || 'DocuStack', {
-                nodes: [],
-                edges: [],
-                groups: [],
-                categories: [],
-                documents: [],
-                folderPrefix: prefix,
-              });
-            }
-          } catch {}
+        // Initialize local directory handle immediately if configured or available
+        try {
+          const activeMemHandle = getActiveLocalDirectoryHandle();
+          const effectiveHandleKey = data.workspace.localFolderKey || (currentUser as any)?.localFolderKey || primaryConn?.localFolderKey;
+          let handle = effectiveHandleKey ? await getLocalDirectoryHandle(effectiveHandleKey) : null;
+          if (!handle && activeMemHandle) {
+            handle = activeMemHandle;
+          }
+          if (handle) {
+            const prefix = data.workspace.workspacePath ? data.workspace.workspacePath.replace(/^\.\//, '') : '';
+            await syncWorkspaceToDirectoryHandle(handle, handle.name || data.workspace.localFolderName || 'DocuStack', {
+              nodes: [],
+              edges: [],
+              groups: [],
+              categories: [],
+              documents: [],
+              folderPrefix: prefix,
+            });
+          }
+        } catch (localSyncErr) {
+          console.warn('[WorkspaceTilesMenu] Initial local directory sync warning:', localSyncErr);
         }
 
         setIsCreatingWorkspace(false);
@@ -520,7 +555,7 @@ export default function WorkspaceTilesMenu({
             <div className="flex items-center gap-2">
               <BrutalistButton
                 variant="accent"
-                onClick={() => setIsCreatingWorkspace(true)}
+                onClick={openCreateWorkspaceModal}
                 className="text-xs py-1.5 px-3 flex items-center gap-1.5 shadow-[2px_2px_0px_var(--color-border)]"
               >
                 <Plus size={14} strokeWidth={3} />
@@ -697,7 +732,7 @@ export default function WorkspaceTilesMenu({
               <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
                 <BrutalistButton
                   variant="accent"
-                  onClick={() => setIsCreatingWorkspace(true)}
+                  onClick={openCreateWorkspaceModal}
                   className="px-6 py-2.5 text-xs font-black uppercase flex items-center gap-2 shadow-[3px_3px_0px_var(--color-border)]"
                 >
                   <Plus size={16} strokeWidth={3} />
@@ -710,7 +745,7 @@ export default function WorkspaceTilesMenu({
           {/* Add New Workspace Card */}
           {workspaces.length > 0 && (
             <div
-              onClick={() => setIsCreatingWorkspace(true)}
+              onClick={openCreateWorkspaceModal}
               className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-brutalist bg-black/5 hover:bg-black/10 transition-all cursor-pointer shadow-[3px_3px_0px_var(--color-border)] min-h-[220px] text-center"
             >
               <div className="flex h-12 w-12 items-center justify-center border-2 border-brutalist bg-[var(--color-accent)] text-black rounded-full shadow-[2px_2px_0px_var(--color-border)] mb-3">

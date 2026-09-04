@@ -12,7 +12,7 @@ import {
   syncEntireWorkspaceToDiskAndCloud,
   purgeAssetFromPhysicalWorkspace,
 } from '@/lib/workspaceFS';
-import { updateUserProfile, findUserById, resolveRequestContextVault } from '@/lib/auth-storage';
+import { updateUserProfile, findUserById, resolveRequestContextVault, switchActiveWorkspace } from '@/lib/auth-storage';
 import {
   writeCloudWorkspaceFile,
   readCloudWorkspaceFile,
@@ -236,6 +236,23 @@ export async function POST(req: NextRequest) {
 
           if (effectiveConnId) {
             storageConn = userConns.find((c: any) => c.id === effectiveConnId) || null;
+          }
+          if (!storageConn) {
+            const primaryConn =
+              userConns.find((c: any) => c.role === 'primary' || c.isPrimary) ||
+              userConns.find((c: any) => c.provider !== 'local_fs') ||
+              userConns[0] ||
+              null;
+            storageConn = primaryConn;
+          }
+
+          const targetWsId = workspaceId || targetWs?.id;
+          if (targetWsId) {
+            try {
+              switchActiveWorkspace(userId, targetWsId);
+            } catch (swErr) {
+              console.warn('[Workspace Route] switchActiveWorkspace warning:', swErr);
+            }
           }
         }
       }

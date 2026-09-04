@@ -62,7 +62,13 @@ export default function DocumentStorageViewer() {
   const [categories, setCategories] = useState<DocCategory[]>([]);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [workspaces, setWorkspaces] = useState<WorkspaceTab[]>(DEFAULT_WORKSPACES);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>('ws-main');
+  const [activeTabId, setActiveTabId] = useState<string>('ws-main');
+  const [activeVaultWorkspaceId, setActiveVaultWorkspaceId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('docustack_active_workspace_id') || '';
+    }
+    return '';
+  });
   const [focusTarget, setFocusTarget] = useState<{ type: 'node' | 'group'; id: string; timestamp: number } | null>(null);
   const [confirmModalState, setConfirmModalState] = useState<{
     isOpen: boolean;
@@ -136,7 +142,7 @@ export default function DocumentStorageViewer() {
     categories,
     documents,
     currentUser,
-    activeWorkspaceId,
+    activeWorkspaceId: activeVaultWorkspaceId || currentUser?.activeWorkspaceId || '',
     cloneConnections,
     isLocalFsDisabledForSession,
     setWorkspaceToast,
@@ -155,7 +161,7 @@ export default function DocumentStorageViewer() {
   useEffect(() => {
     if (!currentUser) return;
 
-    const activeWs = currentUser.workspaces?.find((w) => w.id === (currentUser.activeWorkspaceId || activeWorkspaceId));
+    const activeWs = currentUser.workspaces?.find((w) => w.id === (currentUser.activeWorkspaceId || activeVaultWorkspaceId));
 
     // Check if user has actually configured a local storage setting (tile)
     const userConns = [
@@ -218,24 +224,46 @@ export default function DocumentStorageViewer() {
       setIsLocalFsDisabledForSession(false);
       setLocalFsDeviceError(null);
     }
-  }, [currentUser?.id, currentUser?.activeWorkspaceId, activeWorkspaceId, cloneConnections.length]);
+  }, [currentUser?.id, currentUser?.activeWorkspaceId, activeVaultWorkspaceId, cloneConnections.length]);
 
-  const loadUserWorkspaceData = () => {
+  const loadUserWorkspaceData = (targetWs?: UserWorkspaceRecord) => {
     const activeWsName =
-      currentUser?.workspaceName ||
+      targetWs?.name ||
       (typeof window !== 'undefined' ? localStorage.getItem('docustack_workspace_name') : null) ||
+      currentUser?.workspaceName ||
       'DocuStack Vault';
+    const activeWsPath =
+      targetWs?.workspacePath ||
+      (typeof window !== 'undefined' ? localStorage.getItem('docustack_workspace_path') : null) ||
+      currentUser?.workspacePath ||
+      '';
 
     requestApi<{ nodes: GraphNode[]; edges: GraphEdge[]; groups: GraphGroup[] }>('/api/graph', undefined, 'INIT_GRAPH')
       .then((data) => {
-        if (data?.nodes) {
+        if (data?.nodes && data.nodes.length > 0) {
           const mappedNodes = data.nodes.map((n) =>
-            n.isWorkspaceRoot ? { ...n, title: activeWsName } : n
+            n.isWorkspaceRoot ? { ...n, title: activeWsName, workspacePath: activeWsPath } : n
           );
           setNodes(mappedNodes);
+        } else {
+          // Fresh workspace without existing graph - seed a single root node for this workspace
+          const defaultRoot: GraphNode = {
+            id: 'node-root',
+            title: activeWsName,
+            content: `Root node for workspace ${activeWsName}`,
+            type: 'folder',
+            isWorkspaceRoot: true,
+            workspacePath: activeWsPath,
+            x: 360,
+            y: 240,
+            glyph: 'FolderArchive',
+            tags: ['WORKSPACE', 'ROOT'],
+            color: '#D4AF37',
+          };
+          setNodes([defaultRoot]);
         }
-        if (data?.edges) setEdges(data.edges);
-        if (data?.groups) setGroups(data.groups);
+        if (data?.edges) setEdges(data.edges || []);
+        if (data?.groups) setGroups(data.groups || []);
       })
       .catch(() => {});
 
@@ -274,7 +302,7 @@ export default function DocumentStorageViewer() {
             }
             const activeId = data.user.activeWorkspaceId || data.user.workspaces?.[0]?.id;
             if (activeId) {
-              setActiveWorkspaceId(activeId);
+              setActiveVaultWorkspaceId(activeId);
               localStorage.setItem('docustack_active_workspace_id', activeId);
             }
             if (!data.user.workspaces || data.user.workspaces.length === 0) {
@@ -316,6 +344,22 @@ export default function DocumentStorageViewer() {
   };
 
   const handleEnterWorkspace = async (workspace: UserWorkspaceRecord) => {
+    setActiveVaultWorkspaceId(workspace.id);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('docustack_active_workspace_id', workspace.id);
+      localStorage.setItem('docustack_workspace_path', workspace.workspacePath);
+      localStorage.setItem('docustack_workspace_name', workspace.name);
+    }
+
+    // Reset current canvas & document states before loading new workspace data
+    // to strictly prevent node/graph leakage across workspace boundaries!
+    setNodes([]);
+    setEdges([]);
+    setGroups([]);
+    setCategories([]);
+    setDocuments([]);
+    setActiveDoc(null);
+
     setCurrentUser((prev) => {
       if (!prev) return prev;
       const currentWorkspaces = prev.workspaces || [];
@@ -342,18 +386,6 @@ export default function DocumentStorageViewer() {
         },
       };
     });
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('docustack_active_workspace_id', workspace.id);
-      localStorage.setItem('docustack_workspace_path', workspace.workspacePath);
-      localStorage.setItem('docustack_workspace_name', workspace.name);
-    }
-
-    // Immediately update root node on screen so it displays the active workspace name
-    setNodes((prevNodes) =>
-      prevNodes.map((n) =>
-        n.isWorkspaceRoot ? { ...n, title: workspace.name, workspacePath: workspace.workspacePath } : n
-      )
-    );
 
     try {
       await requestApi('/api/workspace', {
@@ -372,13 +404,14 @@ export default function DocumentStorageViewer() {
       console.warn('Workspace sync notification:', e);
     }
 
-    loadUserWorkspaceData();
+    loadUserWorkspaceData(workspace);
     setIsWorkspacesMenuOpen(false);
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
     setUserToken(null);
+    setActiveVaultWorkspaceId('');
     setDocuments([]);
     setCategories([]);
     setNodes([]);
@@ -443,9 +476,13 @@ export default function DocumentStorageViewer() {
             setWorkspaces(parsed);
           }
         }
-        const storedActive = localStorage.getItem('docustack_active_workspace_id');
-        if (storedActive) {
-          setActiveWorkspaceId(storedActive);
+        const storedActiveTab = localStorage.getItem('docustack_active_tab_id');
+        if (storedActiveTab) {
+          setActiveTabId(storedActiveTab);
+        }
+        const storedActiveWs = localStorage.getItem('docustack_active_workspace_id');
+        if (storedActiveWs) {
+          setActiveVaultWorkspaceId(storedActiveWs);
         }
       } catch {}
     }
@@ -461,10 +498,10 @@ export default function DocumentStorageViewer() {
   };
 
   const handleSelectWorkspaceId = (id: string) => {
-    setActiveWorkspaceId(id);
+    setActiveTabId(id);
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem('docustack_active_workspace_id', id);
+        localStorage.setItem('docustack_active_tab_id', id);
       } catch {}
     }
   };
@@ -596,7 +633,7 @@ export default function DocumentStorageViewer() {
   const purgeFromAllLocalHandles = async (pathsToPurge: string[]) => {
     if (!pathsToPurge || pathsToPurge.length === 0) return;
     const currentWs = currentUser?.workspaces?.find(
-      (w) => w.id === (currentUser.activeWorkspaceId || activeWorkspaceId)
+      (w) => w.id === (currentUser.activeWorkspaceId || activeVaultWorkspaceId)
     );
     const uName = currentUser?.username || currentUser?.name || 'user';
     const subfolder =
@@ -1020,7 +1057,7 @@ export default function DocumentStorageViewer() {
     setDocuments((prev) => [doc, ...prev]);
     requestApi('/api/documents', { method: 'POST', body: JSON.stringify(doc) }, 'ADD_WEB_DOC').catch(() => {});
 
-    const currentWs = workspaces.find((w) => w.id === activeWorkspaceId) || workspaces[0];
+    const currentWs = workspaces.find((w) => w.id === activeTabId) || workspaces[0];
     if (currentWs) {
       const newTile = {
         id: `tile-${Date.now()}`,
@@ -1421,7 +1458,7 @@ export default function DocumentStorageViewer() {
         categories={categories}
         documents={documents}
         workspaces={workspaces}
-        activeWorkspaceId={activeWorkspaceId}
+        activeWorkspaceId={activeTabId}
         focusTarget={focusTarget}
         appWallpaper={appWallpaper}
         canvasWallpaperInputRef={canvasWallpaperInputRef}

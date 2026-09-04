@@ -105,9 +105,8 @@ export function useWorkspacePersistence({
       }, 'SAVE_ALL_WORKSPACE');
 
       let replicatedCloneCount = 0;
-      // If auto-save to clones is enabled and clone connections exist, replicate to all clones
+      // 1. If auto-save to clones is enabled and clone connections exist, replicate to cloud clones
       if (autoSaveClonesEnabled && cloneConnections.length > 0) {
-        // 1. Replicate to cloud clones via sync-clones endpoint
         const cloudClones = cloneConnections.filter((c) => c.provider !== 'local_fs');
         if (cloudClones.length > 0) {
           try {
@@ -134,74 +133,53 @@ export function useWorkspacePersistence({
             console.warn('[AutoSave Clone Sync Warning]', cloneErr);
           }
         }
+      }
 
-        // 2. Replicate to local_fs handles (Primary, Workspace-specific, and Clones)
-        if (!isLocalFsDisabledForSession) {
-          const currentWs = currentUser?.workspaces?.find((w) => w.id === (currentUser.activeWorkspaceId || activeWorkspaceId));
-          const uName = currentUser?.username || currentUser?.name || 'user';
-          const subfolder =
-            res?.folderPrefix ||
-            currentWs?.workspacePath?.replace(/^\.\//, '') ||
-            (currentWs?.name ? formatCanonicalWorkspaceFolderName('docustack', uName, currentWs.name) : '') ||
-            currentUser?.workspacePath?.replace(/^\.\//, '') ||
-            'workspace';
+      // 2. Replicate to local_fs handles (Primary, Workspace-specific, and Clones)
+      if (!isLocalFsDisabledForSession) {
+        const currentWs = currentUser?.workspaces?.find((w) => w.id === (activeWorkspaceId || currentUser.activeWorkspaceId));
+        const uName = currentUser?.username || currentUser?.name || 'user';
+        const subfolder =
+          res?.folderPrefix ||
+          currentWs?.workspacePath?.replace(/^\.\//, '') ||
+          (currentWs?.name ? formatCanonicalWorkspaceFolderName('docustack', uName, currentWs.name) : '') ||
+          currentUser?.workspacePath?.replace(/^\.\//, '') ||
+          'workspace';
 
-          const userConns: UserStorageConnection[] =
-            currentUser?.appProfiles?.docustack?.storage_connections || (currentUser as any)?.storage_connections || [];
-          const primaryConn = userConns.find(
-            (c: UserStorageConnection) => c.role === 'primary' || (c as any).isPrimary || c.id === (currentUser as any)?.primaryStorageConnectionId
-          );
-          const localTargets: { key?: string; name?: string }[] = [];
-          if (currentWs?.localFolderKey) {
-            localTargets.push({ key: currentWs.localFolderKey, name: currentWs.localFolderName });
+        const userConns: UserStorageConnection[] =
+          currentUser?.appProfiles?.docustack?.storage_connections || (currentUser as any)?.storage_connections || [];
+        const primaryConn = userConns.find(
+          (c: UserStorageConnection) => c.role === 'primary' || (c as any).isPrimary || c.id === (currentUser as any)?.primaryStorageConnectionId
+        );
+        const localTargets: { key?: string; name?: string }[] = [];
+        if (currentWs?.localFolderKey) {
+          localTargets.push({ key: currentWs.localFolderKey, name: currentWs.localFolderName });
+        }
+        if (primaryConn?.provider === 'local_fs' && primaryConn.localFolderKey) {
+          localTargets.push({ key: primaryConn.localFolderKey, name: primaryConn.localFolderName || primaryConn.label });
+        }
+        for (const c of userConns) {
+          if (c.provider === 'local_fs' && c.localFolderKey) {
+            localTargets.push({ key: c.localFolderKey, name: c.localFolderName || c.label });
           }
-          if (primaryConn?.provider === 'local_fs' && primaryConn.localFolderKey) {
-            localTargets.push({ key: primaryConn.localFolderKey, name: primaryConn.localFolderName || primaryConn.label });
+        }
+        if (autoSaveClonesEnabled) {
+          const localClones = cloneConnections.filter((c) => c.provider === 'local_fs' && c.localFolderKey);
+          for (const lc of localClones) {
+            localTargets.push({ key: lc.localFolderKey, name: lc.localFolderName || lc.label });
           }
-          for (const c of userConns) {
-            if (c.provider === 'local_fs' && c.localFolderKey) {
-              localTargets.push({ key: c.localFolderKey, name: c.localFolderName || c.label });
-            }
-          }
-          if (autoSaveClonesEnabled) {
-            const localClones = cloneConnections.filter((c) => c.provider === 'local_fs' && c.localFolderKey);
-            for (const lc of localClones) {
-              localTargets.push({ key: lc.localFolderKey, name: lc.localFolderName || lc.label });
-            }
-          }
+        }
 
-          const syncedKeys = new Set<string>();
-          for (const target of localTargets) {
-            if (!target.key || syncedKeys.has(target.key)) continue;
-            syncedKeys.add(target.key);
-            try {
-              const handle = await getLocalDirectoryHandle(target.key);
-              if (handle) {
-                await syncWorkspaceToDirectoryHandle(
-                  handle,
-                  target.name || 'DocuStack',
-                  {
-                    nodes: activeNodes,
-                    edges: activeEdges,
-                    groups: activeGroups,
-                    categories: activeCategories,
-                    documents: activeDocuments,
-                    folderPrefix: subfolder,
-                  }
-                );
-                replicatedCloneCount++;
-              }
-            } catch (localErr) {
-              console.warn('[AutoSave LocalFS Sync Warning]', localErr);
-            }
-          }
-
-          const activeMemHandle = getActiveLocalDirectoryHandle();
-          if (activeMemHandle && syncedKeys.size === 0) {
-            try {
+        const syncedKeys = new Set<string>();
+        for (const target of localTargets) {
+          if (!target.key || syncedKeys.has(target.key)) continue;
+          syncedKeys.add(target.key);
+          try {
+            const handle = await getLocalDirectoryHandle(target.key);
+            if (handle) {
               await syncWorkspaceToDirectoryHandle(
-                activeMemHandle,
-                activeMemHandle.name || 'DocuStack',
+                handle,
+                target.name || 'DocuStack',
                 {
                   nodes: activeNodes,
                   edges: activeEdges,
@@ -212,9 +190,30 @@ export function useWorkspacePersistence({
                 }
               );
               replicatedCloneCount++;
-            } catch (memErr) {
-              console.warn('[AutoSave Active Memory Handle Sync Warning]', memErr);
             }
+          } catch (localErr) {
+            console.warn('[AutoSave LocalFS Sync Warning]', localErr);
+          }
+        }
+
+        const activeMemHandle = getActiveLocalDirectoryHandle();
+        if (activeMemHandle && syncedKeys.size === 0) {
+          try {
+            await syncWorkspaceToDirectoryHandle(
+              activeMemHandle,
+              activeMemHandle.name || 'DocuStack',
+              {
+                nodes: activeNodes,
+                edges: activeEdges,
+                groups: activeGroups,
+                categories: activeCategories,
+                documents: activeDocuments,
+                folderPrefix: subfolder,
+              }
+            );
+            replicatedCloneCount++;
+          } catch (memErr) {
+            console.warn('[AutoSave Active Memory Handle Sync Warning]', memErr);
           }
         }
       }

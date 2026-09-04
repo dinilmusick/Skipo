@@ -55,7 +55,7 @@ export interface WorkspaceModalsContainerProps {
   handleLoginSuccess: (user: Omit<UserAccount, 'passwordHash'>, token: string) => void;
   handleLogout: () => void;
   handleEnterWorkspace: (ws: any) => void;
-  loadUserWorkspaceData: () => void;
+  loadUserWorkspaceData: (targetWs?: any) => void;
   setCurrentUser: React.Dispatch<React.SetStateAction<Omit<UserAccount, 'passwordHash'> | null>>;
   
   // Document context & detail

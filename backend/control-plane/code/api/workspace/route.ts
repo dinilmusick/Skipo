@@ -12,7 +12,7 @@ import {
   syncEntireWorkspaceToDiskAndCloud,
   purgeAssetFromPhysicalWorkspace,
 } from '@/lib/workspaceFS';
-import { updateUserProfile, findUserById, resolveRequestContextVault } from '@/lib/auth-storage';
+import { updateUserProfile, findUserById, resolveRequestContextVault, switchActiveWorkspace } from '@/lib/auth-storage';
 import {
   writeCloudWorkspaceFile,
   readCloudWorkspaceFile,
@@ -22,120 +22,143 @@ import {
 } from '@/lib/cloud-storage-service';
 
 export async function GET(req: NextRequest) {
-  await resolveRequestContextVault(req);
-  const userId = req.nextUrl.searchParams.get('userId');
-  if (userId) {
-    const user = findUserById(userId);
-    if (user?.workspacePath) {
-      setActiveVaultConfig(user.workspacePath, user.workspaceName);
-    }
-  }
-
-  const requestedFile = req.nextUrl.searchParams.get('file');
-  const source = req.nextUrl.searchParams.get('source'); // 'primary' | 'cloud' | 'local'
-  const storageConn = getActiveStorageConn();
-  const folderPrefix = getActiveFolderPrefix();
-  const vaultPath = getVaultAbsolutePath();
-  const vaultName = getActiveVaultName();
-
-  // 1. Single file content read mode (for Physical Workspace Vault Explorer)
-  if (requestedFile) {
-    const cleanRel = requestedFile.replace(/^\/+/, '');
-    if (storageConn && storageConn.provider !== 'local_fs' && folderPrefix && source !== 'local') {
-      try {
-        const cloudContent = await readCloudWorkspaceFile(storageConn, folderPrefix, cleanRel);
-        if (cloudContent !== null) {
-          return NextResponse.json({
-            success: true,
-            relativePath: cleanRel,
-            content: cloudContent,
-            source: storageConn.provider,
-          });
-        }
-      } catch (err: any) {
-        console.warn('[CloudStorage] Read file error:', err);
+  try {
+    await resolveRequestContextVault(req);
+    const userId = req.nextUrl.searchParams.get('userId');
+    if (userId) {
+      const user = findUserById(userId);
+      if (user?.workspacePath) {
+        setActiveVaultConfig(user.workspacePath, user.workspaceName);
       }
     }
 
-    // Local disk fallback
-    const targetPath = path.normalize(path.join(vaultPath, cleanRel));
-    if (targetPath.startsWith(vaultPath) && fs.existsSync(targetPath) && !fs.statSync(targetPath).isDirectory()) {
-      const content = fs.readFileSync(targetPath, 'utf-8');
-      return NextResponse.json({
-        success: true,
-        relativePath: cleanRel,
-        content,
-        source: 'local_fs',
-      });
+    const requestedFile = req.nextUrl.searchParams.get('file');
+    const source = req.nextUrl.searchParams.get('source'); // 'primary' | 'cloud' | 'local'
+    const storageConn = getActiveStorageConn();
+    const folderPrefix = getActiveFolderPrefix();
+    const vaultPath = getVaultAbsolutePath();
+    const vaultName = getActiveVaultName();
+
+    // 1. Single file content read mode (for Physical Workspace Vault Explorer)
+    if (requestedFile) {
+      const cleanRel = requestedFile.replace(/^\/+/, '');
+      if (storageConn && storageConn.provider !== 'local_fs' && folderPrefix && source !== 'local') {
+        try {
+          const cloudContent = await readCloudWorkspaceFile(storageConn, folderPrefix, cleanRel);
+          if (cloudContent !== null) {
+            return NextResponse.json({
+              success: true,
+              relativePath: cleanRel,
+              content: cloudContent,
+              source: storageConn.provider,
+            });
+          }
+        } catch (err: any) {
+          console.warn('[CloudStorage] Read file error:', err);
+        }
+      }
+
+      // Local disk fallback
+      const targetPath = path.normalize(path.join(vaultPath, cleanRel));
+      if (targetPath.startsWith(vaultPath) && fs.existsSync(targetPath) && !fs.statSync(targetPath).isDirectory()) {
+        const content = fs.readFileSync(targetPath, 'utf-8');
+        return NextResponse.json({
+          success: true,
+          relativePath: cleanRel,
+          content,
+          source: 'local_fs',
+        });
+      }
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'FILE_NOT_FOUND',
+          relativePath: cleanRel,
+        },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'FILE_NOT_FOUND',
-        relativePath: cleanRel,
+    // 2. Directory tree mode
+    // If active storage connection is cloud (e.g. Backblaze B2) and source !== 'local'
+    if (storageConn && storageConn.provider !== 'local_fs' && folderPrefix && source !== 'local') {
+      try {
+        const { tree, stats } = await buildCloudWorkspaceFileTree(storageConn, folderPrefix);
+        return NextResponse.json({
+          success: true,
+          isCloudPrimary: true,
+          storageProvider: storageConn.provider,
+          bucketName:
+            storageConn.b2BucketName ||
+            storageConn.r2BucketName ||
+            storageConn.s3BucketName ||
+            storageConn.supabaseBucketName,
+          folderPrefix,
+          vaultPath: folderPrefix,
+          vaultName,
+          stats,
+          tree,
+        });
+      } catch (cloudErr: any) {
+        console.warn('[CloudStorage] buildCloudWorkspaceFileTree failed, falling back to local tree:', cloudErr);
+      }
+    }
+
+    // Fallback to local disk tree
+    ensureWorkspaceExists();
+    const tree = getWorkspaceFileTree();
+    let fileCount = 0;
+    let folderCount = 0;
+
+    function countItems(node: any) {
+      if (node.isDirectory) {
+        folderCount++;
+        if (node.children) node.children.forEach(countItems);
+      } else {
+        fileCount++;
+      }
+    }
+
+    if (tree && tree.children) {
+      tree.children.forEach(countItems);
+    }
+
+    return NextResponse.json({
+      success: true,
+      isCloudPrimary: false,
+      storageProvider: 'local_fs',
+      folderPrefix: folderPrefix || undefined,
+      vaultPath,
+      vaultName,
+      stats: {
+        fileCount,
+        folderCount,
       },
-      { status: 404 }
-    );
+      tree,
+    });
+  } catch (err: any) {
+    console.error('[Workspace API] GET error:', err);
+    const vaultPath = getVaultAbsolutePath();
+    return NextResponse.json({
+      success: true,
+      isCloudPrimary: false,
+      storageProvider: 'local_fs',
+      vaultPath,
+      vaultName: getActiveVaultName(),
+      stats: {
+        fileCount: 0,
+        folderCount: 0,
+      },
+      tree: {
+        name: 'docustack_vault',
+        relativePath: 'docustack_vault',
+        absolutePath: vaultPath,
+        isDirectory: true,
+        children: [],
+      },
+    });
   }
-
-  // 2. Directory tree mode
-  // If active storage connection is cloud (e.g. Backblaze B2) and source !== 'local'
-  if (storageConn && storageConn.provider !== 'local_fs' && folderPrefix && source !== 'local') {
-    try {
-      const { tree, stats } = await buildCloudWorkspaceFileTree(storageConn, folderPrefix);
-      return NextResponse.json({
-        success: true,
-        isCloudPrimary: true,
-        storageProvider: storageConn.provider,
-        bucketName:
-          storageConn.b2BucketName ||
-          storageConn.r2BucketName ||
-          storageConn.s3BucketName ||
-          storageConn.supabaseBucketName,
-        folderPrefix,
-        vaultPath: folderPrefix,
-        vaultName,
-        stats,
-        tree,
-      });
-    } catch (cloudErr: any) {
-      console.warn('[CloudStorage] buildCloudWorkspaceFileTree failed, falling back to local tree:', cloudErr);
-    }
-  }
-
-  // Fallback to local disk tree
-  ensureWorkspaceExists();
-  const tree = getWorkspaceFileTree();
-  let fileCount = 0;
-  let folderCount = 0;
-
-  function countItems(node: any) {
-    if (node.isDirectory) {
-      folderCount++;
-      if (node.children) node.children.forEach(countItems);
-    } else {
-      fileCount++;
-    }
-  }
-
-  if (tree.children) {
-    tree.children.forEach(countItems);
-  }
-
-  return NextResponse.json({
-    success: true,
-    isCloudPrimary: false,
-    storageProvider: 'local_fs',
-    folderPrefix: folderPrefix || undefined,
-    vaultPath,
-    vaultName,
-    stats: {
-      fileCount,
-      folderCount,
-    },
-    tree,
-  });
 }
 
 export async function POST(req: NextRequest) {
@@ -213,6 +236,23 @@ export async function POST(req: NextRequest) {
 
           if (effectiveConnId) {
             storageConn = userConns.find((c: any) => c.id === effectiveConnId) || null;
+          }
+          if (!storageConn) {
+            const primaryConn =
+              userConns.find((c: any) => c.role === 'primary' || c.isPrimary) ||
+              userConns.find((c: any) => c.provider !== 'local_fs') ||
+              userConns[0] ||
+              null;
+            storageConn = primaryConn;
+          }
+
+          const targetWsId = workspaceId || targetWs?.id;
+          if (targetWsId) {
+            try {
+              switchActiveWorkspace(userId, targetWsId);
+            } catch (swErr) {
+              console.warn('[Workspace Route] switchActiveWorkspace warning:', swErr);
+            }
           }
         }
       }

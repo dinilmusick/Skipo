@@ -902,7 +902,7 @@ export async function resolveRequestContextVault(req: NextRequest): Promise<Requ
     const userWorkspaces: UserWorkspaceRecord[] =
       (user.workspaces && user.workspaces.length > 0 ? user.workspaces : user.appProfiles?.[APP_ID]?.workspaces) || [];
 
-    if (requestedWsId) {
+    if (requestedWsId && requestedWsId !== 'ws-main') {
       activeWs = userWorkspaces.find((w) => w.id === requestedWsId) || null;
     }
     if (!activeWs && requestedWsPath) {
@@ -916,14 +916,14 @@ export async function resolveRequestContextVault(req: NextRequest): Promise<Requ
     }
     if (!activeWs) {
       const activeId = user.activeWorkspaceId || user.appProfiles?.[APP_ID]?.activeWorkspaceId;
-      activeWs = userWorkspaces.find((w) => w.id === activeId) || userWorkspaces[0] || null;
+      activeWs = (activeId ? userWorkspaces.find((w) => w.id === activeId) : null) || userWorkspaces[0] || null;
     }
 
     const userConns: UserStorageConnection[] =
       user.appProfiles?.[APP_ID]?.storage_connections || user.storage_connections || [];
 
     const primaryConn =
-      userConns.find((c) => c.role === 'primary') ||
+      userConns.find((c) => c.role === 'primary' || (c as any).isPrimary) ||
       userConns.find((c) => c.provider !== 'local_fs') ||
       userConns[0] ||
       null;

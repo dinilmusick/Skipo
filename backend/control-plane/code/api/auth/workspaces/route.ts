@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   verifySession,
   findUserByIdAsync,
+  loadUsers,
   getUserWorkspacesAsync,
   addUserWorkspaceAsync,
   updateUserWorkspaceAsync,
@@ -9,10 +10,12 @@ import {
   switchActiveWorkspaceAsync,
 } from '@/lib/auth-storage';
 import fs from 'fs';
-import { setActiveVaultConfig, ensureWorkspaceExists, getVaultAbsolutePath } from '@/lib/workspaceFS';
-import { initializeCloudWorkspaceBucket, deleteCloudWorkspaceFolder } from '@/lib/cloud-storage-service';
+import { setActiveVaultConfig, ensureWorkspaceExists, getVaultAbsolutePath, globalActiveFolderPrefix } from '@/lib/workspaceFS';
+import { initializeCloudWorkspaceBucket, deleteCloudWorkspaceFolder, getSafeCloudFolderName } from '@/lib/cloud-storage-service';
 import { UserStorageConnection } from '@/lib/types';
-import { formatCanonicalWorkspaceFolderName } from '@/lib/workspace-canonical';
+import { formatCanonicalWorkspaceFolderName, sanitizeFolderSegment } from '@/lib/workspace-canonical';
+import { buildS3Client } from '@/lib/storage-providers';
+import { ListObjectsV2Command } from '@aws-sdk/client-s3';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -68,18 +71,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'WORKSPACE_NAME_REQUIRED' }, { status: 400 });
     }
 
+    const user = await findUserByIdAsync(session.userId);
+    const userConns: UserStorageConnection[] =
+      user?.appProfiles?.docustack?.storage_connections || (user as any)?.storage_connections || [];
+    const primaryConn =
+      userConns.find((c) => c.role === 'primary') ||
+      userConns.find((c) => c.provider !== 'local_fs') ||
+      userConns[0] ||
+      null;
+
+    const effectiveStorageConnId = storageConnectionId || primaryConn?.id;
+    const effectiveStorageProvider = storageProvider || primaryConn?.provider || 'local_fs';
+    const effectiveEngine = engine || (effectiveStorageProvider !== 'local_fs' ? 's3_blob' : 'local_fs');
+
     const newWs = await addUserWorkspaceAsync(session.userId, {
       name,
-      engine: engine || 'local_fs',
+      engine: effectiveEngine,
       workspacePath: '', // Derived automatically in addUserWorkspaceAsync
       description: description || '',
       icon: icon || 'hard-drive',
-      storageConnectionId,
-      storageProvider,
-      localFolderName,
-      localFolderKey,
+      storageConnectionId: effectiveStorageConnId,
+      storageProvider: effectiveStorageProvider,
+      localFolderName: localFolderName || primaryConn?.localFolderName,
+      localFolderKey: localFolderKey || primaryConn?.localFolderKey,
       storageSettings: storageSettings || {
-        engine: engine || 'local_fs',
+        engine: effectiveEngine,
         activeProfileName: name,
         autoSync: true,
         status: 'connected',
@@ -88,15 +104,16 @@ export async function POST(req: NextRequest) {
       isDefault: isDefault || false,
     });
 
-    const user = await findUserByIdAsync(session.userId);
-    const userConns: UserStorageConnection[] =
-      user?.appProfiles?.docustack?.storage_connections || (user as any)?.storage_connections || [];
-    let storageConn = storageConnectionId ? userConns.find((c: any) => c.id === storageConnectionId) : null;
+    // Re-fetch updated user record to ensure active workspace id and state are in sync
+    const freshUser = await findUserByIdAsync(session.userId);
+    const freshUserConns: UserStorageConnection[] =
+      freshUser?.appProfiles?.docustack?.storage_connections || (freshUser as any)?.storage_connections || [];
+    let storageConn = effectiveStorageConnId ? freshUserConns.find((c: any) => c.id === effectiveStorageConnId) : null;
     if (!storageConn && body.storageConnection) {
       storageConn = body.storageConnection;
     }
-    if (!storageConn && userConns.length > 0 && engine === 's3_blob') {
-      storageConn = userConns[0];
+    if (!storageConn) {
+      storageConn = primaryConn;
     }
     const folderPrefix = newWs.workspacePath ? newWs.workspacePath.replace(/^\.\//, '') : '';
 
@@ -111,7 +128,7 @@ export async function POST(req: NextRequest) {
     if (storageConn && storageConn.provider !== 'local_fs') {
       cloudTargets.push(storageConn);
     }
-    for (const c of userConns) {
+    for (const c of freshUserConns) {
       if (c && c.provider !== 'local_fs' && !cloudTargets.some((t) => t.id === c.id)) {
         cloudTargets.push(c);
       }
@@ -123,7 +140,7 @@ export async function POST(req: NextRequest) {
           target,
           folderPrefix,
           newWs.name,
-          user?.name || user?.username || 'User'
+          freshUser?.name || freshUser?.username || 'User'
         );
         cloudInitStatus.initialized = true;
         cloudInitStatus.count++;
@@ -135,7 +152,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { passwordHash: _, ...safeUser } = user || ({} as any);
+    const { passwordHash: _, ...safeUser } = freshUser || ({} as any);
 
     return NextResponse.json({
       success: true,
@@ -245,12 +262,17 @@ export async function DELETE(req: NextRequest) {
     let workspaceId = searchParams.get('id') || searchParams.get('workspaceId');
     let extraCandidatePrefixes: string[] = [];
     let extraStorageConnections: any[] = [];
+    let bodyWorkspaceName = '';
+    let bodyWorkspacePath = '';
 
     // Also support JSON body payload if provided
     try {
       const body = await req.json();
       if (body?.workspaceId) workspaceId = body.workspaceId;
       if (body?.id) workspaceId = body.id;
+      if (body?.workspaceName) bodyWorkspaceName = body.workspaceName;
+      if (body?.name) bodyWorkspaceName = body.name;
+      if (body?.workspacePath) bodyWorkspacePath = body.workspacePath;
       if (Array.isArray(body?.candidatePrefixes)) extraCandidatePrefixes = body.candidatePrefixes;
       if (Array.isArray(body?.storageConnections)) extraStorageConnections = body.storageConnections;
     } catch {}
@@ -261,25 +283,34 @@ export async function DELETE(req: NextRequest) {
 
     // 1. Fetch user to locate target workspace and its storage config before deleting
     const user = await findUserByIdAsync(session.userId);
-    const targetWs = (user?.workspaces || []).find((w: any) => w.id === workspaceId);
+    const localDbUser = loadUsers().find((u) => u.id === session.userId);
+
+    const userWorkspaces: any[] = [
+      ...(user?.workspaces || []),
+      ...(user?.appProfiles?.docustack?.workspaces || []),
+      ...(localDbUser?.workspaces || []),
+      ...(localDbUser?.appProfiles?.docustack?.workspaces || []),
+    ];
+    const targetWs = userWorkspaces.find((w: any) => w.id === workspaceId);
 
     const userName = user?.username || user?.name || (user?.email ? user.email.split('@')[0] : 'user');
-    const wsName = targetWs?.name || '';
-    const rawWsPath = targetWs?.workspacePath ? targetWs.workspacePath.replace(/^\.\//, '') : '';
+    const wsName = targetWs?.name || bodyWorkspaceName || '';
+    const rawWsPath = targetWs?.workspacePath
+      ? targetWs.workspacePath.replace(/^\.\//, '')
+      : (bodyWorkspacePath ? bodyWorkspacePath.replace(/^\.\//, '') : '');
 
     // 2. Gather all possible candidate folder prefixes used by this workspace
     const candidatePrefixes = Array.from(
       new Set(
         [
           rawWsPath,
+          rawWsPath ? rawWsPath.toLowerCase() : '',
           wsName ? formatCanonicalWorkspaceFolderName('docustack', userName, wsName) : '',
           wsName ? formatCanonicalWorkspaceFolderName('DocuStack', userName, wsName) : '',
           wsName ? `ultrst_docustack_${userName}_${wsName.toLowerCase().replace(/[^a-z0-9_.-]/g, '_')}` : '',
-          `ultrst_docustack_${userName}_vault`,
-          `ultrst_docustack_${userName}_docustack_vault`,
-          `docustack_vault`,
-          `vault`,
+          wsName ? `ultrst_docustack_${userName}_${getSafeCloudFolderName(wsName)}` : '',
           wsName ? wsName.toLowerCase().replace(/[^a-z0-9_.-]/g, '_') : '',
+          wsName ? getSafeCloudFolderName(wsName) : '',
           wsName,
           ...extraCandidatePrefixes,
         ].filter(Boolean) as string[]
@@ -291,32 +322,94 @@ export async function DELETE(req: NextRequest) {
     const dbConns: any[] = [
       ...(user?.appProfiles?.docustack?.storage_connections || []),
       ...((user as any)?.storage_connections || []),
+      ...(localDbUser?.appProfiles?.docustack?.storage_connections || []),
+      ...((localDbUser as any)?.storage_connections || []),
+      ...extraStorageConnections,
     ];
+
+    const isSecretValid = (str?: string) => Boolean(str && str.trim().length > 0 && !str.includes('•'));
 
     const cloudConnsMap = new Map<string, UserStorageConnection>();
     for (const conn of dbConns) {
       if (!conn || conn.provider === 'local_fs') continue;
-      // Skip masked connections if unmasked exists
-      const isMasked = conn.b2ApplicationKey === '••••••••' || conn.s3SecretAccessKey === '••••••••';
-      if (isMasked) continue;
       const key = `${conn.provider}_${conn.b2BucketName || conn.r2BucketName || conn.s3BucketName || conn.supabaseBucketName || conn.id}`;
-      if (!cloudConnsMap.has(key)) {
+
+      const hasValidSecret =
+        (conn.provider === 'backblaze_b2' && isSecretValid(conn.b2ApplicationKey)) ||
+        (conn.provider === 'cloudflare_r2' && isSecretValid(conn.r2SecretAccessKey)) ||
+        (conn.provider === 'aws_s3' && isSecretValid(conn.s3SecretAccessKey)) ||
+        (conn.provider === 'supabase_storage' && (isSecretValid(conn.supabaseServiceKey) || isSecretValid(conn.supabaseAnonKey)));
+
+      const existing = cloudConnsMap.get(key);
+      if (!existing) {
         cloudConnsMap.set(key, conn);
+      } else {
+        const existingHasValid =
+          (existing.provider === 'backblaze_b2' && isSecretValid(existing.b2ApplicationKey)) ||
+          (existing.provider === 'cloudflare_r2' && isSecretValid(existing.r2SecretAccessKey)) ||
+          (existing.provider === 'aws_s3' && isSecretValid(existing.s3SecretAccessKey)) ||
+          (existing.provider === 'supabase_storage' && (isSecretValid(existing.supabaseServiceKey) || isSecretValid(existing.supabaseAnonKey)));
+
+        if (!existingHasValid && hasValidSecret) {
+          cloudConnsMap.set(key, conn);
+        }
       }
     }
 
-    // Fallback: If map is empty, use any non-local_fs db connection
-    if (cloudConnsMap.size === 0) {
-      for (const conn of dbConns) {
-        if (!conn || conn.provider === 'local_fs') continue;
-        const key = `${conn.provider}_${conn.b2BucketName || conn.r2BucketName || conn.s3BucketName || conn.supabaseBucketName || conn.id}`;
-        if (!cloudConnsMap.has(key)) cloudConnsMap.set(key, conn);
+    // Attempt credential rehydration for any connection that is still masked
+    for (const [key, conn] of cloudConnsMap.entries()) {
+      if (conn.provider === 'backblaze_b2' && !isSecretValid(conn.b2ApplicationKey)) {
+        const unmaskedMatch = dbConns.find(
+          (c) => c.provider === 'backblaze_b2' && isSecretValid(c.b2ApplicationKey) && (c.b2BucketName === conn.b2BucketName || c.b2KeyId === conn.b2KeyId)
+        );
+        if (unmaskedMatch) {
+          cloudConnsMap.set(key, { ...conn, b2ApplicationKey: unmaskedMatch.b2ApplicationKey });
+        }
+      } else if (conn.provider === 'aws_s3' && !isSecretValid(conn.s3SecretAccessKey)) {
+        const unmaskedMatch = dbConns.find(
+          (c) => c.provider === 'aws_s3' && isSecretValid(c.s3SecretAccessKey) && c.s3BucketName === conn.s3BucketName
+        );
+        if (unmaskedMatch) {
+          cloudConnsMap.set(key, { ...conn, s3SecretAccessKey: unmaskedMatch.s3SecretAccessKey });
+        }
+      } else if (conn.provider === 'cloudflare_r2' && !isSecretValid(conn.r2SecretAccessKey)) {
+        const unmaskedMatch = dbConns.find(
+          (c) => c.provider === 'cloudflare_r2' && isSecretValid(c.r2SecretAccessKey) && c.r2BucketName === conn.r2BucketName
+        );
+        if (unmaskedMatch) {
+          cloudConnsMap.set(key, { ...conn, r2SecretAccessKey: unmaskedMatch.r2SecretAccessKey });
+        }
       }
     }
 
     const cloudConns = Array.from(cloudConnsMap.values());
 
-    // 4. Permanently purge all candidate prefixes from ALL connected cloud buckets (Backblaze B2, R2, S3)
+    // 4. Dynamic prefix discovery: List root folders in bucket to find any matching prefixes
+    for (const cloudConn of cloudConns) {
+      if (cloudConn.provider === 'backblaze_b2' || cloudConn.provider === 'cloudflare_r2' || cloudConn.provider === 'aws_s3') {
+        try {
+          const { s3, bucketName } = buildS3Client(cloudConn);
+          const listRes: any = await s3.send(new ListObjectsV2Command({ Bucket: bucketName, Delimiter: '/' }));
+          const common = (listRes.CommonPrefixes || []).map((cp: any) => cp.Prefix?.replace(/\/$/, '')).filter(Boolean);
+          const cleanTarget = wsName ? sanitizeFolderSegment(wsName) : '';
+          for (const prefix of common) {
+            const pLower = prefix.toLowerCase();
+            if (
+              (rawWsPath && pLower === rawWsPath.toLowerCase()) ||
+              (cleanTarget && (pLower.endsWith(`_${cleanTarget}`) || pLower === cleanTarget))
+            ) {
+              if (!candidatePrefixes.includes(prefix)) {
+                candidatePrefixes.push(prefix);
+              }
+            }
+          }
+        } catch (discErr) {
+          console.warn(`[CloudStorage] Dynamic prefix discovery error on ${cloudConn.provider}:`, discErr);
+        }
+      }
+    }
+
+    // 5. Permanently purge all candidate prefixes from ALL connected cloud buckets (Backblaze B2, R2, S3)
     for (const cloudConn of cloudConns) {
       for (const prefix of candidatePrefixes) {
         try {
@@ -328,7 +421,7 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    // 5. Clean up local workspace directories on server disk if present
+    // 6. Clean up local workspace directories on server disk if present
     for (const prefix of candidatePrefixes) {
       try {
         const vaultPath = getVaultAbsolutePath(prefix);
@@ -338,6 +431,11 @@ export async function DELETE(req: NextRequest) {
       } catch (fsErr) {
         console.warn('[workspaceFS] Failed to remove local workspace directory on delete:', fsErr);
       }
+    }
+
+    // 7. Reset active vault config if deleting the current active workspace
+    if (globalActiveFolderPrefix && candidatePrefixes.includes(globalActiveFolderPrefix)) {
+      setActiveVaultConfig('', 'DocuStack Vault', null, null);
     }
 
     await deleteUserWorkspaceAsync(session.userId, workspaceId);
