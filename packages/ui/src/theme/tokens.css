@@ -1,0 +1,68 @@
+
+:root {
+  /* Typography */
+  --skipo-font: 'Inter', -apple-system, 'SF Pro Display', 'Segoe UI', sans-serif;
+  --skipo-font-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Page base — Pastel Matte Black */
+  --skipo-bg: #16181d;
+  --skipo-text: #f1f5f9;
+  --skipo-text-muted: #8e95a5;
+
+  /* Matte glass */
+  --skipo-matte-bg: rgba(26, 29, 36, 0.75);
+  --skipo-matte-bg-hover: rgba(34, 38, 48, 0.88);
+  --skipo-matte-blur: blur(24px);
+
+  /* Gloss */
+  --skipo-gloss-bg: linear-gradient(160deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.03) 100%);
+  --skipo-gloss-shine: inset 0 1px 0 rgba(255,255,255,0.20);
+
+  /* Borders & shadows */
+  --skipo-border: 2px solid rgba(255, 255, 255, 0.85);
+  --skipo-border-input: 2px solid rgba(255, 255, 255, 0.85);
+  --skipo-radius: 14px;
+  --skipo-radius-sm: 8px;
+  --skipo-shadow: 5px 5px 0px rgba(0, 0, 0, 0.90);
+  --skipo-shadow-hover: 8px 8px 0px rgba(0, 0, 0, 0.95);
+  --skipo-shadow-btn: 4px 4px 0px rgba(0, 0, 0, 0.90);
+  --skipo-shadow-btn-hover: 6px 6px 0px rgba(0, 0, 0, 0.95);
+  --skipo-shadow-btn-active: 2px 2px 0px rgba(0, 0, 0, 0.90);
+
+  /* Semantic accents */
+  --skipo-accent:      #2b4c7e;
+  --skipo-accent-fg:   #f1f5f9;
+  --skipo-accent-glow: rgba(43, 76, 126, 0.55);
+  --skipo-rune-glow:   0 0 14px rgba(212, 163, 89, 0.35);
+  --skipo-ambient-glow: 0 0 10px rgba(255, 255, 255, 0.12);
+  --skipo-success:     #1f4d36;
+  --skipo-success-fg:  #f1f5f9;
+  --skipo-danger:      #5c2424;
+  --skipo-danger-fg:   #f1f5f9;
+  --skipo-warning:     #5e4e19;
+  --skipo-warning-fg:  #f1f5f9;
+
+  /* Phantom */
+  --skipo-phantom-glow: 0 0 24px rgba(48, 209, 88, 0.50);
+  --skipo-phantom-border: 2px solid #30d158;
+}
+
+[data-skipo-theme='light'] {
+  --skipo-bg: #f5f0e8;
+  --skipo-text: #1a1a1a;
+  --skipo-text-muted: #6b7280;
+  --skipo-matte-bg: rgba(245, 240, 232, 0.85);
+  --skipo-border: 2px solid rgba(0, 0, 0, 0.85);
+  --skipo-border-input: 2px solid rgba(0, 0, 0, 0.85);
+  --skipo-shadow: 5px 5px 0px rgba(0, 0, 0, 0.25);
+  --skipo-shadow-hover: 8px 8px 0px rgba(0, 0, 0, 0.30);
+  --skipo-shadow-btn: 4px 4px 0px rgba(0, 0, 0, 0.25);
+  --skipo-shadow-btn-hover: 6px 6px 0px rgba(0, 0, 0, 0.30);
+  --skipo-shadow-btn-active: 2px 2px 0px rgba(0, 0, 0, 0.25);
+  
+  --skipo-accent: #3b6baf;
+  --skipo-accent-fg: #ffffff;
+  --skipo-success: #2b6e4c;
+  --skipo-danger: #8a3636;
+  --skipo-warning: #8f7726;
+}

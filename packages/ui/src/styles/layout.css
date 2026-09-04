@@ -1,0 +1,4 @@
+
+.skipo-app-shell { display: flex; height: 100vh; overflow: hidden; background: var(--skipo-bg); color: var(--skipo-text); font-family: var(--skipo-font); }
+.skipo-header { border-bottom: var(--skipo-border); padding: 0 1rem; height: 60px; display: flex; align-items: center; justify-content: space-between; background: var(--skipo-matte-bg); }
+.skipo-breadcrumb { display: flex; gap: 0.5rem; font-size: 12px; font-weight: bold; color: var(--skipo-text-muted); }

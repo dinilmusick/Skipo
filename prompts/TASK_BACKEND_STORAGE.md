@@ -17,6 +17,11 @@ ASSERT(\text{WorkspaceData} \equiv \text{FilesystemHierarchy}) \quad \land \quad
 4. **APPLICATION ACCESS VIA `WorkspaceFS`**:
    - Application logic reads and writes files **exclusively** through `WorkspaceFS` (e.g., `fs.write("vault/doc1.json", data)`, `fs.read("vault/doc1.json")`).
    - `SyncEngine` asynchronously replicates file mutations from Primary Storage to configured Backup Storage replicas (e.g., Backblaze B2, Cloudflare R2, Supabase, AWS S3).
+5. **STANDALONE APPS VIA `@skipo/backend`**:
+   - In standalone applications, import directly from `@skipo/backend`:
+     `import { BaseAccountProvider, LocalAccountProvider } from '@skipo/backend/auth';`
+     `import { WorkspaceFS, SyncEngine } from '@skipo/backend/workspace';`
+     `import { StorageAdapterFactory, LocalFSAdapter, S3Adapter } from '@skipo/backend/storage';`
 
 ---
 

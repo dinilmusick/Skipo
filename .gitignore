@@ -2,3 +2,6 @@
 *.log
 .gemini/
 *.tmp
+node_modules/
+dist/
+.turbo/

@@ -77,9 +77,13 @@ def pre_action_turn_counter_guard(workspace_root: str = "."):
   0. Execute pre_action_turn_counter_guard("."):
      - If turnsSinceLastAudit >= threshold -> Run routine audit & debug app, refactor deviations, reset counter to 0.
      - Else -> Increment turn counter in .skipo/agent-state.json and proceed with normal edit.
-  1. Inspect workspace to detect Runtime Extensions:
+  1. Inspect workspace to detect Runtime Mode:
      if (has_dependency("@dinilmusick/krnlts") ∨ file_exists("krnl.json") ∨ has_import("@dinilmusick/krnlts")):
-         load_skill("./krnlts/SKILL.md")  # Load KrnlTS Runtime Subsystem Extensions
+         load_skill("./krnlts/SKILL.md")  # Mode A: KrnlTS Runtime Subsystem Extensions
+     elif (has_dependency("@skipo/core") ∨ has_dependency("@skipo/ui") ∨ has_dependency("@skipo/backend") ∨ file_exists("pnpm-workspace.yaml")):
+         load_skill("./standalone/SKILL.md")  # Mode B: Standalone Skipo Architecture & Base Classes
+     else:
+         load_skill("./architecture/SKILL.md") # Mode C: Baseline Skipo Specification Catalog
   2. Classify task intent(s) into Domain(s).
   3. Consult corresponding leaf SKILL.md before proposing or writing code.
   4. If task spans multiple domains, load all relevant skills in dependency order:
@@ -94,6 +98,7 @@ def pre_action_turn_counter_guard(workspace_root: str = "."):
 | Task Intent / Keywords | Target Skill / Sub-Router | Core Directives & Constraints |
 | :--- | :--- | :--- |
 | `turn_counter`, `agent_state`, `cadence_audit`, `routine_debug`, `5_turn_audit`, `deduplicate_structs`, `unify_functions`, `remediate_deviations` | [`architecture/deduplication/SKILL.md`](./architecture/deduplication/SKILL.md) | **Step 0 Turn Counter Engine**: `.skipo/agent-state.json` persistence, routine 5-turn audit cadence, automated app debugging, KrnlTS quad-unit compliance, deduplication, 4-layer purity, anti-polling audit |
+| `standalone_app`, `skipo_ui`, `base_components`, `base_classes`, `container_classes`, `skipo_backend`, `skipo_systems`, `skipo_validate`, `create_skipo` | [`standalone/SKILL.md`](./standalone/SKILL.md) | **Standalone App Architecture**: `@skipo/*` modular package suite (zero KrnlTS runtime exposure). Base classes, container inheritance, Universal Backend, interactive systems, AST constraint enforcement |
 | `universal_backend`, `control_plane`, `data_plane`, `workspace_storage`, `local_fs`, `local_hosted`, `remote_backend`, `admin_auth`, `vercel_backend`, `decoupled_storage` | [`backend/SKILL.md`](./backend/SKILL.md) | Universal Backend Architecture: Control Plane vs Data Plane separation, 3 Storage Modes (Local FS, Local-Hosted, Remote BaaS), Decoupled Data/Storage providers, Admin authorization, Vercel/Desktop readiness |
 | `theme`, `colors`, `biome`, `parallax`, `particles`, `scrollbars`, `dropdowns` | [`ui/styling/SKILL.md`](./ui/styling/SKILL.md) | Neo-brutalism 2.5D biome, locked coffee/black-gold palettes, custom scrollbars, top-edge downward tooltips |
 | `dock_toolbar`, `window_switcher`, `auto_hide`, `dock_position`, `main_toolbar` | [`ui/dock-toolbar/SKILL.md`](./ui/dock-toolbar/SKILL.md) | macOS-style main window switcher dock, 4-edge positioning (top/bottom/left/right), auto-hide trigger zone, icon-only |
@@ -223,6 +228,37 @@ DECOMPOSITION PATTERN (when a component grows):
 HARD LIMIT: 200 lines per file — applies to ALL .ts / .tsx / .js / .jsx files.
 When a file reaches 180 lines, immediately begin extracting sub-units.
 No exceptions: backend controllers, service layers, and schemas obey this limit equally.
+```
+
+### D. BASE CLASS AND CONTAINER INHERITANCE LAW (STANDALONE APPS)
+```
+RULE:
+  In standalone non-KrnlTS applications, all custom UI elements MUST inherit from or compose
+  @skipo/ui base classes, and all views MUST be wrapped in @skipo/ui containers:
+  
+  MANDATORY BASE PRIMITIVES:
+    - Buttons:     BaseButton (never <button>)
+    - Inputs:      BaseInput (never <input>)
+    - Textareas:   BaseTextarea (never <textarea>)
+    - Selects:     BaseSelect (never <select>)
+    - Cards:       BaseCard (never unstyled <div>)
+    - Badges:      BaseBadge
+    - Toggles:     BaseToggle
+    - Tooltips:    BaseTooltip
+    
+  MANDATORY CONTAINERS:
+    - Page level:  PageContainer
+    - Sections:    SectionContainer
+    - Overlays:    ModalContainer / DrawerContainer
+    - Root layout: AppShell
+    
+  FORBIDDEN:
+    ✗ Raw HTML interactive elements (<button>, <input>, etc.)
+    ✗ Custom components that bypass @skipo/ui tokens or base classes
+    ✗ Unstyled root page content without PageContainer wrapping
+    
+  ENFORCEMENT:
+    Run `skipo-validate` via @skipo/validate to statically assert compliance.
 ```
 
 ---

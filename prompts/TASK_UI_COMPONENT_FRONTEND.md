@@ -43,6 +43,15 @@ HARD LIMIT: 200 lines per .tsx / .ts file, no exceptions.
 At 180 lines → begin extraction.
 ```
 
+### LAW 4: Base Component and Container Inheritance
+```
+In standalone Skipo applications, NEVER use raw HTML controls (<button>, <input>, <textarea>, <select>).
+MUST compose or extend @skipo/ui base primitives:
+  - BaseButton, BaseInput, BaseTextarea, BaseSelect, BaseCard, BaseBadge, BaseToggle, BaseTooltip
+MUST wrap views in @skipo/ui containers:
+  - PageContainer, SectionContainer, SidebarContainer, ModalContainer, AppShell
+```
+
 ## 1. STRICT DESIGN & INTERACTION INVARIANTS (MANDATORY)
 1. **Zero On-Screen Explanatory/Marketing Text**:
    - FORBID direct text descriptions, tutorials, promotional copy, or verbose "how-to" guidance rendered into the UI view.
