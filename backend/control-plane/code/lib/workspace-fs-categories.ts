@@ -7,6 +7,7 @@ import {
   readCloudWorkspaceFile,
   getSafeCloudFolderName,
 } from './cloud-storage-service';
+import { resolveNodeNestedPath } from './workspace-canonical';
 import {
   ensureWorkspaceExists,
   getVaultAbsolutePath,
@@ -18,16 +19,16 @@ import {
 // CATEGORIES FS HANDLERS
 // ----------------------------------------------------------------------
 
-function getBoardNodesQuick(): { id: string; collectionId?: string; title: string }[] {
+function getGraphDataQuick(): { nodes: GraphNode[]; edges: any[] } {
   try {
     const metaDir = path.join(getVaultAbsolutePath(), '.docustack');
     const file = path.join(metaDir, 'graph.json');
     if (fs.existsSync(file)) {
       const parsed = JSON.parse(fs.readFileSync(file, 'utf-8'));
-      return parsed.nodes || [];
+      return { nodes: parsed.nodes || [], edges: parsed.edges || [] };
     }
   } catch {}
-  return [];
+  return { nodes: [], edges: [] };
 }
 
 export function loadCategoriesFromFS(): DocCategory[] {
@@ -88,15 +89,15 @@ export async function saveCategoriesToFSAsync(categories: DocCategory[]): Promis
         'application/json'
       );
 
-      const allNodes = getBoardNodesQuick();
+      const { nodes: allNodes, edges: allEdges } = getGraphDataQuick();
       for (const cat of categories) {
         const safeCat = getSafeCloudFolderName(cat.title);
         let catRelPath = safeCat;
         if (cat.boardId) {
           const boardNode = allNodes.find((n) => (n.collectionId || n.id) === cat.boardId);
           if (boardNode) {
-            const boardFolder = getSafeCloudFolderName(boardNode.title || 'Kanban_Board');
-            catRelPath = `${boardFolder}/${safeCat}`;
+            const nestedBoardPath = resolveNodeNestedPath(boardNode, allNodes, allEdges) || getSafeCloudFolderName(boardNode.title || 'Kanban_Board');
+            catRelPath = `${nestedBoardPath}/${safeCat}`;
           }
         }
         await writeCloudWorkspaceFile(
@@ -119,7 +120,7 @@ export function saveCategoriesToFS(categories: DocCategory[]) {
   const metaDir = path.join(vaultPath, '.docustack');
   const file = path.join(metaDir, 'categories.json');
 
-  const allNodes = getBoardNodesQuick();
+  const { nodes: allNodes, edges: allEdges } = getGraphDataQuick();
 
   try {
     fs.writeFileSync(file, JSON.stringify(categories, null, 2), 'utf-8');
@@ -131,11 +132,11 @@ export function saveCategoriesToFS(categories: DocCategory[]) {
       if (cat.boardId) {
         const boardNode = allNodes.find((n) => (n.collectionId || n.id) === cat.boardId);
         if (boardNode) {
-          const boardFolder = getSafeCloudFolderName(boardNode.title || 'Kanban_Board');
-          catRelPath = `${boardFolder}/${safeCat}`;
+          const nestedBoardPath = resolveNodeNestedPath(boardNode, allNodes, allEdges) || getSafeCloudFolderName(boardNode.title || 'Kanban_Board');
+          catRelPath = `${nestedBoardPath}/${safeCat}`;
         }
       }
-      const catDir = path.join(vaultPath, catRelPath);
+      const catDir = path.join(vaultPath, ...catRelPath.split('/'));
       if (!fs.existsSync(catDir)) {
         try { fs.mkdirSync(catDir, { recursive: true }); } catch {}
       }
@@ -159,8 +160,8 @@ export function saveCategoriesToFS(categories: DocCategory[]) {
       if (cat.boardId) {
         const boardNode = allNodes.find((n) => (n.collectionId || n.id) === cat.boardId);
         if (boardNode) {
-          const boardFolder = getSafeCloudFolderName(boardNode.title || 'Kanban_Board');
-          catRelPath = `${boardFolder}/${safeCat}`;
+          const nestedBoardPath = resolveNodeNestedPath(boardNode, allNodes, allEdges) || getSafeCloudFolderName(boardNode.title || 'Kanban_Board');
+          catRelPath = `${nestedBoardPath}/${safeCat}`;
         }
       }
       writeCloudWorkspaceFile(

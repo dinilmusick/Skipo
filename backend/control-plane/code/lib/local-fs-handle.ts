@@ -6,6 +6,8 @@
  * and seamlessly re-opening local workspaces on subsequent sessions.
  */
 
+import { resolveNodeNestedPath } from './workspace-canonical';
+
 const DB_NAME = 'DocuStack_LocalFS_Vault';
 const STORE_NAME = 'directory_handles';
 const DB_VERSION = 1;
@@ -488,19 +490,21 @@ export async function syncWorkspaceToDirectoryHandle(
   await writeFile('.docustack/documents_index.json', JSON.stringify(docs, null, 2));
   report('.docustack/documents_index.json');
 
-  // 5. Folder nodes → plain directory with .keep + README
+  // 5. Folder nodes → plain directory with .keep + README (Nested)
   for (const node of folderNodes) {
-    const folderName = getSafeFolderName(node.title || 'Folder');
+    if (!node.title || !node.title.trim()) continue;
+    const nestedPath = resolveNodeNestedPath(node, nodes, data.edges || []);
     const readme = `# ${node.title || 'Folder'}\n\nFolder created in DocuStack Workspace.\n- Tags: ${(node.tags || []).join(', ') || 'none'}\n- Created: ${new Date().toISOString()}\n`;
-    await writeFile(`${folderName}/.keep`, '');
-    report(`${folderName}/.keep`);
-    await writeFile(`${folderName}/README.md`, readme);
-    report(`${folderName}/README.md`);
+    await writeFile(`${nestedPath}/.keep`, '');
+    report(`${nestedPath}/.keep`);
+    await writeFile(`${nestedPath}/README.md`, readme);
+    report(`${nestedPath}/README.md`);
   }
 
-  // 6. Kanban board nodes → board folder with kanban_board.json + column subfolders
+  // 6. Kanban board nodes → board folder with kanban_board.json + column subfolders (Nested)
   for (const node of kanbanNodes) {
-    const boardFolder = getSafeFolderName(node.title || 'Kanban_Board');
+    if (!node.title || !node.title.trim()) continue;
+    const nestedBoardPath = resolveNodeNestedPath(node, nodes, data.edges || []);
     const boardId = node.collectionId || node.id;
     const boardCols = categories.filter((c: any) => c.boardId === boardId);
 
@@ -519,8 +523,8 @@ export async function syncWorkspaceToDirectoryHandle(
       })),
       updatedAt: new Date().toISOString(),
     };
-    await writeFile(`${boardFolder}/kanban_board.json`, JSON.stringify(boardManifest, null, 2));
-    report(`${boardFolder}/kanban_board.json`);
+    await writeFile(`${nestedBoardPath}/kanban_board.json`, JSON.stringify(boardManifest, null, 2));
+    report(`${nestedBoardPath}/kanban_board.json`);
 
     const colsToCreate = boardCols.length > 0
       ? boardCols
@@ -529,28 +533,30 @@ export async function syncWorkspaceToDirectoryHandle(
     for (const col of colsToCreate) {
       const colName = getSafeFolderName(col.title);
       const readme = `# ${col.title}\nColumn for Kanban board **${node.title}**.\n`;
-      await writeFile(`${boardFolder}/${colName}/.keep`, '');
-      report(`${boardFolder}/${colName}/.keep`);
-      await writeFile(`${boardFolder}/${colName}/README.md`, readme);
-      report(`${boardFolder}/${colName}/README.md`);
+      await writeFile(`${nestedBoardPath}/${colName}/.keep`, '');
+      report(`${nestedBoardPath}/${colName}/.keep`);
+      await writeFile(`${nestedBoardPath}/${colName}/README.md`, readme);
+      report(`${nestedBoardPath}/${colName}/README.md`);
     }
   }
 
-  // 6b. Categories folders → ensure all categories also exist physically at root (matching cloud bucket layout)
+  // 6b. Categories folders → ensure all root categories exist physically (matching cloud bucket layout)
   for (const cat of categories) {
-    const catFolder = getSafeFolderName(cat.title || 'Category');
-    const readme = `# ${cat.title || catFolder}\n${cat.description ? cat.description + '\n' : ''}\nCategory folder for workspace **${data.vaultName || workspaceName}**.\n`;
-    await writeFile(`${catFolder}/.keep`, '');
-    report(`${catFolder}/.keep`);
-    await writeFile(`${catFolder}/README.md`, readme);
-    report(`${catFolder}/README.md`);
+    if (!cat.boardId) {
+      const catFolder = getSafeFolderName(cat.title || 'Category');
+      const readme = `# ${cat.title || catFolder}\n${cat.description ? cat.description + '\n' : ''}\nCategory folder for workspace **${data.vaultName || workspaceName}**.\n`;
+      await writeFile(`${catFolder}/.keep`, '');
+      report(`${catFolder}/.keep`);
+      await writeFile(`${catFolder}/README.md`, readme);
+      report(`${catFolder}/README.md`);
+    }
   }
 
   // 6c. Always ensure inbox folder exists with .keep
   await writeFile('inbox/.keep', '');
   report('inbox/.keep');
 
-  // 7. Documents — placed into exact same path as cloud sync
+  // 7. Documents — placed into exact same nested path as cloud sync
   if (docs.length === 0) {
     const welcome = `# Welcome to ${data.vaultName || workspaceName}\n\nThis workspace is synced to your local machine folder.\nCreate documents in DocuStack and sync again to see them here.\n`;
     await writeFile('inbox/welcome_guide.md', welcome);
@@ -566,10 +572,16 @@ export async function syncWorkspaceToDirectoryHandle(
         const catFolder = getSafeFolderName(assignedCat.title);
         if (assignedCat.boardId) {
           const boardNode = nodes.find((n: any) => (n.collectionId || n.id) === assignedCat.boardId);
-          const boardFolder = getSafeFolderName(boardNode?.title || 'Kanban');
-          targetPath = `${boardFolder}/${catFolder}/${filename}`;
+          const boardPath = boardNode ? resolveNodeNestedPath(boardNode, nodes, data.edges || []) : getSafeFolderName(boardNode?.title || 'Kanban');
+          targetPath = `${boardPath}/${catFolder}/${filename}`;
         } else {
           targetPath = `${catFolder}/${filename}`;
+        }
+      } else if (doc.categoryId) {
+        const folderNode = nodes.find((n: any) => n.id === doc.categoryId || n.title === doc.categoryId);
+        if (folderNode) {
+          const folderPath = resolveNodeNestedPath(folderNode, nodes, data.edges || []);
+          targetPath = `${folderPath}/${filename}`;
         }
       }
 
@@ -584,8 +596,14 @@ export async function syncWorkspaceToDirectoryHandle(
     const validTopLevelDirs = new Set<string>([
       '.docustack',
       'inbox',
-      ...folderNodes.map((n: any) => getSafeFolderName(n.title)),
-      ...kanbanNodes.map((n: any) => getSafeFolderName(n.title)),
+      ...folderNodes.map((n: any) => {
+        const p = resolveNodeNestedPath(n, nodes, data.edges || []);
+        return p ? p.split('/')[0] : getSafeFolderName(n.title);
+      }),
+      ...kanbanNodes.map((n: any) => {
+        const p = resolveNodeNestedPath(n, nodes, data.edges || []);
+        return p ? p.split('/')[0] : getSafeFolderName(n.title);
+      }),
       ...categories.filter((c: any) => !c.boardId).map((c: any) => getSafeFolderName(c.title)),
     ]);
 
@@ -634,15 +652,37 @@ export async function syncWorkspaceToDirectoryHandle(
 }
 
 /**
- * Remove a specific relative file or directory entry from a local DirectoryHandle
+ * Remove a specific relative file or directory entry from a local DirectoryHandle.
+ * Gracefully handles nested paths, subfolders, and root directory matches.
  */
 export async function removeEntryFromLocalHandle(
   dirHandle: FileSystemDirectoryHandle,
   relativePath: string,
   subfolder?: string
 ): Promise<boolean> {
-  try {
-    let rawSubfolder = (subfolder || '').trim();
+  const cleanRel = relativePath.replace(/^\/+|\/+$/g, '');
+  if (!cleanRel) return false;
+
+  const tryRemoveFromDir = async (baseDir: FileSystemDirectoryHandle): Promise<boolean> => {
+    try {
+      const parts = cleanRel.split('/').filter(Boolean);
+      const targetName = parts.pop();
+      if (!targetName) return false;
+
+      let current = baseDir;
+      for (const part of parts) {
+        current = await current.getDirectoryHandle(part, { create: false });
+      }
+      await (current as any).removeEntry(targetName, { recursive: true });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  // 1. Try inside subfolder if specified
+  if (subfolder) {
+    let rawSubfolder = subfolder.trim();
     if (rawSubfolder.includes('/')) {
       const parts = rawSubfolder.split('/').filter(Boolean);
       const ultrstPart = parts.find((p) => p.startsWith('ultrst_'));
@@ -650,29 +690,194 @@ export async function removeEntryFromLocalHandle(
     }
     const workspaceSubfolder = rawSubfolder.replace(/^\.\//, '').replace(/\/+$/, '');
 
-    let wsDir = dirHandle;
-    if (workspaceSubfolder) {
+    try {
+      let wsDir = dirHandle;
       const parts = workspaceSubfolder.split('/').filter(Boolean);
       for (const part of parts) {
         wsDir = await wsDir.getDirectoryHandle(part, { create: false });
       }
-    }
-
-    const cleanRel = relativePath.replace(/^\/+|\/+$/g, '');
-    const parts = cleanRel.split('/').filter(Boolean);
-    const targetName = parts.pop();
-    if (!targetName) return false;
-
-    let current = wsDir;
-    for (const part of parts) {
-      current = await current.getDirectoryHandle(part, { create: false });
-    }
-
-    await (current as any).removeEntry(targetName, { recursive: true });
-    return true;
-  } catch (err) {
-    return false;
+      const success = await tryRemoveFromDir(wsDir);
+      if (success) return true;
+    } catch {}
   }
+
+  // 2. Try directly from dirHandle root
+  const rootSuccess = await tryRemoveFromDir(dirHandle);
+  if (rootSuccess) return true;
+
+  // 3. Try candidate subfolder matching
+  try {
+    const anyDir = dirHandle as any;
+    if (typeof anyDir.entries === 'function') {
+      for await (const [name, handle] of anyDir.entries()) {
+        if (handle.kind === 'directory' && (name.startsWith('ultrst_') || (subfolder && name.includes(subfolder)))) {
+          const matched = await tryRemoveFromDir(handle as FileSystemDirectoryHandle);
+          if (matched) return true;
+        }
+      }
+    }
+  } catch {}
+
+  return false;
+}
+
+/**
+ * Navigate to a specific subfolder inside a DirectoryHandle, returning the nested handle or root.
+ */
+async function resolveHandleSubfolder(
+  dirHandle: FileSystemDirectoryHandle,
+  subfolder?: string,
+  create = false
+): Promise<FileSystemDirectoryHandle> {
+  if (!subfolder) return dirHandle;
+  let rawSubfolder = subfolder.trim();
+  if (rawSubfolder.includes('/')) {
+    const parts = rawSubfolder.split('/').filter(Boolean);
+    const ultrstPart = parts.find((p) => p.startsWith('ultrst_'));
+    rawSubfolder = ultrstPart || parts[parts.length - 1];
+  }
+  const workspaceSubfolder = rawSubfolder.replace(/^\.\//, '').replace(/\/+$/, '');
+  if (!workspaceSubfolder) return dirHandle;
+
+  let current = dirHandle;
+  const parts = workspaceSubfolder.split('/').filter(Boolean);
+  for (const part of parts) {
+    try {
+      current = await current.getDirectoryHandle(part, { create });
+    } catch {
+      return dirHandle;
+    }
+  }
+  return current;
+}
+
+/**
+ * Recursively scans a FileSystemDirectoryHandle into a FileTreeNode tree for Physical Vault Explorer.
+ */
+export async function listLocalDirectoryTree(
+  dirHandle: FileSystemDirectoryHandle,
+  subfolder?: string
+): Promise<{
+  tree: {
+    name: string;
+    relativePath: string;
+    absolutePath: string;
+    isDirectory: boolean;
+    children: any[];
+  };
+  stats: { fileCount: number; folderCount: number };
+}> {
+  const targetDir = await resolveHandleSubfolder(dirHandle, subfolder, false);
+  let fileCount = 0;
+  let folderCount = 0;
+
+  const scanNode = async (
+    handle: FileSystemDirectoryHandle,
+    currentRelPath: string
+  ): Promise<any> => {
+    const children: any[] = [];
+    const anyHandle = handle as any;
+
+    if (typeof anyHandle.entries === 'function') {
+      for await (const [name, childHandle] of anyHandle.entries()) {
+        if (name === '.docustack' || name === '.keep' || name === 'node_modules' || name === '.git') continue;
+        const relPath = currentRelPath ? `${currentRelPath}/${name}` : name;
+
+        if (childHandle.kind === 'directory') {
+          folderCount++;
+          const subTree = await scanNode(childHandle as FileSystemDirectoryHandle, relPath);
+          children.push(subTree);
+        } else if (childHandle.kind === 'file') {
+          fileCount++;
+          try {
+            const file = await (childHandle as FileSystemFileHandle).getFile();
+            children.push({
+              name,
+              relativePath: relPath,
+              absolutePath: relPath,
+              isDirectory: false,
+              sizeBytes: file.size,
+              sizeFormatted: `${(file.size / 1024).toFixed(1)} KB`,
+              modifiedAt: new Date(file.lastModified).toISOString().split('T')[0],
+            });
+          } catch {
+            children.push({
+              name,
+              relativePath: relPath,
+              absolutePath: relPath,
+              isDirectory: false,
+              sizeBytes: 0,
+              sizeFormatted: '0.0 KB',
+            });
+          }
+        }
+      }
+    }
+
+    return {
+      name: handle.name || 'Local Folder',
+      relativePath: currentRelPath || '',
+      absolutePath: currentRelPath || '',
+      isDirectory: true,
+      children,
+    };
+  };
+
+  const rootTree = await scanNode(targetDir, '');
+  return {
+    tree: rootTree,
+    stats: { fileCount, folderCount },
+  };
+}
+
+/**
+ * Reads UTF-8 text content of a file directly from a FileSystemDirectoryHandle.
+ */
+export async function readLocalFileFromHandle(
+  dirHandle: FileSystemDirectoryHandle,
+  relativePath: string,
+  subfolder?: string
+): Promise<string> {
+  const targetDir = await resolveHandleSubfolder(dirHandle, subfolder, false);
+  const cleanRel = relativePath.replace(/^\/+/, '');
+  const parts = cleanRel.split('/').filter(Boolean);
+  const fileName = parts.pop();
+  if (!fileName) return '';
+
+  let current = targetDir;
+  for (const part of parts) {
+    current = await current.getDirectoryHandle(part, { create: false });
+  }
+
+  const fileHandle = await current.getFileHandle(fileName);
+  const file = await fileHandle.getFile();
+  return await file.text();
+}
+
+/**
+ * Writes UTF-8 text content directly into a file inside a FileSystemDirectoryHandle.
+ */
+export async function writeLocalFileToHandle(
+  dirHandle: FileSystemDirectoryHandle,
+  relativePath: string,
+  content: string,
+  subfolder?: string
+): Promise<void> {
+  const targetDir = await resolveHandleSubfolder(dirHandle, subfolder, true);
+  const cleanRel = relativePath.replace(/^\/+/, '');
+  const parts = cleanRel.split('/').filter(Boolean);
+  const fileName = parts.pop();
+  if (!fileName) return;
+
+  let current = targetDir;
+  for (const part of parts) {
+    current = await current.getDirectoryHandle(part, { create: true });
+  }
+
+  const fileHandle = await current.getFileHandle(fileName, { create: true });
+  const writable = await (fileHandle as any).createWritable();
+  await writable.write(content);
+  await writable.close();
 }
 
 /**

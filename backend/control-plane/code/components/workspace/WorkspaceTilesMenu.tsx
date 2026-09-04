@@ -34,6 +34,12 @@ import {
 import { BrutalistButton, BrutalistCard, BrutalistInput, BrutalistTextarea } from '../BrutalistUi';
 import { formatCanonicalWorkspaceFolderName } from '@/lib/workspace-canonical';
 import StorageConnectDrawer from './StorageConnectDrawer';
+import {
+  getLocalDirectoryHandle,
+  getActiveLocalDirectoryHandle,
+  purgeWorkspaceFromLocalHandle,
+  syncWorkspaceToDirectoryHandle,
+} from '@/lib/local-fs-handle';
 
 interface WorkspaceTilesMenuProps {
   currentUser: Omit<UserAccount, 'passwordHash'>;
@@ -212,6 +218,25 @@ export default function WorkspaceTilesMenu({
         if (data.user && onUserUpdated) {
           onUserUpdated(data.user);
         }
+
+        // Initialize local directory handle immediately if configured
+        if (data.workspace.localFolderKey) {
+          try {
+            const handle = await getLocalDirectoryHandle(data.workspace.localFolderKey);
+            if (handle) {
+              const prefix = data.workspace.workspacePath ? data.workspace.workspacePath.replace(/^\.\//, '') : '';
+              await syncWorkspaceToDirectoryHandle(handle, data.workspace.localFolderName || 'DocuStack', {
+                nodes: [],
+                edges: [],
+                groups: [],
+                categories: [],
+                documents: [],
+                folderPrefix: prefix,
+              });
+            }
+          } catch {}
+        }
+
         setIsCreatingWorkspace(false);
         setNewWsName('');
         setNewWsDescription('');
@@ -279,16 +304,77 @@ export default function WorkspaceTilesMenu({
   // Delete Workspace Action
   const handleDeleteWorkspace = async (workspaceId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm('Are you sure you want to delete this workspace registration?')) {
+    if (!confirm('Are you sure you want to delete this workspace registration? This will permanently wipe its assets from all linked local and cloud storages.')) {
       return;
     }
 
     setLoading(true);
     setError(null);
     try {
+      const targetWs = workspaces.find((w) => w.id === workspaceId);
+      const wsName = targetWs?.name || '';
+      const rawWsPath = targetWs?.workspacePath ? targetWs.workspacePath.replace(/^\.\//, '') : '';
+
+      // 1. Gather all candidate folder names used by this workspace
+      const candidateFolderNames = Array.from(
+        new Set(
+          [
+            rawWsPath,
+            wsName ? formatCanonicalWorkspaceFolderName('docustack', currentUserName, wsName) : '',
+            wsName ? formatCanonicalWorkspaceFolderName('DocuStack', currentUserName, wsName) : '',
+            wsName ? `ultrst_docustack_${currentUserName}_${wsName.toLowerCase().replace(/[^a-z0-9_.-]/g, '_')}` : '',
+            `ultrst_docustack_${currentUserName}_vault`,
+            `ultrst_docustack_${currentUserName}_docustack_vault`,
+            `docustack_vault`,
+            `vault`,
+            wsName ? wsName.toLowerCase().replace(/[^a-z0-9_.-]/g, '_') : '',
+            wsName,
+          ].filter(Boolean) as string[]
+        )
+      );
+
+      // 2. Client-side browser purge: Expunge workspace folder from local File System Directory handles
+      const userConns: UserStorageConnection[] = [
+        ...(currentUser.storage_connections || []),
+        ...(currentUser.appProfiles?.docustack?.storage_connections || []),
+      ];
+      const localConns = userConns.filter((c) => c.provider === 'local_fs');
+      const handleKeysToPurge = Array.from(
+        new Set([
+          targetWs?.localFolderKey,
+          ...localConns.map((c) => c.localFolderKey),
+        ].filter(Boolean) as string[])
+      );
+
+      for (const key of handleKeysToPurge) {
+        try {
+          const handle = await getLocalDirectoryHandle(key);
+          if (handle) {
+            await purgeWorkspaceFromLocalHandle(handle, candidateFolderNames);
+          }
+        } catch (localErr) {
+          console.warn('[WorkspaceTilesMenu] Error purging local folder handle:', localErr);
+        }
+      }
+
+      try {
+        const activeHandle = getActiveLocalDirectoryHandle();
+        if (activeHandle) {
+          await purgeWorkspaceFromLocalHandle(activeHandle, candidateFolderNames);
+        }
+      } catch {}
+
+      // 3. Server-side cloud purge: Send DELETE with full candidate prefixes and user storage connections
       const res = await fetch(`/api/auth/workspaces?workspaceId=${workspaceId}`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
+        headers: getAuthHeaders(true),
+        body: JSON.stringify({
+          workspaceId,
+          workspaceName: wsName,
+          workspacePath: rawWsPath,
+          candidatePrefixes: candidateFolderNames,
+          storageConnections: userConns,
+        }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Failed to delete workspace');
@@ -296,7 +382,11 @@ export default function WorkspaceTilesMenu({
       setWorkspaces((prev) => prev.filter((w) => w.id !== workspaceId));
       if (activeWorkspaceId === workspaceId) {
         const remaining = workspaces.filter((w) => w.id !== workspaceId);
-        setActiveWorkspaceId(remaining[0]?.id || '');
+        const nextWs = remaining[0];
+        setActiveWorkspaceId(nextWs?.id || '');
+        if (nextWs) {
+          onEnterWorkspace(nextWs);
+        }
       }
       if (data.user && onUserUpdated) {
         onUserUpdated(data.user);
@@ -705,6 +795,7 @@ export default function WorkspaceTilesMenu({
                     setNewWsStorageProvider(conn.provider);
                     setNewWsEngine('s3_blob');
                   }}
+                  onUserUpdated={onUserUpdated}
                 />
 
                 <div className="p-2.5 border border-brutalist/50 bg-black/15 space-y-1">
@@ -806,6 +897,7 @@ export default function WorkspaceTilesMenu({
                     setEditWsStorageProvider(conn.provider);
                     setEditWsEngine('s3_blob');
                   }}
+                  onUserUpdated={onUserUpdated}
                 />
 
                 <div className="p-2.5 border border-brutalist/50 bg-black/15 space-y-1">

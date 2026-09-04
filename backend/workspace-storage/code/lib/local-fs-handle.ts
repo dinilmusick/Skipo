@@ -6,6 +6,8 @@
  * and seamlessly re-opening local workspaces on subsequent sessions.
  */
 
+import { resolveNodeNestedPath } from './workspace-canonical';
+
 const DB_NAME = 'DocuStack_LocalFS_Vault';
 const STORE_NAME = 'directory_handles';
 const DB_VERSION = 1;
@@ -147,6 +149,138 @@ export async function verifyDirectoryHandlePermission(
   return Boolean(handle && handle.name);
 }
 
+let globalActiveLocalHandle: FileSystemDirectoryHandle | null = null;
+
+export function setActiveLocalDirectoryHandle(handle: FileSystemDirectoryHandle | null): void {
+  globalActiveLocalHandle = handle;
+}
+
+export function getActiveLocalDirectoryHandle(): FileSystemDirectoryHandle | null {
+  return globalActiveLocalHandle;
+}
+
+export interface LocalDirectoryInitResult {
+  status: 'connected' | 'unavailable_on_machine' | 'unsupported' | 'permission_denied' | 'error';
+  handle: FileSystemDirectoryHandle | null;
+  folderName: string;
+  message?: string;
+}
+
+/**
+ * Automatically initializes and establishes the connection to a saved local directory on page load.
+ * Does NOT require manual user clicks if the browser permits or if previously granted.
+ * If the directory handle does not exist in IndexedDB (e.g. opened on a different machine),
+ * it reports 'unavailable_on_machine', allowing the app to disable local storage for this session.
+ */
+export async function autoInitializeLocalDirectory(
+  folderKey: string,
+  folderName: string = 'Local Folder'
+): Promise<LocalDirectoryInitResult> {
+  if (!isFileSystemAccessSupported()) {
+    return {
+      status: 'unsupported',
+      handle: null,
+      folderName,
+      message: 'File System Access API is not supported in this browser.',
+    };
+  }
+
+  if (!folderKey) {
+    return {
+      status: 'unavailable_on_machine',
+      handle: null,
+      folderName,
+      message: 'No local folder key was provided.',
+    };
+  }
+
+  try {
+    const handle = await getLocalDirectoryHandle(folderKey);
+    if (!handle) {
+      return {
+        status: 'unavailable_on_machine',
+        handle: null,
+        folderName,
+        message: `Local directory "${folderName}" is not available on this machine/browser.`,
+      };
+    }
+
+    let isGranted = false;
+    try {
+      if (typeof (handle as any).queryPermission === 'function') {
+        const queryState = await (handle as any).queryPermission({ mode: 'readwrite' });
+        if (queryState === 'granted') {
+          isGranted = true;
+        }
+      }
+    } catch {}
+
+    if (!isGranted && typeof (handle as any).requestPermission === 'function') {
+      try {
+        const reqState = await (handle as any).requestPermission({ mode: 'readwrite' });
+        if (reqState === 'granted') {
+          isGranted = true;
+        }
+      } catch {
+        // In browser versions requiring user gesture for requestPermission,
+        // we catch and proceed to check whether basic read access exists
+      }
+    }
+
+    // Verify handle responsiveness
+    try {
+      if (isGranted) {
+        setActiveLocalDirectoryHandle(handle);
+        return {
+          status: 'connected',
+          handle,
+          folderName: handle.name || folderName,
+          message: `Connected directly to local directory "${handle.name || folderName}".`,
+        };
+      } else {
+        // Query read-only as fallback check
+        let canRead = false;
+        try {
+          if (typeof (handle as any).queryPermission === 'function') {
+            canRead = (await (handle as any).queryPermission({ mode: 'read' })) === 'granted';
+          }
+        } catch {}
+
+        if (canRead) {
+          setActiveLocalDirectoryHandle(handle);
+          return {
+            status: 'connected',
+            handle,
+            folderName: handle.name || folderName,
+            message: `Connected to local directory "${handle.name || folderName}".`,
+          };
+        }
+
+        return {
+          status: 'permission_denied',
+          handle,
+          folderName: handle.name || folderName,
+          message: `Permission to access local folder "${handle.name || folderName}" was not granted.`,
+        };
+      }
+    } catch (probeErr: any) {
+      return {
+        status: 'unavailable_on_machine',
+        handle: null,
+        folderName,
+        message: `Directory "${folderName}" could not be accessed on this machine: ${probeErr.message}`,
+      };
+    }
+  } catch (err: any) {
+    return {
+      status: 'error',
+      handle: null,
+      folderName,
+      message: err?.message || 'Failed to initialize local directory handle.',
+    };
+  }
+}
+
 /**
  * Launch native browser directory picker
  */
@@ -194,3 +328,593 @@ export async function promptSelectLocalFolder(): Promise<{
     throw err;
   }
 }
+
+export interface LocalSyncProgress {
+  percent: number;
+  statusMessage: string;
+  currentFile: string;
+  completedFiles: number;
+  totalFiles: number;
+}
+
+/**
+ * Sanitize a raw title into a safe local folder name (mirrors getSafeCloudFolderName in cloud-storage-service.ts)
+ */
+function getSafeFolderName(rawTitle: string): string {
+  const sanitized = (rawTitle || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9_\-\s]/g, '')
+    .replace(/\s+/g, '_');
+  return sanitized || 'folder';
+}
+
+/**
+ * Synchronize all workspace files, categories, manifests, and documents directly
+ * into a native FileSystemDirectoryHandle on the user's host machine.
+ *
+ * Structure mirrors the cloud bucket exactly:
+ *   <selectedFolder>/
+ *     <workspaceFolderPrefix>/          ← same name as cloud bucket prefix
+ *       .docustack/
+ *         manifest.json
+ *         graph.json
+ *         categories.json
+ *         documents_index.json
+ *       <FolderNode_Title>/             ← one per Folder-type graph node
+ *         .keep
+ *         README.md
+ *       <KanbanBoard_Title>/            ← one per Kanban-type graph node
+ *         kanban_board.json
+ *         <Column_Title>/
+ *           .keep
+ *           README.md
+ *           <document>.md              ← docs in that column
+ *       inbox/                         ← uncategorized documents
+ *         <document>.md
+ */
+export async function syncWorkspaceToDirectoryHandle(
+  dirHandle: FileSystemDirectoryHandle,
+  workspaceName: string,
+  data: {
+    nodes?: any[];
+    categories?: any[];
+    documents?: any[];
+    edges?: any[];
+    groups?: any[];
+    folderPrefix?: string | null;
+    vaultName?: string | null;
+  },
+  onProgress?: (progress: LocalSyncProgress) => void,
+  folderPrefixOverride?: string
+): Promise<{ filesWritten: number }> {
+  // Determine the workspace subfolder name (same as cloud bucket folderPrefix)
+  let rawSubfolder = (
+    folderPrefixOverride ||
+    data.folderPrefix ||
+    ''
+  ).trim();
+
+  // If rawSubfolder is an absolute path or contains slashes, extract ultrst_* or the basename
+  if (rawSubfolder.includes('/')) {
+    const parts = rawSubfolder.split('/').filter(Boolean);
+    const ultrstPart = parts.find((p) => p.startsWith('ultrst_'));
+    rawSubfolder = ultrstPart || parts[parts.length - 1];
+  }
+
+  const workspaceSubfolder = (rawSubfolder || workspaceName).replace(/^\.\//, '').replace(/\/+$/, '');
+
+  // Get (or create) the workspace subfolder inside the selected local folder
+  let wsDir = dirHandle;
+  if (workspaceSubfolder) {
+    // Navigate into nested path if the prefix contains slashes
+    const parts = workspaceSubfolder.split('/').filter(Boolean);
+    for (const part of parts) {
+      wsDir = await wsDir.getDirectoryHandle(part, { create: true });
+    }
+  }
+
+  async function writeFile(relPath: string, content: string): Promise<void> {
+    const parts = relPath.split('/').filter(Boolean);
+    const fileName = parts.pop()!;
+    let current = wsDir;
+    for (const part of parts) {
+      current = await current.getDirectoryHandle(part, { create: true });
+    }
+    const fileHandle = await current.getFileHandle(fileName, { create: true });
+    const writable = await (fileHandle as any).createWritable();
+    await writable.write(content);
+    await writable.close();
+  }
+
+  const docs = data.documents || [];
+  const categories = data.categories || [];
+  const nodes = data.nodes || [];
+
+  // Separate node types
+  const folderNodes = nodes.filter(
+    (n: any) => !n.isWorkspaceRoot && (n.type === 'folder' || n.glyph === 'Folder')
+  );
+  const kanbanNodes = nodes.filter(
+    (n: any) => !n.isWorkspaceRoot && (n.type === 'collection' || n.glyph === 'Kanban')
+  );
+
+  // Compute total file count
+  const kanbanColCount = kanbanNodes.reduce((sum: number, n: any) => {
+    const boardId = n.collectionId || n.id;
+    const cols = categories.filter((c: any) => c.boardId === boardId);
+    return sum + (cols.length > 0 ? cols.length : 3); // default 3 cols if none
+  }, 0);
+  const totalFiles =
+    4 + // .docustack manifests
+    folderNodes.length * 2 + // .keep + README per folder
+    kanbanNodes.length + // kanban_board.json per board
+    kanbanColCount * 2 + // .keep + README per column
+    categories.length * 2 + // .keep + README per category at root
+    1 + // inbox/.keep
+    Math.max(1, docs.length); // documents
+  let completed = 0;
+
+  function report(file: string) {
+    completed++;
+    onProgress?.({
+      percent: Math.min(99, Math.round((completed / totalFiles) * 100)),
+      statusMessage: `Writing ${file}...`,
+      currentFile: file,
+      completedFiles: completed,
+      totalFiles,
+    });
+  }
+
+  // 1. .docustack/manifest.json
+  const manifest = {
+    workspaceName: data.vaultName || workspaceName,
+    app: 'docustack',
+    ecosystem: 'ultrst',
+    syncedAt: new Date().toISOString(),
+    totalDocuments: docs.length,
+    totalCategories: categories.length,
+    workspaceFolderPrefix: workspaceSubfolder,
+  };
+  await writeFile('.docustack/manifest.json', JSON.stringify(manifest, null, 2));
+  report('.docustack/manifest.json');
+
+  // 2. .docustack/graph.json
+  await writeFile('.docustack/graph.json', JSON.stringify({ nodes, edges: data.edges || [], groups: data.groups || [] }, null, 2));
+  report('.docustack/graph.json');
+
+  // 3. .docustack/categories.json
+  await writeFile('.docustack/categories.json', JSON.stringify(categories, null, 2));
+  report('.docustack/categories.json');
+
+  // 4. .docustack/documents_index.json
+  await writeFile('.docustack/documents_index.json', JSON.stringify(docs, null, 2));
+  report('.docustack/documents_index.json');
+
+  // 5. Folder nodes → plain directory with .keep + README (Nested)
+  for (const node of folderNodes) {
+    if (!node.title || !node.title.trim()) continue;
+    const nestedPath = resolveNodeNestedPath(node, nodes, data.edges || []);
+    const readme = `# ${node.title || 'Folder'}\n\nFolder created in DocuStack Workspace.\n- Tags: ${(node.tags || []).join(', ') || 'none'}\n- Created: ${new Date().toISOString()}\n`;
+    await writeFile(`${nestedPath}/.keep`, '');
+    report(`${nestedPath}/.keep`);
+    await writeFile(`${nestedPath}/README.md`, readme);
+    report(`${nestedPath}/README.md`);
+  }
+
+  // 6. Kanban board nodes → board folder with kanban_board.json + column subfolders (Nested)
+  for (const node of kanbanNodes) {
+    if (!node.title || !node.title.trim()) continue;
+    const nestedBoardPath = resolveNodeNestedPath(node, nodes, data.edges || []);
+    const boardId = node.collectionId || node.id;
+    const boardCols = categories.filter((c: any) => c.boardId === boardId);
+
+    const boardManifest = {
+      id: boardId,
+      title: node.title || 'Kanban Board',
+      glyph: node.glyph || 'Kanban',
+      color: node.color || '#D4AF37',
+      tags: node.tags || ['Kanban'],
+      columns: boardCols.map((c: any) => ({
+        id: c.id,
+        title: c.title,
+        glyph: c.glyph,
+        color: c.color,
+        description: c.description,
+      })),
+      updatedAt: new Date().toISOString(),
+    };
+    await writeFile(`${nestedBoardPath}/kanban_board.json`, JSON.stringify(boardManifest, null, 2));
+    report(`${nestedBoardPath}/kanban_board.json`);
+
+    const colsToCreate = boardCols.length > 0
+      ? boardCols
+      : [{ id: 'todo', title: 'To Do' }, { id: 'progress', title: 'In Progress' }, { id: 'done', title: 'Done' }];
+
+    for (const col of colsToCreate) {
+      const colName = getSafeFolderName(col.title);
+      const readme = `# ${col.title}\nColumn for Kanban board **${node.title}**.\n`;
+      await writeFile(`${nestedBoardPath}/${colName}/.keep`, '');
+      report(`${nestedBoardPath}/${colName}/.keep`);
+      await writeFile(`${nestedBoardPath}/${colName}/README.md`, readme);
+      report(`${nestedBoardPath}/${colName}/README.md`);
+    }
+  }
+
+  // 6b. Categories folders → ensure all root categories exist physically (matching cloud bucket layout)
+  for (const cat of categories) {
+    if (!cat.boardId) {
+      const catFolder = getSafeFolderName(cat.title || 'Category');
+      const readme = `# ${cat.title || catFolder}\n${cat.description ? cat.description + '\n' : ''}\nCategory folder for workspace **${data.vaultName || workspaceName}**.\n`;
+      await writeFile(`${catFolder}/.keep`, '');
+      report(`${catFolder}/.keep`);
+      await writeFile(`${catFolder}/README.md`, readme);
+      report(`${catFolder}/README.md`);
+    }
+  }
+
+  // 6c. Always ensure inbox folder exists with .keep
+  await writeFile('inbox/.keep', '');
+  report('inbox/.keep');
+
+  // 7. Documents — placed into exact same nested path as cloud sync
+  if (docs.length === 0) {
+    const welcome = `# Welcome to ${data.vaultName || workspaceName}\n\nThis workspace is synced to your local machine folder.\nCreate documents in DocuStack and sync again to see them here.\n`;
+    await writeFile('inbox/welcome_guide.md', welcome);
+    report('inbox/welcome_guide.md');
+  } else {
+    for (const doc of docs) {
+      const safeTitle = (doc.title || 'untitled').toLowerCase().replace(/[^a-z0-9_.-]/g, '_');
+      const filename = safeTitle.includes('.') ? safeTitle : `${safeTitle}.md`;
+      const assignedCat = categories.find((c: any) => c.id === doc.categoryId);
+      let targetPath = `inbox/${filename}`;
+
+      if (assignedCat) {
+        const catFolder = getSafeFolderName(assignedCat.title);
+        if (assignedCat.boardId) {
+          const boardNode = nodes.find((n: any) => (n.collectionId || n.id) === assignedCat.boardId);
+          const boardPath = boardNode ? resolveNodeNestedPath(boardNode, nodes, data.edges || []) : getSafeFolderName(boardNode?.title || 'Kanban');
+          targetPath = `${boardPath}/${catFolder}/${filename}`;
+        } else {
+          targetPath = `${catFolder}/${filename}`;
+        }
+      } else if (doc.categoryId) {
+        const folderNode = nodes.find((n: any) => n.id === doc.categoryId || n.title === doc.categoryId);
+        if (folderNode) {
+          const folderPath = resolveNodeNestedPath(folderNode, nodes, data.edges || []);
+          targetPath = `${folderPath}/${filename}`;
+        }
+      }
+
+      const frontmatter = `---\nid: "${doc.id}"\ntitle: "${doc.title}"\ncategory: "${assignedCat?.title || 'Inbox'}"\ntags: ${JSON.stringify(doc.tags || [])}\ncreated: "${doc.createdAt || doc.uploadedAt || new Date().toISOString()}"\n---\n\n${doc.content || `# ${doc.title}\n`}`;
+      await writeFile(targetPath, frontmatter);
+      report(targetPath);
+    }
+  }
+
+  // 8. Reconciliation: Prune orphaned directories or files from wsDir
+  try {
+    const validTopLevelDirs = new Set<string>([
+      '.docustack',
+      'inbox',
+      ...folderNodes.map((n: any) => {
+        const p = resolveNodeNestedPath(n, nodes, data.edges || []);
+        return p ? p.split('/')[0] : getSafeFolderName(n.title);
+      }),
+      ...kanbanNodes.map((n: any) => {
+        const p = resolveNodeNestedPath(n, nodes, data.edges || []);
+        return p ? p.split('/')[0] : getSafeFolderName(n.title);
+      }),
+      ...categories.filter((c: any) => !c.boardId).map((c: any) => getSafeFolderName(c.title)),
+    ]);
+
+    const anyWsDir = wsDir as any;
+    if (typeof anyWsDir.entries === 'function') {
+      for await (const [entryName, handle] of anyWsDir.entries()) {
+        if (handle.kind === 'directory') {
+          if (!validTopLevelDirs.has(entryName)) {
+            try {
+              await anyWsDir.removeEntry(entryName, { recursive: true });
+            } catch {}
+          } else if (kanbanNodes.some((k: any) => getSafeFolderName(k.title) === entryName)) {
+            // Inside kanban board, prune orphaned column folders
+            const targetBoard = kanbanNodes.find((k: any) => getSafeFolderName(k.title) === entryName);
+            const boardId = targetBoard.collectionId || targetBoard.id;
+            const validColNames = new Set(
+              categories.filter((c: any) => c.boardId === boardId).map((c: any) => getSafeFolderName(c.title))
+            );
+            const subDirHandle = handle as any;
+            if (typeof subDirHandle.entries === 'function') {
+              for await (const [subName, subHandle] of subDirHandle.entries()) {
+                if (subHandle.kind === 'directory' && !validColNames.has(subName)) {
+                  try {
+                    await subDirHandle.removeEntry(subName, { recursive: true });
+                  } catch {}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (pruneErr) {
+    console.warn('[LocalSync] Pruning warning:', pruneErr);
+  }
+
+  onProgress?.({
+    percent: 100,
+    statusMessage: `✓ Synced ${completed} files to "${workspaceSubfolder}"`,
+    currentFile: '',
+    completedFiles: completed,
+    totalFiles: completed,
+  });
+
+  return { filesWritten: completed };
+}
+
+/**
+ * Remove a specific relative file or directory entry from a local DirectoryHandle.
+ * Gracefully handles nested paths, subfolders, and root directory matches.
+ */
+export async function removeEntryFromLocalHandle(
+  dirHandle: FileSystemDirectoryHandle,
+  relativePath: string,
+  subfolder?: string
+): Promise<boolean> {
+  const cleanRel = relativePath.replace(/^\/+|\/+$/g, '');
+  if (!cleanRel) return false;
+
+  const tryRemoveFromDir = async (baseDir: FileSystemDirectoryHandle): Promise<boolean> => {
+    try {
+      const parts = cleanRel.split('/').filter(Boolean);
+      const targetName = parts.pop();
+      if (!targetName) return false;
+
+      let current = baseDir;
+      for (const part of parts) {
+        current = await current.getDirectoryHandle(part, { create: false });
+      }
+      await (current as any).removeEntry(targetName, { recursive: true });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  // 1. Try inside subfolder if specified
+  if (subfolder) {
+    let rawSubfolder = subfolder.trim();
+    if (rawSubfolder.includes('/')) {
+      const parts = rawSubfolder.split('/').filter(Boolean);
+      const ultrstPart = parts.find((p) => p.startsWith('ultrst_'));
+      rawSubfolder = ultrstPart || parts[parts.length - 1];
+    }
+    const workspaceSubfolder = rawSubfolder.replace(/^\.\//, '').replace(/\/+$/, '');
+
+    try {
+      let wsDir = dirHandle;
+      const parts = workspaceSubfolder.split('/').filter(Boolean);
+      for (const part of parts) {
+        wsDir = await wsDir.getDirectoryHandle(part, { create: false });
+      }
+      const success = await tryRemoveFromDir(wsDir);
+      if (success) return true;
+    } catch {}
+  }
+
+  // 2. Try directly from dirHandle root
+  const rootSuccess = await tryRemoveFromDir(dirHandle);
+  if (rootSuccess) return true;
+
+  // 3. Try candidate subfolder matching
+  try {
+    const anyDir = dirHandle as any;
+    if (typeof anyDir.entries === 'function') {
+      for await (const [name, handle] of anyDir.entries()) {
+        if (handle.kind === 'directory' && (name.startsWith('ultrst_') || (subfolder && name.includes(subfolder)))) {
+          const matched = await tryRemoveFromDir(handle as FileSystemDirectoryHandle);
+          if (matched) return true;
+        }
+      }
+    }
+  } catch {}
+
+  return false;
+}
+
+/**
+ * Navigate to a specific subfolder inside a DirectoryHandle, returning the nested handle or root.
+ */
+async function resolveHandleSubfolder(
+  dirHandle: FileSystemDirectoryHandle,
+  subfolder?: string,
+  create = false
+): Promise<FileSystemDirectoryHandle> {
+  if (!subfolder) return dirHandle;
+  let rawSubfolder = subfolder.trim();
+  if (rawSubfolder.includes('/')) {
+    const parts = rawSubfolder.split('/').filter(Boolean);
+    const ultrstPart = parts.find((p) => p.startsWith('ultrst_'));
+    rawSubfolder = ultrstPart || parts[parts.length - 1];
+  }
+  const workspaceSubfolder = rawSubfolder.replace(/^\.\//, '').replace(/\/+$/, '');
+  if (!workspaceSubfolder) return dirHandle;
+
+  let current = dirHandle;
+  const parts = workspaceSubfolder.split('/').filter(Boolean);
+  for (const part of parts) {
+    try {
+      current = await current.getDirectoryHandle(part, { create });
+    } catch {
+      return dirHandle;
+    }
+  }
+  return current;
+}
+
+/**
+ * Recursively scans a FileSystemDirectoryHandle into a FileTreeNode tree for Physical Vault Explorer.
+ */
+export async function listLocalDirectoryTree(
+  dirHandle: FileSystemDirectoryHandle,
+  subfolder?: string
+): Promise<{
+  tree: {
+    name: string;
+    relativePath: string;
+    absolutePath: string;
+    isDirectory: boolean;
+    children: any[];
+  };
+  stats: { fileCount: number; folderCount: number };
+}> {
+  const targetDir = await resolveHandleSubfolder(dirHandle, subfolder, false);
+  let fileCount = 0;
+  let folderCount = 0;
+
+  const scanNode = async (
+    handle: FileSystemDirectoryHandle,
+    currentRelPath: string
+  ): Promise<any> => {
+    const children: any[] = [];
+    const anyHandle = handle as any;
+
+    if (typeof anyHandle.entries === 'function') {
+      for await (const [name, childHandle] of anyHandle.entries()) {
+        if (name === '.docustack' || name === '.keep' || name === 'node_modules' || name === '.git') continue;
+        const relPath = currentRelPath ? `${currentRelPath}/${name}` : name;
+
+        if (childHandle.kind === 'directory') {
+          folderCount++;
+          const subTree = await scanNode(childHandle as FileSystemDirectoryHandle, relPath);
+          children.push(subTree);
+        } else if (childHandle.kind === 'file') {
+          fileCount++;
+          try {
+            const file = await (childHandle as FileSystemFileHandle).getFile();
+            children.push({
+              name,
+              relativePath: relPath,
+              absolutePath: relPath,
+              isDirectory: false,
+              sizeBytes: file.size,
+              sizeFormatted: `${(file.size / 1024).toFixed(1)} KB`,
+              modifiedAt: new Date(file.lastModified).toISOString().split('T')[0],
+            });
+          } catch {
+            children.push({
+              name,
+              relativePath: relPath,
+              absolutePath: relPath,
+              isDirectory: false,
+              sizeBytes: 0,
+              sizeFormatted: '0.0 KB',
+            });
+          }
+        }
+      }
+    }
+
+    return {
+      name: handle.name || 'Local Folder',
+      relativePath: currentRelPath || '',
+      absolutePath: currentRelPath || '',
+      isDirectory: true,
+      children,
+    };
+  };
+
+  const rootTree = await scanNode(targetDir, '');
+  return {
+    tree: rootTree,
+    stats: { fileCount, folderCount },
+  };
+}
+
+/**
+ * Reads UTF-8 text content of a file directly from a FileSystemDirectoryHandle.
+ */
+export async function readLocalFileFromHandle(
+  dirHandle: FileSystemDirectoryHandle,
+  relativePath: string,
+  subfolder?: string
+): Promise<string> {
+  const targetDir = await resolveHandleSubfolder(dirHandle, subfolder, false);
+  const cleanRel = relativePath.replace(/^\/+/, '');
+  const parts = cleanRel.split('/').filter(Boolean);
+  const fileName = parts.pop();
+  if (!fileName) return '';
+
+  let current = targetDir;
+  for (const part of parts) {
+    current = await current.getDirectoryHandle(part, { create: false });
+  }
+
+  const fileHandle = await current.getFileHandle(fileName);
+  const file = await fileHandle.getFile();
+  return await file.text();
+}
+
+/**
+ * Writes UTF-8 text content directly into a file inside a FileSystemDirectoryHandle.
+ */
+export async function writeLocalFileToHandle(
+  dirHandle: FileSystemDirectoryHandle,
+  relativePath: string,
+  content: string,
+  subfolder?: string
+): Promise<void> {
+  const targetDir = await resolveHandleSubfolder(dirHandle, subfolder, true);
+  const cleanRel = relativePath.replace(/^\/+/, '');
+  const parts = cleanRel.split('/').filter(Boolean);
+  const fileName = parts.pop();
+  if (!fileName) return;
+
+  let current = targetDir;
+  for (const part of parts) {
+    current = await current.getDirectoryHandle(part, { create: true });
+  }
+
+  const fileHandle = await current.getFileHandle(fileName, { create: true });
+  const writable = await (fileHandle as any).createWritable();
+  await writable.write(content);
+  await writable.close();
+}
+
+/**
+ * Completely purges a workspace folder and all its contents from a local FileSystemDirectoryHandle.
+ * Tests multiple candidate subfolder names (canonical, raw name, sanitized) to ensure
+ * the entire folder is expunged from the user's host machine.
+ */
+export async function purgeWorkspaceFromLocalHandle(
+  dirHandle: FileSystemDirectoryHandle,
+  candidateFolderNames: string[]
+): Promise<{ success: boolean; purgedFolders: string[] }> {
+  const purgedFolders: string[] = [];
+  const checked = new Set<string>();
+
+  for (const raw of candidateFolderNames) {
+    if (!raw) continue;
+    let target = raw.trim().replace(/^\.\//, '').replace(/\/+$/, '');
+    if (target.includes('/')) {
+      const parts = target.split('/').filter(Boolean);
+      const ultrstPart = parts.find((p) => p.startsWith('ultrst_'));
+      target = ultrstPart || parts[parts.length - 1];
+    }
+    if (!target || checked.has(target)) continue;
+    checked.add(target);
+
+    try {
+      if (typeof (dirHandle as any).removeEntry === 'function') {
+        await (dirHandle as any).removeEntry(target, { recursive: true });
+        purgedFolders.push(target);
+      }
+    } catch (err: any) {
+      if (err?.name !== 'NotFoundError') {
+        console.warn(`[LocalFS] Could not remove entry "${target}":`, err);
+      }
+    }
+  }
+
+  return { success: purgedFolders.length > 0, purgedFolders };
+}
+

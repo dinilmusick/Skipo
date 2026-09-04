@@ -148,6 +148,16 @@ CONTROL PLANE (Application-Owned)
 >    - A prominent action panel rendered whenever 2+ storage options are registered: `SYNC ALL TO CLONES (<N>)`.
 >    - Serverless clone replication (`POST /api/auth/storage/sync-clones`) MUST safely merge connection timestamps against fresh database records instead of overwriting user profiles with stale in-memory snapshots.
 >    - The client UI MUST NOT perform a destructive full re-fetch (`fetchSavedConnections`) after clone replication; connection timestamps must be updated in local React state directly to prevent tile disappearance.
+> 14. **Zero-Asterisk Hard Deletion Law (Backblaze B2 Soft-Delete Eradication)**:
+>    - In Backblaze B2, unversioned S3 delete commands create Delete Markers that render as asterisks (`FolderA*`).
+>    - All cloud delete routines (`permanentDeleteS3Object`, `permanentDeleteS3Folder`) MUST query `ListObjectVersionsCommand` and pass explicit `{ Key, VersionId }` pairs to `DeleteObjectsCommand({ Objects: [...] })`.
+>    - Never issue fallback unversioned `DeleteObjectCommand` calls without `VersionId`.
+>    - Cloud sync Step 6b must automatically sweep and purge any orphaned `DeleteMarkers` across the workspace prefix to keep buckets 100% clean of asterisks.
+> 15. **Topological Depth Post-Order Deletion Sequence (Bottom-Up Deletion Law)**:
+>    - Graph and folder deletions must sort nodes by tree depth in descending order (`getNodeDepth`).
+>    - Contained documents/categories delete first, internal files second, container folders last.
+> 16. **Hierarchical Nested Path Resolution Law (`resolveNodeNestedPath`)**:
+>    - Connected folder and kanban nodes must resolve full hierarchical ancestor paths (`resolveNodeNestedPath`) rather than flattening at root, ensuring nested folder trees exist on both physical disk and cloud storage.
 
 ---
 

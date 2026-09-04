@@ -17,6 +17,17 @@ interface UseWorkspacePersistenceProps {
   setWorkspaceToast: (msg: string | null) => void;
 }
 
+const formatProviderLabel = (p?: string): string => {
+  if (!p) return 'Cloud';
+  const clean = p.toLowerCase();
+  if (clean === 'backblaze_b2') return 'Backblaze B2';
+  if (clean === 'cloudflare_r2') return 'Cloudflare R2';
+  if (clean === 'aws_s3') return 'AWS S3';
+  if (clean === 'supabase_storage') return 'Supabase';
+  if (clean === 'local_fs') return 'Local Storage';
+  return p;
+};
+
 export function useWorkspacePersistence({
   nodes,
   edges,
@@ -46,18 +57,50 @@ export function useWorkspacePersistence({
     return false;
   });
 
-  const handleSaveAll = useCallback(async () => {
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+  const edgesRef = useRef(edges);
+  edgesRef.current = edges;
+  const groupsRef = useRef(groups);
+  groupsRef.current = groups;
+  const categoriesRef = useRef(categories);
+  categoriesRef.current = categories;
+  const documentsRef = useRef(documents);
+  documentsRef.current = documents;
+
+  const saveDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const cancelPendingSave = useCallback(() => {
+    if (saveDebounceTimerRef.current) {
+      clearTimeout(saveDebounceTimerRef.current);
+      saveDebounceTimerRef.current = null;
+    }
+  }, []);
+
+  const handleSaveAll = useCallback(async (overrides?: {
+    nodes?: GraphNode[];
+    edges?: GraphEdge[];
+    groups?: GraphGroup[];
+    categories?: DocCategory[];
+    documents?: DocumentItem[];
+  }) => {
+    const activeNodes = overrides?.nodes ?? nodesRef.current;
+    const activeEdges = overrides?.edges ?? edgesRef.current;
+    const activeGroups = overrides?.groups ?? groupsRef.current;
+    const activeCategories = overrides?.categories ?? categoriesRef.current;
+    const activeDocuments = overrides?.documents ?? documentsRef.current;
+
     setSaveStatus('saving');
     try {
       const res: any = await requestApi('/api/workspace', {
         method: 'POST',
         body: JSON.stringify({
           action: 'save_all',
-          nodes,
-          edges,
-          groups,
-          categories,
-          documents,
+          nodes: activeNodes,
+          edges: activeEdges,
+          groups: activeGroups,
+          categories: activeCategories,
+          documents: activeDocuments,
         }),
       }, 'SAVE_ALL_WORKSPACE');
 
@@ -76,11 +119,11 @@ export function useWorkspacePersistence({
               method: 'POST',
               headers,
               body: JSON.stringify({
-                nodes,
-                edges,
-                groups,
-                categories,
-                documents,
+                nodes: activeNodes,
+                edges: activeEdges,
+                groups: activeGroups,
+                categories: activeCategories,
+                documents: activeDocuments,
               }),
             });
             const cloneData = await cloneRes.json();
@@ -115,6 +158,11 @@ export function useWorkspacePersistence({
           if (primaryConn?.provider === 'local_fs' && primaryConn.localFolderKey) {
             localTargets.push({ key: primaryConn.localFolderKey, name: primaryConn.localFolderName || primaryConn.label });
           }
+          for (const c of userConns) {
+            if (c.provider === 'local_fs' && c.localFolderKey) {
+              localTargets.push({ key: c.localFolderKey, name: c.localFolderName || c.label });
+            }
+          }
           if (autoSaveClonesEnabled) {
             const localClones = cloneConnections.filter((c) => c.provider === 'local_fs' && c.localFolderKey);
             for (const lc of localClones) {
@@ -132,7 +180,14 @@ export function useWorkspacePersistence({
                 await syncWorkspaceToDirectoryHandle(
                   handle,
                   target.name || 'DocuStack',
-                  { nodes, edges, groups, categories, documents, folderPrefix: subfolder }
+                  {
+                    nodes: activeNodes,
+                    edges: activeEdges,
+                    groups: activeGroups,
+                    categories: activeCategories,
+                    documents: activeDocuments,
+                    folderPrefix: subfolder,
+                  }
                 );
                 replicatedCloneCount++;
               }
@@ -147,8 +202,16 @@ export function useWorkspacePersistence({
               await syncWorkspaceToDirectoryHandle(
                 activeMemHandle,
                 activeMemHandle.name || 'DocuStack',
-                { nodes, edges, groups, categories, documents, folderPrefix: subfolder }
+                {
+                  nodes: activeNodes,
+                  edges: activeEdges,
+                  groups: activeGroups,
+                  categories: activeCategories,
+                  documents: activeDocuments,
+                  folderPrefix: subfolder,
+                }
               );
+              replicatedCloneCount++;
             } catch (memErr) {
               console.warn('[AutoSave Active Memory Handle Sync Warning]', memErr);
             }
@@ -158,17 +221,17 @@ export function useWorkspacePersistence({
 
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2500);
-      const provider = res?.storageProvider || 'Storage';
+      const provider = formatProviderLabel(res?.storageProvider || 'Storage');
       if (replicatedCloneCount > 0) {
-        setWorkspaceToast(`[SAVED & REPLICATED] VAULT SAVED TO ${provider.toUpperCase()} & ${replicatedCloneCount} BACKUP CLONE(S)`);
+        setWorkspaceToast(`Saved to ${provider} (+${replicatedCloneCount} backup)`);
       } else {
-        setWorkspaceToast(`[SAVED] WORKSPACE VAULT SAVED TO ${provider.toUpperCase()}`);
+        setWorkspaceToast(`Saved to ${provider}`);
       }
-      setTimeout(() => setWorkspaceToast(null), 3500);
+      setTimeout(() => setWorkspaceToast(null), 2200);
     } catch (err: any) {
       setSaveStatus('dirty');
-      setWorkspaceToast(`[SAVE ERROR] ${err?.message || 'Failed to save workspace'}`);
-      setTimeout(() => setWorkspaceToast(null), 3500);
+      setWorkspaceToast(`Save failed: ${err?.message || 'Failed to save workspace'}`);
+      setTimeout(() => setWorkspaceToast(null), 3000);
     }
   }, [nodes, edges, groups, categories, documents, autoSaveClonesEnabled, cloneConnections, currentUser, activeWorkspaceId, isLocalFsDisabledForSession, setWorkspaceToast]);
 
@@ -179,12 +242,12 @@ export function useWorkspacePersistence({
         localStorage.setItem('docustack_auto_save', String(next));
       }
       if (next) {
-        setWorkspaceToast('[AUTO-SAVE ENABLED] CHANGES SYNC AUTOMATICALLY');
-        setTimeout(() => setWorkspaceToast(null), 3000);
+        setWorkspaceToast('Auto-save enabled');
+        setTimeout(() => setWorkspaceToast(null), 2000);
         handleSaveAll();
       } else {
-        setWorkspaceToast('[AUTO-SAVE DISABLED] PRESS CMD+S / CTRL+S TO SAVE');
-        setTimeout(() => setWorkspaceToast(null), 3000);
+        setWorkspaceToast('Auto-save disabled (Cmd+S to save)');
+        setTimeout(() => setWorkspaceToast(null), 2000);
       }
       return next;
     });
@@ -197,12 +260,12 @@ export function useWorkspacePersistence({
         localStorage.setItem('docustack_auto_save_clones', String(next));
       }
       if (next) {
-        setWorkspaceToast('[CLONE AUTO-SAVE ENABLED] SAVING REPLICATES TO ALL BACKUP CLONES');
-        setTimeout(() => setWorkspaceToast(null), 3000);
+        setWorkspaceToast('Backup clone auto-sync enabled');
+        setTimeout(() => setWorkspaceToast(null), 2000);
         handleSaveAll();
       } else {
-        setWorkspaceToast('[CLONE AUTO-SAVE DISABLED] SAVING ONLY COMMITS TO PRIMARY STORAGE');
-        setTimeout(() => setWorkspaceToast(null), 3000);
+        setWorkspaceToast('Backup clone auto-sync disabled');
+        setTimeout(() => setWorkspaceToast(null), 2000);
       }
       return next;
     });
@@ -221,7 +284,6 @@ export function useWorkspacePersistence({
   }, [handleSaveAll]);
 
   // Event-driven workspace save timer (solely triggered by explicit workspace mutation events)
-  const saveDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const triggerWorkspaceMutationSave = useCallback((immediate = false) => {
     if (!autoSaveEnabled) return;
     if (saveDebounceTimerRef.current) {
@@ -245,6 +307,7 @@ export function useWorkspacePersistence({
     autoSaveClonesEnabled,
     setAutoSaveClonesEnabled,
     handleSaveAll,
+    cancelPendingSave,
     handleToggleAutoSave,
     handleToggleAutoSaveClones,
     triggerWorkspaceMutationSave,

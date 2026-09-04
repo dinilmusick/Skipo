@@ -36,6 +36,8 @@ export {
   ensureWorkspaceExists,
 } from './workspace-fs-core';
 
+export { resolveNodeNestedPath, getSafeCloudFolderName } from './workspace-canonical';
+
 export {
   LocalFileSystemWorkspaceStorageAdapter,
   ICloudWorkspaceStorageAdapter,

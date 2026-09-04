@@ -10,6 +10,7 @@ import {
   deleteCloudNodeAssets,
   getSafeCloudFolderName,
 } from './cloud-storage-service';
+import { resolveNodeNestedPath } from './workspace-canonical';
 import {
   ensureWorkspaceExists,
   getVaultAbsolutePath,
@@ -22,16 +23,16 @@ import { loadCategoriesFromFS } from './workspace-fs-categories';
 // DOCUMENTS FS HANDLERS
 // ----------------------------------------------------------------------
 
-function getNodesQuick(): GraphNode[] {
+function getGraphDataQuick(): { nodes: GraphNode[]; edges: any[] } {
   try {
     const metaDir = path.join(getVaultAbsolutePath(), '.docustack');
     const file = path.join(metaDir, 'graph.json');
     if (fs.existsSync(file)) {
       const parsed = JSON.parse(fs.readFileSync(file, 'utf-8'));
-      return parsed.nodes || [];
+      return { nodes: parsed.nodes || [], edges: parsed.edges || [] };
     }
   } catch {}
-  return [];
+  return { nodes: [], edges: [] };
 }
 
 export function loadDocumentsFromFS(): DocumentItem[] {
@@ -107,10 +108,13 @@ export async function loadDocumentsFromFSAsync(): Promise<DocumentItem[]> {
 export function resolveDocumentStoragePath(
   doc: DocumentItem,
   categories?: DocCategory[],
-  nodes?: GraphNode[]
+  nodes?: GraphNode[],
+  edges?: any[]
 ): { folderPath: string; fullRelativePath: string; fileName: string } {
   const currentCategories = categories || loadCategoriesFromFS();
-  const currentNodes = nodes || getNodesQuick();
+  const graphData = getGraphDataQuick();
+  const currentNodes = nodes || graphData.nodes;
+  const currentEdges = edges || graphData.edges;
 
   let folderPath = '';
   const assignedCat = currentCategories.find((c) => c.id === doc.categoryId);
@@ -119,8 +123,8 @@ export function resolveDocumentStoragePath(
     const catFolder = getSafeCloudFolderName(assignedCat.title);
     if (assignedCat.boardId) {
       const boardNode = currentNodes.find((n) => (n.collectionId || n.id) === assignedCat.boardId);
-      const boardFolder = getSafeCloudFolderName(boardNode?.title || 'Kanban_Board');
-      folderPath = `${boardFolder}/${catFolder}`;
+      const boardPath = boardNode ? resolveNodeNestedPath(boardNode, currentNodes, currentEdges) : 'Kanban';
+      folderPath = `${boardPath}/${catFolder}`;
     } else {
       folderPath = catFolder;
     }
@@ -129,7 +133,7 @@ export function resolveDocumentStoragePath(
       (n) => n.id === doc.categoryId || n.title === doc.categoryId
     );
     if (folderNode) {
-      folderPath = getSafeCloudFolderName(folderNode.title);
+      folderPath = resolveNodeNestedPath(folderNode, currentNodes, currentEdges);
     }
   }
 
@@ -400,12 +404,14 @@ export async function deleteCategoryAndDocumentsFromFSAsync(
  */
 export async function deleteNodeAssetsAsync(
   node: GraphNode,
-  categories: DocCategory[] = []
+  categories: DocCategory[] = [],
+  nestedPath?: string
 ): Promise<{ success: boolean; purgedPaths: string[] }> {
   const purgedPaths: string[] = [];
   if (node.isWorkspaceRoot) return { success: false, purgedPaths };
 
   const safeTitle = getSafeCloudFolderName(node.title);
+  const targetPath = nestedPath || safeTitle;
 
   // 1. If cloud storage active, delete from cloud
   if (globalActiveStorageConn && globalActiveFolderPrefix) {
@@ -414,7 +420,8 @@ export async function deleteNodeAssetsAsync(
         globalActiveStorageConn,
         globalActiveFolderPrefix,
         node,
-        categories
+        categories,
+        targetPath
       );
       purgedPaths.push(...cloudRes.purgedPaths);
     } catch (err) {
@@ -426,9 +433,14 @@ export async function deleteNodeAssetsAsync(
   const vaultPath = getVaultAbsolutePath();
   try {
     if (node.type === 'folder' || node.glyph === 'Folder' || node.type === 'collection' || node.glyph === 'Kanban') {
-      const dirOnDisk = path.join(vaultPath, safeTitle);
-      if (fs.existsSync(dirOnDisk)) {
-        fs.rmSync(dirOnDisk, { recursive: true, force: true });
+      const nestedDirOnDisk = path.join(vaultPath, ...targetPath.split('/'));
+      if (fs.existsSync(nestedDirOnDisk)) {
+        fs.rmSync(nestedDirOnDisk, { recursive: true, force: true });
+        if (!purgedPaths.includes(targetPath)) purgedPaths.push(targetPath);
+      }
+      const rawDirOnDisk = path.join(vaultPath, safeTitle);
+      if (fs.existsSync(rawDirOnDisk)) {
+        fs.rmSync(rawDirOnDisk, { recursive: true, force: true });
         if (!purgedPaths.includes(safeTitle)) purgedPaths.push(safeTitle);
       }
     } else if (node.type === 'sticky') {

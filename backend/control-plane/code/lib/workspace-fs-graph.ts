@@ -148,6 +148,9 @@ export async function loadGraphFromFSAsync(): Promise<{
   return loadGraphFromFS();
 }
 
+import { resolveNodeNestedPath } from './workspace-canonical';
+export { resolveNodeNestedPath };
+
 export async function saveGraphToFSAsync(
   nodes: GraphNode[],
   edges: GraphEdge[],
@@ -175,13 +178,15 @@ export async function saveGraphToFSAsync(
 
       const allCategories = loadCategoriesFromFS();
       for (const n of syncedNodes) {
-        if (n.isWorkspaceRoot) continue;
+        if (n.isWorkspaceRoot || !n.title || !n.title.trim()) continue;
+        // Resolve the full nested path (e.g. "Projects/Frontend") so children are stored inside parent folders
+        const nestedPath = resolveNodeNestedPath(n, syncedNodes, edges);
         if (n.type === 'folder' || n.glyph === 'Folder') {
-          await syncFolderNodeToCloud(globalActiveStorageConn, globalActiveFolderPrefix, n);
+          await syncFolderNodeToCloud(globalActiveStorageConn, globalActiveFolderPrefix, n, nestedPath);
         } else if (n.type === 'collection' || n.glyph === 'Kanban') {
           const boardId = n.collectionId || n.id;
           const boardCols = allCategories.filter((c) => c.boardId === boardId);
-          await syncKanbanNodeToCloud(globalActiveStorageConn, globalActiveFolderPrefix, n, boardCols);
+          await syncKanbanNodeToCloud(globalActiveStorageConn, globalActiveFolderPrefix, n, boardCols, nestedPath);
         }
       }
     } catch (err) {
@@ -213,10 +218,12 @@ export function saveGraphToFS(nodes: GraphNode[], edges: GraphEdge[], groups: Gr
     const vaultPath = getVaultAbsolutePath();
 
     for (const n of syncedNodes) {
-      if (n.isWorkspaceRoot) continue;
-      const safeTitle = getSafeCloudFolderName(n.title);
+      if (n.isWorkspaceRoot || !n.title || !n.title.trim()) continue;
+      // Resolve full nested path from the graph hierarchy (e.g. "Projects/Frontend/MyFolder")
+      const nestedPath = resolveNodeNestedPath(n, syncedNodes, edges);
       if (n.type === 'folder' || n.glyph === 'Folder') {
-        const folderDir = path.join(vaultPath, safeTitle);
+        // Use nested path on disk — mkdirSync with nested segments creates all intermediate directories
+        const folderDir = path.join(vaultPath, ...nestedPath.split('/'));
         if (!fs.existsSync(folderDir)) {
           try { fs.mkdirSync(folderDir, { recursive: true }); } catch {}
         }
@@ -227,7 +234,7 @@ export function saveGraphToFS(nodes: GraphNode[], edges: GraphEdge[], groups: Gr
           } catch {}
         }
       } else if (n.type === 'collection' || n.glyph === 'Kanban') {
-        const kanbanDir = path.join(vaultPath, safeTitle);
+        const kanbanDir = path.join(vaultPath, ...nestedPath.split('/'));
         if (!fs.existsSync(kanbanDir)) {
           try { fs.mkdirSync(kanbanDir, { recursive: true }); } catch {}
         }
@@ -262,14 +269,16 @@ export function saveGraphToFS(nodes: GraphNode[], edges: GraphEdge[], groups: Gr
     ).catch((err) => console.warn('[CloudStorage] saveGraphToFS error:', err));
 
     for (const n of syncedNodes) {
-      if (n.isWorkspaceRoot) continue;
+      if (n.isWorkspaceRoot || !n.title || !n.title.trim()) continue;
+      // Use the same nested path for cloud storage
+      const nestedPath = resolveNodeNestedPath(n, syncedNodes, edges);
       if (n.type === 'folder' || n.glyph === 'Folder') {
-        syncFolderNodeToCloud(globalActiveStorageConn, globalActiveFolderPrefix, n)
+        syncFolderNodeToCloud(globalActiveStorageConn, globalActiveFolderPrefix, n, nestedPath)
           .catch((err) => console.warn(`[CloudStorage] syncFolderNode error for ${n.title}:`, err));
       } else if (n.type === 'collection' || n.glyph === 'Kanban') {
         const boardId = n.collectionId || n.id;
         const boardCols = allCategories.filter((c) => c.boardId === boardId);
-        syncKanbanNodeToCloud(globalActiveStorageConn, globalActiveFolderPrefix, n, boardCols)
+        syncKanbanNodeToCloud(globalActiveStorageConn, globalActiveFolderPrefix, n, boardCols, nestedPath)
           .catch((err) => console.warn(`[CloudStorage] syncKanbanNode error for ${n.title}:`, err));
       }
     }
@@ -356,8 +365,24 @@ export function getWorkspaceFileTree(): FileTreeNode {
   ensureWorkspaceExists();
   const vaultPath = getVaultAbsolutePath();
 
+  if (!fs.existsSync(vaultPath)) {
+    return {
+      name: 'docustack_vault',
+      relativePath: 'docustack_vault',
+      absolutePath: vaultPath,
+      isDirectory: true,
+      children: [],
+    };
+  }
+
   function scanDir(dirPath: string, relPath = ''): FileTreeNode[] {
-    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    if (!fs.existsSync(dirPath)) return [];
+    let entries: fs.Dirent[] = [];
+    try {
+      entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    } catch {
+      return [];
+    }
     const nodes: FileTreeNode[] = [];
 
     for (const entry of entries) {
@@ -375,16 +400,18 @@ export function getWorkspaceFileTree(): FileTreeNode {
           children: scanDir(fullPath, relative),
         });
       } else {
-        const stat = fs.statSync(fullPath);
-        nodes.push({
-          name: entry.name,
-          relativePath: relative,
-          absolutePath: fullPath,
-          isDirectory: false,
-          sizeBytes: stat.size,
-          sizeFormatted: `${(stat.size / 1024).toFixed(1)} KB`,
-          modifiedAt: stat.mtime.toISOString().split('T')[0],
-        });
+        try {
+          const stat = fs.statSync(fullPath);
+          nodes.push({
+            name: entry.name,
+            relativePath: relative,
+            absolutePath: fullPath,
+            isDirectory: false,
+            sizeBytes: stat.size,
+            sizeFormatted: `${(stat.size / 1024).toFixed(1)} KB`,
+            modifiedAt: stat.mtime.toISOString().split('T')[0],
+          });
+        } catch {}
       }
     }
 

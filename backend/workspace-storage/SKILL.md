@@ -311,6 +311,29 @@ USER ──► APPLICATION ──► WorkspaceFS.write(path, data)
     - If opened on a different machine or browser where the local directory handle does not exist on disk, the system must display an explicit notification banner:
       `Local storage folder "<FolderName>" has no registered directory handle on this machine. Local storage is disabled for this session.`
     - Local storage writes must be safely disabled for that session without crashing or disrupting cloud storage connections.
+16. **Zero-Asterisk Hard Deletion Law (Backblaze B2 Soft-Delete Eradication)**:
+    - In Backblaze B2 (when bucket versioning is enabled), issuing standard S3 `DeleteObject` requests without an explicit `VersionId` creates a **Delete Marker** (hide marker).
+    - The Backblaze B2 web console / storage explorer renders any file or virtual directory that has a Delete Marker with an **asterisk (`*`)** appended to its name (e.g. `FolderA*`).
+    - All cloud deletion routines (`permanentDeleteS3Object`, `permanentDeleteS3Folder`) MUST query `ListObjectVersionsCommand` and pass explicit `{ Key, VersionId }` pairs to `DeleteObjectsCommand({ Objects: [...] })`.
+    - **FORBID unversioned fallback deletions**: Never call `DeleteObjectCommand` without a `VersionId` when versions are empty; doing so creates phantom Delete Markers on non-existent keys.
+    - Folder deletion must target both the directory marker (`bareKey/` and `bareKey/*`) and the bare folder prefix (`bareKey`) to eliminate stray markers.
+    - Cloud sync (`syncEntireWorkspaceToCloud` Step 6b) must run a background sweep querying `ListObjectVersionsCommand` to permanently purge any orphaned `DeleteMarkers` across the workspace prefix, ensuring zero asterisks remain in Backblaze B2.
+17. **Topological Depth Post-Order Deletion Sequence (Bottom-Up Deletion Law)**:
+    - When deleting tree hierarchies (folders, nested kanbans, child documents), all target nodes must be sorted by tree depth in **descending order of depth** (deepest leaf nodes first, parent container last).
+    - Inside every container node:
+      1. Child documents and column categories are deleted first (`deleteCategoryAndDocumentsFromFSAsync`).
+      2. Internal files and column subfolders (`.keep`, `README.md`, `kanban_board.json`) are deleted second (`deleteNodeAssetsAsync`).
+      3. The upper container directory itself is deleted last from physical disk and cloud storage.
+18. **Hierarchical Nested Path Resolution Law (`resolveNodeNestedPath`)**:
+    - When a node is connected to a parent folder node, its physical disk and cloud storage path must be resolved hierarchically (`resolveNodeNestedPath(node, allNodes, edges)`) rather than being flattened at the workspace root.
+    - Kanban boards, folder nodes, column subfolders, and documents must reflect the full ancestor tree (e.g. `${parentFolder}/${childFolder}/${kanbanBoard}/${columnName}/${docName}.md`).
+    - Object reconciliation (`validRelativeKeys`) must traverse and protect nested paths to prevent them from being pruned as orphans.
+19. **Discreet Save Feedback & Session-Aware Local Storage Warnings**:
+    - Save notifications must be compact, non-distracting visual pills (e.g. bottom-right discreet dark pill with a pulsing emerald status dot, auto-dismissing in ~2.2 seconds), replacing large disruptive toasts.
+    - The notification warning for missing directory handles (`Local storage folder has no registered directory handle on this machine`) must be auto-dismissing (~6.5 seconds) and MUST NOT appear if the user has no saved local storage configuration for that workspace.
+20. **Deferred Node Creation Persistence Law**:
+    - Nodes must NOT be persisted to storage or have folders created on disk/cloud when the node creation modal/dialogue opens.
+    - Storage creation must strictly wait until the user completes the dialogue and confirms/saves the node.
 
 ---
 

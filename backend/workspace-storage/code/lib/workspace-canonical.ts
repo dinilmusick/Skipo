@@ -22,9 +22,22 @@ export function formatCanonicalWorkspaceFolderName(
   userName: string = 'user',
   workspaceName: string = 'default'
 ): string {
+  const rawWs = (workspaceName || '').trim();
   const app = sanitizeFolderSegment(appName);
   const user = sanitizeFolderSegment(userName);
-  const ws = sanitizeFolderSegment(workspaceName);
+
+  // If user already entered the full canonical format (e.g. ultrst_docustack_dinil_test_workspace),
+  // or any ultrst_ prefix, preserve it without double-prefixing
+  if (rawWs.toLowerCase().startsWith('ultrst_')) {
+    return sanitizeFolderSegment(rawWs);
+  }
+
+  let ws = sanitizeFolderSegment(rawWs);
+  // Simplify redundant app_vault or app_workspace patterns
+  if (ws === `${app}_vault` || ws === `${app}_workspace`) {
+    ws = ws.replace(`${app}_`, '');
+  }
+
   return `ultrst_${app}_${user}_${ws}`;
 }
 
@@ -34,4 +47,71 @@ export function formatCanonicalWorkspacePath(
   workspaceName: string = 'default'
 ): string {
   return `./${formatCanonicalWorkspaceFolderName(appName, userName, workspaceName)}`;
+}
+
+export function getSafeCloudFolderName(name: string): string {
+  return (name || 'Folder')
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '') || 'Folder';
+}
+
+/**
+ * Resolve the full nested storage path for a node by walking the parentId / edge chain
+ * up through all ancestor folder nodes (stopping at workspace root).
+ *
+ * Example:
+ *   Root -> Projects -> Frontend -> MyKanban
+ *   resolveNodeNestedPath(MyKanban, allNodes, edges)
+ *   => "Projects/Frontend/MyKanban"
+ */
+export function resolveNodeNestedPath(
+  node: { id: string; title?: string; parentId?: string; isWorkspaceRoot?: boolean },
+  allNodes: Array<{ id: string; title?: string; parentId?: string; isWorkspaceRoot?: boolean }>,
+  edges: Array<{ source: string; target: string }> = []
+): string {
+  if (!node || node.isWorkspaceRoot || !node.title || !node.title.trim()) {
+    return '';
+  }
+
+  const nodeMap = new Map<string, { id: string; title?: string; parentId?: string; isWorkspaceRoot?: boolean }>();
+  for (const n of allNodes) {
+    if (n && n.id) {
+      nodeMap.set(n.id, n);
+    }
+  }
+
+  // Build edge parent map: target -> source (source is parent of target)
+  const edgeParentMap = new Map<string, string>();
+  for (const edge of edges) {
+    if (edge && edge.source && edge.target) {
+      edgeParentMap.set(edge.target, edge.source);
+    }
+  }
+
+  const pathSegments: string[] = [];
+  let current: { id: string; title?: string; parentId?: string; isWorkspaceRoot?: boolean } | undefined = node;
+  const visited = new Set<string>();
+
+  while (current) {
+    if (visited.has(current.id)) break; // cycle guard
+    visited.add(current.id);
+
+    if (current.isWorkspaceRoot) break;
+    if (!current.title || !current.title.trim()) break;
+
+    pathSegments.unshift(getSafeCloudFolderName(current.title));
+
+    // Walk up: prefer parentId field, then fall back to edge parent map
+    const parentId = current.parentId || edgeParentMap.get(current.id);
+    if (!parentId) break;
+
+    const parent = nodeMap.get(parentId);
+    if (!parent || parent.isWorkspaceRoot) break;
+    current = parent;
+  }
+
+  return pathSegments.join('/');
 }

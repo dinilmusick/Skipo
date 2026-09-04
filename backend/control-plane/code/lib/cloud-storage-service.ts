@@ -16,6 +16,7 @@ import {
 import { createClient } from '@supabase/supabase-js';
 import { UserStorageConnection, GraphNode, DocumentItem, DocCategory, GraphEdge, GraphGroup } from './types';
 import { buildS3Client } from './storage-providers';
+import { resolveNodeNestedPath } from './workspace-canonical';
 
 export interface CloudStorageFileInfo {
   key: string;
@@ -189,7 +190,7 @@ export async function permanentDeleteS3Object(
   fullKey: string
 ): Promise<boolean> {
   try {
-    let versionsToDelete: { Key: string; VersionId?: string }[] = [];
+    const versionsToDelete: { Key: string; VersionId?: string }[] = [];
     try {
       const versionsRes: any = await s3.send(
         new ListObjectVersionsCommand({
@@ -212,44 +213,42 @@ export async function permanentDeleteS3Object(
         }
       }
     } catch (verErr) {
-      console.warn('[CloudStorage] ListObjectVersions not supported or failed on single file, fallback to standard delete:', verErr);
+      console.warn('[CloudStorage] ListObjectVersions not supported or failed on single file:', verErr);
     }
 
     if (versionsToDelete.length > 0) {
-      try {
-        await s3.send(
-          new DeleteObjectsCommand({
-            Bucket: bucketName,
-            Delete: {
-              Objects: versionsToDelete,
-              Quiet: true,
-            },
-          })
-        );
-        return true;
-      } catch (batchErr) {
-        for (const item of versionsToDelete) {
-          try {
-            await s3.send(
-              new DeleteObjectCommand({
-                Bucket: bucketName,
-                Key: item.Key,
-                VersionId: item.VersionId,
-              })
-            );
-          } catch {}
+      for (let i = 0; i < versionsToDelete.length; i += 1000) {
+        const batch = versionsToDelete.slice(i, i + 1000);
+        try {
+          await s3.send(
+            new DeleteObjectsCommand({
+              Bucket: bucketName,
+              Delete: {
+                Objects: batch,
+                Quiet: true,
+              },
+            })
+          );
+        } catch (batchErr) {
+          for (const item of batch) {
+            try {
+              await s3.send(
+                new DeleteObjectCommand({
+                  Bucket: bucketName,
+                  Key: item.Key,
+                  VersionId: item.VersionId,
+                })
+              );
+            } catch {}
+          }
         }
-        return true;
       }
+      return true;
     }
 
-    // Fallback standard delete
-    await s3.send(
-      new DeleteObjectCommand({
-        Bucket: bucketName,
-        Key: fullKey,
-      })
-    );
+    // CRITICAL: If versionsToDelete is empty, NEVER call DeleteObjectCommand without VersionId!
+    // In versioning-enabled buckets like Backblaze B2, sending DeleteObject without VersionId on a non-existent
+    // key creates a Delete Marker (hide marker), which causes Backblaze B2 to display the asset with an asterisk (*).
     return true;
   } catch (err) {
     console.warn(`[CloudStorage] Error permanently deleting S3 object ${fullKey}:`, err);
@@ -268,8 +267,12 @@ export async function permanentDeleteS3Folder(
 ): Promise<{ success: boolean; deletedCount: number }> {
   let deletedCount = 0;
 
+  // Normalize targetPrefix: strip any trailing slashes so Prefix matches both the bare key and children
+  const barePrefix = targetPrefix.replace(/\/+$/, '');
+  const isMatch = (key: string) => key === barePrefix || key === `${barePrefix}/` || key.startsWith(`${barePrefix}/`);
+
   try {
-    // 1. Paginate through all versions and delete markers under targetPrefix
+    // 1. Paginate through all versions and delete markers under barePrefix
     let keyMarker: string | undefined = undefined;
     let versionIdMarker: string | undefined = undefined;
     let isTruncated = true;
@@ -279,7 +282,7 @@ export async function permanentDeleteS3Folder(
       try {
         const cmdInput: any = {
           Bucket: bucketName,
-          Prefix: targetPrefix,
+          Prefix: barePrefix,
         };
         if (keyMarker) cmdInput.KeyMarker = keyMarker;
         if (versionIdMarker && keyMarker) cmdInput.VersionIdMarker = versionIdMarker;
@@ -289,12 +292,16 @@ export async function permanentDeleteS3Folder(
         const itemsToDelete: { Key: string; VersionId?: string }[] = [];
         if (verRes.Versions) {
           for (const v of verRes.Versions) {
-            if (v.Key) itemsToDelete.push({ Key: v.Key, VersionId: v.VersionId });
+            if (v.Key && isMatch(v.Key)) {
+              itemsToDelete.push({ Key: v.Key, VersionId: v.VersionId });
+            }
           }
         }
         if (verRes.DeleteMarkers) {
           for (const dm of verRes.DeleteMarkers) {
-            if (dm.Key) itemsToDelete.push({ Key: dm.Key, VersionId: dm.VersionId });
+            if (dm.Key && isMatch(dm.Key)) {
+              itemsToDelete.push({ Key: dm.Key, VersionId: dm.VersionId });
+            }
           }
         }
 
@@ -338,7 +345,7 @@ export async function permanentDeleteS3Folder(
       }
     }
 
-    // 2. Also run ListObjectsV2Command to clean any unversioned files or if versions were unsupported
+    // 2. Secondary sweep with ListObjectsV2Command (always resolving VersionId so NO delete markers are created)
     let contToken: string | undefined = undefined;
     let moreV2 = true;
 
@@ -346,25 +353,17 @@ export async function permanentDeleteS3Folder(
       const listRes: any = await s3.send(
         new ListObjectsV2Command({
           Bucket: bucketName,
-          Prefix: targetPrefix,
+          Prefix: barePrefix,
           ContinuationToken: contToken,
         })
       );
 
       const objects = listRes.Contents || [];
-      if (objects.length > 0) {
-        for (const obj of objects) {
-          if (obj.Key) {
-            try {
-              await permanentDeleteS3Object(s3, bucketName, obj.Key);
-              deletedCount++;
-            } catch {
-              try {
-                await s3.send(new DeleteObjectCommand({ Bucket: bucketName, Key: obj.Key }));
-                deletedCount++;
-              } catch {}
-            }
-          }
+      for (const obj of objects) {
+        if (!obj.Key) continue;
+        if (isMatch(obj.Key)) {
+          await permanentDeleteS3Object(s3, bucketName, obj.Key);
+          deletedCount++;
         }
       }
 
@@ -424,18 +423,14 @@ export async function deleteCloudWorkspaceFolder(
   const cleanRel = (folderRelativePath || '').replace(/^\/+|\/+$/g, '');
   if (!cleanPrefix && !cleanRel) return { success: false, deletedCount: 0 };
 
+  const bareKey = cleanRel ? `${cleanPrefix}/${cleanRel}` : cleanPrefix;
   const targetPrefix = cleanRel ? `${cleanPrefix}/${cleanRel}/` : `${cleanPrefix}/`;
 
   try {
     if (conn.provider === 'backblaze_b2' || conn.provider === 'cloudflare_r2' || conn.provider === 'aws_s3') {
       const { s3, bucketName } = buildS3Client(conn);
-      const res = await permanentDeleteS3Folder(s3, bucketName, targetPrefix);
-      const bareKey = cleanRel ? `${cleanPrefix}/${cleanRel}` : cleanPrefix;
-      if (bareKey) {
-        await permanentDeleteS3Object(s3, bucketName, bareKey);
-        await permanentDeleteS3Folder(s3, bucketName, bareKey);
-      }
-      return res;
+      // permanentDeleteS3Folder targets bareKey and bareKey/ and purges all versions and delete markers
+      return await permanentDeleteS3Folder(s3, bucketName, bareKey);
     }
 
     if (conn.provider === 'supabase_storage') {
@@ -469,7 +464,8 @@ export async function deleteCloudNodeAssets(
   conn: UserStorageConnection,
   folderPrefix: string,
   node: GraphNode,
-  categories: DocCategory[] = []
+  categories: DocCategory[] = [],
+  nestedPath?: string
 ): Promise<{ success: boolean; purgedPaths: string[] }> {
   const purgedPaths: string[] = [];
   if (!conn || !folderPrefix || node.isWorkspaceRoot) {
@@ -477,21 +473,52 @@ export async function deleteCloudNodeAssets(
   }
 
   const safeTitle = getSafeCloudFolderName(node.title);
+  const targetFolder = nestedPath || safeTitle;
 
-  if (node.type === 'folder' || node.glyph === 'Folder') {
-    await deleteCloudWorkspaceFolder(conn, folderPrefix, safeTitle);
-    purgedPaths.push(safeTitle);
-  } else if (node.type === 'collection' || node.glyph === 'Kanban') {
+  if (node.type === 'collection' || node.glyph === 'Kanban') {
     const boardId = node.collectionId || node.id;
-    await deleteCloudWorkspaceFolder(conn, folderPrefix, safeTitle);
-    purgedPaths.push(safeTitle);
-
-    // Also purge any categories for this board that were stored at root
     const cols = categories.filter((c) => c.boardId === boardId);
+
+    // 1. Delete all column subfolders first (contents inside)
     for (const col of cols) {
       const colTitle = getSafeCloudFolderName(col.title);
+      await deleteCloudWorkspaceFolder(conn, folderPrefix, `${targetFolder}/${colTitle}`);
+      purgedPaths.push(`${targetFolder}/${colTitle}`);
+      if (targetFolder !== safeTitle) {
+        await deleteCloudWorkspaceFolder(conn, folderPrefix, `${safeTitle}/${colTitle}`);
+      }
       await deleteCloudWorkspaceFolder(conn, folderPrefix, colTitle);
       purgedPaths.push(colTitle);
+    }
+
+    // 2. Delete the board manifest file
+    await deleteCloudWorkspaceFile(conn, folderPrefix, `${targetFolder}/kanban_board.json`);
+    if (targetFolder !== safeTitle) {
+      await deleteCloudWorkspaceFile(conn, folderPrefix, `${safeTitle}/kanban_board.json`);
+    }
+
+    // 3. Finally delete the upper layer Kanban folder
+    await deleteCloudWorkspaceFolder(conn, folderPrefix, targetFolder);
+    purgedPaths.push(targetFolder);
+    if (targetFolder !== safeTitle) {
+      await deleteCloudWorkspaceFolder(conn, folderPrefix, safeTitle);
+      purgedPaths.push(safeTitle);
+    }
+  } else if (node.type === 'folder' || node.glyph === 'Folder') {
+    // 1. Delete files inside first (.keep, README.md)
+    await deleteCloudWorkspaceFile(conn, folderPrefix, `${targetFolder}/.keep`);
+    await deleteCloudWorkspaceFile(conn, folderPrefix, `${targetFolder}/README.md`);
+    if (targetFolder !== safeTitle) {
+      await deleteCloudWorkspaceFile(conn, folderPrefix, `${safeTitle}/.keep`);
+      await deleteCloudWorkspaceFile(conn, folderPrefix, `${safeTitle}/README.md`);
+    }
+
+    // 2. Finally delete the upper layer folder
+    await deleteCloudWorkspaceFolder(conn, folderPrefix, targetFolder);
+    purgedPaths.push(targetFolder);
+    if (targetFolder !== safeTitle) {
+      await deleteCloudWorkspaceFolder(conn, folderPrefix, safeTitle);
+      purgedPaths.push(safeTitle);
     }
   } else if (node.type === 'sticky') {
     const fileName = `${(node.title || 'sticky').toLowerCase().replace(/[^a-z0-9_.-]/g, '_')}.txt`;
@@ -506,6 +533,111 @@ export async function deleteCloudNodeAssets(
  * Initialize a full workspace folder layout on Cloud Storage
  * Creates the canonical directory structure, manifests, graph topology, categories, and welcome document.
  */
+/**
+ * Purge any default legacy assets (e.g. Core_Kanban, default categories, welcome doc)
+ * from a cloud storage workspace.
+ */
+export async function purgeDefaultCloudWorkspaceAssets(
+  conn: UserStorageConnection,
+  folderPrefix: string
+): Promise<void> {
+  const cleanPrefix = folderPrefix.replace(/^\/+|\/+$/g, '');
+  if (!cleanPrefix) return;
+
+  try {
+    // 1. Delete default Core_Kanban directories from cloud bucket
+    await deleteCloudWorkspaceFolder(conn, cleanPrefix, 'Core_Kanban');
+    await deleteCloudWorkspaceFolder(conn, cleanPrefix, 'core_kanban');
+
+    // 2. Clean graph.json if it contains the default node-core-kanban
+    try {
+      const graphContent = await readCloudWorkspaceFile(conn, cleanPrefix, '.docustack/graph.json');
+      if (graphContent) {
+        const graph = JSON.parse(graphContent);
+        let modified = false;
+        if (Array.isArray(graph.nodes)) {
+          const filteredNodes = graph.nodes.filter(
+            (n: any) => n.id !== 'node-core-kanban' && n.collectionId !== 'kanban-main' && n.title !== 'Core_Kanban'
+          );
+          if (filteredNodes.length !== graph.nodes.length) {
+            graph.nodes = filteredNodes;
+            modified = true;
+          }
+        }
+        if (Array.isArray(graph.edges)) {
+          const filteredEdges = graph.edges.filter(
+            (e: any) => e.source !== 'node-core-kanban' && e.target !== 'node-core-kanban'
+          );
+          if (filteredEdges.length !== graph.edges.length) {
+            graph.edges = filteredEdges;
+            modified = true;
+          }
+        }
+        if (modified) {
+          await writeCloudWorkspaceFile(
+            conn,
+            cleanPrefix,
+            '.docustack/graph.json',
+            JSON.stringify(graph, null, 2),
+            'application/json'
+          );
+        }
+      }
+    } catch {}
+
+    // 3. Clean categories.json if it contains default categories
+    try {
+      const catContent = await readCloudWorkspaceFile(conn, cleanPrefix, '.docustack/categories.json');
+      if (catContent) {
+        const cats = JSON.parse(catContent);
+        if (Array.isArray(cats)) {
+          const filteredCats = cats.filter(
+            (c: any) => c.boardId !== 'kanban-main' && c.id !== 'cat-todo' && c.id !== 'cat-progress' && c.id !== 'cat-done'
+          );
+          if (filteredCats.length !== cats.length) {
+            await writeCloudWorkspaceFile(
+              conn,
+              cleanPrefix,
+              '.docustack/categories.json',
+              JSON.stringify(filteredCats, null, 2),
+              'application/json'
+            );
+          }
+        }
+      }
+    } catch {}
+
+    // 4. Clean documents_index.json if it contains default welcome doc
+    try {
+      const docContent = await readCloudWorkspaceFile(conn, cleanPrefix, '.docustack/documents_index.json');
+      if (docContent) {
+        const docs = JSON.parse(docContent);
+        if (Array.isArray(docs)) {
+          const filteredDocs = docs.filter(
+            (d: any) => d.id !== 'doc-welcome' && !d.title?.startsWith('WELCOME_TO_')
+          );
+          if (filteredDocs.length !== docs.length) {
+            await writeCloudWorkspaceFile(
+              conn,
+              cleanPrefix,
+              '.docustack/documents_index.json',
+              JSON.stringify(filteredDocs, null, 2),
+              'application/json'
+            );
+          }
+        }
+      }
+    } catch {}
+  } catch (err) {
+    console.warn('[CloudStorage] purgeDefaultCloudWorkspaceAssets warning:', err);
+  }
+}
+
+/**
+ * Initialize a clean workspace folder layout on Cloud Storage.
+ * Creates only the canonical manifests and root workspace node — NO default boards,
+ * categories, or placeholder files are created, and any legacy defaults are expunged.
+ */
 export async function initializeCloudWorkspaceBucket(
   conn: UserStorageConnection,
   folderPrefix: string,
@@ -517,44 +649,16 @@ export async function initializeCloudWorkspaceBucket(
 
   // CRITICAL IDEMPOTENCY GUARD:
   // Check if .docustack/graph.json already exists in the cloud bucket.
-  // If it already exists, the workspace has already been created/configured with user nodes and cards.
-  // Never overwrite existing user data!
+  // If it already exists, purge any leftover legacy default assets and preserve user data.
   try {
     const existingGraph = await readCloudWorkspaceFile(conn, cleanPrefix, '.docustack/graph.json');
     if (existingGraph && existingGraph.trim().length > 0) {
+      await purgeDefaultCloudWorkspaceAssets(conn, cleanPrefix);
       return { success: true, filesCreated: [] };
     }
   } catch {
-    // If not found or read error, proceed with safe initialization
+    // If not found or read error, proceed with clean initialization
   }
-
-  const boardTitle = 'Core_Kanban';
-  const initialCategories: DocCategory[] = [
-    {
-      id: 'cat-todo',
-      boardId: 'kanban-main',
-      title: 'To Do',
-      description: 'Tasks and documents to start',
-      glyph: 'Inbox',
-      color: '#3B82F6',
-    },
-    {
-      id: 'cat-progress',
-      boardId: 'kanban-main',
-      title: 'In Progress',
-      description: 'Active tasks and documents in progress',
-      glyph: 'Flame',
-      color: '#F97316',
-    },
-    {
-      id: 'cat-done',
-      boardId: 'kanban-main',
-      title: 'Done',
-      description: 'Completed items and documentation',
-      glyph: 'Shield',
-      color: '#10B981',
-    },
-  ];
 
   const manifest = {
     workspaceName,
@@ -565,11 +669,7 @@ export async function initializeCloudWorkspaceBucket(
     owner: userName,
     ecosystem: 'ultrst',
     app: 'docustack',
-    directories: [
-      `${boardTitle}/To_Do`,
-      `${boardTitle}/In_Progress`,
-      `${boardTitle}/Done`,
-    ],
+    directories: [],
   };
 
   const initialRootNode: GraphNode = {
@@ -585,46 +685,6 @@ export async function initializeCloudWorkspaceBucket(
     color: '#D4AF37',
   };
 
-  const initialBoardNode: GraphNode = {
-    id: 'node-core-kanban',
-    collectionId: 'kanban-main',
-    type: 'collection',
-    title: boardTitle,
-    x: 640,
-    y: 240,
-    glyph: 'Kanban',
-    tags: ['Kanban', 'Workflow'],
-    color: '#D4AF37',
-  };
-
-  const safeWsTitle = workspaceName.toUpperCase().replace(/[^A-Z0-9_-]/g, '_');
-  const welcomeDocContent = `# ${workspaceName}
-
-Welcome to **${workspaceName}**, powered by DocuStack and connected to your user-owned **${conn.label || conn.provider}** bucket.
-
-- **Storage Provider**: ${conn.provider}
-- **Canonical Folder**: \`${cleanPrefix}\`
-- **Initialized**: ${new Date().toLocaleString()}
-- **Ecosystem**: Ultrst Open Ecosystem
-
-All markdown notes, Kanban boards, folders, and documents uploaded here are saved directly into your cloud storage bucket.
-`;
-
-  const initialDocuments: DocumentItem[] = [
-    {
-      id: 'doc-welcome',
-      categoryId: 'cat-todo',
-      title: `WELCOME_TO_${safeWsTitle}.MD`,
-      description: `Cloud workspace guide for ${workspaceName}`,
-      content: welcomeDocContent,
-      fileType: 'code',
-      fileSize: '2 KB',
-      uploadedAt: new Date().toISOString().split('T')[0],
-      tags: ['WORKSPACE', 'CLOUD_VAULT', conn.provider.toUpperCase()],
-      aiSummary: `Initial welcome guide saved directly inside ${cleanPrefix} in your ${conn.provider} bucket.`,
-    },
-  ];
-
   // 1. Write workspace_manifest.json
   await writeCloudWorkspaceFile(
     conn,
@@ -635,58 +695,39 @@ All markdown notes, Kanban boards, folders, and documents uploaded here are save
   );
   filesCreated.push('.docustack/workspace_manifest.json');
 
-  // 2. Write graph.json with root and initial Kanban board node
+  // 2. Write graph.json with ONLY the root workspace node (no default kanban)
   await writeCloudWorkspaceFile(
     conn,
     cleanPrefix,
     '.docustack/graph.json',
-    JSON.stringify({ nodes: [initialRootNode, initialBoardNode], edges: [], groups: [] }, null, 2),
+    JSON.stringify({ nodes: [initialRootNode], edges: [], groups: [] }, null, 2),
     'application/json'
   );
   filesCreated.push('.docustack/graph.json');
 
-  // 3. Write categories.json
+  // 3. Write empty categories.json (no default To Do/In Progress/Done)
   await writeCloudWorkspaceFile(
     conn,
     cleanPrefix,
     '.docustack/categories.json',
-    JSON.stringify(initialCategories, null, 2),
+    JSON.stringify([], null, 2),
     'application/json'
   );
   filesCreated.push('.docustack/categories.json');
 
-  // 4. Write documents_index.json
+  // 4. Write empty documents_index.json (no default welcome document)
   await writeCloudWorkspaceFile(
     conn,
     cleanPrefix,
     '.docustack/documents_index.json',
-    JSON.stringify(initialDocuments, null, 2),
+    JSON.stringify([], null, 2),
     'application/json'
   );
   filesCreated.push('.docustack/documents_index.json');
 
-  // 5. Create physical column directories with .keep
-  for (const col of initialCategories) {
-    const colFolder = getSafeCloudFolderName(col.title);
-    await writeCloudWorkspaceFile(
-      conn,
-      cleanPrefix,
-      `${boardTitle}/${colFolder}/.keep`,
-      '',
-      'text/plain'
-    );
-    filesCreated.push(`${boardTitle}/${colFolder}/.keep`);
-  }
-
-  // 6. Write actual welcome document into the To Do column of the Kanban board
-  await writeCloudWorkspaceFile(
-    conn,
-    cleanPrefix,
-    `${boardTitle}/To_Do/WELCOME_TO_${safeWsTitle}.MD`,
-    welcomeDocContent,
-    'text/markdown'
-  );
-  filesCreated.push(`${boardTitle}/To_Do/WELCOME_TO_${safeWsTitle}.MD`);
+  // 5. Purge any legacy default folders if they were created earlier
+  await deleteCloudWorkspaceFolder(conn, cleanPrefix, 'Core_Kanban');
+  await deleteCloudWorkspaceFolder(conn, cleanPrefix, 'core_kanban');
 
   return { success: true, filesCreated };
 }
@@ -709,9 +750,11 @@ export function getSafeCloudFolderName(rawTitle: string): string {
 export async function syncFolderNodeToCloud(
   conn: UserStorageConnection,
   folderPrefix: string,
-  node: GraphNode
+  node: GraphNode,
+  nestedPath?: string  // pre-computed full nested path (e.g. "Projects/Frontend/MyFolder")
 ): Promise<void> {
-  const folderName = getSafeCloudFolderName(node.title || 'Folder');
+  // Use the pre-computed nested path if provided; otherwise fall back to the node's own name
+  const folderName = nestedPath || getSafeCloudFolderName(node.title || 'Folder');
   const readme = `# ${node.title || 'Folder'}\n\nFolder created in DocuStack Workspace.\n- Tags: ${(node.tags || []).join(', ') || 'none'}\n- Created: ${new Date().toISOString()}\n`;
 
   await writeCloudWorkspaceFile(conn, folderPrefix, `${folderName}/.keep`, '', 'text/plain');
@@ -726,9 +769,11 @@ export async function syncKanbanNodeToCloud(
   conn: UserStorageConnection,
   folderPrefix: string,
   node: GraphNode,
-  columns: DocCategory[] = []
+  columns: DocCategory[] = [],
+  nestedPath?: string  // pre-computed full nested path (e.g. "Projects/Frontend/MyKanban")
 ): Promise<void> {
-  const boardFolder = getSafeCloudFolderName(node.title || 'Kanban_Board');
+  // Use the pre-computed nested path if provided; otherwise fall back to the node's own name
+  const boardFolder = nestedPath || getSafeCloudFolderName(node.title || 'Kanban_Board');
 
   // 1. Board Manifest
   const boardManifest = {
@@ -816,12 +861,13 @@ export async function syncEntireWorkspaceToCloud(
   );
   syncedCount++;
 
-  // 4. Physical Folder & Kanban Nodes Sync
+  // 4. Physical Folder & Kanban Nodes Sync (Nested)
   for (const node of data.nodes) {
-    if (node.isWorkspaceRoot) continue;
+    if (node.isWorkspaceRoot || !node.title || !node.title.trim()) continue;
+    const nestedPath = resolveNodeNestedPath(node, data.nodes, data.edges);
     if (node.type === 'folder' || node.glyph === 'Folder') {
       try {
-        await syncFolderNodeToCloud(conn, folderPrefix, node);
+        await syncFolderNodeToCloud(conn, folderPrefix, node, nestedPath);
         syncedCount++;
       } catch (err) {
         console.warn(`[CloudStorage] Error syncing folder node ${node.title}:`, err);
@@ -830,7 +876,7 @@ export async function syncEntireWorkspaceToCloud(
       try {
         const boardId = node.collectionId || node.id;
         const boardCols = data.categories.filter((c) => c.boardId === boardId);
-        await syncKanbanNodeToCloud(conn, folderPrefix, node, boardCols);
+        await syncKanbanNodeToCloud(conn, folderPrefix, node, boardCols, nestedPath);
         syncedCount++;
       } catch (err) {
         console.warn(`[CloudStorage] Error syncing kanban node ${node.title}:`, err);
@@ -838,13 +884,13 @@ export async function syncEntireWorkspaceToCloud(
     }
   }
 
-  // 5. Individual Document Physical Markdown Files
+  // 5. Individual Document Physical Markdown Files (Nested)
   for (const doc of data.documents) {
     try {
       const safeTitle = (doc.title || 'untitled').toLowerCase().replace(/[^a-z0-9_.-]/g, '_');
       const filename = safeTitle.includes('.') ? safeTitle : `${safeTitle}.md`;
 
-      // Check if document belongs to a Kanban column
+      // Check if document belongs to a Kanban column or folder
       const assignedCat = data.categories.find((c) => c.id === doc.categoryId);
       let targetPath = `inbox/${filename}`;
 
@@ -852,10 +898,16 @@ export async function syncEntireWorkspaceToCloud(
         const catFolder = getSafeCloudFolderName(assignedCat.title);
         if (assignedCat.boardId) {
           const boardNode = data.nodes.find((n) => (n.collectionId || n.id) === assignedCat.boardId);
-          const boardFolder = getSafeCloudFolderName(boardNode?.title || 'Kanban');
-          targetPath = `${boardFolder}/${catFolder}/${filename}`;
+          const boardPath = boardNode ? resolveNodeNestedPath(boardNode, data.nodes, data.edges) : 'Kanban';
+          targetPath = `${boardPath}/${catFolder}/${filename}`;
         } else {
           targetPath = `${catFolder}/${filename}`;
+        }
+      } else if (doc.categoryId) {
+        const folderNode = data.nodes.find((n) => n.id === doc.categoryId || n.title === doc.categoryId);
+        if (folderNode) {
+          const folderPath = resolveNodeNestedPath(folderNode, data.nodes, data.edges);
+          targetPath = `${folderPath}/${filename}`;
         }
       }
 
@@ -883,19 +935,26 @@ export async function syncEntireWorkspaceToCloud(
       'inbox/.keep',
     ]);
 
-    // Active folder and kanban nodes
+    // Active folder and kanban nodes (register both nested paths and fallbacks)
     for (const node of data.nodes) {
-      if (node.isWorkspaceRoot) continue;
+      if (node.isWorkspaceRoot || !node.title || !node.title.trim()) continue;
       const safeTitle = getSafeCloudFolderName(node.title);
+      const nestedPath = resolveNodeNestedPath(node, data.nodes, data.edges) || safeTitle;
+
       if (node.type === 'folder' || node.glyph === 'Folder') {
+        validRelativeKeys.add(`${nestedPath}/.keep`);
+        validRelativeKeys.add(`${nestedPath}/README.md`);
         validRelativeKeys.add(`${safeTitle}/.keep`);
         validRelativeKeys.add(`${safeTitle}/README.md`);
       } else if (node.type === 'collection' || node.glyph === 'Kanban') {
+        validRelativeKeys.add(`${nestedPath}/kanban_board.json`);
         validRelativeKeys.add(`${safeTitle}/kanban_board.json`);
         const boardId = node.collectionId || node.id;
         const boardCols = data.categories.filter((c) => c.boardId === boardId);
         for (const col of boardCols) {
           const colFolder = getSafeCloudFolderName(col.title);
+          validRelativeKeys.add(`${nestedPath}/${colFolder}/.keep`);
+          validRelativeKeys.add(`${nestedPath}/${colFolder}/README.md`);
           validRelativeKeys.add(`${safeTitle}/${colFolder}/.keep`);
           validRelativeKeys.add(`${safeTitle}/${colFolder}/README.md`);
         }
@@ -923,10 +982,16 @@ export async function syncEntireWorkspaceToCloud(
         const catFolder = getSafeCloudFolderName(assignedCat.title);
         if (assignedCat.boardId) {
           const boardNode = data.nodes.find((n) => (n.collectionId || n.id) === assignedCat.boardId);
-          const boardFolder = getSafeCloudFolderName(boardNode?.title || 'Kanban');
-          validRelativeKeys.add(`${boardFolder}/${catFolder}/${filename}`);
+          const boardPath = boardNode ? resolveNodeNestedPath(boardNode, data.nodes, data.edges) : 'Kanban';
+          validRelativeKeys.add(`${boardPath}/${catFolder}/${filename}`);
         } else {
           validRelativeKeys.add(`${catFolder}/${filename}`);
+        }
+      } else if (doc.categoryId) {
+        const folderNode = data.nodes.find((n) => n.id === doc.categoryId || n.title === doc.categoryId);
+        if (folderNode) {
+          const folderPath = resolveNodeNestedPath(folderNode, data.nodes, data.edges);
+          validRelativeKeys.add(`${folderPath}/${filename}`);
         }
       } else {
         validRelativeKeys.add(`inbox/${filename}`);
@@ -960,6 +1025,52 @@ export async function syncEntireWorkspaceToCloud(
             console.warn(`[CloudStorage] Error deleting orphaned key ${obj.Key}:`, delErr);
           }
         }
+      }
+
+      // 6b. Sweep and purge any orphaned Delete Markers (asterisks) in Backblaze B2 across the workspace prefix
+      try {
+        let dmMarker: string | undefined = undefined;
+        let dmVersionMarker: string | undefined = undefined;
+        let moreDm = true;
+
+        while (moreDm) {
+          const cmdInput: any = {
+            Bucket: bucketName,
+            Prefix: prefixClean.replace(/\/+$/, ''),
+          };
+          if (dmMarker) cmdInput.KeyMarker = dmMarker;
+          if (dmVersionMarker && dmMarker) cmdInput.VersionIdMarker = dmVersionMarker;
+
+          const verRes: any = await s3.send(new ListObjectVersionsCommand(cmdInput));
+          const deleteMarkers = verRes.DeleteMarkers || [];
+          const orphanedMarkersToDelete: { Key: string; VersionId: string }[] = [];
+
+          for (const dm of deleteMarkers) {
+            if (!dm.Key || !dm.VersionId) continue;
+            // Purge any delete marker under the workspace prefix
+            orphanedMarkersToDelete.push({ Key: dm.Key, VersionId: dm.VersionId });
+          }
+
+          if (orphanedMarkersToDelete.length > 0) {
+            for (let i = 0; i < orphanedMarkersToDelete.length; i += 1000) {
+              const batch = orphanedMarkersToDelete.slice(i, i + 1000);
+              try {
+                await s3.send(
+                  new DeleteObjectsCommand({
+                    Bucket: bucketName,
+                    Delete: { Objects: batch, Quiet: true },
+                  })
+                );
+              } catch {}
+            }
+          }
+
+          moreDm = Boolean(verRes.IsTruncated);
+          dmMarker = verRes.NextKeyMarker;
+          dmVersionMarker = verRes.NextVersionIdMarker;
+        }
+      } catch (dmErr) {
+        console.warn('[CloudStorage] Delete marker sweep bypassed:', dmErr);
       }
     } else if (conn.provider === 'supabase_storage') {
       const url = (conn.supabaseUrl || '').trim();
