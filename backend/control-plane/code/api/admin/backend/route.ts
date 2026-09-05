@@ -22,21 +22,29 @@ import { AdminBackendConfig, DatabaseConnectionEntry } from '@/lib/control-plane
 import { logAdminEvent } from '@/lib/audit-logger';
 
 export async function GET(req: NextRequest) {
-  const guard = await enforceAdminGuard(req);
-  if (!guard.authorized) {
-    return NextResponse.json({ success: false, error: guard.error }, { status: 403 });
+  try {
+    const guard = await enforceAdminGuard(req);
+    if (!guard.authorized) {
+      return NextResponse.json({ success: false, error: guard.error }, { status: 403 });
+    }
+
+    const cluster = loadDatabaseClusterConfig();
+    const config = loadAdminBackendConfig();
+    const telemetry = getControlPlaneTelemetry();
+
+    return NextResponse.json({
+      success: true,
+      cluster,
+      config,
+      telemetry,
+    });
+  } catch (err: any) {
+    console.error('[Admin Backend API] GET error:', err);
+    return NextResponse.json({
+      success: false,
+      error: err?.message || 'Failed to retrieve admin backend configuration',
+    }, { status: 500 });
   }
-
-  const cluster = loadDatabaseClusterConfig();
-  const config = loadAdminBackendConfig();
-  const telemetry = getControlPlaneTelemetry();
-
-  return NextResponse.json({
-    success: true,
-    cluster,
-    config,
-    telemetry,
-  });
 }
 
 export async function POST(req: NextRequest) {

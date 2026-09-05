@@ -836,7 +836,7 @@ export async function verifySession(req: NextRequest): Promise<{ userId: string;
   const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
   const headerToken = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : null;
 
-  const token = cookieToken || headerToken;
+  const token = headerToken || cookieToken;
   if (!token) return null;
 
   const sessionData = verifySessionToken(token);
@@ -879,7 +879,7 @@ export async function resolveRequestContextVault(req: NextRequest): Promise<Requ
   const cookieToken = req.cookies.get('docustack_session')?.value;
   const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
   const headerToken = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : null;
-  const token = cookieToken || headerToken;
+  const token = headerToken || cookieToken;
 
   let user: UserAccount | null = null;
   if (token) {

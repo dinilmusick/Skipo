@@ -40,8 +40,10 @@ CONTROL PLANE (Application-Owned)
 >    - **NO local-only SQLite (`accounts.sqlite`) or ephemeral `/tmp` file fallbacks for user accounts**. Never branch on `if (isVercel)` to create a local SQLite database that fakes working state locally while failing in cloud serverless environments.
 >    - If no database is configured in `.env`, both local dev and production report the exact same standby state: `System Backend Database (Awaiting .env)` with instructions to provide `.env.local` or hosting variables.
 >    - Registration and authentication strictly require and verify against the configured database, eliminating phantom local accounts and guaranteeing 100% parity across local and hosted environments.
-> 3. **Admin UI Isolation & Back-Navigation Guard**:
+> 3. **Admin UI Isolation, Back-Navigation Guard & Dedicated `/admin/login` Portal Flow**:
 >    - The Admin Control Plane (`/admin`) is an isolated governance portal.
+>    - **Single Dedicated Admin Login Portal**: The user authentication screen (`PortalAuthScreen.tsx`) MUST NEVER render an inline redundant admin login form alongside the user login form. Instead, follow DocuStack's exact standard: a clear link to the dedicated Admin Login Portal (`/admin/login`).
+>    - **Token Storage & Precedence Parity**: Store and read both `adminToken` / `authToken` and both casing conventions (`bromAuthToken` and `brom_auth_token` or `docustackAuthToken` and `docustack_auth_token`) so that logging in at `/admin/login` immediately grants access to `/admin` without redundant re-authentication. Server guards (`verifySession`, `resolveRequestContextVault`) must prioritize explicit `Authorization: Bearer` headers (`headerToken || cookieToken`), preventing stale ambient user cookies from shadowing active admin bearer tokens.
 >    - **NEVER** place a "Return to Workspace" back button (`<Link href="/" />`) with a back arrow (`<ArrowLeft />`) in the Admin UI header. Clicking back from the Admin UI must return to the **Admin Login Portal** (`/admin/login`) or trigger a session sign-out, NEVER plunge the administrator into a workspace window (`/`).
 >    - **Route Protection on Root (`/`)**: If an authenticated administrator (`role === 'admin'`) arrives at `/` (e.g. via browser history or back button), the system must immediately redirect them to `/admin` to keep them inside the Admin Control Plane rather than dumping them into an unconfigured or empty workspace window.
 > 4. **Strict Zero-Demo Accounts Mandate**:
@@ -354,4 +356,12 @@ The Admin Control Plane (`/admin`) is a dedicated system-level administrative co
 3. **Persistent Serverless Auth Parity**:
    - All authentication endpoints (`/api/auth/login`, `/api/admin/auth/login`, `/api/admin/auth/session`, `/api/admin/auth/logout`) MUST use HMAC session tokens (`createSessionToken`, `verifySessionToken`) and query persistent user storage (`findUserByIdAsync`, `authenticateUserAsync`, `registerUserAsync`) via `auth-storage.ts`.
    - Always attach the HttpOnly session cookie (`attachSessionCookie(response, token)`).
+4. **Dedicated Single `/admin/login` Portal Architecture**:
+   - Never embed an inline admin login form inside the standard user auth screen (`PortalAuthScreen.tsx`). Provide a direct link to `/admin/login`.
+   - The `/admin/login` page must check for existing valid admin session tokens on mount and automatically forward authenticated administrators directly to `/admin`.
+   - Persist both camelCase and snake_case keys (`bromAuthToken` and `brom_auth_token`) so all components and middleware seamlessly resolve tokens.
+5. **Control Plane Telemetry & API Error Resilience**:
+   - `getControlPlaneTelemetry()` must never throw uncaught `TypeError` when evaluating engine properties (e.g. guard `(primary?.engine || 'SQLITE').toUpperCase()`).
+   - `assertStorageIsolation()` must perform non-throwing boolean safety checks.
+   - All admin API routes (`/api/admin/backend`, `/api/admin/audit`, etc.) must wrap handling in `try ... catch` and return structured JSON (`{ success: false, error: ... }`) with proper HTTP status codes rather than allowing Next.js unhandled HTML 500 error pages.
 
