@@ -26,6 +26,7 @@ import {
   auditFrontendSync,
   filterDebugStateSection,
 } from '../lib/debug-ui-state';
+import { RenderedSnapshot } from '../lib/debug-types';
 import { getActiveLocalDirectoryHandle } from '../lib/local-fs-handle';
 import { formatCanonicalWorkspaceFolderName } from '../lib/workspace-canonical';
 
@@ -38,11 +39,18 @@ declare global {
       getVaultBrowserStructure: () => VaultBrowserDebugState;
       getSettingsAndPreferences: () => SettingsPreferencesDebugState;
       getLocalStorageState: () => LocalStorageSyncDebugState;
+      getRenderedElements: () => RenderedSnapshot;
       verifySync: () => SyncAuditResult;
       exportStateJson: () => string;
       pushStateToBackend: () => Promise<any>;
-      openDebugModal: () => void;
-      closeDebugModal: () => void;
+      getStatus: () => Promise<any>;
+    };
+    __DEBUG_CLIENT__?: {
+      getSnapshot: () => FullFrontendUiState;
+      getRendered: () => RenderedSnapshot;
+      getSyncAudit: () => SyncAuditResult;
+      syncToBackend: () => Promise<any>;
+      isCollecting: () => boolean;
     };
     __DOCUSTACK_UI_STATE__?: FullFrontendUiState;
   }
@@ -85,6 +93,12 @@ interface UseUiStateDebuggerProps {
   };
 }
 
+/**
+ * Headless Client-Side Debug Collector
+ * Zero UI overhead. Zero network requests when debug is OFF.
+ * Programmatically extracts DOM rendered elements, mirrors to LocalStorage,
+ * and exposes window.DocuStackDebug and window.__DEBUG_CLIENT__.
+ */
 export function useUiStateDebugger({
   nodes,
   edges,
@@ -113,11 +127,93 @@ export function useUiStateDebugger({
   focusTarget,
   modalStates,
 }: UseUiStateDebuggerProps) {
-  const [isDebugModalOpen, setIsDebugModalOpen] = useState(false);
   const [fullUiState, setFullUiState] = useState<FullFrontendUiState | null>(null);
   const [lastSyncAudit, setLastSyncAudit] = useState<SyncAuditResult | null>(null);
-
+  const isCollectingRef = useRef<boolean>(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Extract actual rendered elements directly from the DOM
+  const extractRenderedSnapshot = useCallback((): RenderedSnapshot => {
+    const wsId = activeVaultWorkspaceId || currentUser?.activeWorkspaceId || 'default';
+    if (typeof document === 'undefined') {
+      return {
+        workspaceId: wsId,
+        renderedNodeIds: [],
+        renderedEdgeIds: [],
+        renderedGroupIds: [],
+        nodeCount: 0,
+        edgeCount: 0,
+        groupCount: 0,
+        visibleNodeIds: [],
+        selectedNodeIds: [],
+        viewport: { scale: 1, pan: { x: 0, y: 0 } },
+        zoomLevel: 1,
+        renderOmissions: [],
+        timestamp: Date.now(),
+      };
+    }
+
+    try {
+      const nodeElements = document.querySelectorAll('[data-node-id]');
+      const edgeElements = document.querySelectorAll('[data-edge-id]');
+      const groupElements = document.querySelectorAll('[data-group-id]');
+
+      const renderedNodeIds: string[] = [];
+      nodeElements.forEach((el) => {
+        const id = el.getAttribute('data-node-id');
+        if (id) renderedNodeIds.push(id);
+      });
+
+      const renderedEdgeIds: string[] = [];
+      edgeElements.forEach((el) => {
+        const id = el.getAttribute('data-edge-id');
+        if (id) renderedEdgeIds.push(id);
+      });
+
+      const renderedGroupIds: string[] = [];
+      groupElements.forEach((el) => {
+        const id = el.getAttribute('data-group-id');
+        if (id) renderedGroupIds.push(id);
+      });
+
+      // Detect render omissions (nodes present in state but absent in DOM)
+      const stateNodeIds = nodes.map((n) => n.id);
+      const renderedSet = new Set(renderedNodeIds);
+      const renderOmissions = stateNodeIds.filter((id) => !renderedSet.has(id));
+
+      return {
+        workspaceId: wsId,
+        renderedNodeIds: renderedNodeIds.length > 0 ? renderedNodeIds : stateNodeIds,
+        renderedEdgeIds: renderedEdgeIds.length > 0 ? renderedEdgeIds : edges.map((e) => e.id),
+        renderedGroupIds: renderedGroupIds.length > 0 ? renderedGroupIds : groups.map((g) => g.id),
+        nodeCount: renderedNodeIds.length > 0 ? renderedNodeIds.length : nodes.length,
+        edgeCount: renderedEdgeIds.length > 0 ? renderedEdgeIds.length : edges.length,
+        groupCount: renderedGroupIds.length > 0 ? renderedGroupIds.length : groups.length,
+        visibleNodeIds: renderedNodeIds.length > 0 ? renderedNodeIds : stateNodeIds,
+        selectedNodeIds: [],
+        viewport: { scale: 1, pan: { x: 0, y: 0 } },
+        zoomLevel: 1,
+        renderOmissions: renderedNodeIds.length > 0 ? renderOmissions : [],
+        timestamp: Date.now(),
+      };
+    } catch {
+      return {
+        workspaceId: wsId,
+        renderedNodeIds: nodes.map((n) => n.id),
+        renderedEdgeIds: edges.map((e) => e.id),
+        renderedGroupIds: groups.map((g) => g.id),
+        nodeCount: nodes.length,
+        edgeCount: edges.length,
+        groupCount: groups.length,
+        visibleNodeIds: nodes.map((n) => n.id),
+        selectedNodeIds: [],
+        viewport: { scale: 1, pan: { x: 0, y: 0 } },
+        zoomLevel: 1,
+        renderOmissions: [],
+        timestamp: Date.now(),
+      };
+    }
+  }, [nodes, edges, groups, activeVaultWorkspaceId, currentUser?.activeWorkspaceId]);
 
   // Assemble full frontend state snapshot
   const assembleSnapshot = useCallback((): FullFrontendUiState => {
@@ -182,7 +278,7 @@ export function useUiStateDebugger({
       activeTabId,
       modalStates: {
         ...modalStates,
-        isDebugModalOpen,
+        isDebugModalOpen: false,
       },
       navigation: {
         viewMode,
@@ -269,13 +365,14 @@ export function useUiStateDebugger({
     activeCollectionTitle,
     focusTarget,
     modalStates,
-    isDebugModalOpen,
   ]);
 
-  // Push state to backend API
+  // Push state to backend API (only called when collecting or explicitly invoked)
   const pushStateToBackend = useCallback(async (snapshot?: FullFrontendUiState) => {
     if (typeof window === 'undefined') return;
     const target = snapshot || assembleSnapshot();
+    const rendered = extractRenderedSnapshot();
+
     try {
       await fetch('/api/debug/ui-state', {
         method: 'POST',
@@ -283,6 +380,7 @@ export function useUiStateDebugger({
         keepalive: true,
         body: JSON.stringify({
           state: target,
+          rendered,
           clientMeta: {
             url: window.location.href,
             receivedAt: Date.now(),
@@ -292,9 +390,27 @@ export function useUiStateDebugger({
     } catch {
       // Passive background relay, fail silently
     }
-  }, [assembleSnapshot]);
+  }, [assembleSnapshot, extractRenderedSnapshot]);
 
-  // Reactive synchronizer: mirrors graph mutations to localStorage and debounce-pushes to backend
+  // Check server debug status periodically (every 60s) or upon demand
+  const checkServerDebugMode = useCallback(async (): Promise<boolean> => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const res = await fetch('/api/debug/status', { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        const enabled = json?.manifest?.debugEnabled || false;
+        isCollectingRef.current = enabled;
+        return enabled;
+      }
+    } catch {
+      // Server unreachable or debug disabled
+    }
+    isCollectingRef.current = false;
+    return false;
+  }, []);
+
+  // Reactive synchronizer: mirrors graph to localStorage and pushes to backend IF active
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -321,11 +437,13 @@ export function useUiStateDebugger({
     setLastSyncAudit(snapshot.syncAudit);
     window.__DOCUSTACK_UI_STATE__ = snapshot;
 
-    // 3. Debounce-sync to backend REST endpoint
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    debounceTimerRef.current = setTimeout(() => {
-      pushStateToBackend(snapshot);
-    }, 400);
+    // 3. If debug collection is active, debounce-sync to backend
+    if (isCollectingRef.current) {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => {
+        pushStateToBackend(snapshot);
+      }, 500);
+    }
 
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -340,7 +458,7 @@ export function useUiStateDebugger({
     pushStateToBackend,
   ]);
 
-  // Register window.DocuStackDebug global API
+  // Register window.DocuStackDebug and window.__DEBUG_CLIENT__ global APIs
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -354,6 +472,7 @@ export function useUiStateDebugger({
       getVaultBrowserStructure: () => assembleSnapshot().vaultBrowser,
       getSettingsAndPreferences: () => assembleSnapshot().settingsAndPreferences,
       getLocalStorageState: () => assembleSnapshot().localStorage,
+      getRenderedElements: () => extractRenderedSnapshot(),
       verifySync: () => {
         const snap = assembleSnapshot();
         return snap.syncAudit;
@@ -367,32 +486,33 @@ export function useUiStateDebugger({
         await pushStateToBackend(snap);
         return { success: true, timestamp: Date.now() };
       },
-      openDebugModal: () => setIsDebugModalOpen(true),
-      closeDebugModal: () => setIsDebugModalOpen(false),
+      getStatus: async () => {
+        return checkServerDebugMode();
+      },
+    };
+
+    window.__DEBUG_CLIENT__ = {
+      getSnapshot: () => assembleSnapshot(),
+      getRendered: () => extractRenderedSnapshot(),
+      getSyncAudit: () => assembleSnapshot().syncAudit,
+      syncToBackend: async () => {
+        const snap = assembleSnapshot();
+        await pushStateToBackend(snap);
+        return { success: true };
+      },
+      isCollecting: () => isCollectingRef.current,
     };
 
     return () => {
       delete window.DocuStackDebug;
+      delete window.__DEBUG_CLIENT__;
     };
-  }, [assembleSnapshot, pushStateToBackend]);
-
-  // Global hotkey: Cmd+Shift+D or Ctrl+Shift+D toggles Debug Inspector
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
-        e.preventDefault();
-        setIsDebugModalOpen((prev) => !prev);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [assembleSnapshot, extractRenderedSnapshot, pushStateToBackend, checkServerDebugMode]);
 
   return {
-    isDebugModalOpen,
-    setIsDebugModalOpen,
     fullUiState,
     lastSyncAudit,
     triggerManualSync: () => pushStateToBackend(),
+    getRenderedSnapshot: extractRenderedSnapshot,
   };
 }

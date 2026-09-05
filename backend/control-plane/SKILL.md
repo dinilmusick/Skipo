@@ -333,11 +333,11 @@ The Admin Control Plane (`/admin`) is a dedicated system-level administrative co
    npm install @neondatabase/serverless @supabase/supabase-js lucide-react clsx tailwind-merge
    ```
 2. **Copy Code**:
-   - Copy `code/lib/*` ➔ `lib/` (includes `lib/debug-ui-state.ts` for full state introspection schemas)
-   - Copy `code/hooks/*` ➔ `hooks/` (includes `hooks/useUiStateDebugger.ts` for reactive state bridging and LocalStorage mirroring)
-   - Copy `code/api/*` ➔ `app/api/` (includes `/api/debug/ui-state` and `/api/debug/sync-audit`)
-   - Copy `code/components/*` ➔ `components/` (includes `components/debug/DebugStateModal.tsx`)
-   - Copy `scripts/test-debug-ui-state.ts` ➔ `scripts/` (for automated UI state verification)
+   - Copy `code/lib/*` ➔ `lib/` (includes `lib/debug-types.ts`, `lib/debug-manager.ts`, `lib/debug-auth.ts`, and `lib/debug-ui-state.ts` for full 4-tier state introspection & consistency)
+   - Copy `code/hooks/*` ➔ `hooks/` (includes `hooks/useUiStateDebugger.ts` for headless DOM rendered element extraction and LocalStorage mirroring)
+   - Copy `code/api/*` ➔ `app/api/` (includes complete 24-endpoint `/api/debug/**` suite and `/api/health`)
+   - Copy `code/components/*` ➔ `components/` (Headless compliance: strictly zero debug UI)
+   - Copy `scripts/test-production-debug-suite.ts` and `scripts/test-debug-ui-state.ts` ➔ `scripts/` (for automated 40-point verification)
 3. **Configure Environment Variables**:
    ```env
    ADMIN_EMAIL=admin@example.com

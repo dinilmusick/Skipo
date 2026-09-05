@@ -25,8 +25,6 @@ import MediaVaultModal from '../media/MediaVaultModal';
 import WorkspaceFolderSelectorModal from './WorkspaceFolderSelectorModal';
 import WorkspaceTilesMenu from './WorkspaceTilesMenu';
 import AdminPanelModal from '../admin/AdminPanelModal';
-import DebugStateModal from '../debug/DebugStateModal';
-import { FullFrontendUiState } from '../../lib/debug-ui-state';
 
 export interface WorkspaceModalsContainerProps {
   theme: ThemeMode;
@@ -131,12 +129,6 @@ export interface WorkspaceModalsContainerProps {
   transitionTargetMode: any;
   setTransitionTargetMode: (mode: any) => void;
   setViewMode: (mode: any) => void;
-
-  // Debug UI State
-  isDebugModalOpen?: boolean;
-  setIsDebugModalOpen?: (open: boolean) => void;
-  fullUiState?: FullFrontendUiState | null;
-  onTriggerSync?: () => void;
 }
 
 export default function WorkspaceModalsContainer({
@@ -145,10 +137,6 @@ export default function WorkspaceModalsContainer({
   savedThemes,
   motionEnabled,
   appWallpaper,
-  isDebugModalOpen,
-  setIsDebugModalOpen,
-  fullUiState,
-  onTriggerSync,
   onToggleTheme,
   onChangeThemeConfig,
   onSaveCustomTheme,
@@ -350,18 +338,7 @@ export default function WorkspaceModalsContainer({
         isOpen={isMonitorOpen}
         onClose={() => setIsMonitorOpen(false)}
         theme={theme}
-        onOpenDebugModal={() => setIsDebugModalOpen?.(true)}
       />
-
-      {isDebugModalOpen && (
-        <DebugStateModal
-          isOpen={isDebugModalOpen}
-          onClose={() => setIsDebugModalOpen?.(false)}
-          theme={theme}
-          state={fullUiState || null}
-          onTriggerSync={onTriggerSync}
-        />
-      )}
 
       {confirmModalState?.isOpen && (
         <ConfirmationModal

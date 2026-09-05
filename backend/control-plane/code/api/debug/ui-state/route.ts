@@ -13,7 +13,8 @@ import {
   getActiveFolderPrefix,
   getWorkspaceFileTree,
 } from '@/lib/workspaceFS';
-import { resolveRequestContextVault, findUserByIdAsync } from '@/lib/auth-storage';
+import { resolveRequestContextVault } from '@/lib/auth-storage';
+import { debugManager } from '@/lib/debug-manager';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -30,6 +31,8 @@ declare global {
       receivedAt: number;
     };
   } | undefined;
+  // eslint-disable-next-line no-var
+  var __docustack_latest_rendered_state: any;
 }
 
 /**
@@ -58,6 +61,23 @@ export async function POST(req: NextRequest) {
       state,
       clientMeta,
     };
+
+    // If client provided rendered DOM elements, stash for Tier 4 inspection
+    if (payload.rendered) {
+      global.__docustack_latest_rendered_state = payload.rendered;
+    }
+
+    const wsId = state.menus?.activeWorkspace?.id || 'default';
+
+    // Track in debug manager
+    if (debugManager.isEnabled()) {
+      debugManager.recordEvent('UI_STATE_INGESTED', {
+        workspaceId: wsId,
+        nodeCount: state.nodeGraph?.nodes?.length ?? 0,
+        edgeCount: state.nodeGraph?.edges?.length ?? 0,
+        syncScore: state.syncAudit?.syncScorePercent,
+      }, wsId);
+    }
 
     return NextResponse.json({
       success: true,

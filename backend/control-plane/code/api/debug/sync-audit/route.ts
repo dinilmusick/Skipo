@@ -6,7 +6,8 @@ import {
   getVaultAbsolutePath,
   getActiveVaultName,
 } from '@/lib/workspaceFS';
-import { resolveRequestContextVault, findUserByIdAsync } from '@/lib/auth-storage';
+import { resolveRequestContextVault } from '@/lib/auth-storage';
+import { debugManager } from '@/lib/debug-manager';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -17,6 +18,8 @@ export const runtime = 'nodejs';
  *  1. Frontend In-Memory React State (if reported by browser)
  *  2. Browser LocalStorage (if reported by browser)
  *  3. Backend Persistent Vault Storage (stored on physical disk / cloud)
+ *
+ * Delegates internally to DebugManager consistency engine while preserving backward compatibility.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -28,10 +31,14 @@ export async function GET(req: NextRequest) {
     const vaultName = getActiveVaultName();
 
     const serverUser = session?.user || null;
+    const wsId = serverUser?.activeWorkspaceId || 'default';
 
     const cached = global.__docustack_latest_ui_state;
     const clientConnected = Boolean(cached && Date.now() - cached.clientMeta!.receivedAt < 300000);
     const clientState = cached?.state;
+
+    // Run deep check in debug manager
+    const consistency = await debugManager.runConsistencyCheck(wsId);
 
     const diffs: string[] = [];
 
@@ -81,7 +88,7 @@ export async function GET(req: NextRequest) {
       success: true,
       timestamp: Date.now(),
       clientConnected,
-      isFullySynced: diffs.length === 0,
+      isFullySynced: diffs.length === 0 && consistency.consistent,
       syncScorePercent: syncScore,
       vault: {
         name: vaultName,
@@ -118,6 +125,11 @@ export async function GET(req: NextRequest) {
           isSynced: true,
           syncScorePercent: 100,
           checks: [],
+        },
+        engineConsistency: {
+          consistent: consistency.consistent,
+          discrepanciesCount: consistency.discrepancies.length,
+          revisions: consistency.revisions,
         },
       },
       divergences: diffs,

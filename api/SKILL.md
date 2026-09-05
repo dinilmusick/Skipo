@@ -130,22 +130,94 @@ Every application built using Skipo must enforce 100% synchronization between fr
 
 ---
 
-## 6. REUSABLE ASSETS DIRECTORY
+
+---
+
+## 6. PRODUCTION DEBUG API INFRASTRUCTURE (40-POINT HEADLESS SUITE)
+
+The application ships with a production-grade, headless debugging subsystem that allows AI agents and automation to verify the Core Invariant:
+$$\text{WORKSPACE TRUTH} \implies \text{PERSISTED} = \text{BACKEND} = \text{FRONTEND} = \text{RENDERED}$$
+
+### Guarantees & Constraints:
+1. **Ships in Production**: Built into standard builds.
+2. **Disabled by Default**: Default mode is `OFF`. Zero network traffic and zero background polling when disabled.
+3. **NO DEBUG UI**: Strictly zero internal debug UI modals, buttons, or badges. Debugging is conducted 100% programmatically via REST APIs.
+4. **Session-Scoped & Bounded**: Controlled via `POST /api/debug/enable` (with TTL in minutes, mode `OBSERVE` or `TRACE`, optional workspace filter). Automatically reverts to `OFF` upon TTL expiration.
+5. **Security & Redaction**: Automatic recursion redacting passwords, auth tokens, bearer tokens, storage keys, and masking document text.
+6. **Failure Isolation**: All debugger code is wrapped in `try/catch`. Debugger errors never disrupt host workloads.
+
+### Complete REST API Route Surface:
+- **Control**:
+  - `GET /api/debug/status`: Capability manifest, active mode, active session, memory metrics.
+  - `POST /api/debug/enable`: Enable session (`mode: 'OBSERVE' | 'TRACE'`, `ttlMinutes: 30`, `workspaceId`).
+  - `POST /api/debug/disable`: Terminate active debug session (mode reverts to `OFF`).
+  - `GET /api/debug/config` & `PUT /api/debug/config`: Read and update debug parameters.
+  - `GET /api/debug/sessions`: List active and historical sessions.
+  - `GET /api/debug/sessions/:id` & `DELETE /api/debug/sessions/:id`: Session detail and termination.
+- **4-Tier State Snapshots**:
+  - `GET /api/debug/workspace/:id/frontend`: In-memory React state (nodes, edges, groups, categories, documents, uiState, revision).
+  - `GET /api/debug/workspace/:id/backend`: Authoritative API memory state.
+  - `GET /api/debug/workspace/:id/persisted`: Read directly from physical disk (`.docustack/graph.json`) bypassing memory cache.
+  - `GET /api/debug/workspace/:id/rendered`: Actual client canvas DOM elements (`[data-node-id]`, `[data-edge-id]`, viewport).
+  - `GET /api/debug/workspace/:id/snapshot`: Unified 4-tier snapshot + revisions + consistency check.
+- **Consistency & Revisions**:
+  - `POST /api/debug/workspace/:id/check`: 7-point consistency matrix detecting phantom nodes, ghost nodes, zombie edges, render lag, property drift, and revision drift.
+  - `GET /api/debug/workspace/:id/diff?source=frontend&target=backend`: Field-level diffing between any two layers.
+  - `GET /api/debug/workspace/:id/revisions`: Monotonically increasing revision numbers across layers.
+- **Diagnostics & Tracing**:
+  - `GET /api/debug/mutations`: Recorded mutations (`NODE_CREATE`, `NODE_MOVE`, `NODE_UPDATE`, `NODE_DELETE`, etc.).
+  - `GET /api/debug/requests`: Correlated API activity logs.
+  - `GET /api/debug/persistence`: Physical storage read/write/delete operations and durations.
+  - `GET /api/debug/errors`: Aggregated runtime errors across frontend, backend, persistence, renderer.
+  - `GET /api/debug/performance`: Latency metrics, benchmarks, and payload sizes.
+  - `GET /api/debug/events`: Raw event ring buffer (max 1000 items).
+  - `GET /api/debug/trace`: Live Server-Sent Events (SSE) stream (active in TRACE mode).
+  - `POST /api/debug/export`: Comprehensive diagnostic bundle for AI agent consumption.
+  - `GET /api/health`: Health route integrated with debug status summary.
+  - `GET /api/debug/ui-state` & `POST /api/debug/ui-state`: Legacy client relay compatibility.
+  - `GET /api/debug/sync-audit`: Legacy 3-tier sync comparison audit.
+
+### Standard 16-Step AI Agent Debug Workflow:
+```
+1.  GET  /api/debug/status                     -> Verify manifest and initial OFF state
+2.  POST /api/debug/enable                     -> Enable TRACE mode with TTL
+3.  [Perform mutations / workflow actions]
+4.  GET  /api/debug/workspace/{id}/snapshot    -> Retrieve unified 4-tier state
+5.  POST /api/debug/workspace/{id}/check       -> Validate cross-tier consistency
+6.  GET  /api/debug/workspace/{id}/diff        -> Isolate exact field-level divergences
+7.  GET  /api/debug/mutations                  -> Inspect mutation timeline
+8.  GET  /api/debug/requests                   -> Trace API request lifecycle
+9.  GET  /api/debug/persistence                -> Verify physical storage writes & payload sizes
+10. GET  /api/debug/workspace/{id}/revisions   -> Check revision convergence & drift
+11. GET  /api/debug/errors                     -> Audit captured error logs
+12. GET  /api/debug/performance                -> Review latency benchmarks
+13. GET  /api/debug/events                     -> Query raw event ring buffer
+14. GET  /api/debug/trace                      -> Listen to live SSE trace stream
+15. POST /api/debug/export                     -> Download complete diagnostic bundle
+16. POST /api/debug/disable                    -> Revert system safely to OFF
+```
+
+---
+
+## 7. REUSABLE ASSETS DIRECTORY
 
 The following drop-in assets are bundled in the Skipo framework for direct use in new projects:
 - **Hooks**:
   - `hooks/useRealtimeApiSync.ts` (Event bus stream listener)
-  - `hooks/useUiStateDebugger.ts` (Reactive UI state bridge & LocalStorage mirror)
+  - `hooks/useUiStateDebugger.ts` (Headless reactive UI state bridge, DOM rendered extractor, & LocalStorage mirror)
 - **State Schemas & Sync Engine**:
+  - `lib/debug-types.ts` (Core TypeScript models for all 40 debug specifications)
+  - `lib/debug-manager.ts` (Central singleton managing sessions, ring buffers, 4-tier state readers, diffing, consistency)
+  - `lib/debug-auth.ts` (Security verification helper for debug endpoints)
   - `lib/debug-ui-state.ts` (Full state interfaces, localStorage extractor, and sync audit calculator)
   - `lib/realtime-events.ts` (In-memory pub/sub event bus)
 - **Route Templates**:
   - `api/events/route.ts` (SSE & polling event stream)
-  - `api/debug/ui-state/route.ts` (UI state introspection & relay route)
-  - `api/debug/sync-audit/route.ts` (3-tier synchronization audit route)
-- **UI Components**:
-  - `components/debug/DebugStateModal.tsx` (Interactive HUD state debugger modal)
+  - `api/health/route.ts` (Health route with debug integration)
+  - `api/debug/**` (Complete 24-route production debug API suite)
 - **Headless Test Suites**:
+  - `scripts/test-production-debug-suite.ts` (24-step automated verification of complete 40-point debug infrastructure)
   - `scripts/test-api-suite.ts` (Full 25-step headless API verification suite)
   - `scripts/test-debug-ui-state.ts` (Dedicated 8-step UI state & sync audit verification suite)
-  - `scripts/verify-control-plane-standards.sh` (31-check architectural standards compliance audit)
+  - `scripts/verify-control-plane-standards.sh` (32-check architectural standards compliance audit)
+

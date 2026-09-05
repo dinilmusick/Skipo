@@ -538,6 +538,64 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
+# Check 32: Headless Production Debug API Infrastructure (40-Point Suite)
+echo "→ Checking Headless Production Debug API Infrastructure (40-Point Suite)..."
+DEBUG_TYPES_FILE=""
+DEBUG_MGR_FILE=""
+if [ -f "$TARGET_DIR/lib/debug-types.ts" ]; then
+  DEBUG_TYPES_FILE="$TARGET_DIR/lib/debug-types.ts"
+elif [ -f "$TARGET_DIR/backend/control-plane/code/lib/debug-types.ts" ]; then
+  DEBUG_TYPES_FILE="$TARGET_DIR/backend/control-plane/code/lib/debug-types.ts"
+fi
+
+if [ -f "$TARGET_DIR/lib/debug-manager.ts" ]; then
+  DEBUG_MGR_FILE="$TARGET_DIR/lib/debug-manager.ts"
+elif [ -f "$TARGET_DIR/backend/control-plane/code/lib/debug-manager.ts" ]; then
+  DEBUG_MGR_FILE="$TARGET_DIR/backend/control-plane/code/lib/debug-manager.ts"
+fi
+
+# 1. Verify debug types & manager exist
+if [ -n "$DEBUG_TYPES_FILE" ] && [ -n "$DEBUG_MGR_FILE" ]; then
+  if grep -q "DebugSession" "$DEBUG_TYPES_FILE" && grep -q "enableSession" "$DEBUG_MGR_FILE" && grep -q "runConsistencyCheck" "$DEBUG_MGR_FILE"; then
+    echo "✅ PASS: $DEBUG_TYPES_FILE and $DEBUG_MGR_FILE implement production debug engine & consistency checks."
+  else
+    echo "❌ VIOLATION: Debug engine missing required session management or consistency checks!"
+    ERRORS=$((ERRORS + 1))
+  fi
+else
+  echo "❌ VIOLATION: Missing lib/debug-types.ts or lib/debug-manager.ts!"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# 2. Verify Headless Compliance (NO DEBUG UI)
+if [ -f "$TARGET_DIR/components/debug/DebugStateModal.tsx" ] || [ -f "$TARGET_DIR/backend/control-plane/code/components/debug/DebugStateModal.tsx" ]; then
+  echo "❌ VIOLATION: Found DebugStateModal.tsx! Specification mandates NO internal debug UI."
+  ERRORS=$((ERRORS + 1))
+else
+  echo "✅ PASS: Zero internal debug UI (Headless compliance verified)."
+fi
+
+# 3. Verify Production Debug REST Routes
+DEBUG_ROUTES_BASE="$TARGET_DIR/app/api/debug"
+if [ ! -d "$DEBUG_ROUTES_BASE" ] && [ -d "$TARGET_DIR/backend/control-plane/code/api/debug" ]; then
+  DEBUG_ROUTES_BASE="$TARGET_DIR/backend/control-plane/code/api/debug"
+fi
+
+REQUIRED_DEBUG_ROUTES=("status" "enable" "disable" "config" "mutations" "requests" "persistence" "trace" "export")
+MISSING_ROUTES=0
+for r in "${REQUIRED_DEBUG_ROUTES[@]}"; do
+  if [ ! -f "$DEBUG_ROUTES_BASE/$r/route.ts" ]; then
+    echo "❌ VIOLATION: Missing debug route /api/debug/$r/route.ts!"
+    MISSING_ROUTES=$((MISSING_ROUTES + 1))
+  fi
+done
+
+if [ "$MISSING_ROUTES" -eq 0 ]; then
+  echo "✅ PASS: All required production debug REST routes present in $DEBUG_ROUTES_BASE."
+else
+  ERRORS=$((ERRORS + MISSING_ROUTES))
+fi
+
 # Summary
 echo "══════════════════════════════════════════════════════════════════════════════════════════"
 if [ "$ERRORS" -gt 0 ]; then
