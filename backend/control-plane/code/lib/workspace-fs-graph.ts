@@ -7,6 +7,7 @@ import {
   readCloudWorkspaceFile,
   deleteCloudWorkspaceFile,
   deleteCloudWorkspaceFolder,
+  renameCloudWorkspaceFolder,
   syncFolderNodeToCloud,
   syncKanbanNodeToCloud,
   syncEntireWorkspaceToCloud,
@@ -156,6 +157,147 @@ export async function loadGraphFromFSAsync(): Promise<{
 import { resolveNodeNestedPath } from './workspace-canonical';
 export { resolveNodeNestedPath };
 
+/**
+ * Recursively moves all contents from src directory into dest directory,
+ * then cleans up the source.
+ */
+export function moveDirectoryRecursive(src: string, dest: string) {
+  if (!fs.existsSync(dest)) {
+    fs.mkdirSync(dest, { recursive: true });
+  }
+  const entries = fs.readdirSync(src, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      moveDirectoryRecursive(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+      try { fs.unlinkSync(srcPath); } catch {}
+    }
+  }
+}
+
+/**
+ * Renames a node directory on the local vault filesystem, seamlessly moving all
+ * contained assets (kanban boards, column folders, documents) to the new path.
+ */
+export function renameNodeOnDisk(oldNestedPath: string, newNestedPath: string): boolean {
+  ensureWorkspaceExists();
+  const vaultPath = getVaultAbsolutePath();
+  const cleanOld = oldNestedPath.replace(/^\/+|\/+$/g, '');
+  const cleanNew = newNestedPath.replace(/^\/+|\/+$/g, '');
+  if (!cleanOld || !cleanNew || cleanOld === cleanNew) return false;
+
+  const oldDir = path.join(vaultPath, ...cleanOld.split('/'));
+  const newDir = path.join(vaultPath, ...cleanNew.split('/'));
+
+  // Also check flat fallback directory
+  const oldFlatDir = path.join(vaultPath, path.basename(cleanOld));
+
+  const targetOldDir = fs.existsSync(oldDir) ? oldDir : (fs.existsSync(oldFlatDir) ? oldFlatDir : null);
+  if (!targetOldDir) return false;
+
+  try {
+    if (!fs.existsSync(newDir)) {
+      fs.mkdirSync(path.dirname(newDir), { recursive: true });
+      fs.renameSync(targetOldDir, newDir);
+    } else {
+      moveDirectoryRecursive(targetOldDir, newDir);
+      try {
+        fs.rmSync(targetOldDir, { recursive: true, force: true });
+      } catch {}
+    }
+
+    // Also update any documents in documents_index.json whose fileUrl was inside targetOldDir
+    try {
+      const metaDir = path.join(vaultPath, '.docustack');
+      const indexFile = path.join(metaDir, 'documents_index.json');
+      if (fs.existsSync(indexFile)) {
+        const raw = fs.readFileSync(indexFile, 'utf-8');
+        const docs = JSON.parse(raw);
+        if (Array.isArray(docs)) {
+          let modified = false;
+          const updatedDocs = docs.map((d: any) => {
+            if (d.fileUrl && d.fileUrl.startsWith(targetOldDir)) {
+              modified = true;
+              return {
+                ...d,
+                fileUrl: d.fileUrl.replace(targetOldDir, newDir),
+              };
+            }
+            return d;
+          });
+          if (modified) {
+            fs.writeFileSync(indexFile, JSON.stringify(updatedDocs, null, 2), 'utf-8');
+          }
+        }
+      }
+    } catch (idxErr) {
+      console.warn('[workspaceFS] Warning updating document paths after rename:', idxErr);
+    }
+
+    return true;
+  } catch (err) {
+    console.error(`[workspaceFS] Error renaming ${targetOldDir} to ${newDir}:`, err);
+    return false;
+  }
+}
+
+/**
+ * Orchestrates physical folder renaming for a graph node across both local disk
+ * and Cloud Storage (Backblaze B2, R2, S3, Supabase).
+ */
+export async function renameNodeStorageAsync(
+  oldNode: GraphNode,
+  newNode: GraphNode,
+  allNodes: GraphNode[],
+  edges: GraphEdge[]
+): Promise<{ success: boolean; oldPath: string; newPath: string }> {
+  if (oldNode.isWorkspaceRoot || newNode.isWorkspaceRoot) {
+    return { success: false, oldPath: '', newPath: '' };
+  }
+
+  const oldSafeTitle = getSafeCloudFolderName(oldNode.title);
+  const newSafeTitle = getSafeCloudFolderName(newNode.title);
+  const oldPath = resolveNodeNestedPath(oldNode, allNodes, edges) || oldSafeTitle;
+  const newPath = resolveNodeNestedPath(newNode, allNodes, edges) || newSafeTitle;
+
+  if (oldPath === newPath) {
+    return { success: true, oldPath, newPath };
+  }
+
+  // 1. Rename on local disk
+  renameNodeOnDisk(oldPath, newPath);
+  if (oldPath !== oldSafeTitle) {
+    renameNodeOnDisk(oldSafeTitle, newPath);
+  }
+
+  // 2. If cloud storage is active, rename in cloud
+  if (globalActiveStorageConn && globalActiveFolderPrefix) {
+    try {
+      await renameCloudWorkspaceFolder(
+        globalActiveStorageConn,
+        globalActiveFolderPrefix,
+        oldPath,
+        newPath
+      );
+      if (oldPath !== oldSafeTitle) {
+        await renameCloudWorkspaceFolder(
+          globalActiveStorageConn,
+          globalActiveFolderPrefix,
+          oldSafeTitle,
+          newPath
+        );
+      }
+    } catch (cloudErr) {
+      console.warn(`[CloudStorage] renameCloudWorkspaceFolder warning for node ${oldNode.title}:`, cloudErr);
+    }
+  }
+
+  return { success: true, oldPath, newPath };
+}
+
 export async function saveGraphToFSAsync(
   nodes: GraphNode[],
   edges: GraphEdge[],
@@ -265,6 +407,44 @@ export function saveGraphToFS(nodes: GraphNode[], edges: GraphEdge[], groups: Gr
           fs.writeFileSync(boardManifestPath, JSON.stringify(boardManifest, null, 2), 'utf-8');
         } catch {}
       }
+    }
+
+    // Self-healing: reconcile and clean any orphaned board folders on disk whose board ID matches a renamed board
+    try {
+      const activeBoardIds = new Map<string, string>(); // boardId -> expected nested relative path
+      for (const n of syncedNodes) {
+        if (n.type === 'collection' || n.glyph === 'Kanban') {
+          const bId = n.collectionId || n.id;
+          const expectedPath = resolveNodeNestedPath(n, syncedNodes, edges);
+          activeBoardIds.set(bId, expectedPath);
+        }
+      }
+
+      const entries = fs.readdirSync(vaultPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'inbox' || entry.name === 'media' || entry.name === 'notes') {
+          continue;
+        }
+        const dirPath = path.join(vaultPath, entry.name);
+        const manifestPath = path.join(dirPath, 'kanban_board.json');
+        if (fs.existsSync(manifestPath)) {
+          try {
+            const raw = fs.readFileSync(manifestPath, 'utf-8');
+            const data = JSON.parse(raw);
+            if (data && data.id && activeBoardIds.has(data.id)) {
+              const expectedRel = activeBoardIds.get(data.id)!;
+              const expectedDir = path.join(vaultPath, ...expectedRel.split('/'));
+              if (dirPath !== expectedDir) {
+                // Orphaned board folder from earlier rename: migrate contents and remove old directory
+                moveDirectoryRecursive(dirPath, expectedDir);
+                try { fs.rmSync(dirPath, { recursive: true, force: true }); } catch {}
+              }
+            }
+          } catch {}
+        }
+      }
+    } catch (pruneErr) {
+      console.warn('[workspaceFS] Orphaned board directory pruning warning:', pruneErr);
     }
   } catch (fsErr) {
     console.warn('[workspaceFS] Local disk graph save bypassed (read-only or restricted filesystem):', fsErr);

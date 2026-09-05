@@ -88,6 +88,9 @@ export {
   getRootVaultWallpaperRelativePath,
   saveVaultWallpaperFile,
   deleteVaultWallpaperFile,
+  renameNodeOnDisk,
+  renameNodeStorageAsync,
+  moveDirectoryRecursive,
 } from './workspace-fs-graph';
 
 export type { FileTreeNode, PurgeAssetResult } from './workspace-fs-graph';

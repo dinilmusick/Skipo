@@ -493,6 +493,136 @@ export async function deleteCloudWorkspaceFolder(
 }
 
 /**
+ * Renames a workspace folder in Cloud Storage by copying all objects and directory markers
+ * to the new relative path and permanently deleting the old objects and old directory marker.
+ */
+export async function renameCloudWorkspaceFolder(
+  conn: UserStorageConnection,
+  folderPrefix: string,
+  oldRelativePath: string,
+  newRelativePath: string
+): Promise<{ success: boolean; movedCount: number }> {
+  const oldClean = oldRelativePath.replace(/^\/+|\/+$/g, '');
+  const newClean = newRelativePath.replace(/^\/+|\/+$/g, '');
+  if (!oldClean || !newClean || oldClean === newClean) {
+    return { success: false, movedCount: 0 };
+  }
+
+  const cleanPrefix = folderPrefix.replace(/^\/+|\/+$/g, '');
+  const oldFolderKey = `${cleanPrefix}/${oldClean}`;
+  const oldFolderPrefix = `${cleanPrefix}/${oldClean}/`;
+  const newFolderPrefix = `${cleanPrefix}/${newClean}/`;
+
+  let movedCount = 0;
+
+  try {
+    if (conn.provider === 'backblaze_b2' || conn.provider === 'cloudflare_r2' || conn.provider === 'aws_s3') {
+      const { s3, bucketName } = buildS3Client(conn);
+
+      // 1. List all objects matching oldFolderKey (bare folder) or starting with oldFolderPrefix
+      let contToken: string | undefined = undefined;
+      let more = true;
+      const objectsToMigrate: { Key: string; isDir: boolean; subRel: string }[] = [];
+
+      while (more) {
+        const listRes: any = await s3.send(
+          new ListObjectsV2Command({
+            Bucket: bucketName,
+            Prefix: oldFolderKey,
+            ContinuationToken: contToken,
+          })
+        );
+
+        const contents = listRes.Contents || [];
+        for (const obj of contents) {
+          if (!obj.Key) continue;
+          if (obj.Key === oldFolderKey || obj.Key === oldFolderPrefix) {
+            objectsToMigrate.push({ Key: obj.Key, isDir: true, subRel: '' });
+          } else if (obj.Key.startsWith(oldFolderPrefix)) {
+            const subRel = obj.Key.substring(oldFolderPrefix.length);
+            const isDir = obj.Key.endsWith('/');
+            objectsToMigrate.push({ Key: obj.Key, isDir, subRel });
+          }
+        }
+
+        more = Boolean(listRes.IsTruncated);
+        contToken = listRes.NextContinuationToken;
+      }
+
+      // 2. Ensure new folder directory marker exists
+      await ensureCloudDirectoryMarker(conn, `${cleanPrefix}/${newClean}`);
+
+      // 3. For each object, migrate to the new destination
+      for (const item of objectsToMigrate) {
+        if (item.isDir) {
+          if (item.subRel) {
+            // Subfolder directory marker
+            await ensureCloudDirectoryMarker(conn, `${cleanPrefix}/${newClean}/${item.subRel}`);
+          }
+          continue;
+        }
+
+        const newKey = `${newFolderPrefix}${item.subRel}`;
+        try {
+          const getRes = await s3.send(
+            new GetObjectCommand({
+              Bucket: bucketName,
+              Key: item.Key,
+            })
+          );
+          if (getRes.Body) {
+            const bytes = await getRes.Body.transformToByteArray();
+            await s3.send(
+              new PutObjectCommand({
+                Bucket: bucketName,
+                Key: newKey,
+                Body: bytes,
+                ContentType: getRes.ContentType || 'application/octet-stream',
+              })
+            );
+            movedCount++;
+          }
+        } catch (copyErr) {
+          console.warn(`[CloudStorage] Error copying ${item.Key} to ${newKey}:`, copyErr);
+        }
+      }
+
+      // 4. Permanently delete the entire old folder in S3/Backblaze B2 (including directory markers and delete markers)
+      await permanentDeleteS3Folder(s3, bucketName, oldFolderKey);
+
+      return { success: true, movedCount };
+    }
+
+    if (conn.provider === 'supabase_storage') {
+      const url = (conn.supabaseUrl || '').trim();
+      const key = (conn.supabaseServiceKey || conn.supabaseAnonKey || '').trim();
+      const bucket = (conn.supabaseBucketName || '').trim();
+
+      const supabase = createClient(url, key, { auth: { persistSession: false } });
+      const { data } = await supabase.storage.from(bucket).list(oldFolderPrefix);
+      if (data && data.length > 0) {
+        for (const item of data) {
+          const oldItemKey = `${oldFolderPrefix}${item.name}`;
+          const newItemKey = `${newFolderPrefix}${item.name}`;
+          const { data: fileBlob } = await supabase.storage.from(bucket).download(oldItemKey);
+          if (fileBlob) {
+            await supabase.storage.from(bucket).upload(newItemKey, fileBlob, { upsert: true });
+            await supabase.storage.from(bucket).remove([oldItemKey]);
+            movedCount++;
+          }
+        }
+      }
+      return { success: true, movedCount };
+    }
+  } catch (err) {
+    console.error(`[CloudStorage] renameCloudWorkspaceFolder error from ${oldRelativePath} to ${newRelativePath}:`, err);
+    return { success: false, movedCount };
+  }
+
+  return { success: false, movedCount: 0 };
+}
+
+/**
  * Delete all cloud storage files and directories associated with a graph node
  * (e.g. folder nodes, Kanban board folders and column subfolders, sticky note txt files)
  */
@@ -961,6 +1091,47 @@ export async function syncEntireWorkspaceToCloud(
       }
     }
 
+    // Build set of valid directory prefixes (ending with /) to purge orphaned directory markers
+    const validDirPrefixes = new Set<string>([
+      '.docustack/',
+      'inbox/',
+      'media/',
+      'notes/',
+    ]);
+
+    for (const node of data.nodes) {
+      if (node.isWorkspaceRoot || !node.title || !node.title.trim()) continue;
+      const safeTitle = getSafeCloudFolderName(node.title);
+      const nestedPath = resolveNodeNestedPath(node, data.nodes, data.edges) || safeTitle;
+      validDirPrefixes.add(`${nestedPath}/`);
+      validDirPrefixes.add(`${safeTitle}/`);
+      validRelativeKeys.add(`${nestedPath}/`);
+      validRelativeKeys.add(`${safeTitle}/`);
+    }
+
+    for (const cat of data.categories) {
+      const colFolder = getSafeCloudFolderName(cat.title);
+      if (cat.boardId) {
+        const boardNode = data.nodes.find((n) => (n.collectionId || n.id) === cat.boardId);
+        const boardPath = boardNode ? resolveNodeNestedPath(boardNode, data.nodes, data.edges) : 'Kanban';
+        validDirPrefixes.add(`${boardPath}/${colFolder}/`);
+        validRelativeKeys.add(`${boardPath}/${colFolder}/`);
+      } else {
+        validDirPrefixes.add(`${colFolder}/`);
+        validRelativeKeys.add(`${colFolder}/`);
+      }
+    }
+
+    // Include all intermediate directory ancestor prefixes of any valid relative keys
+    for (const key of validRelativeKeys) {
+      const parts = key.split('/');
+      let prefixAcc = '';
+      for (let i = 0; i < parts.length - 1; i++) {
+        prefixAcc += parts[i] + '/';
+        validDirPrefixes.add(prefixAcc);
+      }
+    }
+
     // Prune orphaned objects from bucket
     if (conn.provider === 'backblaze_b2' || conn.provider === 'cloudflare_r2' || conn.provider === 'aws_s3') {
       const { s3, bucketName } = buildS3Client(conn);
@@ -977,15 +1148,27 @@ export async function syncEntireWorkspaceToCloud(
       for (const obj of objects) {
         if (!obj.Key) continue;
         const rel = obj.Key.substring(prefixClean.length);
-        if (!rel || rel.endsWith('/')) continue;
+        if (!rel) continue;
         // Do not delete uploaded wallpapers or media
         if (rel.startsWith('.docustack/wallpapers') || rel.startsWith('media/')) continue;
 
-        if (!validRelativeKeys.has(rel)) {
-          try {
-            await permanentDeleteS3Object(s3, bucketName, obj.Key);
-          } catch (delErr) {
-            console.warn(`[CloudStorage] Error deleting orphaned key ${obj.Key}:`, delErr);
+        if (rel.endsWith('/')) {
+          // Directory marker: purge if not among active directory prefixes
+          if (!validDirPrefixes.has(rel) && !validRelativeKeys.has(rel)) {
+            try {
+              await permanentDeleteS3Object(s3, bucketName, obj.Key);
+            } catch (delErr) {
+              console.warn(`[CloudStorage] Error deleting orphaned directory marker ${obj.Key}:`, delErr);
+            }
+          }
+        } else {
+          // Object file: purge if not among valid relative keys
+          if (!validRelativeKeys.has(rel)) {
+            try {
+              await permanentDeleteS3Object(s3, bucketName, obj.Key);
+            } catch (delErr) {
+              console.warn(`[CloudStorage] Error deleting orphaned key ${obj.Key}:`, delErr);
+            }
           }
         }
       }

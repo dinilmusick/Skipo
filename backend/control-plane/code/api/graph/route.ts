@@ -7,6 +7,7 @@ import {
   loadCategoriesFromFS,
   deleteCategoryAndDocumentsFromFSAsync,
   deleteNodeAssetsAsync,
+  renameNodeStorageAsync,
   resolveNodeNestedPath,
 } from '@/lib/workspaceFS';
 import { extractTagsFromText } from '@/lib/tag-extractor';
@@ -71,6 +72,25 @@ export async function POST(req: NextRequest) {
       const { node } = payload;
       if (!node?.id) return NextResponse.json({ success: false, error: 'MISSING_ID' }, { status: 400 });
 
+      const existingNode = currentNodes.find((n) => n.id === node.id);
+      let renamedFrom: string | undefined = undefined;
+      let renamedTo: string | undefined = undefined;
+
+      const isContainer =
+        node.type === 'collection' ||
+        node.glyph === 'Kanban' ||
+        node.type === 'folder' ||
+        node.glyph === 'Folder' ||
+        (existingNode &&
+          (existingNode.type === 'collection' ||
+            existingNode.glyph === 'Kanban' ||
+            existingNode.type === 'folder' ||
+            existingNode.glyph === 'Folder'));
+
+      const isTitleChanged = Boolean(
+        existingNode && node.title && existingNode.title.trim() !== node.title.trim()
+      );
+
       const updatedNodes = currentNodes.map((n) => {
         if (n.id === node.id) {
           const merged = { ...n, ...node };
@@ -85,6 +105,20 @@ export async function POST(req: NextRequest) {
         return n;
       });
 
+      if (existingNode && isContainer && isTitleChanged) {
+        const mergedNode = updatedNodes.find((n) => n.id === node.id)!;
+        const renameRes = await renameNodeStorageAsync(
+          existingNode,
+          mergedNode,
+          updatedNodes,
+          currentEdges
+        );
+        if (renameRes.success && renameRes.oldPath !== renameRes.newPath) {
+          renamedFrom = renameRes.oldPath;
+          renamedTo = renameRes.newPath;
+        }
+      }
+
       await saveGraphToFSAsync(updatedNodes, currentEdges, currentGroups);
 
       const target = updatedNodes.find((n) => n.id === node.id);
@@ -96,10 +130,10 @@ export async function POST(req: NextRequest) {
         endpoint: '/api/graph',
         action: 'GRAPH_UPDATED',
         details: `Updated graph node "${target?.title || node.id}"`,
-        payload: { action: 'UPDATE_NODE', node: target },
+        payload: { action: 'UPDATE_NODE', node: target, renamedFrom, renamedTo },
       });
 
-      return NextResponse.json({ success: true, node: target });
+      return NextResponse.json({ success: true, node: target, renamedFrom, renamedTo });
     }
 
     if (action === 'DELETE_NODE') {

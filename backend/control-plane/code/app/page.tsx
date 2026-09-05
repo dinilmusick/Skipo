@@ -14,6 +14,7 @@ import WorkspaceViewRouter from '../components/workspace/WorkspaceViewRouter';
 import WorkspaceModalsContainer from '../components/workspace/WorkspaceModalsContainer';
 import { useWorkspaceTheme } from '../hooks/useWorkspaceTheme';
 import { useWorkspacePersistence } from '../hooks/useWorkspacePersistence';
+import { useRealtimeApiSync } from '../hooks/useRealtimeApiSync';
 
 function getDescendantNodeIds(rootId: string, allEdges: GraphEdge[]): string[] {
   const descendantIds = new Set<string>([rootId]);
@@ -549,7 +550,89 @@ export default function DocumentStorageViewer() {
     [activeDoc, cancelPendingSave]
   );
 
-
+  // Real-Time API Mirroring: Reflects external programmatic API usage directly on the UI
+  useRealtimeApiSync({
+    enabled: true,
+    workspaceId: activeVaultWorkspaceId || currentUser?.activeWorkspaceId,
+    onApiAction: (msg) => {
+      setWorkspaceToast(msg);
+      setTimeout(() => setWorkspaceToast(null), 3500);
+    },
+    onDocumentEvent: (ev) => {
+      if (ev.action === 'DOCUMENT_CREATED' && ev.payload) {
+        setDocuments((prev) => {
+          if (prev.some((d) => d.id === ev.payload.id)) return prev;
+          return [ev.payload, ...prev];
+        });
+      } else if (ev.action === 'DOCUMENT_UPDATED' && ev.payload) {
+        setDocuments((prev) =>
+          prev.map((d) => (d.id === ev.payload.id ? { ...d, ...ev.payload } : d))
+        );
+      } else if (ev.action === 'DOCUMENT_DELETED' && ev.payload?.id) {
+        setDocuments((prev) => prev.filter((d) => d.id !== ev.payload.id));
+      } else {
+        refreshDocuments();
+      }
+    },
+    onCategoryEvent: (ev) => {
+      if (ev.action === 'CATEGORY_CREATED' && ev.payload) {
+        setCategories((prev) => {
+          if (prev.some((c) => c.id === ev.payload.id)) return prev;
+          return [...prev, ev.payload];
+        });
+      } else if (ev.action === 'CATEGORY_UPDATED' && ev.payload) {
+        setCategories((prev) =>
+          prev.map((c) => (c.id === ev.payload.id ? { ...c, ...ev.payload } : c))
+        );
+      } else if (ev.action === 'CATEGORY_DELETED' && ev.payload?.id) {
+        setCategories((prev) => prev.filter((c) => c.id !== ev.payload.id));
+      } else {
+        requestApi<{ categories: DocCategory[] }>('/api/categories', undefined, 'INIT_CATEGORIES')
+          .then((data) => data?.categories && setCategories(data.categories))
+          .catch(() => {});
+      }
+    },
+    onGraphEvent: (ev) => {
+      if (ev.payload?.action === 'ADD_NODE' && ev.payload.node) {
+        setNodes((prev) => {
+          if (prev.some((n) => n.id === ev.payload.node.id)) return prev;
+          return [...prev, ev.payload.node];
+        });
+        if (ev.payload.edge) {
+          setEdges((prev) => [...prev, ev.payload.edge]);
+        }
+      } else if (ev.payload?.action === 'UPDATE_NODE' && ev.payload.node) {
+        setNodes((prev) =>
+          prev.map((n) => (n.id === ev.payload.node.id ? { ...n, ...ev.payload.node } : n))
+        );
+        if (ev.payload.renamedFrom) {
+          purgeFromAllLocalHandles([ev.payload.renamedFrom]);
+        }
+      } else if (ev.payload?.action === 'DELETE_NODE') {
+        const deletedId = ev.payload.deletedId;
+        const purgedIds: string[] = ev.payload.purgedNodeIds || (deletedId ? [deletedId] : []);
+        setNodes((prev) => prev.filter((n) => !purgedIds.includes(n.id)));
+        setEdges((prev) =>
+          prev.filter((e) => !purgedIds.includes(e.source) && !purgedIds.includes(e.target))
+        );
+      } else {
+        requestApi<{ nodes: GraphNode[]; edges: GraphEdge[]; groups: GraphGroup[] }>('/api/graph', undefined, 'INIT_GRAPH')
+          .then((data) => {
+            if (data?.nodes) setNodes(data.nodes);
+            if (data?.edges) setEdges(data.edges);
+            if (data?.groups) setGroups(data.groups);
+          })
+          .catch(() => {});
+      }
+    },
+    onBiomeEvent: (ev) => {
+      if (ev.payload?.theme) setTheme(ev.payload.theme);
+      if (ev.payload?.biome) setBiome(ev.payload.biome);
+    },
+    onWorkspaceEvent: () => {
+      loadUserWorkspaceData();
+    },
+  });
 
   const handleOpenWorkspaceFolder = () => {
     setIsVaultExplorerOpen(true);
@@ -622,10 +705,17 @@ export default function DocumentStorageViewer() {
       }
     }
     if (!isDragging) {
-      requestApi('/api/graph', {
+      requestApi<{ success?: boolean; renamedFrom?: string; renamedTo?: string }>('/api/graph', {
         method: 'POST',
         body: JSON.stringify({ action: 'UPDATE_NODE', node: updatedNode }),
-      }, 'UPDATE_GRAPH_NODE');
+      }, 'UPDATE_GRAPH_NODE')
+        .then(async (res) => {
+          if (res?.renamedFrom) {
+            await purgeFromAllLocalHandles([res.renamedFrom]);
+            triggerWorkspaceMutationSave();
+          }
+        })
+        .catch(() => {});
       triggerWorkspaceMutationSave();
     }
   };
