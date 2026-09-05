@@ -334,6 +334,22 @@ USER ──► APPLICATION ──► WorkspaceFS.write(path, data)
 20. **Deferred Node Creation Persistence Law**:
     - Nodes must NOT be persisted to storage or have folders created on disk/cloud when the node creation modal/dialogue opens.
     - Storage creation must strictly wait until the user completes the dialogue and confirms/saves the node.
+21. **Container / Node Renaming & Physical Folder Deduplication Law**:
+    - When any container node (Kanban board, folder, collection) is renamed in the workspace:
+      1. **Local Filesystem Renaming (`renameNodeOnDisk`)**: The directory on disk MUST be renamed atomically (`fs.renameSync`) or its contents moved recursively (`moveDirectoryRecursive`) into the new folder, followed by `fs.rmSync` of the old folder. Document paths in `documents_index.json` (`doc.fileUrl`) MUST be updated to point into the new folder.
+      2. **Cloud Bucket Renaming (`renameCloudWorkspaceFolder`)**: For S3-compatible cloud storage (Backblaze B2, AWS S3, Cloudflare R2) and Supabase Storage, all objects and subfolder directory markers under the old key prefix MUST be migrated to the new key prefix, the new root directory marker created (`ensureCloudDirectoryMarker`), and the old folder prefix and all historical versions/delete markers permanently purged (`permanentDeleteS3Folder`).
+      3. **Cloud Directory Marker Pruning (`syncEntireWorkspaceToCloud`)**: Empty directories in S3 buckets are represented by directory markers (keys ending with `/`). The bucket reconciliation sweep MUST calculate `validDirPrefixes` (covering all active nodes, categories, and intermediate path prefixes) and permanently delete any orphaned directory marker (`permanentDeleteS3Object`), eliminating ghost folders and asterisks in Backblaze B2. NEVER use a blanket skip `if (rel.endsWith('/')) continue;` which leaves old folder markers behind.
+      4. **Self-Healing Reconciliation (`saveGraphToFS`)**: On every graph save, the filesystem must scan the vault for any orphaned board folder containing a `kanban_board.json` whose `id` matches an active board under an old name, automatically migrating contents into the expected active directory and removing the duplicate folder.
+      5. **Graph API & Browser Directory Handles**: `UPDATE_NODE` action must return `renamedFrom` and `renamedTo`. Client `handleUpdateGraphNode` and realtime listeners must purge `renamedFrom` from browser HTML5 directory handles (`purgeFromAllLocalHandles([res.renamedFrom])`), followed by `triggerWorkspaceMutationSave()`.
+22. **100% Unified Workspace Creation & Cross-Storage Consistency**:
+    - Workspace creation logic MUST be 100% unified and identical across all storage tiers (Local Filesystem, Backblaze B2, S3, R2, Supabase).
+    - Local storage must NEVER inject rogue default placeholder directories or files (e.g. `inbox/welcome_guide.md`) when cloud storage does not.
+    - The canonical workspace folder (`ultrst_{app}_{user}_{workspace}` or canonical prefix) must be initialized consistently across both local and cloud storage without redundant or diverging creation scripts.
+23. **Primary Storage Elevation & Clean Canonical Vault Paths**:
+    - When a user sets or elevates a cloud storage option (e.g. Backblaze B2) to Primary (`role === 'primary'`), `isCloudPrimary = true`.
+    - The workspace path must resolve cleanly to the canonical prefix (`./{folderPrefix}`), and the UI must display the cloud bucket label and badge.
+    - Serverless requests (`resolveRequestContextVault`) MUST NOT default or expose `/tmp/` serverless scratch paths in the UI or in root graph node paths (`loadGraphFromFSAsync`).
+    - Backblaze B2 S3 endpoint derivation: Key IDs starting with `004` or `005` automatically map to `us-west-004` or `us-west-005` endpoints. Masked credentials containing bullet characters `•` must be rejected early with clear diagnostic errors (`BACKBLAZE_APP_KEY_MASKED`).
 
 ---
 

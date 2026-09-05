@@ -396,6 +396,64 @@ if [ -n "$PERSISTENCE_FILE" ]; then
   fi
 fi
 
+# Check 24: Container Renaming & Physical Folder Deduplication
+echo "→ Checking container renaming & physical folder deduplication engine..."
+GRAPH_FS_FILE=""
+if [ -f "$TARGET_DIR/lib/workspace-fs-graph.ts" ]; then
+  GRAPH_FS_FILE="$TARGET_DIR/lib/workspace-fs-graph.ts"
+elif [ -f "$TARGET_DIR/backend/control-plane/code/lib/workspace-fs-graph.ts" ]; then
+  GRAPH_FS_FILE="$TARGET_DIR/backend/control-plane/code/lib/workspace-fs-graph.ts"
+fi
+
+if [ -n "$GRAPH_FS_FILE" ]; then
+  if grep -q "renameNodeOnDisk" "$GRAPH_FS_FILE" && grep -q "renameNodeStorageAsync" "$GRAPH_FS_FILE" && grep -q "moveDirectoryRecursive" "$GRAPH_FS_FILE"; then
+    echo "✅ PASS: $GRAPH_FS_FILE implements renameNodeOnDisk and renameNodeStorageAsync."
+  else
+    echo "❌ VIOLATION: $GRAPH_FS_FILE missing renameNodeOnDisk or renameNodeStorageAsync!"
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
+# Check 25: Cloud Directory Marker Pruning & Sweeping
+echo "→ Checking cloud directory marker pruning & sweeping engine..."
+if [ -n "$CLOUD_STORAGE_FILE" ]; then
+  if grep -q "renameCloudWorkspaceFolder" "$CLOUD_STORAGE_FILE" && grep -q "validDirPrefixes" "$CLOUD_STORAGE_FILE"; then
+    echo "✅ PASS: $CLOUD_STORAGE_FILE implements renameCloudWorkspaceFolder and validDirPrefixes sweeping."
+  else
+    echo "❌ VIOLATION: $CLOUD_STORAGE_FILE missing renameCloudWorkspaceFolder or validDirPrefixes sweeping!"
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
+# Check 26: Graph API Renaming Protocol & Client Handles Purge
+echo "→ Checking graph API renaming protocol & client handles purge..."
+if [ -n "$GRAPH_ROUTE_FILE" ]; then
+  if grep -q "renameNodeStorageAsync" "$GRAPH_ROUTE_FILE" && grep -q "renamedFrom" "$GRAPH_ROUTE_FILE"; then
+    echo "✅ PASS: $GRAPH_ROUTE_FILE invokes renameNodeStorageAsync and returns renamedFrom/renamedTo."
+  else
+    echo "❌ VIOLATION: $GRAPH_ROUTE_FILE missing container rename handling in UPDATE_NODE!"
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
+# Check 27: Primary Storage Elevation & Clean Canonical Vault Paths
+echo "→ Checking primary storage elevation & clean canonical vault paths..."
+AUTH_STORAGE_FILE=""
+if [ -f "$TARGET_DIR/lib/auth-storage.ts" ]; then
+  AUTH_STORAGE_FILE="$TARGET_DIR/lib/auth-storage.ts"
+elif [ -f "$TARGET_DIR/backend/control-plane/code/lib/auth-storage.ts" ]; then
+  AUTH_STORAGE_FILE="$TARGET_DIR/backend/control-plane/code/lib/auth-storage.ts"
+fi
+
+if [ -n "$AUTH_STORAGE_FILE" ]; then
+  if grep -q "role === 'primary'" "$AUTH_STORAGE_FILE" && grep -q "extractCanonicalFolderPrefix" "$AUTH_STORAGE_FILE"; then
+    echo "✅ PASS: $AUTH_STORAGE_FILE derives primary cloud connections and extracts canonical folder prefixes."
+  else
+    echo "❌ VIOLATION: $AUTH_STORAGE_FILE missing primary storage derivation or canonical prefix extraction!"
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
 # Summary
 echo "══════════════════════════════════════════════════════════════════════════════════════════"
 if [ "$ERRORS" -gt 0 ]; then

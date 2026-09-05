@@ -317,6 +317,52 @@ async function runSuite() {
     if (!updateRes.ok) throw new Error(`HTTP ${updateRes.status}: ${JSON.stringify(updateRes.data)}`);
   });
 
+  // 8b. Container Renaming & Physical Folder Deduplication
+  await assertStep('POST /api/graph (Container Rename & Deduplication Protocol)', async () => {
+    const kanbanId = `kanban-${Date.now()}`;
+    const addRes = await request('/api/graph', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'ADD_NODE',
+        node: {
+          id: kanbanId,
+          title: 'Initial Kanban Test',
+          type: 'collection',
+          glyph: 'Kanban',
+          x: 300,
+          y: 300,
+        },
+      }),
+    }, authToken, testWorkspaceId);
+
+    if (!addRes.ok) throw new Error(`HTTP ${addRes.status}: ${JSON.stringify(addRes.data)}`);
+
+    const renameRes = await request('/api/graph', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'UPDATE_NODE',
+        node: {
+          id: kanbanId,
+          title: 'Renamed Kanban Test',
+        },
+      }),
+    }, authToken, testWorkspaceId);
+
+    if (!renameRes.ok) throw new Error(`HTTP ${renameRes.status}: ${JSON.stringify(renameRes.data)}`);
+    if (!renameRes.data.renamedFrom || !renameRes.data.renamedTo) {
+      throw new Error(`Expected renamedFrom and renamedTo in response, got: ${JSON.stringify(renameRes.data)}`);
+    }
+
+    // Clean up test node
+    await request('/api/graph', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'DELETE_NODE',
+        id: kanbanId,
+      }),
+    }, authToken, testWorkspaceId);
+  });
+
   await assertStep('GET /api/graph (Retrieve Topology Graph)', async () => {
     const res = await request('/api/graph', {}, authToken, testWorkspaceId);
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${JSON.stringify(res.data)}`);

@@ -261,6 +261,23 @@ RULE:
     Run `skipo-validate` via @skipo/validate to statically assert compliance.
 ```
 
+### E. ZERO-DUPLICATION PHYSICAL STORAGE & UNIFIED WORKSPACE INITIALIZATION LAW
+```
+1. CONTAINER RENAMING & DEDUPLICATION:
+   - When any container node (Kanban board, folder, collection) is renamed:
+     - Local disk: MUST rename directory atomically (renameNodeOnDisk), move contents recursively, and update document fileUrl pointers in documents_index.json.
+     - Cloud storage: MUST invoke renameCloudWorkspaceFolder to copy files/markers to new prefix, ensure directory marker exists, and permanently delete old folder and versions (permanentDeleteS3Folder).
+     - Bucket reconciliation: MUST sweep directory markers (keys ending in '/') using validDirPrefixes; NEVER blanket-skip directory markers.
+     - Self-healing: saveGraphToFS MUST detect and migrate any orphaned board folder whose kanban_board.json matches an active board.
+     - API & Client handles: UPDATE_NODE must return renamedFrom and renamedTo, and client handles must purge renamedFrom via purgeFromAllLocalHandles.
+2. UNIFIED WORKSPACE INITIALIZATION:
+   - Workspace creation scripts MUST be 100% identical and unified across all storage tiers (Local, Backblaze B2, S3, R2, Supabase).
+   - Local storage MUST NOT create rogue default placeholder folders (inbox/welcome_guide.md) when cloud storage does not.
+3. PRIMARY CLOUD STORAGE ELEVATION:
+   - Elevating cloud storage (e.g. Backblaze B2) to Primary sets isCloudPrimary = true and vaultPath = ./${folderPrefix}.
+   - Serverless requests MUST NOT default or expose /tmp/ serverless scratch paths in the UI or graph root nodes.
+```
+
 ---
 
 ## 5. GLOBAL OUTPUT PREFERENCES

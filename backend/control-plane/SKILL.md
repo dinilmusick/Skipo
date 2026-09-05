@@ -160,6 +160,20 @@ CONTROL PLANE (Application-Owned)
 >    - Contained documents/categories delete first, internal files second, container folders last.
 > 16. **Hierarchical Nested Path Resolution Law (`resolveNodeNestedPath`)**:
 >    - Connected folder and kanban nodes must resolve full hierarchical ancestor paths (`resolveNodeNestedPath`) rather than flattening at root, ensuring nested folder trees exist on both physical disk and cloud storage.
+> 17. **Container / Node Renaming & Zero-Duplication Storage Engine Law**:
+>    - Renaming a container/kanban node MUST immediately rename the physical directory on disk (`renameNodeOnDisk`), migrate document `fileUrl` pointers in `documents_index.json`, and purge the old directory.
+>    - In cloud storage (Backblaze B2, S3, R2, Supabase), `renameCloudWorkspaceFolder` must copy all objects/markers to the new prefix, create the new directory marker, and permanently purge the old folder and all historical versions/delete markers (`permanentDeleteS3Folder`).
+>    - S3 directory markers (keys ending with `/`) must be swept during bucket reconciliation using `validDirPrefixes` and permanently deleted (`permanentDeleteS3Object`); never use a blanket skip `if (rel.endsWith('/')) continue;` which leaves old folder markers behind.
+>    - Self-healing reconciliation in `saveGraphToFS` must automatically migrate any orphaned board folder on disk whose `kanban_board.json` ID matches an active board under a previous name, removing duplicate folders.
+>    - The `UPDATE_NODE` graph action must return `renamedFrom` and `renamedTo`. Client `handleUpdateGraphNode` and realtime event listeners must purge `renamedFrom` from browser HTML5 directory handles (`purgeFromAllLocalHandles([res.renamedFrom])`), followed by `triggerWorkspaceMutationSave()`.
+> 18. **100% Unified Workspace Creation & Cross-Storage Consistency**:
+>    - Workspace creation logic must be identical across local filesystem and cloud storage (Backblaze B2, S3, R2, Supabase).
+>    - Local storage must never inject rogue placeholder files (e.g. `inbox/welcome_guide.md`) when cloud storage does not.
+> 19. **Primary Storage Elevation & Clean Canonical Vault Paths**:
+>    - When cloud storage is set to Primary (`role === 'primary'`), `isCloudPrimary = true`.
+>    - Vault path resolves to `./{folderPrefix}`, and UI renders the cloud bucket badge.
+>    - Serverless requests (`resolveRequestContextVault`) must not expose `/tmp/` serverless scratch paths in the UI or graph root nodes (`loadGraphFromFSAsync`).
+>    - Backblaze B2 endpoint derivation automatically resolves region from Key ID prefix (`004...` -> `us-west-004`, `005...` -> `us-east-005`), and masked credentials `•` are rejected early (`BACKBLAZE_APP_KEY_MASKED`).
 
 ---
 
