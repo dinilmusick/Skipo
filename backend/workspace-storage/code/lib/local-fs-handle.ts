@@ -6,7 +6,7 @@
  * and seamlessly re-opening local workspaces on subsequent sessions.
  */
 
-import { resolveNodeNestedPath } from './workspace-canonical';
+import { resolveNodeNestedPath, getInitialWorkspaceFiles } from './workspace-canonical';
 
 const DB_NAME = 'DocuStack_LocalFS_Vault';
 const STORE_NAME = 'directory_handles';
@@ -439,19 +439,14 @@ export async function syncWorkspaceToDirectoryHandle(
   );
 
   // Compute total file count
-  const kanbanColCount = kanbanNodes.reduce((sum: number, n: any) => {
-    const boardId = n.collectionId || n.id;
-    const cols = categories.filter((c: any) => c.boardId === boardId);
-    return sum + (cols.length > 0 ? cols.length : 3); // default 3 cols if none
-  }, 0);
-  const totalFiles =
+  const totalFiles = Math.max(
+    1,
     4 + // .docustack manifests
     folderNodes.length * 2 + // .keep + README per folder
     kanbanNodes.length + // kanban_board.json per board
-    kanbanColCount * 2 + // .keep + README per column
-    categories.length * 2 + // .keep + README per category at root
-    1 + // inbox/.keep
-    Math.max(1, docs.length); // documents
+    categories.filter((c: any) => !c.boardId).length * 2 + // .keep + README per category at root
+    docs.length // documents
+  );
   let completed = 0;
 
   function report(file: string) {
@@ -465,30 +460,40 @@ export async function syncWorkspaceToDirectoryHandle(
     });
   }
 
-  // 1. .docustack/manifest.json
-  const manifest = {
-    workspaceName: data.vaultName || workspaceName,
-    app: 'docustack',
-    ecosystem: 'ultrst',
-    syncedAt: new Date().toISOString(),
-    totalDocuments: docs.length,
-    totalCategories: categories.length,
-    workspaceFolderPrefix: workspaceSubfolder,
-  };
-  await writeFile('.docustack/manifest.json', JSON.stringify(manifest, null, 2));
-  report('.docustack/manifest.json');
+  // 1-4. .docustack manifests (unified single source of truth)
+  if (nodes.length === 0 && docs.length === 0) {
+    const initialFiles = getInitialWorkspaceFiles(data.vaultName || workspaceName, workspaceSubfolder, 'User', 'local_fs');
+    for (const [relPath, content] of Object.entries(initialFiles)) {
+      await writeFile(relPath, content);
+      report(relPath);
+    }
+  } else {
+    const manifest = {
+      workspaceName: data.vaultName || workspaceName,
+      folderPrefix: workspaceSubfolder,
+      provider: 'local_fs',
+      initializedAt: new Date().toISOString(),
+      owner: 'User',
+      ecosystem: 'ultrst',
+      app: 'docustack',
+      syncedAt: new Date().toISOString(),
+      totalDocuments: docs.length,
+      totalCategories: categories.length,
+      workspaceFolderPrefix: workspaceSubfolder,
+    };
+    await writeFile('.docustack/workspace_manifest.json', JSON.stringify(manifest, null, 2));
+    await writeFile('.docustack/manifest.json', JSON.stringify(manifest, null, 2));
+    report('.docustack/workspace_manifest.json');
 
-  // 2. .docustack/graph.json
-  await writeFile('.docustack/graph.json', JSON.stringify({ nodes, edges: data.edges || [], groups: data.groups || [] }, null, 2));
-  report('.docustack/graph.json');
+    await writeFile('.docustack/graph.json', JSON.stringify({ nodes, edges: data.edges || [], groups: data.groups || [] }, null, 2));
+    report('.docustack/graph.json');
 
-  // 3. .docustack/categories.json
-  await writeFile('.docustack/categories.json', JSON.stringify(categories, null, 2));
-  report('.docustack/categories.json');
+    await writeFile('.docustack/categories.json', JSON.stringify(categories, null, 2));
+    report('.docustack/categories.json');
 
-  // 4. .docustack/documents_index.json
-  await writeFile('.docustack/documents_index.json', JSON.stringify(docs, null, 2));
-  report('.docustack/documents_index.json');
+    await writeFile('.docustack/documents_index.json', JSON.stringify(docs, null, 2));
+    report('.docustack/documents_index.json');
+  }
 
   // 5. Folder nodes → plain directory with .keep + README (Nested)
   for (const node of folderNodes) {
@@ -501,7 +506,7 @@ export async function syncWorkspaceToDirectoryHandle(
     report(`${nestedPath}/README.md`);
   }
 
-  // 6. Kanban board nodes → board folder with kanban_board.json + column subfolders (Nested)
+  // 6. Kanban board nodes → board folder with kanban_board.json (NO placeholder column subfolders)
   for (const node of kanbanNodes) {
     if (!node.title || !node.title.trim()) continue;
     const nestedBoardPath = resolveNodeNestedPath(node, nodes, data.edges || []);
@@ -525,19 +530,6 @@ export async function syncWorkspaceToDirectoryHandle(
     };
     await writeFile(`${nestedBoardPath}/kanban_board.json`, JSON.stringify(boardManifest, null, 2));
     report(`${nestedBoardPath}/kanban_board.json`);
-
-    const colsToCreate = boardCols.length > 0
-      ? boardCols
-      : [{ id: 'todo', title: 'To Do' }, { id: 'progress', title: 'In Progress' }, { id: 'done', title: 'Done' }];
-
-    for (const col of colsToCreate) {
-      const colName = getSafeFolderName(col.title);
-      const readme = `# ${col.title}\nColumn for Kanban board **${node.title}**.\n`;
-      await writeFile(`${nestedBoardPath}/${colName}/.keep`, '');
-      report(`${nestedBoardPath}/${colName}/.keep`);
-      await writeFile(`${nestedBoardPath}/${colName}/README.md`, readme);
-      report(`${nestedBoardPath}/${colName}/README.md`);
-    }
   }
 
   // 6b. Categories folders → ensure all root categories exist physically (matching cloud bucket layout)
@@ -552,50 +544,39 @@ export async function syncWorkspaceToDirectoryHandle(
     }
   }
 
-  // 6c. Always ensure inbox folder exists with .keep
-  await writeFile('inbox/.keep', '');
-  report('inbox/.keep');
+  // 7. Documents — placed into exact same nested path as cloud sync (NO default inbox or welcome_guide)
+  for (const doc of docs) {
+    const safeTitle = (doc.title || 'untitled').toLowerCase().replace(/[^a-z0-9_.-]/g, '_');
+    const filename = safeTitle.includes('.') ? safeTitle : `${safeTitle}.md`;
+    const assignedCat = categories.find((c: any) => c.id === doc.categoryId);
+    let targetPath = `inbox/${filename}`;
 
-  // 7. Documents — placed into exact same nested path as cloud sync
-  if (docs.length === 0) {
-    const welcome = `# Welcome to ${data.vaultName || workspaceName}\n\nThis workspace is synced to your local machine folder.\nCreate documents in DocuStack and sync again to see them here.\n`;
-    await writeFile('inbox/welcome_guide.md', welcome);
-    report('inbox/welcome_guide.md');
-  } else {
-    for (const doc of docs) {
-      const safeTitle = (doc.title || 'untitled').toLowerCase().replace(/[^a-z0-9_.-]/g, '_');
-      const filename = safeTitle.includes('.') ? safeTitle : `${safeTitle}.md`;
-      const assignedCat = categories.find((c: any) => c.id === doc.categoryId);
-      let targetPath = `inbox/${filename}`;
-
-      if (assignedCat) {
-        const catFolder = getSafeFolderName(assignedCat.title);
-        if (assignedCat.boardId) {
-          const boardNode = nodes.find((n: any) => (n.collectionId || n.id) === assignedCat.boardId);
-          const boardPath = boardNode ? resolveNodeNestedPath(boardNode, nodes, data.edges || []) : getSafeFolderName(boardNode?.title || 'Kanban');
-          targetPath = `${boardPath}/${catFolder}/${filename}`;
-        } else {
-          targetPath = `${catFolder}/${filename}`;
-        }
-      } else if (doc.categoryId) {
-        const folderNode = nodes.find((n: any) => n.id === doc.categoryId || n.title === doc.categoryId);
-        if (folderNode) {
-          const folderPath = resolveNodeNestedPath(folderNode, nodes, data.edges || []);
-          targetPath = `${folderPath}/${filename}`;
-        }
+    if (assignedCat) {
+      const catFolder = getSafeFolderName(assignedCat.title);
+      if (assignedCat.boardId) {
+        const boardNode = nodes.find((n: any) => (n.collectionId || n.id) === assignedCat.boardId);
+        const boardPath = boardNode ? resolveNodeNestedPath(boardNode, nodes, data.edges || []) : getSafeFolderName(boardNode?.title || 'Kanban');
+        targetPath = `${boardPath}/${catFolder}/${filename}`;
+      } else {
+        targetPath = `${catFolder}/${filename}`;
       }
-
-      const frontmatter = `---\nid: "${doc.id}"\ntitle: "${doc.title}"\ncategory: "${assignedCat?.title || 'Inbox'}"\ntags: ${JSON.stringify(doc.tags || [])}\ncreated: "${doc.createdAt || doc.uploadedAt || new Date().toISOString()}"\n---\n\n${doc.content || `# ${doc.title}\n`}`;
-      await writeFile(targetPath, frontmatter);
-      report(targetPath);
+    } else if (doc.categoryId) {
+      const folderNode = nodes.find((n: any) => n.id === doc.categoryId || n.title === doc.categoryId);
+      if (folderNode) {
+        const folderPath = resolveNodeNestedPath(folderNode, nodes, data.edges || []);
+        targetPath = `${folderPath}/${filename}`;
+      }
     }
+
+    const frontmatter = `---\nid: "${doc.id}"\ntitle: "${doc.title}"\ncategory: "${assignedCat?.title || 'Inbox'}"\ntags: ${JSON.stringify(doc.tags || [])}\ncreated: "${doc.createdAt || doc.uploadedAt || new Date().toISOString()}"\n---\n\n${doc.content || `# ${doc.title}\n`}`;
+    await writeFile(targetPath, frontmatter);
+    report(targetPath);
   }
 
   // 8. Reconciliation: Prune orphaned directories or files from wsDir
   try {
     const validTopLevelDirs = new Set<string>([
       '.docustack',
-      'inbox',
       ...folderNodes.map((n: any) => {
         const p = resolveNodeNestedPath(n, nodes, data.edges || []);
         return p ? p.split('/')[0] : getSafeFolderName(n.title);
@@ -606,6 +587,9 @@ export async function syncWorkspaceToDirectoryHandle(
       }),
       ...categories.filter((c: any) => !c.boardId).map((c: any) => getSafeFolderName(c.title)),
     ]);
+    if (docs.some((d: any) => !d.categoryId)) {
+      validTopLevelDirs.add('inbox');
+    }
 
     const anyWsDir = wsDir as any;
     if (typeof anyWsDir.entries === 'function') {

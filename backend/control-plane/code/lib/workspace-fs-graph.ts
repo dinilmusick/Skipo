@@ -238,20 +238,27 @@ export function saveGraphToFS(nodes: GraphNode[], edges: GraphEdge[], groups: Gr
         if (!fs.existsSync(kanbanDir)) {
           try { fs.mkdirSync(kanbanDir, { recursive: true }); } catch {}
         }
+        const boardManifestPath = path.join(kanbanDir, 'kanban_board.json');
         const boardId = n.collectionId || n.id;
         const boardCols = allCategories.filter((c) => c.boardId === boardId);
-        const colsToEnsure = boardCols.length > 0 ? boardCols : [
-          { id: 'todo', title: 'To Do' },
-          { id: 'progress', title: 'In Progress' },
-          { id: 'done', title: 'Done' },
-        ];
-        for (const col of colsToEnsure) {
-          const colFolder = getSafeCloudFolderName(col.title);
-          const colDir = path.join(kanbanDir, colFolder);
-          if (!fs.existsSync(colDir)) {
-            try { fs.mkdirSync(colDir, { recursive: true }); } catch {}
-          }
-        }
+        const boardManifest = {
+          id: boardId,
+          title: n.title || 'Kanban Board',
+          glyph: n.glyph || 'Kanban',
+          color: n.color || '#D4AF37',
+          tags: n.tags || ['Kanban'],
+          columns: boardCols.map((c) => ({
+            id: c.id,
+            title: c.title,
+            glyph: c.glyph,
+            color: c.color,
+            description: c.description,
+          })),
+          updatedAt: new Date().toISOString(),
+        };
+        try {
+          fs.writeFileSync(boardManifestPath, JSON.stringify(boardManifest, null, 2), 'utf-8');
+        } catch {}
       }
     }
   } catch (fsErr) {

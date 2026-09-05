@@ -115,3 +115,47 @@ export function resolveNodeNestedPath(
 
   return pathSegments.join('/');
 }
+
+/**
+ * Deterministic Initial Workspace Files Generator
+ * Single source of truth for all storage engines (Local FS, Backblaze B2, R2, S3, Supabase)
+ * Clean initial state: Root node only, empty categories, empty documents, NO inbox/welcome_guide.
+ */
+export function getInitialWorkspaceFiles(
+  workspaceName: string,
+  folderPrefix: string,
+  owner: string = 'User',
+  provider: string = 'local_fs'
+): Record<string, string> {
+  const cleanPrefix = (folderPrefix || '').replace(/^\/+|\/+$/g, '').trim();
+  const manifest = {
+    workspaceName,
+    folderPrefix: cleanPrefix,
+    provider,
+    initializedAt: new Date().toISOString(),
+    owner,
+    ecosystem: 'ultrst',
+    app: 'docustack',
+    directories: [],
+  };
+
+  const initialRootNode = {
+    id: 'node-root',
+    type: 'folder',
+    title: workspaceName,
+    isWorkspaceRoot: true,
+    workspacePath: cleanPrefix,
+    x: 360,
+    y: 240,
+    glyph: 'FolderArchive',
+    tags: ['WORKSPACE', provider.toUpperCase()],
+    color: '#D4AF37',
+  };
+
+  return {
+    '.docustack/workspace_manifest.json': JSON.stringify(manifest, null, 2),
+    '.docustack/graph.json': JSON.stringify({ nodes: [initialRootNode], edges: [], groups: [] }, null, 2),
+    '.docustack/categories.json': JSON.stringify([], null, 2),
+    '.docustack/documents_index.json': JSON.stringify([], null, 2),
+  };
+}

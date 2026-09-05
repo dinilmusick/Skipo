@@ -450,6 +450,22 @@ export function ensureWorkspaceExists(customVaultPath?: string) {
     if (!fs.existsSync(documentsFile)) {
       fs.writeFileSync(documentsFile, JSON.stringify([], null, 2), 'utf-8');
     }
+
+    // Seed default workspace manifest if not present
+    const manifestFile = path.join(metaDir, 'workspace_manifest.json');
+    if (!fs.existsSync(manifestFile)) {
+      const manifest = {
+        workspaceName: path.basename(vaultPath),
+        folderPrefix: path.basename(vaultPath),
+        provider: 'local_fs',
+        initializedAt: new Date().toISOString(),
+        owner: 'User',
+        ecosystem: 'ultrst',
+        app: 'docustack',
+        directories: [],
+      };
+      fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2), 'utf-8');
+    }
   } catch (err) {
     console.warn('Workspace directory initialization bypassed due to read-only filesystem:', err);
   }

@@ -342,11 +342,21 @@ export async function loadUsersAsync(): Promise<UserAccount[]> {
           // Rehydrate local storage connections if local has them and cluster snapshot hasn't synced yet
           const localConns = local.appProfiles?.docustack?.storage_connections || local.storage_connections || [];
           const clusterConns = u.appProfiles?.docustack?.storage_connections || u.storage_connections || [];
-          const localFsOnly = localConns.filter((c: any) => c.provider === 'local_fs');
           const mergedConns = [...clusterConns];
-          for (const lf of localFsOnly) {
-            if (!mergedConns.some((c: any) => c.id === lf.id)) {
-              mergedConns.push(lf);
+          for (const lc of localConns) {
+            const existingIdx = mergedConns.findIndex((c: any) => c.id === lc.id);
+            if (existingIdx === -1) {
+              mergedConns.push(lc);
+            } else {
+              const cl = mergedConns[existingIdx];
+              mergedConns[existingIdx] = {
+                ...cl,
+                ...lc,
+                b2ApplicationKey: (!lc.b2ApplicationKey || lc.b2ApplicationKey.includes('•')) ? cl.b2ApplicationKey : lc.b2ApplicationKey,
+                r2SecretAccessKey: (!lc.r2SecretAccessKey || lc.r2SecretAccessKey.includes('•')) ? cl.r2SecretAccessKey : lc.r2SecretAccessKey,
+                s3SecretAccessKey: (!lc.s3SecretAccessKey || lc.s3SecretAccessKey.includes('•')) ? cl.s3SecretAccessKey : lc.s3SecretAccessKey,
+                supabaseServiceKey: (!lc.supabaseServiceKey || lc.supabaseServiceKey.includes('•')) ? cl.supabaseServiceKey : lc.supabaseServiceKey,
+              };
             }
           }
 
@@ -836,7 +846,7 @@ export async function verifySession(req: NextRequest): Promise<{ userId: string;
   const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
   const headerToken = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : null;
 
-  const token = headerToken || cookieToken;
+  const token = cookieToken || headerToken;
   if (!token) return null;
 
   const sessionData = verifySessionToken(token);
@@ -879,7 +889,7 @@ export async function resolveRequestContextVault(req: NextRequest): Promise<Requ
   const cookieToken = req.cookies.get('docustack_session')?.value;
   const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
   const headerToken = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : null;
-  const token = headerToken || cookieToken;
+  const token = cookieToken || headerToken;
 
   let user: UserAccount | null = null;
   if (token) {
@@ -1063,16 +1073,7 @@ export async function updateUserProfileAsync(
     }
   }
 
-  // 2. Persist directly to canonical cluster databases (Neon, Supabase, Postgres)
-  try {
-    const { persistUserToCluster } = await getClusterPersister();
-    await persistUserToCluster(updated);
-  } catch (err: any) {
-    console.error('[DocuStack AuthStorage] updateUserProfileAsync cluster sync error:', err.message);
-    throw new Error(`DATABASE_SYNC_FAILED: Failed to save updates to system database: ${err.message}`);
-  }
-
-  // 3. Update local cache with canonical result
+  // 2. Update local cache immediately so state is never lost
   const localUsers = loadUsers();
   const idx = localUsers.findIndex((u) => u.id === userId);
   if (idx >= 0) {
@@ -1081,6 +1082,14 @@ export async function updateUserProfileAsync(
     localUsers.push(updated);
   }
   saveUsers(localUsers);
+
+  // 3. Persist to canonical cluster databases (Neon, Supabase, Postgres)
+  try {
+    const { persistUserToCluster } = await getClusterPersister();
+    await persistUserToCluster(updated);
+  } catch (err: any) {
+    console.warn('[DocuStack AuthStorage] updateUserProfileAsync cluster sync warning:', err.message);
+  }
 
   return updated;
 }

@@ -16,7 +16,7 @@ import {
 import { createClient } from '@supabase/supabase-js';
 import { UserStorageConnection, GraphNode, DocumentItem, DocCategory, GraphEdge, GraphGroup } from './types';
 import { buildS3Client } from './storage-providers';
-import { resolveNodeNestedPath } from './workspace-canonical';
+import { resolveNodeNestedPath, getInitialWorkspaceFiles } from './workspace-canonical';
 
 export interface CloudStorageFileInfo {
   key: string;
@@ -26,12 +26,48 @@ export interface CloudStorageFileInfo {
 }
 
 /**
- * Standardize path key under the bucket's workspace prefix
+ * Standardize path key under the bucket's workspace prefix.
+ * Supports directory markers if relativePath is empty.
  */
 function buildKey(folderPrefix: string, relativePath: string): string {
   const cleanPrefix = folderPrefix.replace(/^\/+|\/+$/g, '');
+  if (!relativePath || relativePath === '/' || relativePath === '') {
+    return `${cleanPrefix}/`;
+  }
   const cleanRel = relativePath.replace(/^\/+/g, '');
   return `${cleanPrefix}/${cleanRel}`;
+}
+
+/**
+ * Ensure physical directory marker exists in S3 / Backblaze B2 bucket
+ * Key ending with / ensures immediate visibility in Backblaze B2 console and S3 file managers.
+ */
+export async function ensureCloudDirectoryMarker(
+  conn: UserStorageConnection,
+  folderPrefix: string
+): Promise<void> {
+  const cleanPrefix = folderPrefix.replace(/^\/+|\/+$/g, '');
+  if (!cleanPrefix) return;
+
+  if (conn.provider === 'backblaze_b2' || conn.provider === 'cloudflare_r2' || conn.provider === 'aws_s3') {
+    const { s3, bucketName } = buildS3Client(conn);
+    try {
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: bucketName,
+          Key: `${cleanPrefix}/`,
+          Body: Buffer.alloc(0),
+          ContentType: 'application/x-directory',
+        })
+      );
+    } catch (err: any) {
+      console.warn(`[CloudStorage] Directory marker warning for ${cleanPrefix}/:`, err.message);
+    }
+  } else if (conn.provider === 'supabase_storage') {
+    try {
+      await writeCloudWorkspaceFile(conn, cleanPrefix, '.keep', '', 'text/plain');
+    } catch {}
+  }
 }
 
 /**
@@ -647,6 +683,9 @@ export async function initializeCloudWorkspaceBucket(
   const cleanPrefix = folderPrefix.replace(/^\/+|\/+$/g, '');
   const filesCreated: string[] = [];
 
+  // 1. Physically ensure workspace folder marker exists in Backblaze B2 / S3
+  await ensureCloudDirectoryMarker(conn, cleanPrefix);
+
   // CRITICAL IDEMPOTENCY GUARD:
   // Check if .docustack/graph.json already exists in the cloud bucket.
   // If it already exists, purge any leftover legacy default assets and preserve user data.
@@ -660,72 +699,14 @@ export async function initializeCloudWorkspaceBucket(
     // If not found or read error, proceed with clean initialization
   }
 
-  const manifest = {
-    workspaceName,
-    folderPrefix: cleanPrefix,
-    provider: conn.provider,
-    label: conn.label,
-    initializedAt: new Date().toISOString(),
-    owner: userName,
-    ecosystem: 'ultrst',
-    app: 'docustack',
-    directories: [],
-  };
+  // 2. Write unified initial workspace files (single source of truth)
+  const initialFiles = getInitialWorkspaceFiles(workspaceName, cleanPrefix, userName, conn.provider);
+  for (const [relPath, content] of Object.entries(initialFiles)) {
+    await writeCloudWorkspaceFile(conn, cleanPrefix, relPath, content, 'application/json');
+    filesCreated.push(relPath);
+  }
 
-  const initialRootNode: GraphNode = {
-    id: 'node-root',
-    type: 'folder',
-    title: workspaceName,
-    isWorkspaceRoot: true,
-    workspacePath: cleanPrefix,
-    x: 360,
-    y: 240,
-    glyph: 'FolderArchive',
-    tags: ['WORKSPACE', 'CLOUD_VAULT', conn.provider.toUpperCase()],
-    color: '#D4AF37',
-  };
-
-  // 1. Write workspace_manifest.json
-  await writeCloudWorkspaceFile(
-    conn,
-    cleanPrefix,
-    '.docustack/workspace_manifest.json',
-    JSON.stringify(manifest, null, 2),
-    'application/json'
-  );
-  filesCreated.push('.docustack/workspace_manifest.json');
-
-  // 2. Write graph.json with ONLY the root workspace node (no default kanban)
-  await writeCloudWorkspaceFile(
-    conn,
-    cleanPrefix,
-    '.docustack/graph.json',
-    JSON.stringify({ nodes: [initialRootNode], edges: [], groups: [] }, null, 2),
-    'application/json'
-  );
-  filesCreated.push('.docustack/graph.json');
-
-  // 3. Write empty categories.json (no default To Do/In Progress/Done)
-  await writeCloudWorkspaceFile(
-    conn,
-    cleanPrefix,
-    '.docustack/categories.json',
-    JSON.stringify([], null, 2),
-    'application/json'
-  );
-  filesCreated.push('.docustack/categories.json');
-
-  // 4. Write empty documents_index.json (no default welcome document)
-  await writeCloudWorkspaceFile(
-    conn,
-    cleanPrefix,
-    '.docustack/documents_index.json',
-    JSON.stringify([], null, 2),
-    'application/json'
-  );
-  filesCreated.push('.docustack/documents_index.json');
-
-  // 5. Purge any legacy default folders if they were created earlier
+  // 3. Purge any legacy default folders if they were created earlier
   await deleteCloudWorkspaceFolder(conn, cleanPrefix, 'Core_Kanban');
   await deleteCloudWorkspaceFolder(conn, cleanPrefix, 'core_kanban');
 
@@ -763,7 +744,7 @@ export async function syncFolderNodeToCloud(
 
 /**
  * Persist a Kanban board node physically to user Cloud Storage
- * Creates dedicated Board folder with kanban_board.json and column subfolders
+ * Creates dedicated Board folder with kanban_board.json (NO placeholder column subfolders)
  */
 export async function syncKanbanNodeToCloud(
   conn: UserStorageConnection,
@@ -775,7 +756,10 @@ export async function syncKanbanNodeToCloud(
   // Use the pre-computed nested path if provided; otherwise fall back to the node's own name
   const boardFolder = nestedPath || getSafeCloudFolderName(node.title || 'Kanban_Board');
 
-  // 1. Board Manifest
+  // 1. Ensure dedicated board directory exists in cloud bucket
+  await ensureCloudDirectoryMarker(conn, `${folderPrefix}/${boardFolder}`);
+
+  // 2. Board Manifest
   const boardManifest = {
     id: node.collectionId || node.id,
     title: node.title || 'Kanban Board',
@@ -800,19 +784,7 @@ export async function syncKanbanNodeToCloud(
     'application/json'
   );
 
-  // 2. Ensure each column has physical folder in cloud bucket
-  const colsToSync = columns.length > 0 ? columns : [
-    { id: 'todo', title: 'To Do' },
-    { id: 'progress', title: 'In Progress' },
-    { id: 'done', title: 'Done' },
-  ];
-
-  for (const col of colsToSync) {
-    const colName = getSafeCloudFolderName(col.title);
-    const readme = `# ${col.title}\nColumn for Kanban board **${node.title}**.\n`;
-    await writeCloudWorkspaceFile(conn, folderPrefix, `${boardFolder}/${colName}/.keep`, '', 'text/plain');
-    await writeCloudWorkspaceFile(conn, folderPrefix, `${boardFolder}/${colName}/README.md`, readme, 'text/markdown');
-  }
+  // Note: Column subfolders are NOT created as placeholders; documents are placed directly or in columns when assigned.
 }
 
 /**
@@ -927,12 +899,12 @@ export async function syncEntireWorkspaceToCloud(
   // 6. Reconcile / Prune Orphaned Objects from Cloud Bucket
   try {
     const validRelativeKeys = new Set<string>([
+      '.docustack/workspace_manifest.json',
       '.docustack/manifest.json',
       '.docustack/graph.json',
       '.docustack/categories.json',
       '.docustack/documents_index.json',
       '.docustack/theme.json',
-      'inbox/.keep',
     ]);
 
     // Active folder and kanban nodes (register both nested paths and fallbacks)
@@ -949,15 +921,6 @@ export async function syncEntireWorkspaceToCloud(
       } else if (node.type === 'collection' || node.glyph === 'Kanban') {
         validRelativeKeys.add(`${nestedPath}/kanban_board.json`);
         validRelativeKeys.add(`${safeTitle}/kanban_board.json`);
-        const boardId = node.collectionId || node.id;
-        const boardCols = data.categories.filter((c) => c.boardId === boardId);
-        for (const col of boardCols) {
-          const colFolder = getSafeCloudFolderName(col.title);
-          validRelativeKeys.add(`${nestedPath}/${colFolder}/.keep`);
-          validRelativeKeys.add(`${nestedPath}/${colFolder}/README.md`);
-          validRelativeKeys.add(`${safeTitle}/${colFolder}/.keep`);
-          validRelativeKeys.add(`${safeTitle}/${colFolder}/README.md`);
-        }
       } else if (node.type === 'sticky') {
         const safeSticky = (node.title || 'sticky').toLowerCase().replace(/[^a-z0-9_.-]/g, '_');
         validRelativeKeys.add(`${safeSticky}.txt`);

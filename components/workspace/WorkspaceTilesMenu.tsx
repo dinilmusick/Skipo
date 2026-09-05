@@ -218,6 +218,7 @@ export default function WorkspaceTilesMenu({
     const effectiveStorageConnId = newWsStorageConnId || primaryConn?.id || undefined;
     const effectiveStorageProvider = newWsStorageProvider || primaryConn?.provider || undefined;
     const effectiveEngine = effectiveStorageProvider === 'local_fs' ? 'local_fs' : newWsEngine;
+    const activeStorageConn = userConns.find((c) => c.id === effectiveStorageConnId) || primaryConn || undefined;
 
     try {
       const res = await fetch('/api/auth/workspaces', {
@@ -229,6 +230,8 @@ export default function WorkspaceTilesMenu({
           engine: effectiveEngine,
           storageConnectionId: effectiveStorageConnId,
           storageProvider: effectiveStorageProvider,
+          storageConnection: activeStorageConn,
+          storageConnections: userConns,
           localFolderName: newWsLocalFolderName || undefined,
           localFolderKey: newWsLocalFolderKey || undefined,
         }),

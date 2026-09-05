@@ -129,8 +129,16 @@ export async function POST(req: NextRequest) {
     if (storageConn && storageConn.provider !== 'local_fs') {
       cloudTargets.push(storageConn);
     }
-    for (const c of freshUserConns) {
-      if (c && c.provider !== 'local_fs' && !cloudTargets.some((t) => t.id === c.id)) {
+    const combinedConns = [
+      ...freshUserConns,
+      ...(Array.isArray(body.storageConnections) ? body.storageConnections : []),
+    ];
+    for (const c of combinedConns) {
+      if (
+        c &&
+        c.provider !== 'local_fs' &&
+        !cloudTargets.some((t) => t.id === c.id || (t.provider === c.provider && t.b2BucketName === c.b2BucketName))
+      ) {
         cloudTargets.push(c);
       }
     }
