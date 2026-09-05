@@ -87,11 +87,11 @@ export const STORAGE_PROVIDER_CONFIGS: Record<UserStorageProvider, StorageProvid
       },
       {
         key: 'b2Endpoint',
-        label: 'B2 S3 Endpoint (Optional)',
+        label: 'B2 Region / S3 Endpoint',
         type: 'text',
-        placeholder: 's3.us-east-005.backblazeb2.com',
-        helpText: 'From Backblaze B2 -> Buckets -> Endpoint. Auto-derived from Key ID if omitted.',
-        required: false,
+        placeholder: 'us-east-005 or s3.us-east-005.backblazeb2.com',
+        helpText: 'From Backblaze B2 -> Buckets -> Endpoint (e.g. us-east-005 or s3.us-east-005.backblazeb2.com)',
+        required: true,
       },
     ],
   },
@@ -322,7 +322,12 @@ export function buildS3Client(conn: UserStorageConnection): { s3: S3Client; buck
       throw new Error('MISSING_BACKBLAZE_CREDENTIALS: Key ID, Application Key, and Bucket Name are required.');
     }
 
-    const { endpoint, region } = resolveBackblazeEndpoint(conn.b2Endpoint || conn.b2Region, keyId);
+    if (appKey.includes('•')) {
+      throw new Error('BACKBLAZE_APP_KEY_MASKED: Application Key secret is masked. Please re-enter your 31-character Application Key in Storage Settings.');
+    }
+
+    const rawEndpoint = (conn.b2Endpoint || conn.b2Region || '').trim();
+    const { endpoint, region } = resolveBackblazeEndpoint(rawEndpoint, keyId);
 
     const s3 = new S3Client({
       region,

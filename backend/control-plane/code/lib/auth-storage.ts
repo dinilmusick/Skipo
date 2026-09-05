@@ -7,9 +7,10 @@ import { getVaultAbsolutePath, ensureWorkspaceExists, setActiveVaultConfig } fro
 import {
   formatCanonicalWorkspaceFolderName,
   formatCanonicalWorkspacePath,
+  extractCanonicalFolderPrefix,
 } from './workspace-canonical';
 
-export { formatCanonicalWorkspaceFolderName, formatCanonicalWorkspacePath };
+export { formatCanonicalWorkspaceFolderName, formatCanonicalWorkspacePath, extractCanonicalFolderPrefix };
 
 export interface CanonicalAccount {
   id: string;
@@ -150,11 +151,17 @@ export function normalizeUserAccount(rawUser: any): UserAccount {
       : (existingDocuStackProfile.workspaceName || activeWs?.name || '');
 
   // Preserve user-saved storage connections (Backblaze B2, R2, S3, Supabase, Local)
+  const directConns = Array.isArray((rawUser as any).storage_connections) ? (rawUser as any).storage_connections : [];
+  const profileConns = Array.isArray(existingDocuStackProfile.storage_connections) ? existingDocuStackProfile.storage_connections : [];
   let rawConns: UserStorageConnection[];
-  if (Array.isArray(existingDocuStackProfile.storage_connections)) {
-    rawConns = existingDocuStackProfile.storage_connections;
+  if (directConns.length > 0) {
+    rawConns = directConns;
+  } else if (profileConns.length > 0) {
+    rawConns = profileConns;
   } else if (Array.isArray((rawUser as any).storage_connections)) {
     rawConns = (rawUser as any).storage_connections;
+  } else if (Array.isArray(existingDocuStackProfile.storage_connections)) {
+    rawConns = existingDocuStackProfile.storage_connections;
   } else {
     rawConns = [];
   }
@@ -895,7 +902,7 @@ export async function resolveRequestContextVault(req: NextRequest): Promise<Requ
   if (token) {
     const sessionData = verifySessionToken(token);
     if (sessionData) {
-      user = findUserById(sessionData.userId) || (await findUserByIdAsync(sessionData.userId)) || null;
+      user = (await findUserByIdAsync(sessionData.userId)) || findUserById(sessionData.userId) || null;
     }
   }
 
@@ -929,8 +936,14 @@ export async function resolveRequestContextVault(req: NextRequest): Promise<Requ
       activeWs = (activeId ? userWorkspaces.find((w) => w.id === activeId) : null) || userWorkspaces[0] || null;
     }
 
+    const profileConns = user.appProfiles?.[APP_ID]?.storage_connections;
+    const directConns = user.storage_connections;
     const userConns: UserStorageConnection[] =
-      user.appProfiles?.[APP_ID]?.storage_connections || user.storage_connections || [];
+      Array.isArray(directConns) && directConns.length > 0
+        ? directConns
+        : Array.isArray(profileConns) && profileConns.length > 0
+        ? profileConns
+        : directConns || profileConns || [];
 
     const primaryConn =
       userConns.find((c) => c.role === 'primary' || (c as any).isPrimary) ||
@@ -948,6 +961,11 @@ export async function resolveRequestContextVault(req: NextRequest): Promise<Requ
       if (!storageConn) {
         storageConn = primaryConn;
       }
+      if (primaryConn && (primaryConn.role === 'primary' || (primaryConn as any).isPrimary)) {
+        if (!storageConn || storageConn.provider === 'local_fs') {
+          storageConn = primaryConn;
+        }
+      }
     } else if (requestedWsPath && userConns.length > 0) {
       vaultPath = requestedWsPath;
       storageConn = primaryConn;
@@ -956,13 +974,18 @@ export async function resolveRequestContextVault(req: NextRequest): Promise<Requ
     }
   }
 
-  folderPrefix = vaultPath ? vaultPath.replace(/^\.\//, '') : '';
-  if (!folderPrefix && user) {
-    const wsNameFallback = activeWs?.name || user.workspaceName || 'workspace';
-    folderPrefix = formatCanonicalWorkspaceFolderName('docustack', user.username || user.name || 'user', wsNameFallback);
+  folderPrefix = extractCanonicalFolderPrefix(
+    vaultPath,
+    user?.username || user?.name || 'user',
+    activeWs?.name || vaultName || 'workspace'
+  );
+
+  if (storageConn && storageConn.provider !== 'local_fs') {
+    vaultPath = `./${folderPrefix}`;
   }
+
   setActiveVaultConfig(vaultPath, vaultName, storageConn, folderPrefix);
-  if (storageConn && storageConn.provider === 'local_fs') {
+  if (!storageConn || storageConn.provider === 'local_fs') {
     ensureWorkspaceExists(vaultPath);
   }
 
@@ -971,7 +994,7 @@ export async function resolveRequestContextVault(req: NextRequest): Promise<Requ
     activeWs,
     storageConn,
     folderPrefix,
-    vaultPath: getVaultAbsolutePath(vaultPath),
+    vaultPath: storageConn && storageConn.provider !== 'local_fs' ? folderPrefix : getVaultAbsolutePath(vaultPath),
     vaultName,
   };
 }

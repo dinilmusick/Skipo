@@ -39,6 +39,7 @@ import {
 
 interface StorageConnectDrawerProps {
   userToken?: string | null;
+  activeWorkspaceId?: string;
   currentConnectionId?: string;
   currentProvider?: UserStorageProvider;
   currentLocalFolderName?: string;
@@ -59,6 +60,7 @@ const ACTIVE_STORAGE_PROVIDERS: UserStorageProvider[] = [
 
 export default function StorageConnectDrawer({
   userToken,
+  activeWorkspaceId,
   currentConnectionId,
   currentProvider = 'backblaze_b2',
   currentLocalFolderName,
@@ -149,6 +151,8 @@ export default function StorageConnectDrawer({
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const token = userToken || (typeof window !== 'undefined' ? localStorage.getItem('docustackAuthToken') : null);
     if (token) headers['Authorization'] = `Bearer ${token}`;
+    const wsId = activeWorkspaceId || (typeof window !== 'undefined' ? localStorage.getItem('docustack_active_workspace_id') : null);
+    if (wsId) headers['x-workspace-id'] = wsId;
     return headers;
   };
 
@@ -190,10 +194,11 @@ export default function StorageConnectDrawer({
     if (e) e.stopPropagation();
     try {
       setGeneralError(null);
+      const wsId = activeWorkspaceId || (typeof window !== 'undefined' ? localStorage.getItem('docustack_active_workspace_id') : undefined);
       const res = await fetch('/api/auth/storage/connections', {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ action: 'set_primary', id: conn.id }),
+        body: JSON.stringify({ action: 'set_primary', id: conn.id, workspaceId: wsId }),
       });
       const data = await res.json();
       if (!data.success) {
@@ -201,6 +206,9 @@ export default function StorageConnectDrawer({
         return;
       }
       setImportNotification(`✓ "${conn.label}" elevated to Primary Workspace Storage.`);
+      if (data.user && onUserUpdated) {
+        onUserUpdated(data.user);
+      }
       await fetchSavedConnections(conn.id);
       handleSelectSavedConn(conn);
     } catch (err: any) {
@@ -511,6 +519,10 @@ export default function StorageConnectDrawer({
       const data = await res.json();
       if (!data.success) {
         throw new Error(data.error || 'Failed to save storage connection.');
+      }
+
+      if (data.user && onUserUpdated) {
+        onUserUpdated(data.user);
       }
 
       await fetchSavedConnections(data.connection.id);

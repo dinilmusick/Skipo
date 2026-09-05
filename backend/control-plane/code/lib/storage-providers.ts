@@ -318,11 +318,15 @@ export function buildS3Client(conn: UserStorageConnection): { s3: S3Client; buck
       appKey = temp;
     }
 
-    const rawEndpoint = (conn.b2Endpoint || conn.b2Region || '').trim();
-    if (!keyId || !appKey || !bucket || !rawEndpoint) {
-      throw new Error('MISSING_BACKBLAZE_CREDENTIALS: Key ID, Application Key, Bucket Name, and B2 Region / S3 Endpoint are required.');
+    if (!keyId || !appKey || !bucket) {
+      throw new Error('MISSING_BACKBLAZE_CREDENTIALS: Key ID, Application Key, and Bucket Name are required.');
     }
 
+    if (appKey.includes('•')) {
+      throw new Error('BACKBLAZE_APP_KEY_MASKED: Application Key secret is masked. Please re-enter your 31-character Application Key in Storage Settings.');
+    }
+
+    const rawEndpoint = (conn.b2Endpoint || conn.b2Region || '').trim();
     const { endpoint, region } = resolveBackblazeEndpoint(rawEndpoint, keyId);
 
     const s3 = new S3Client({

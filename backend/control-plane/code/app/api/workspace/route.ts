@@ -12,7 +12,16 @@ import {
   syncEntireWorkspaceToDiskAndCloud,
   purgeAssetFromPhysicalWorkspace,
 } from '@/lib/workspaceFS';
-import { updateUserProfile, findUserById, resolveRequestContextVault, switchActiveWorkspace } from '@/lib/auth-storage';
+import {
+  updateUserProfile,
+  findUserById,
+  findUserByIdAsync,
+  updateUserProfileAsync,
+  switchActiveWorkspace,
+  switchActiveWorkspaceAsync,
+  resolveRequestContextVault,
+} from '@/lib/auth-storage';
+import { extractCanonicalFolderPrefix } from '@/lib/workspace-canonical';
 import {
   writeCloudWorkspaceFile,
   readCloudWorkspaceFile,
@@ -24,19 +33,12 @@ import {
 export async function GET(req: NextRequest) {
   try {
     await resolveRequestContextVault(req);
-    const userId = req.nextUrl.searchParams.get('userId');
-    if (userId) {
-      const user = findUserById(userId);
-      if (user?.workspacePath) {
-        setActiveVaultConfig(user.workspacePath, user.workspaceName);
-      }
-    }
 
     const requestedFile = req.nextUrl.searchParams.get('file');
     const source = req.nextUrl.searchParams.get('source'); // 'primary' | 'cloud' | 'local'
     const storageConn = getActiveStorageConn();
     const folderPrefix = getActiveFolderPrefix();
-    const vaultPath = getVaultAbsolutePath();
+    const vaultPath = storageConn && storageConn.provider !== 'local_fs' ? (folderPrefix || 'cloud_vault') : getVaultAbsolutePath();
     const vaultName = getActiveVaultName();
 
     // 1. Single file content read mode (for Physical Workspace Vault Explorer)
@@ -59,8 +61,9 @@ export async function GET(req: NextRequest) {
       }
 
       // Local disk fallback
-      const targetPath = path.normalize(path.join(vaultPath, cleanRel));
-      if (targetPath.startsWith(vaultPath) && fs.existsSync(targetPath) && !fs.statSync(targetPath).isDirectory()) {
+      const localVaultPath = getVaultAbsolutePath();
+      const targetPath = path.normalize(path.join(localVaultPath, cleanRel));
+      if (targetPath.startsWith(localVaultPath) && fs.existsSync(targetPath) && !fs.statSync(targetPath).isDirectory()) {
         const content = fs.readFileSync(targetPath, 'utf-8');
         return NextResponse.json({
           success: true,
@@ -101,7 +104,29 @@ export async function GET(req: NextRequest) {
           tree,
         });
       } catch (cloudErr: any) {
-        console.warn('[CloudStorage] buildCloudWorkspaceFileTree failed, falling back to local tree:', cloudErr);
+        console.warn('[CloudStorage] buildCloudWorkspaceFileTree notice:', cloudErr);
+        return NextResponse.json({
+          success: true,
+          isCloudPrimary: true,
+          storageProvider: storageConn.provider,
+          bucketName:
+            storageConn.b2BucketName ||
+            storageConn.r2BucketName ||
+            storageConn.s3BucketName ||
+            storageConn.supabaseBucketName,
+          folderPrefix,
+          vaultPath: folderPrefix,
+          vaultName,
+          stats: { fileCount: 0, folderCount: 0 },
+          tree: {
+            name: folderPrefix,
+            relativePath: folderPrefix,
+            absolutePath: folderPrefix,
+            isDirectory: true,
+            children: [],
+          },
+          notice: `Cloud bucket active (${storageConn.provider}). ${cloudErr?.message || ''}`,
+        });
       }
     }
 
@@ -224,14 +249,14 @@ export async function POST(req: NextRequest) {
 
       const cleanName = (workspaceName || 'DocuStack Vault').trim();
       let storageConn: any = null;
-      const folderPrefix = workspacePath.replace(/^\.\//, '');
+      let user: any = null;
 
       if (userId) {
-        const user = findUserById(userId);
+        user = (await findUserByIdAsync(userId)) || findUserById(userId);
         if (user) {
           const userConns: any[] =
             user.appProfiles?.docustack?.storage_connections || (user as any)?.storage_connections || [];
-          const targetWs = (user.workspaces || []).find((w) => w.id === workspaceId || w.workspacePath === workspacePath);
+          const targetWs = (user.workspaces || []).find((w: any) => w.id === workspaceId || w.workspacePath === workspacePath);
           const effectiveConnId = storageConnectionId || targetWs?.storageConnectionId;
 
           if (effectiveConnId) {
@@ -249,7 +274,7 @@ export async function POST(req: NextRequest) {
           const targetWsId = workspaceId || targetWs?.id;
           if (targetWsId) {
             try {
-              switchActiveWorkspace(userId, targetWsId);
+              await switchActiveWorkspaceAsync(userId, targetWsId);
             } catch (swErr) {
               console.warn('[Workspace Route] switchActiveWorkspace warning:', swErr);
             }
@@ -257,14 +282,23 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      setActiveVaultConfig(workspacePath, cleanName, storageConn, folderPrefix);
-      ensureWorkspaceExists(workspacePath);
+      const folderPrefix = extractCanonicalFolderPrefix(
+        workspacePath,
+        user?.username || user?.name || 'user',
+        cleanName
+      );
+      const cleanWsPath = storageConn && storageConn.provider !== 'local_fs' ? `./${folderPrefix}` : workspacePath;
+
+      setActiveVaultConfig(cleanWsPath, cleanName, storageConn, folderPrefix);
+      if (!storageConn || storageConn.provider === 'local_fs') {
+        ensureWorkspaceExists(cleanWsPath);
+      }
 
       if (storageConn && storageConn.provider !== 'local_fs') {
         try {
           const existingGraph = await readCloudWorkspaceFile(storageConn, folderPrefix, '.docustack/graph.json');
           if (!existingGraph) {
-            await initializeCloudWorkspaceBucket(storageConn, folderPrefix, cleanName, userId || 'User');
+            await initializeCloudWorkspaceBucket(storageConn, folderPrefix, cleanName, user?.name || user?.username || 'User');
           }
         } catch (cloudErr) {
           console.warn('[CloudStorage] Failed to initialize cloud storage bucket on configure:', cloudErr);
@@ -273,8 +307,8 @@ export async function POST(req: NextRequest) {
 
       if (userId) {
         try {
-          updateUserProfile(userId, {
-            workspacePath,
+          await updateUserProfileAsync(userId, {
+            workspacePath: cleanWsPath,
             workspaceName: cleanName,
           });
         } catch (e) {
@@ -282,41 +316,27 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const activePath = getVaultAbsolutePath(workspacePath);
+      const activePath = storageConn && storageConn.provider !== 'local_fs' ? folderPrefix : getVaultAbsolutePath(cleanWsPath);
       return NextResponse.json({
         success: true,
         message: 'WORKSPACE_FOLDER_CONFIGURED',
         vaultPath: activePath,
         vaultName: cleanName,
+        storageProvider: storageConn?.provider || 'local_fs',
       });
     }
 
     // 2. Action to write file
-    ensureWorkspaceExists();
-    const vaultPath = getVaultAbsolutePath();
+    const storageConn = getActiveStorageConn();
+    const folderPrefix = getActiveFolderPrefix();
     const { relativePath, content } = body;
 
     if (!relativePath) {
       return NextResponse.json({ success: false, error: 'MISSING_RELATIVE_PATH' }, { status: 400 });
     }
 
-    // Sanitize path to prevent directory traversal outside vault
-    const targetPath = path.normalize(path.join(vaultPath, relativePath));
-    if (!targetPath.startsWith(vaultPath)) {
-      return NextResponse.json({ success: false, error: 'INVALID_PATH_OUTSIDE_VAULT' }, { status: 403 });
-    }
-
-    const parentDir = path.dirname(targetPath);
-    if (!fs.existsSync(parentDir)) {
-      fs.mkdirSync(parentDir, { recursive: true });
-    }
-
-    fs.writeFileSync(targetPath, content || '', 'utf-8');
-
     // Sync file to Cloud Storage if active
-    const storageConn = getActiveStorageConn();
-    const folderPrefix = getActiveFolderPrefix();
-    if (storageConn && folderPrefix) {
+    if (storageConn && storageConn.provider !== 'local_fs' && folderPrefix) {
       try {
         await writeCloudWorkspaceFile(
           storageConn,
@@ -330,14 +350,40 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const stat = fs.statSync(targetPath);
+    if (!storageConn || storageConn.provider === 'local_fs') {
+      ensureWorkspaceExists();
+      const vaultPath = getVaultAbsolutePath();
+
+      // Sanitize path to prevent directory traversal outside vault
+      const targetPath = path.normalize(path.join(vaultPath, relativePath));
+      if (!targetPath.startsWith(vaultPath)) {
+        return NextResponse.json({ success: false, error: 'INVALID_PATH_OUTSIDE_VAULT' }, { status: 403 });
+      }
+
+      const parentDir = path.dirname(targetPath);
+      if (!fs.existsSync(parentDir)) {
+        fs.mkdirSync(parentDir, { recursive: true });
+      }
+
+      fs.writeFileSync(targetPath, content || '', 'utf-8');
+      const stat = fs.statSync(targetPath);
+
+      return NextResponse.json({
+        success: true,
+        path: targetPath,
+        relativePath,
+        sizeBytes: stat.size,
+        message: 'FILE WRITTEN TO PHYSICAL WORKSPACE VAULT',
+      });
+    }
 
     return NextResponse.json({
       success: true,
-      path: targetPath,
+      path: `./${folderPrefix}/${relativePath}`,
       relativePath,
-      sizeBytes: stat.size,
-      message: 'FILE WRITTEN TO PHYSICAL WORKSPACE VAULT',
+      sizeBytes: Buffer.byteLength(content || '', 'utf-8'),
+      message: 'FILE WRITTEN TO PRIMARY CLOUD WORKSPACE VAULT',
+      storageProvider: storageConn.provider,
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 400 });

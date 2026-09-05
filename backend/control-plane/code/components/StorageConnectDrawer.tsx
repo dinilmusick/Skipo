@@ -39,6 +39,7 @@ import {
 
 interface StorageConnectDrawerProps {
   userToken?: string | null;
+  activeWorkspaceId?: string;
   currentConnectionId?: string;
   currentProvider?: UserStorageProvider;
   currentLocalFolderName?: string;
@@ -59,6 +60,7 @@ const ACTIVE_STORAGE_PROVIDERS: UserStorageProvider[] = [
 
 export default function StorageConnectDrawer({
   userToken,
+  activeWorkspaceId,
   currentConnectionId,
   currentProvider = 'backblaze_b2',
   currentLocalFolderName,
@@ -149,6 +151,8 @@ export default function StorageConnectDrawer({
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const token = userToken || (typeof window !== 'undefined' ? localStorage.getItem('docustackAuthToken') : null);
     if (token) headers['Authorization'] = `Bearer ${token}`;
+    const wsId = activeWorkspaceId || (typeof window !== 'undefined' ? localStorage.getItem('docustack_active_workspace_id') : null);
+    if (wsId) headers['x-workspace-id'] = wsId;
     return headers;
   };
 
@@ -190,10 +194,11 @@ export default function StorageConnectDrawer({
     if (e) e.stopPropagation();
     try {
       setGeneralError(null);
+      const wsId = activeWorkspaceId || (typeof window !== 'undefined' ? localStorage.getItem('docustack_active_workspace_id') : undefined);
       const res = await fetch('/api/auth/storage/connections', {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ action: 'set_primary', id: conn.id }),
+        body: JSON.stringify({ action: 'set_primary', id: conn.id, workspaceId: wsId }),
       });
       const data = await res.json();
       if (!data.success) {
@@ -201,6 +206,9 @@ export default function StorageConnectDrawer({
         return;
       }
       setImportNotification(`✓ "${conn.label}" elevated to Primary Workspace Storage.`);
+      if (data.user && onUserUpdated) {
+        onUserUpdated(data.user);
+      }
       await fetchSavedConnections(conn.id);
       handleSelectSavedConn(conn);
     } catch (err: any) {
@@ -301,13 +309,20 @@ export default function StorageConnectDrawer({
   };
 
   const buildConnectionPayload = (): UserStorageConnection => {
+    const fallbackFolderName = (localFolderName || '').trim() || activeDirectoryHandleRef.current?.name || 'Local_Disk_Vault';
+    const fallbackLabel =
+      connectionLabel.trim() ||
+      (selectedProvider === 'local_fs'
+        ? `${fallbackFolderName} Vault`
+        : `${STORAGE_PROVIDER_CONFIGS[selectedProvider]?.shortName || selectedProvider} Vault`);
+
     return {
       id: `conn_${selectedProvider}_${Date.now()}`,
       provider: selectedProvider,
-      label: connectionLabel.trim() || `${STORAGE_PROVIDER_CONFIGS[selectedProvider]?.shortName || selectedProvider} Vault`,
+      label: fallbackLabel,
       createdAt: new Date().toISOString(),
-      localFolderName: selectedProvider === 'local_fs' ? localFolderName : undefined,
-      localFolderKey: selectedProvider === 'local_fs' ? localFolderKey : undefined,
+      localFolderName: selectedProvider === 'local_fs' ? fallbackFolderName : undefined,
+      localFolderKey: selectedProvider === 'local_fs' ? (localFolderKey || `ws_folder_${Date.now()}`) : undefined,
       ...formData,
     };
   };
@@ -377,6 +392,17 @@ export default function StorageConnectDrawer({
   };
 
   const handleTestConnection = async () => {
+    if (selectedProvider === 'backblaze_b2') {
+      const missing: string[] = [];
+      if (!formData['b2KeyId']?.trim()) missing.push('Key ID');
+      if (!formData['b2ApplicationKey']?.trim()) missing.push('Application Key');
+      if (!formData['b2BucketName']?.trim()) missing.push('Bucket Name');
+      if (!formData['b2Endpoint']?.trim() && !formData['b2Region']?.trim()) missing.push('B2 Region / S3 Endpoint');
+      if (missing.length > 0) {
+        setGeneralError(`Please fill in all required fields: ${missing.join(', ')}`);
+        return;
+      }
+    }
     const payload = buildConnectionPayload();
     await runProbeTest(payload, true);
   };
@@ -474,6 +500,15 @@ export default function StorageConnectDrawer({
       setSaving(true);
       setGeneralError(null);
 
+      if (selectedProvider === 'local_fs') {
+        const resolvedFolder = (localFolderName || '').trim() || activeDirectoryHandleRef.current?.name || 'Local_Disk_Vault';
+        const resolvedLabel = connectionLabel.trim() || `${resolvedFolder} Vault`;
+        const resolvedKey = localFolderKey || `ws_folder_${Date.now()}`;
+        setLocalFolderName(resolvedFolder);
+        setConnectionLabel(resolvedLabel);
+        setLocalFolderKey(resolvedKey);
+      }
+
       const payload = buildConnectionPayload();
       const res = await fetch('/api/auth/storage/connections', {
         method: 'POST',
@@ -484,6 +519,10 @@ export default function StorageConnectDrawer({
       const data = await res.json();
       if (!data.success) {
         throw new Error(data.error || 'Failed to save storage connection.');
+      }
+
+      if (data.user && onUserUpdated) {
+        onUserUpdated(data.user);
       }
 
       await fetchSavedConnections(data.connection.id);
@@ -1345,7 +1384,7 @@ export default function StorageConnectDrawer({
                       onSelectLocalFolder(val, key);
                       onSelectEngine('local_fs');
                     }}
-                    placeholder="e.g. MyDocuments or DocuStackVault"
+                    placeholder="e.g. MyDocuments (defaults to Local_Disk_Vault)"
                     className="flex-1 bg-black border border-brutalist px-2 py-1.5 text-xs font-mono text-emerald-400 font-bold focus:outline-none focus:border-[var(--color-accent)]"
                   />
                   <button
@@ -1364,7 +1403,7 @@ export default function StorageConnectDrawer({
                 <button
                   type="button"
                   onClick={handleSaveAndUse}
-                  disabled={!localFolderName || saving}
+                  disabled={saving}
                   className="py-1.5 px-3 border-2 border-brutalist bg-[var(--color-accent)] text-black hover:bg-[#c5a059] font-black text-xs uppercase flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-[2px_2px_0px_var(--color-border)]"
                 >
                   <Check size={13} />

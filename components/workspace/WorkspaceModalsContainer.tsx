@@ -312,6 +312,7 @@ export default function WorkspaceModalsContainer({
           onClose={() => setIsSettingsOpen(false)}
           appWallpaper={appWallpaper}
           onChangeWallpaper={onChangeWallpaper}
+          onUserUpdated={(u) => setCurrentUser(u)}
         />
       )}
 

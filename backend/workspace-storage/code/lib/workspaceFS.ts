@@ -36,7 +36,12 @@ export {
   ensureWorkspaceExists,
 } from './workspace-fs-core';
 
-export { resolveNodeNestedPath, getSafeCloudFolderName, getInitialWorkspaceFiles } from './workspace-canonical';
+export {
+  resolveNodeNestedPath,
+  getSafeCloudFolderName,
+  getInitialWorkspaceFiles,
+  extractCanonicalFolderPrefix,
+} from './workspace-canonical';
 
 export {
   LocalFileSystemWorkspaceStorageAdapter,

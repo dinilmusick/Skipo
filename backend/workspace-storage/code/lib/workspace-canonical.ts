@@ -59,6 +59,63 @@ export function getSafeCloudFolderName(name: string): string {
 }
 
 /**
+ * Cleanly extracts or derives a canonical workspace folder prefix.
+ * Strips away any local filesystem prefixes (e.g. /tmp/docustack_workspace/ or /tmp/docustack/)
+ * and ensures the result is a clean relative folder prefix like "ultrst_docustack_user_workspace".
+ */
+export function extractCanonicalFolderPrefix(
+  rawPathOrPrefix?: string | null,
+  userName: string = 'user',
+  workspaceName: string = 'default'
+): string {
+  if (!rawPathOrPrefix || rawPathOrPrefix.trim() === '') {
+    return formatCanonicalWorkspaceFolderName('docustack', userName, workspaceName);
+  }
+
+  let clean = rawPathOrPrefix.trim().replace(/^["']|["']$/g, '');
+  clean = clean.replace(/\\/g, '/'); // normalize Windows backslashes
+
+  // If path contains segments, look for ultrst_ segment or the trailing folder name
+  if (clean.includes('/')) {
+    const segments = clean.split('/').filter((s) => s.length > 0 && s !== '.');
+    const ultrstSegment = segments.find((s) => s.toLowerCase().startsWith('ultrst_'));
+    if (ultrstSegment) {
+      return sanitizeFolderSegment(ultrstSegment);
+    }
+    // Filter out common temp folder names
+    const nonTempSegments = segments.filter(
+      (s) =>
+        s !== 'tmp' &&
+        s !== 'var' &&
+        s !== 'folders' &&
+        s !== 'T' &&
+        !s.startsWith('docustack_workspace') &&
+        !s.startsWith('docustack_vault')
+    );
+    if (nonTempSegments.length > 0) {
+      const last = nonTempSegments[nonTempSegments.length - 1];
+      return formatCanonicalWorkspaceFolderName('docustack', userName, last);
+    }
+    return formatCanonicalWorkspaceFolderName('docustack', userName, workspaceName);
+  }
+
+  if (clean.toLowerCase().startsWith('ultrst_')) {
+    return sanitizeFolderSegment(clean);
+  }
+
+  if (
+    clean === 'docustack_vault' ||
+    clean === 'docustack_workspace' ||
+    clean.startsWith('/tmp') ||
+    clean.startsWith('\\tmp')
+  ) {
+    return formatCanonicalWorkspaceFolderName('docustack', userName, workspaceName);
+  }
+
+  return formatCanonicalWorkspaceFolderName('docustack', userName, clean);
+}
+
+/**
  * Resolve the full nested storage path for a node by walking the parentId / edge chain
  * up through all ancestor folder nodes (stopping at workspace root).
  *

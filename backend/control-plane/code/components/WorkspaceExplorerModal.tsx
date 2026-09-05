@@ -163,6 +163,27 @@ export default function WorkspaceExplorerModal({
         if (data.storageProvider) setCloudProvider(data.storageProvider);
         if (data.bucketName) setBucketName(data.bucketName);
         if (data.folderPrefix) setCanonicalPrefix(data.folderPrefix);
+
+        // Client-side fallback check: if currentUser has primary cloud connection
+        if (!data.isCloudPrimary && activeSource === 'primary_storage') {
+          const userConns: any[] = [
+            ...(currentUser?.storage_connections || []),
+            ...(currentUser?.appProfiles?.docustack?.storage_connections || []),
+          ];
+          const primaryConn =
+            userConns.find((c: any) => c.role === 'primary' || c.isPrimary) ||
+            userConns.find((c: any) => c.provider !== 'local_fs');
+          if (primaryConn && primaryConn.provider !== 'local_fs') {
+            setIsCloudPrimary(true);
+            setCloudProvider(primaryConn.provider);
+            const bName =
+              primaryConn.b2BucketName ||
+              primaryConn.r2BucketName ||
+              primaryConn.s3BucketName ||
+              primaryConn.supabaseBucketName;
+            if (bName) setBucketName(bName);
+          }
+        }
       }
     } catch (err: any) {
       console.warn('Error fetching workspace tree:', err);

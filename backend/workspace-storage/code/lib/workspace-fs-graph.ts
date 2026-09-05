@@ -122,7 +122,12 @@ export async function loadGraphFromFSAsync(): Promise<{
         if (cloudData && Array.isArray(cloudData.nodes) && cloudData.nodes.length > 0) {
           const mappedNodes = cloudData.nodes.map((n: GraphNode) => {
             if (n.isWorkspaceRoot && globalActiveVaultName) {
-              return { ...n, title: globalActiveVaultName, workspacePath: globalActiveVaultPath || n.workspacePath };
+              const canonicalWsPath = globalActiveFolderPrefix
+                ? `./${globalActiveFolderPrefix}`
+                : (n.workspacePath && !n.workspacePath.includes('tmp')
+                    ? n.workspacePath
+                    : `./${globalActiveVaultName.toLowerCase().replace(/[^a-z0-9_.-]/g, '_')}`);
+              return { ...n, title: globalActiveVaultName, workspacePath: canonicalWsPath };
             }
             return n;
           });

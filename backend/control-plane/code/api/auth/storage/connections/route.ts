@@ -17,6 +17,7 @@ import { maskStorageConnection, testStorageConnection } from '@/lib/storage-prov
 import { UserStorageConnection, UserWorkspaceRecord, DatabaseEngine } from '@/lib/types';
 import { initializeCloudWorkspaceBucket } from '@/lib/cloud-storage-service';
 import { setActiveVaultConfig } from '@/lib/workspaceFS';
+import { extractCanonicalFolderPrefix } from '@/lib/workspace-canonical';
 
 function ensurePrimaryRole(connections: UserStorageConnection[]): UserStorageConnection[] {
   if (connections.length === 0) return [];
@@ -93,17 +94,26 @@ export async function POST(req: NextRequest) {
       // Bind active workspace to this new primary connection
       const workspaces: UserWorkspaceRecord[] =
         user.appProfiles?.docustack?.workspaces || user.workspaces || [];
-      const activeWsId = user.appProfiles?.docustack?.activeWorkspaceId || user.activeWorkspaceId;
+      const requestedWsId = body.workspaceId || req.headers.get('x-workspace-id');
+      const activeWsId = requestedWsId || user.appProfiles?.docustack?.activeWorkspaceId || user.activeWorkspaceId;
       const targetWs = workspaces.find((w) => w.id === activeWsId) || workspaces[0];
 
       let updatedWorkspaces = workspaces;
+      let cleanWsPath = targetWs?.workspacePath || '';
       if (targetWs) {
-        const engine = targetConn.provider === 'local_fs' ? 'local_fs' : 's3_blob';
-        const folderPrefix = targetWs.workspacePath ? targetWs.workspacePath.replace(/^\.\//, '') : '';
+        const engine: DatabaseEngine = targetConn.provider === 'local_fs' ? 'local_fs' : 's3_blob';
+        const folderPrefix = extractCanonicalFolderPrefix(
+          targetWs.workspacePath,
+          user.username || user.name || 'user',
+          targetWs.name || 'workspace'
+        );
+        cleanWsPath = targetConn.provider === 'local_fs' ? (targetWs.workspacePath || `./${folderPrefix}`) : `./${folderPrefix}`;
+
         updatedWorkspaces = workspaces.map((w) =>
           w.id === targetWs.id
             ? {
                 ...w,
+                workspacePath: cleanWsPath,
                 storageConnectionId: targetConn.id,
                 storageProvider: targetConn.provider,
                 engine,
@@ -111,7 +121,7 @@ export async function POST(req: NextRequest) {
             : w
         );
 
-        setActiveVaultConfig(targetWs.workspacePath, targetWs.name, targetConn, folderPrefix);
+        setActiveVaultConfig(cleanWsPath, targetWs.name, { ...targetConn, role: 'primary' }, folderPrefix);
 
         if (targetConn.provider !== 'local_fs') {
           initializeCloudWorkspaceBucket(
@@ -132,16 +142,20 @@ export async function POST(req: NextRequest) {
         },
       };
 
-      await updateUserProfileAsync(session.userId, {
+      const updatedUser = await updateUserProfileAsync(session.userId, {
         appProfiles: updatedAppProfiles,
         workspaces: updatedWorkspaces,
         storage_connections: updatedConnections,
+        ...(targetWs ? { workspacePath: cleanWsPath } : {}),
       } as any);
+
+      const { passwordHash: _, ...safeUser } = (updatedUser || {}) as any;
 
       return NextResponse.json({
         success: true,
         message: `STORAGE_ELEVATED_TO_PRIMARY: ${targetConn.label || targetConn.provider}`,
         connections: updatedConnections.map(maskStorageConnection),
+        user: safeUser,
       });
     }
 
@@ -218,17 +232,25 @@ export async function POST(req: NextRequest) {
     // If primary, update active workspace binding
     const workspaces: UserWorkspaceRecord[] =
       user.appProfiles?.docustack?.workspaces || user.workspaces || [];
-    const activeWsId = user.appProfiles?.docustack?.activeWorkspaceId || user.activeWorkspaceId;
+    const requestedWsId = body.workspaceId || req.headers.get('x-workspace-id');
+    const activeWsId = requestedWsId || user.appProfiles?.docustack?.activeWorkspaceId || user.activeWorkspaceId;
     const targetWs = workspaces.find((w) => w.id === activeWsId) || workspaces[0];
 
     let updatedWorkspaces = workspaces;
+    let cleanWsPath = targetWs?.workspacePath || '';
     if (willBePrimary && targetWs) {
-      const engine = newOrUpdatedConn.provider === 'local_fs' ? 'local_fs' : 's3_blob';
-      const folderPrefix = targetWs.workspacePath ? targetWs.workspacePath.replace(/^\.\//, '') : '';
+      const engine: DatabaseEngine = newOrUpdatedConn.provider === 'local_fs' ? 'local_fs' : 's3_blob';
+      const folderPrefix = extractCanonicalFolderPrefix(
+        targetWs.workspacePath,
+        user.username || user.name || 'user',
+        targetWs.name || 'workspace'
+      );
+      cleanWsPath = newOrUpdatedConn.provider === 'local_fs' ? (targetWs.workspacePath || `./${folderPrefix}`) : `./${folderPrefix}`;
       updatedWorkspaces = workspaces.map((w) =>
         w.id === targetWs.id
           ? {
               ...w,
+              workspacePath: cleanWsPath,
               storageConnectionId: newOrUpdatedConn.id,
               storageProvider: newOrUpdatedConn.provider,
               engine,
@@ -236,7 +258,7 @@ export async function POST(req: NextRequest) {
           : w
       );
 
-      setActiveVaultConfig(targetWs.workspacePath, targetWs.name, newOrUpdatedConn, folderPrefix);
+      setActiveVaultConfig(cleanWsPath, targetWs.name, newOrUpdatedConn, folderPrefix);
 
       if (newOrUpdatedConn.provider !== 'local_fs' && testStatus === 'ok') {
         initializeCloudWorkspaceBucket(
@@ -257,16 +279,20 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    await updateUserProfileAsync(session.userId, {
+    const updatedUser = await updateUserProfileAsync(session.userId, {
       appProfiles: updatedAppProfiles,
       workspaces: updatedWorkspaces,
       storage_connections: updatedList,
+      ...(willBePrimary && targetWs ? { workspacePath: cleanWsPath } : {}),
     } as any);
+
+    const { passwordHash: _, ...safeUser } = (updatedUser || {}) as any;
 
     return NextResponse.json({
       success: true,
       connection: maskStorageConnection(newOrUpdatedConn),
       testResult: { ok: testStatus === 'ok', latencyMs, error: testError },
+      user: safeUser,
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err?.message || 'Failed to save connection' }, { status: 500 });
