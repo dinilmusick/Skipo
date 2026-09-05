@@ -320,3 +320,38 @@ The Admin Control Plane (`/admin`) is a dedicated system-level administrative co
    ```
 4. **Trigger Auto-Provision**:
    - Navigate to `/admin/login`, open the Cluster tab, and click **⚡ Auto-Provision Table in Neon**.
+
+---
+
+## 7. Critical Architectural Guardrails & Failure Modes to Avoid
+
+1. **Modular Sub-Files vs Barrel Facade Integrity**:
+   - Do NOT create a parallel, conflicting `lib/control-plane/` directory containing experimental in-memory class abstractions (`BaseAccountProvider`, `ControlPlaneAccountProvider` with volatile in-memory Maps) alongside `lib/control-plane.ts`.
+   - If structuring the Control Plane into sub-modules under `lib/control-plane/`, use the 6 canonical domain sub-modules matching DocuStack:
+     - `isolation.ts`
+     - `cluster-config.ts`
+     - `cluster-probes.ts`
+     - `cluster-sync.ts`
+     - `cluster-persistence.ts`
+     - `manager.ts`
+   - In this modular design, `lib/control-plane.ts` acts strictly as the barrel facade:
+     ```ts
+     export * from './control-plane/isolation';
+     export * from './control-plane/cluster-config';
+     export * from './control-plane/cluster-probes';
+     export * from './control-plane/cluster-sync';
+     export * from './control-plane/cluster-persistence';
+     export * from './control-plane/manager';
+     ```
+2. **Safe Local Fallback in `persistUserToCluster`**:
+   - When no external cloud database is configured in `.env` (i.e., `activeDatabases.length === 0`), `persistUserToCluster` MUST return:
+     ```ts
+     if (activeDatabases.length === 0) {
+       return { success: true, targetsUpdated: ['local_storage'] };
+     }
+     ```
+   - **NEVER** throw a fatal `NO_ACTIVE_DATABASE` exception during user login or registration when awaiting database configuration. The user account is saved to the local accounts store and synchronized to cloud targets as soon as a database is provisioned.
+3. **Persistent Serverless Auth Parity**:
+   - All authentication endpoints (`/api/auth/login`, `/api/admin/auth/login`, `/api/admin/auth/session`, `/api/admin/auth/logout`) MUST use HMAC session tokens (`createSessionToken`, `verifySessionToken`) and query persistent user storage (`findUserByIdAsync`, `authenticateUserAsync`, `registerUserAsync`) via `auth-storage.ts`.
+   - Always attach the HttpOnly session cookie (`attachSessionCookie(response, token)`).
+
