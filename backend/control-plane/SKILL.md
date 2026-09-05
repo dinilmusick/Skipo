@@ -174,6 +174,15 @@ CONTROL PLANE (Application-Owned)
 >    - Vault path resolves to `./{folderPrefix}`, and UI renders the cloud bucket badge.
 >    - Serverless requests (`resolveRequestContextVault`) must not expose `/tmp/` serverless scratch paths in the UI or graph root nodes (`loadGraphFromFSAsync`).
 >    - Backblaze B2 endpoint derivation automatically resolves region from Key ID prefix (`004...` -> `us-west-004`, `005...` -> `us-east-005`), and masked credentials `•` are rejected early (`BACKBLAZE_APP_KEY_MASKED`).
+> 20. **Mandatory Frontend-Backend State Introspection & 3-Tier Synchronization Audit Law**:
+>    - Every application built with Skipo MUST expose complete, real-time programmatic introspection into its frontend UI state to eliminate invisible discrepancies between client memory, local storage, and the backend vault.
+>    - **In-Browser Debug API**: Client MUST expose `window.AppDebug` (or `window.DocuStackDebug`) with granular getters (`getNodeGraph()`, `getWorkspacesMenu()`, `getVaultBrowserStructure()`, `getSettingsAndPreferences()`, `getLocalStorageState()`, `verifySync()`).
+>    - **Real-Time LocalStorage Mirroring**: Actions modifying assets (such as node graph topology, tabs, and preferences) MUST be mirrored into browser `localStorage` in real time (`docustack_workspace_graph_<workspaceId>`) to prevent state loss across refreshes and enable offline verification.
+>    - **Server-Side REST Relay & Audit Endpoints**:
+>      - `GET /api/debug/ui-state?section=<section>`: Allows automated CLI scripts and test suites to inspect live UI states over HTTP without headless browser evaluation.
+>      - `POST /api/debug/ui-state`: Client debounces (400ms) its live state snapshot to the backend relay.
+>      - `GET /api/debug/sync-audit`: Automatically runs a 3-way synchronization audit comparing (1) Frontend In-Memory React State, (2) Browser LocalStorage, and (3) Backend Physical Vault Files, returning `isFullySynced`, `syncScorePercent`, and granular check diffs.
+>    - **Visual Debug Inspector Modal**: UI MUST render a brutalist HUD inspector modal (`Cmd+Shift+D` / `Ctrl+Shift+D`) allowing developers and users to view live JSON, check sync status, and download full state snapshots.
 
 ---
 
@@ -324,9 +333,11 @@ The Admin Control Plane (`/admin`) is a dedicated system-level administrative co
    npm install @neondatabase/serverless @supabase/supabase-js lucide-react clsx tailwind-merge
    ```
 2. **Copy Code**:
-   - Copy `code/lib/*` ➔ `lib/`
-   - Copy `code/api/*` ➔ `app/api/`
-   - Copy `code/components/*` ➔ `components/`
+   - Copy `code/lib/*` ➔ `lib/` (includes `lib/debug-ui-state.ts` for full state introspection schemas)
+   - Copy `code/hooks/*` ➔ `hooks/` (includes `hooks/useUiStateDebugger.ts` for reactive state bridging and LocalStorage mirroring)
+   - Copy `code/api/*` ➔ `app/api/` (includes `/api/debug/ui-state` and `/api/debug/sync-audit`)
+   - Copy `code/components/*` ➔ `components/` (includes `components/debug/DebugStateModal.tsx`)
+   - Copy `scripts/test-debug-ui-state.ts` ➔ `scripts/` (for automated UI state verification)
 3. **Configure Environment Variables**:
    ```env
    ADMIN_EMAIL=admin@example.com

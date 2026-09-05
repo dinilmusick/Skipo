@@ -17,6 +17,8 @@
  *   npx tsx scripts/test-api-suite.ts https://your-deployment.vercel.app
  */
 
+export {};
+
 const TARGET_URL = (process.argv[2] || process.env.API_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '');
 
 const c = {
@@ -416,6 +418,30 @@ async function runSuite() {
     }
     const hasDocCreated = res.data.events.some((e: any) => e.action === 'DOCUMENT_CREATED');
     if (!hasDocCreated) throw new Error('Expected DOCUMENT_CREATED event was not found in event stream');
+  });
+
+  // 12. Frontend UI State & Sync Audit Inspection APIs
+  await assertStep('GET /api/debug/ui-state (Inspect Complete Frontend UI State)', async () => {
+    const res = await request('/api/debug/ui-state', {}, authToken, testWorkspaceId);
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${JSON.stringify(res.data)}`);
+    if (!res.data.success) throw new Error('Debug UI state endpoint did not return success');
+    if (!res.data.data?.nodeGraph) throw new Error('Missing nodeGraph in debug UI state payload');
+    if (!res.data.data?.menus) throw new Error('Missing menus in debug UI state payload');
+    if (!res.data.data?.vaultBrowser) throw new Error('Missing vaultBrowser in debug UI state payload');
+    if (!res.data.data?.settingsAndPreferences) throw new Error('Missing settings in debug UI state payload');
+  });
+
+  await assertStep('GET /api/debug/ui-state?section=nodegraph (Inspect Granular Node Graph JSON)', async () => {
+    const res = await request('/api/debug/ui-state?section=nodegraph', {}, authToken, testWorkspaceId);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!Array.isArray(res.data.data?.nodes)) throw new Error('Expected nodes array in nodegraph slice');
+  });
+
+  await assertStep('GET /api/debug/sync-audit (Verify 3-Tier Synchronization Audit Engine)', async () => {
+    const res = await request('/api/debug/sync-audit', {}, authToken, testWorkspaceId);
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${JSON.stringify(res.data)}`);
+    if (typeof res.data.syncScorePercent !== 'number') throw new Error('Missing syncScorePercent in audit');
+    if (!res.data.auditDetails) throw new Error('Missing auditDetails');
   });
 
   // Final Summary

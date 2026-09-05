@@ -454,6 +454,90 @@ if [ -n "$AUTH_STORAGE_FILE" ]; then
   fi
 fi
 
+# Check 28: UI State Introspection API Route (/api/debug/ui-state)
+echo "→ Checking UI State Introspection endpoint (/api/debug/ui-state)..."
+DEBUG_UI_FILE=""
+if [ -f "$TARGET_DIR/app/api/debug/ui-state/route.ts" ]; then
+  DEBUG_UI_FILE="$TARGET_DIR/app/api/debug/ui-state/route.ts"
+elif [ -f "$TARGET_DIR/backend/control-plane/code/api/debug/ui-state/route.ts" ]; then
+  DEBUG_UI_FILE="$TARGET_DIR/backend/control-plane/code/api/debug/ui-state/route.ts"
+fi
+
+if [ -n "$DEBUG_UI_FILE" ]; then
+  if grep -q "filterDebugStateSection" "$DEBUG_UI_FILE" && grep -q "POST" "$DEBUG_UI_FILE"; then
+    echo "✅ PASS: $DEBUG_UI_FILE implements GET (with section filtering) and POST state relay."
+  else
+    echo "❌ VIOLATION: $DEBUG_UI_FILE missing filterDebugStateSection or POST handler!"
+    ERRORS=$((ERRORS + 1))
+  fi
+else
+  echo "❌ VIOLATION: Missing /api/debug/ui-state route! UI state introspection is required."
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Check 29: 3-Tier Synchronization Audit Engine Route (/api/debug/sync-audit)
+echo "→ Checking 3-Tier Synchronization Audit endpoint (/api/debug/sync-audit)..."
+SYNC_AUDIT_FILE=""
+if [ -f "$TARGET_DIR/app/api/debug/sync-audit/route.ts" ]; then
+  SYNC_AUDIT_FILE="$TARGET_DIR/app/api/debug/sync-audit/route.ts"
+elif [ -f "$TARGET_DIR/backend/control-plane/code/api/debug/sync-audit/route.ts" ]; then
+  SYNC_AUDIT_FILE="$TARGET_DIR/backend/control-plane/code/api/debug/sync-audit/route.ts"
+fi
+
+if [ -n "$SYNC_AUDIT_FILE" ]; then
+  if grep -q "syncScorePercent" "$SYNC_AUDIT_FILE" && grep -q "auditDetails" "$SYNC_AUDIT_FILE"; then
+    echo "✅ PASS: $SYNC_AUDIT_FILE implements 3-tier sync comparison audit."
+  else
+    echo "❌ VIOLATION: $SYNC_AUDIT_FILE missing syncScorePercent or auditDetails calculation!"
+    ERRORS=$((ERRORS + 1))
+  fi
+else
+  echo "❌ VIOLATION: Missing /api/debug/sync-audit route! Cross-tier sync audit is required."
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Check 30: Reactive UI State Debugger Hook & LocalStorage Mirror (useUiStateDebugger.ts)
+echo "→ Checking reactive UI State Debugger hook & LocalStorage mirror..."
+DEBUGGER_HOOK_FILE=""
+if [ -f "$TARGET_DIR/hooks/useUiStateDebugger.ts" ]; then
+  DEBUGGER_HOOK_FILE="$TARGET_DIR/hooks/useUiStateDebugger.ts"
+elif [ -f "$TARGET_DIR/backend/control-plane/code/hooks/useUiStateDebugger.ts" ]; then
+  DEBUGGER_HOOK_FILE="$TARGET_DIR/backend/control-plane/code/hooks/useUiStateDebugger.ts"
+fi
+
+if [ -n "$DEBUGGER_HOOK_FILE" ]; then
+  if grep -q "window.DocuStackDebug" "$DEBUGGER_HOOK_FILE" && grep -q "docustack_workspace_graph_" "$DEBUGGER_HOOK_FILE"; then
+    echo "✅ PASS: $DEBUGGER_HOOK_FILE registers window.DocuStackDebug and mirrors graph to LocalStorage."
+  else
+    echo "❌ VIOLATION: $DEBUGGER_HOOK_FILE missing window.DocuStackDebug registration or LocalStorage mirroring!"
+    ERRORS=$((ERRORS + 1))
+  fi
+else
+  echo "❌ VIOLATION: Missing hooks/useUiStateDebugger.ts! Reactive UI state debugging hook is required."
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Check 31: Core Debug State Schemas & Sync Audit Functions (lib/debug-ui-state.ts)
+echo "→ Checking Core Debug State Schemas & Sync Audit Functions..."
+DEBUG_LIB_FILE=""
+if [ -f "$TARGET_DIR/lib/debug-ui-state.ts" ]; then
+  DEBUG_LIB_FILE="$TARGET_DIR/lib/debug-ui-state.ts"
+elif [ -f "$TARGET_DIR/backend/control-plane/code/lib/debug-ui-state.ts" ]; then
+  DEBUG_LIB_FILE="$TARGET_DIR/backend/control-plane/code/lib/debug-ui-state.ts"
+fi
+
+if [ -n "$DEBUG_LIB_FILE" ]; then
+  if grep -q "auditFrontendSync" "$DEBUG_LIB_FILE" && grep -q "extractLocalStorageSnapshot" "$DEBUG_LIB_FILE"; then
+    echo "✅ PASS: $DEBUG_LIB_FILE implements auditFrontendSync and extractLocalStorageSnapshot."
+  else
+    echo "❌ VIOLATION: $DEBUG_LIB_FILE missing auditFrontendSync or extractLocalStorageSnapshot!"
+    ERRORS=$((ERRORS + 1))
+  fi
+else
+  echo "❌ VIOLATION: Missing lib/debug-ui-state.ts! Core debug state library is required."
+  ERRORS=$((ERRORS + 1))
+fi
+
 # Summary
 echo "══════════════════════════════════════════════════════════════════════════════════════════"
 if [ "$ERRORS" -gt 0 ]; then

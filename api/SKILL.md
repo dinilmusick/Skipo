@@ -104,6 +104,8 @@ Add `"test:api": "npx tsx scripts/test-api-suite.ts"` to `package.json`. The sui
 | **Biome / Theme** | `/api/biome` | `GET`, `POST` | `{ theme, biome }` | `{ success, theme, biome }` | `BIOME_CHANGED` |
 | **Workspace Vault** | `/api/workspace` | `GET`, `POST` | `?file=<path>` or `{ relativePath, content }` | `{ success, tree / content }` | `WRITE_VAULT_FILE` |
 | **Telemetry Ping** | `/api/telemetry` | `GET` | N/A | `{ status, runtime, uptimeSeconds }` | N/A |
+| **UI State Introspection** | `/api/debug/ui-state` | `GET`, `POST` | `?section=nodegraph \| menus \| vault \| settings \| localstorage \| sync` | `{ success, data: <section_state> }` | N/A |
+| **3-Tier Sync Audit** | `/api/debug/sync-audit` | `GET` | N/A | `{ success, isFullySynced, syncScorePercent, auditDetails }` | N/A |
 
 ---
 
@@ -118,10 +120,32 @@ Add `"test:api": "npx tsx scripts/test-api-suite.ts"` to `package.json`. The sui
 
 ---
 
-## 5. REUSABLE ASSETS DIRECTORY
+## 5. FRONTEND-BACKEND STATE INTROSPECTION & SYNC AUDIT PARADIGM
+
+Every application built using Skipo must enforce 100% synchronization between frontend UI states, browser local storage, and the backend persistent store:
+1. **Programmatic State Introspection**: The client exposes `window.AppDebug` (or `window.DocuStackDebug`) with granular getters (`getNodeGraph()`, `getWorkspacesMenu()`, `getVaultBrowserStructure()`, `getSettingsAndPreferences()`, `getLocalStorageState()`).
+2. **Real-Time LocalStorage Mirroring**: Actions performed on UI assets (e.g. node graph additions/edits/moves) are immediately mirrored to browser `localStorage` to guard against session loss and enable offline discrepancy detection.
+3. **Dual API Access**: The UI state is continuously debounced and relayed to `POST /api/debug/ui-state`. External automated test harnesses and CLI tools can inspect any UI facet via `GET /api/debug/ui-state?section=<section>` or run deep 3-way synchronization audits via `GET /api/debug/sync-audit`.
+4. **Visual Debug Inspector**: The UI mounts a brutalist HUD inspector modal (`Cmd+Shift+D` shortcut) that provides live check status, diff tables, and one-click JSON exports.
+
+---
+
+## 6. REUSABLE ASSETS DIRECTORY
 
 The following drop-in assets are bundled in the Skipo framework for direct use in new projects:
-- **Hook**: `hooks/useRealtimeApiSync.ts`
-- **Event Bus**: `lib/realtime-events.ts`
-- **Route Template**: `api/events/route.ts`
-- **Headless Test Suite**: `scripts/test-api-suite.ts`
+- **Hooks**:
+  - `hooks/useRealtimeApiSync.ts` (Event bus stream listener)
+  - `hooks/useUiStateDebugger.ts` (Reactive UI state bridge & LocalStorage mirror)
+- **State Schemas & Sync Engine**:
+  - `lib/debug-ui-state.ts` (Full state interfaces, localStorage extractor, and sync audit calculator)
+  - `lib/realtime-events.ts` (In-memory pub/sub event bus)
+- **Route Templates**:
+  - `api/events/route.ts` (SSE & polling event stream)
+  - `api/debug/ui-state/route.ts` (UI state introspection & relay route)
+  - `api/debug/sync-audit/route.ts` (3-tier synchronization audit route)
+- **UI Components**:
+  - `components/debug/DebugStateModal.tsx` (Interactive HUD state debugger modal)
+- **Headless Test Suites**:
+  - `scripts/test-api-suite.ts` (Full 25-step headless API verification suite)
+  - `scripts/test-debug-ui-state.ts` (Dedicated 8-step UI state & sync audit verification suite)
+  - `scripts/verify-control-plane-standards.sh` (31-check architectural standards compliance audit)
