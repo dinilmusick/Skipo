@@ -350,6 +350,30 @@ USER ──► APPLICATION ──► WorkspaceFS.write(path, data)
     - The workspace path must resolve cleanly to the canonical prefix (`./{folderPrefix}`), and the UI must display the cloud bucket label and badge.
     - Serverless requests (`resolveRequestContextVault`) MUST NOT default or expose `/tmp/` serverless scratch paths in the UI or in root graph node paths (`loadGraphFromFSAsync`).
     - Backblaze B2 S3 endpoint derivation: Key IDs starting with `004` or `005` automatically map to `us-west-004` or `us-west-005` endpoints. Masked credentials containing bullet characters `•` must be rejected early with clear diagnostic errors (`BACKBLAZE_APP_KEY_MASKED`).
+24. **Vercel Control Plane & Backblaze B2 Direct Data Plane Transfer Standard**:
+    - **Architecture Separation**:
+      - **Vercel = CONTROL PLANE**: Strictly processes auth, workspace authorization, metadata commits, mutation queues, and presigned URL generation.
+      - **Backblaze B2 = DATA PLANE**: Transports all raw file bytes, document markdown contents, media binaries, and large files directly to/from the user's browser.
+      - **Zero Proxying Rule**: NEVER proxy large file or media bytes through Vercel serverless functions when direct B2 access is available.
+    - **Direct B2 Presigned Storage APIs**:
+      - `POST /api/storage/upload-url`: Generates short-lived (15m) S3/B2 Presigned PUT URLs scoped strictly to authorized workspace paths (`workspaces/{workspaceId}/...`).
+      - `POST /api/storage/download-url`: Generates short-lived Presigned GET URLs for direct B2 retrieval.
+      - `POST /api/storage/delete`: Issues authorized hard deletes and version marker purges on B2.
+      - `POST /api/storage/multipart-upload` & `complete-multipart-upload`: Handles multi-part transfers for large files (> 10MB).
+    - **Media Direct Upload & Zero Ephemeral Storage**:
+      - Eliminate all serverless `/tmp` proxies. Media files upload directly from the browser to Backblaze B2 via presigned URLs.
+      - Upon successful B2 transfer, the client calls `POST /api/media/complete` to commit metadata (`id`, `workspaceId`, `objectKey`, `size`, `mimeType`, `hash`) to the user profile without sending binary bytes.
+    - **Granular Mutation API & Concurrency Control**:
+      - Deprecate monolithic `save_all` snapshots in favor of `POST /api/workspaces/[workspaceId]/mutations` and `/batch`.
+      - Every mutation transmits discrete patches (`entity`, `entityId`, `operation`, `patch`, `baseRevision`).
+      - Server increments workspace `revision` on success and rejects stale base revisions with HTTP 409 and conflict data.
+    - **Client-Side `MutationQueue` & Request Deduplication**:
+      - The client maintains a `MutationQueue` that merges compatible operations and collapses superseded mutations (e.g. repeated node movements send only final coordinates after a debounce of 500ms–1500ms).
+      - `RequestDeduplicator` cancels and deduplicates redundant concurrent GET requests for metadata.
+    - **Document Lazy Loading & Events Optimization**:
+      - `GET /api/documents` returns document metadata without full markdown content strings unless `includeContent=true` is requested.
+      - SSE `/api/events` streams lightweight delta events instead of monolithic snapshots, with heartbeats set to 30s.
+      - Polling fallbacks use exponential backoff (`3s -> 6s -> 12s -> 30s -> 60s`) and pause when the browser tab is hidden.
 
 ---
 
