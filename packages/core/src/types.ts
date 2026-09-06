@@ -15,7 +15,7 @@ export interface Disposable {
 }
 
 /** Generic provider interface */
-export interface Provider<T> {
+export interface Provider<_T = unknown> {
   initialize(): Promise<void>;
   dispose(): Promise<void>;
   isInitialized(): boolean;

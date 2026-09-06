@@ -10,6 +10,8 @@ import { oneComponentRule } from './rules/one-component.js';
 import { noPollingRule } from './rules/no-polling.js';
 import { importSuffixRule } from './rules/import-suffix.js';
 import { baseClassUsageRule } from './rules/base-class-usage.js';
+import { themeTokenSemanticsRule } from './rules/theme-token-semantics.js';
+import { uiInvariantsRule } from './rules/ui-invariants.js';
 
 export class SkipoValidator {
   private config: ValidatorConfig;
@@ -21,7 +23,9 @@ export class SkipoValidator {
     oneComponentRule,
     noPollingRule,
     importSuffixRule,
-    baseClassUsageRule
+    baseClassUsageRule,
+    themeTokenSemanticsRule,
+    uiInvariantsRule
   ];
   private project?: Project;
 

@@ -1,5 +1,4 @@
 'use client';
-import React from 'react';
 import type { Transform, CanvasItem } from './types.js';
 import { CanvasViewport } from './CanvasViewport.js';
 import { MiniMap } from './MiniMap.js';

@@ -6,3 +6,4 @@ export * from './BaseCard.js';
 export * from './BaseBadge.js';
 export * from './BaseToggle.js';
 export * from './BaseTooltip.js';
+export * from './CredentialField.js';

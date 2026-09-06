@@ -1,8 +1,8 @@
-\'use client\';
+'use client';
 import React, { forwardRef } from 'react';
 import '../../styles/layout.css';
 
-export interface HeaderBarProps extends React.HTMLAttributes<HTMLElement> {
+export interface HeaderBarProps extends Omit<React.HTMLAttributes<HTMLElement>, 'title'> {
   title?: React.ReactNode;
   nav?: React.ReactNode;
   actions?: React.ReactNode;

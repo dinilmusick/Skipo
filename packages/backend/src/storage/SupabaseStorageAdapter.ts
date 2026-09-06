@@ -101,7 +101,7 @@ export class SupabaseStorageAdapter extends BaseStorageAdapter {
     };
   }
 
-  async mkdir(pathStr: string): Promise<void> {
+  async mkdir(_pathStr: string): Promise<void> {
     // Supabase has flat hierarchy, no explicit mkdir needed
   }
 }

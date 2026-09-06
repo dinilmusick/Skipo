@@ -1,29 +1,50 @@
 ---
 name: ui-styling-guidelines
-description: Directives for neo-brutalism 2.5D biome styling, strict monochromatic SVG icon protocol, infinite 4-quadrant canvas clipping prevention, locked palettes, custom styled scrollbars, themed dropdowns, and regression guards.
+description: Directives for neo-brutalism 2.5D biome styling, strict monochromatic SVG icon protocol, portable theme pack architecture, thin bottom strip inspection, top toolbar flat tabs, and zero floating tooltips.
 ---
 
 # UI STYLING & 2.5D BIOME GUIDELINES
 
 ## 1. THEME & VISUAL IDENTITY
-- **Core Paradigm**: `neo-brutalism_2.5D_biome` with **Subtle Tactile Glow**.
+- **Core Paradigm**: `neo-brutalism_2.5D_biome` with **Subtle Tactile Glow** and **Theme Pack Decoupling**.
 - **Shapes & Borders**: Neo-Brutalist (bold, blocky, geometric, crisp 1px-2px solid borders).
-- **Subtle Glow Effects**: Tactile ambient neon/rune glow on interactive elements, hover states, and active cards (`box-shadow: 0 0 10px var(--krnl-accent-glow)` / `0 0 18px rgba(212, 175, 55, 0.25)`).
+- **Subtle Glow Effects**: Tactile ambient neon/rune glow on interactive elements, hover states, and active cards (`box-shadow: 0 0 10px var(--skipo-accent-glow)`).
 - **Strict Monochromatic Icon Mandate**:
-  - **PROHIBITED**: Full-color OS emojis (e.g. 🏛️, ⚡, 🎨, 📚, 🌐, 💾, 🛠️, 🎯, 📐, 👁️). Emojis render with distracting multi-color OS themes that break the brutalist aesthetic.
-  - **MANDATORY**: Single-tone monochromatic SVG vector paths or geometric line glyphs.
-  - **Coloring**: Must inherit or use theme color tokens (`fill="currentColor"`, `stroke="currentColor"`, or explicit theme accents: `#d4af37`, `#f5ede4`, `#c678dd`, `#61afef`, `#e5c07b`).
+  - **PROHIBITED**: Full-color OS emojis (e.g. 🏛️, ⚡, 🎨, 📚, 🌐, 💾, 🛠️, 🎯, 📐, 👁️). Emojis break the brutalist aesthetic.
+  - **MANDATORY**: Single-tone monochromatic SVG vector paths or geometric line glyphs (`fill="currentColor"`, `stroke="currentColor"`).
 - **Strict Icon-Only Buttons**:
   - **Zero Text Labels on Buttons**: Toolbars, docks, and action buttons MUST contain only monochromatic SVG icons.
-  - Button text/utility description appears **exclusively on hover** via a tooltip.
+  - Button text/utility description appears **exclusively in the center of the bottom strip** on hover or keyboard focus.
+- **Zero Floating Tooltip Bubbles**:
+  - Floating balloon popups and floating tooltip bubbles are strictly FORBIDDEN.
+  - All element descriptions appear in the thin bottom strip center as slightly translucent text that smoothly fades in and out.
 - **Zero On-Screen Explanatory Clutter**:
   - FORBID direct on-screen marketing copy, descriptive paragraphs, tutorials, or "how-to" guidance text.
-  - All descriptions, feature utility, and guidance MUST be revealed **only on hover** over that specific element.
-- **Fonts**: Locked set (1 Display + 1 Body font; high contrast, clean typography).
+  - All descriptions and utility details MUST be revealed **only on hover** over that specific element via the bottom strip.
+- **Top Toolbar & Flat Tabs**:
+  - Single `TopToolbar` on top for app title and all tabs.
+  - Strictly flat tabs: zero nested tabs permitted anywhere.
+- **External Credential Fields**:
+  - Credential fields must include a direct external link button to the credential management page.
+- **Fonts**: Locked set (1 Display + 1 Body font: high contrast, clean typography).
 
 ---
 
-## 2. INFINITE CANVAS 4-QUADRANT CLIPPING PREVENTION
+## 2. PORTABLE THEME PACK ARCHITECTURE
+Every application loads its visual theme from a portable theme pack directory:
+```
+my-theme-pack/
+├── theme.json      # Metadata (id, name, version, mode: 'dark' | 'light')
+├── tokens.json     # Semantic token dictionary (bg, text, accent, border, radius, shadow, status, shell)
+└── styles.css      # Generated CSS variables (--skipo-*)
+```
+- Fully compatible with the upcoming standalone Theme Designer application.
+- Theme tokens must be referenced strictly through CSS custom properties (`var(--skipo-*)`).
+- Hardcoded HEX, RGB, or HSL values in component code are strictly prohibited.
+
+---
+
+## 3. INFINITE CANVAS 4-QUADRANT CLIPPING PREVENTION
 ```
 ∀ canvas ∈ Canvas_Viewports:
   svg_wire_layer.viewBox   ≡ "-50000 -50000 100000 100000"
@@ -31,41 +52,31 @@ description: Directives for neo-brutalism 2.5D biome styling, strict monochromat
   svg_wire_layer.position  ≡ "absolute; top: -50000px; left: -50000px; width: 100000px; height: 100000px;"
 ```
 - **Unbounded 4-Quadrant Plane**: Canvas nodes can move into negative $X$ and negative $Y$ coordinates ($x < 0, y < 0$) without clipping.
-- **SVG Wire Persistence**: The SVG connection wire layer must span all 4 quadrants ($-\infty$ to $+\infty$) so that wires between negative-coordinate nodes never clip or vanish.
+- **SVG Wire Persistence**: The SVG connection wire layer spans all 4 quadrants ($-\infty$ to $+\infty$).
 
 ---
 
-## 3. COLOR PALETTES (LOCKED)
+## 4. THEMED CONTROLS & BOTTOM STRIP INSPECTION
 ```
-Light Mode (coffee_theme):
-  base    : #F5EDE4 (Warm cream / off-white)
-  surface : Latte / Tan tones
-  accent  : Espresso brown, Caramel, Muted terracotta
-  text    : Dark roast brown (≠ #000000)
-
-Dark Mode (black_and_gold):
-  base    : Near-black / Charcoal (≠ #000000)
-  surface : Deep charcoal panels
-  accent  : Muted gold, Brass
-  text    : Warm off-white / Soft gold-white (≠ #FFFFFF)
-```
-
----
-
-## 4. THEMED CONTROLS & HOVER TOOLTIPS (ZERO UNSTYLED ELEMENTS)
-```
-FORBID: Default OS/browser unstyled elements (<select>, default webkit scrollbars).
+FORBID:
+  - Default OS/browser unstyled elements (<select>, default webkit scrollbars).
+  - Floating tooltips / popover balloons.
+  - Nested tab bars.
+  - Text labels on action buttons.
 
 REQUIRE:
+  - Bottom Strip:
+      height: 30px
+      background: var(--skipo-bottom-strip-bg)
+      left slot: Status lights + AutoSaveToggle
+      center slot: Translucent inspection text with smooth fade transition
+      right slot: Active API activity spinner + System messages
   - Scrollbars:
       width: 4px - 6px
       track: transparent / subtle surface tone
-      thumb: solid accent color with brutalist square edges (no bubbly border-radius)
+      thumb: solid accent color with brutalist square edges
   - Dropdowns & Menus:
       surface: locked panel background with hard-edged brutalist drop-shadow
       borders: 1px - 2px solid locked accent / border tone
-      options: monochromatic icons + hover highlight from complementary palette
-  - Hover Tooltips:
-      surface: #1e1e28 with 1px solid theme accent
-      placement: downward ("bottom") if within 80px of top window edge; upward ("top") otherwise
+      options: monochromatic icons + hover highlight
 ```

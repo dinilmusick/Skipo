@@ -1,22 +1,65 @@
-\'use client\';
-import React, { createContext, useContext, useState, useCallback } from 'react';
+'use client';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import type { SkipoThemePack } from './types.js';
+import { DEFAULT_DARK_THEME_PACK, DEFAULT_LIGHT_THEME_PACK, applyThemePack } from './ThemePackLoader.js';
 
-type SkipoTheme = 'dark' | 'light';
+type SkipoThemeMode = 'dark' | 'light';
 
 interface SkipoThemeContextValue {
-  theme: SkipoTheme;
-  setTheme: (theme: SkipoTheme) => void;
+  theme: SkipoThemeMode;
+  themePack: SkipoThemePack;
+  setTheme: (theme: SkipoThemeMode) => void;
+  setThemePack: (pack: SkipoThemePack) => void;
   toggleTheme: () => void;
 }
 
 const SkipoThemeContext = createContext<SkipoThemeContextValue | null>(null);
 
-export function SkipoThemeProvider({ children, defaultTheme = 'dark' }: { children: React.ReactNode; defaultTheme?: SkipoTheme }) {
-  const [theme, setTheme] = useState<SkipoTheme>(defaultTheme);
-  const toggleTheme = useCallback(() => setTheme(t => t === 'dark' ? 'light' : 'dark'), []);
+export interface SkipoThemeProviderProps {
+  children: React.ReactNode;
+  defaultTheme?: SkipoThemeMode;
+  initialThemePack?: SkipoThemePack;
+}
+
+function useThemeManager(defaultTheme: SkipoThemeMode = 'dark', initialThemePack?: SkipoThemePack) {
+  const [theme, setThemeState] = useState<SkipoThemeMode>(defaultTheme);
+  const [themePack, setThemePackState] = useState<SkipoThemePack>(
+    initialThemePack || (defaultTheme === 'dark' ? DEFAULT_DARK_THEME_PACK : DEFAULT_LIGHT_THEME_PACK)
+  );
+
+  const applyPack = useCallback((pack: SkipoThemePack) => {
+    setThemePackState(pack);
+    setThemeState(pack.metadata.mode);
+    if (typeof document !== 'undefined') {
+      applyThemePack(pack);
+    }
+  }, []);
+
+  const setTheme = useCallback((mode: SkipoThemeMode) => {
+    applyPack(mode === 'dark' ? DEFAULT_DARK_THEME_PACK : DEFAULT_LIGHT_THEME_PACK);
+  }, [applyPack]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  }, [theme, setTheme]);
+
+  useEffect(() => {
+    applyPack(initialThemePack || (defaultTheme === 'dark' ? DEFAULT_DARK_THEME_PACK : DEFAULT_LIGHT_THEME_PACK));
+  }, []);
+
+  return { theme, themePack, setTheme, setThemePack: applyPack, toggleTheme };
+}
+
+export function SkipoThemeProvider({
+  children,
+  defaultTheme = 'dark',
+  initialThemePack
+}: SkipoThemeProviderProps) {
+  const themeState = useThemeManager(defaultTheme, initialThemePack);
+
   return (
-    <SkipoThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
-      <div data-skipo-theme={theme} className="skipo-root">
+    <SkipoThemeContext.Provider value={themeState}>
+      <div data-skipo-theme={themeState.theme} className="skipo-root">
         {children}
       </div>
     </SkipoThemeContext.Provider>

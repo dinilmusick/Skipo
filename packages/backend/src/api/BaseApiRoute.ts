@@ -1,11 +1,11 @@
 import { SkipoBase } from '@skipo/core';
-import { ApiResponse, RouteConfig } from './types.js';
+import { RouteConfig } from './types.js';
 
 export abstract class BaseApiRoute extends SkipoBase {
   protected config: RouteConfig;
 
   constructor(config: RouteConfig = {}) {
-    super();
+    super({ name: 'BaseApiRoute' });
     this.config = config;
   }
 

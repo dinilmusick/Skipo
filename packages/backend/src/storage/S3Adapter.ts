@@ -123,7 +123,7 @@ export class S3Adapter extends BaseStorageAdapter {
     };
   }
 
-  async mkdir(pathStr: string): Promise<void> {
+  async mkdir(_pathStr: string): Promise<void> {
     // S3 has flat hierarchy, no explicit mkdir needed
   }
 }

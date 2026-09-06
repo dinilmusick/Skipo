@@ -5,7 +5,7 @@ export abstract class BaseStorageAdapter extends SkipoBase {
   protected config: StorageConfig;
 
   constructor(config: StorageConfig) {
-    super();
+    super({ name: 'BaseStorageAdapter' });
     this.config = config;
   }
 

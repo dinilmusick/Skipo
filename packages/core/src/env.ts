@@ -5,7 +5,7 @@
 
 import fs from "fs";
 import path from "path";
-import type { ZodTypeAny, infer as ZodInfer } from "zod";
+import type { ZodTypeAny } from "zod";
 
 /**
  * Reads a process environment variable with type coercion and defaults.
@@ -86,7 +86,7 @@ export function loadEnv(filePath?: string): void {
 /**
  * Validates the entire config using a Zod schema.
  */
-export function validateEnvSchema<T extends ZodTypeAny>(zodSchema: T): ZodInfer<T> {
+export function validateEnvSchema<T extends ZodTypeAny>(zodSchema: T): T['_output'] {
   try {
     return zodSchema.parse(process.env);
   } catch (err: any) {

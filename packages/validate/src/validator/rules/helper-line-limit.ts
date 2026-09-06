@@ -5,7 +5,7 @@ export const helperLineLimitRule: ValidationRule = {
   id: 'helper-line-limit',
   description: 'Enforces maximum lines per function body',
   severity: 'warning',
-  validate(filePath: string, sourceCode: string, project?: Project): RuleViolation[] {
+  validate(filePath: string, _sourceCode: string, project?: Project): RuleViolation[] {
     if (!project) return [];
     
     const violations: RuleViolation[] = [];

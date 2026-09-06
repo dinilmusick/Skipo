@@ -1,11 +1,10 @@
 'use client';
-import React from 'react';
 import type { TileConfig } from './types.js';
 import { Tile } from './Tile.js';
 
 // Fallback dynamic import for dnd-kit context
 // As an MVP implementation, we can just render the grid without drag and drop if dnd-kit is missing
-export function TileGrid({ tiles, onReorder, onTileClick }: { tiles: TileConfig[], onReorder?: (tiles: TileConfig[]) => void, onTileClick?: (id: string) => void }) {
+export function TileGrid({ tiles, onReorder: _onReorder, onTileClick }: { tiles: TileConfig[], onReorder?: (tiles: TileConfig[]) => void, onTileClick?: (id: string) => void }) {
   // A complete implementation would wrap this in DndContext and SortableContext
   return (
     <div style={{

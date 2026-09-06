@@ -5,7 +5,7 @@ export const importSuffixRule: ValidationRule = {
   id: 'import-suffix',
   description: 'Enforces .js extensions on relative imports',
   severity: 'warning',
-  validate(filePath: string, sourceCode: string, project?: Project): RuleViolation[] {
+  validate(filePath: string, _sourceCode: string, project?: Project): RuleViolation[] {
     if (!project) return [];
     
     const violations: RuleViolation[] = [];
@@ -15,7 +15,7 @@ export const importSuffixRule: ValidationRule = {
     const imports = sourceFile.getImportDeclarations();
     imports.forEach(imp => {
       const moduleSpecifier = imp.getModuleSpecifierValue();
-      if (moduleSpecifier.startsWith('.') && !moduleSpecifier.endsWith('.js')) {
+      if (moduleSpecifier.startsWith('.') && !moduleSpecifier.endsWith('.js') && !moduleSpecifier.endsWith('.css') && !moduleSpecifier.endsWith('.json')) {
         violations.push({
           ruleId: this.id,
           severity: this.severity,

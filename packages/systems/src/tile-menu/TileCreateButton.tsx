@@ -1,5 +1,4 @@
 'use client';
-import React from 'react';
 
 export function TileCreateButton({ onClick }: { onClick: () => void }) {
   return (

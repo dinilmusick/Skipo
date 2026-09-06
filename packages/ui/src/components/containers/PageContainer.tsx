@@ -1,8 +1,8 @@
-\'use client\';
+'use client';
 import React, { forwardRef } from 'react';
 import '../../styles/containers.css';
 
-export interface PageContainerProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface PageContainerProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> {
   title?: React.ReactNode;
   subtitle?: React.ReactNode;
   actions?: React.ReactNode;

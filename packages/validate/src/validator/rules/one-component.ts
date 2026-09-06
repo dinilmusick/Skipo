@@ -5,7 +5,7 @@ export const oneComponentRule: ValidationRule = {
   id: 'one-component',
   description: 'One React component per file',
   severity: 'error',
-  validate(filePath: string, sourceCode: string, project?: Project): RuleViolation[] {
+  validate(filePath: string, _sourceCode: string, project?: Project): RuleViolation[] {
     if (!filePath.endsWith('.tsx') || !project) return [];
     
     const violations: RuleViolation[] = [];

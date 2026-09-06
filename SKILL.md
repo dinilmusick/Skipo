@@ -230,35 +230,44 @@ When a file reaches 180 lines, immediately begin extracting sub-units.
 No exceptions: backend controllers, service layers, and schemas obey this limit equally.
 ```
 
-### D. BASE CLASS AND CONTAINER INHERITANCE LAW (STANDALONE APPS)
+### D. BASE CLASS, THEME PACK & SHELL INHERITANCE LAW
 ```
 RULE:
   In standalone non-KrnlTS applications, all custom UI elements MUST inherit from or compose
   @skipo/ui base classes, and all views MUST be wrapped in @skipo/ui containers:
   
   MANDATORY BASE PRIMITIVES:
-    - Buttons:     BaseButton (never <button>)
-    - Inputs:      BaseInput (never <input>)
-    - Textareas:   BaseTextarea (never <textarea>)
-    - Selects:     BaseSelect (never <select>)
-    - Cards:       BaseCard (never unstyled <div>)
+    - Buttons:     BaseButton / IconOnlyButton (strictly icon-only with monochromatic SVGs)
+    - Inputs:      BaseInput / CredentialField (mandatory external link to service key portal)
+    - Textareas:   BaseTextarea
+    - Selects:     BaseSelect
+    - Cards:       BaseCard
     - Badges:      BaseBadge
     - Toggles:     BaseToggle
-    - Tooltips:    BaseTooltip
+    
+  MANDATORY SHELL & NAVIGATION:
+    - Root layout: AppShell (enclosing TopToolbar, clean central area, and BottomStrip)
+    - Navigation:  TopToolbar (single top toolbar for app title + flat tabs; ZERO nested tabs)
+    - Inspection:  BottomStrip (thin 30px strip with center translucent hover text, left status & auto-save, right API telemetry & system messages)
+    - Theming:     SkipoThemeProvider with portable theme packs (theme.json + tokens.json + styles.css)
     
   MANDATORY CONTAINERS:
     - Page level:  PageContainer
     - Sections:    SectionContainer
     - Overlays:    ModalContainer / DrawerContainer
-    - Root layout: AppShell
     
   FORBIDDEN:
     ✗ Raw HTML interactive elements (<button>, <input>, etc.)
-    ✗ Custom components that bypass @skipo/ui tokens or base classes
-    ✗ Unstyled root page content without PageContainer wrapping
+    ✗ Bespoke component libraries bypassing @skipo/ui
+    ✗ Nested tab bars of ANY kind
+    ✗ Floating tooltip bubbles or popover text balloons
+    ✗ Static text labels on action buttons
+    ✗ Credential fields lacking external links to provider portals
+    ✗ Hardcoded hex/rgb colors bypassing standardized --skipo-* tokens
+    ✗ Verbose marketing descriptions or unsolicited explanatory copy on views/modals
     
   ENFORCEMENT:
-    Run `skipo-validate` via @skipo/validate to statically assert compliance.
+    Run `skipo-validate` via @skipo/validate to statically assert compliance on build and every 5 turns.
 ```
 
 ### E. ZERO-DUPLICATION PHYSICAL STORAGE & UNIFIED WORKSPACE INITIALIZATION LAW

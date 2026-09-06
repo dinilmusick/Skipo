@@ -1,5 +1,4 @@
 'use client';
-import React from 'react';
 import type { GraphEdge, NodeGraphConfig } from './types.js';
 
 interface WireRendererProps {
@@ -16,7 +15,7 @@ interface WireRendererProps {
   } | null;
 }
 
-export function WireRenderer({ edges, nodesData, config, onDeleteEdge, connecting }: WireRendererProps) {
+export function WireRenderer({ edges, nodesData, config: _config, onDeleteEdge, connecting }: WireRendererProps) {
   const getSocketPosition = (nodeId: string, socketId: string, type: 'input' | 'output') => {
     const node = nodesData[nodeId];
     if (!node) return { x: 0, y: 0 };

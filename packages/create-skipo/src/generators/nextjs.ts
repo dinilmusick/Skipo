@@ -20,8 +20,8 @@ async function writeFile(path: string, content: string) {
  */
 export async function generateNextjs(
   projectName: string,
-  skipGit: boolean,
-  skipInstall: boolean
+  _skipGit: boolean,
+  _skipInstall: boolean
 ): Promise<void> {
   const projectDir = join(process.cwd(), projectName);
   

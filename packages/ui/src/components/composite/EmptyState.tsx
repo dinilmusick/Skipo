@@ -1,4 +1,4 @@
-\'use client\';
+'use client';
 import React, { forwardRef } from 'react';
 import { BaseButton } from '../base/BaseButton.js';
 import '../../styles/composite.css';

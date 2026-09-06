@@ -1,4 +1,4 @@
-\'use client\';
+'use client';
 import React, { forwardRef, useState } from 'react';
 import '../../styles/containers.css';
 

@@ -1,22 +1,17 @@
-import { createHash } from 'crypto';
 import { SkipoBase } from '@skipo/core';
 import { BaseStorageAdapter } from '../storage/BaseStorageAdapter.js';
-import { WorkspaceConfig, ConflictPolicy } from './types.js';
+import { WorkspaceConfig } from './types.js';
 
 export class SyncEngine extends SkipoBase {
   private primary: BaseStorageAdapter;
   private backups: BaseStorageAdapter[];
-  private config: WorkspaceConfig;
+  public readonly config: WorkspaceConfig;
 
   constructor(primary: BaseStorageAdapter, backups: BaseStorageAdapter[], config: WorkspaceConfig) {
-    super();
+    super({ name: 'SyncEngine' });
     this.primary = primary;
     this.backups = backups;
     this.config = config;
-  }
-
-  private async calculateHash(data: Uint8Array): Promise<string> {
-    return createHash('sha256').update(data).digest('hex');
   }
 
   async syncFile(pathStr: string): Promise<void> {

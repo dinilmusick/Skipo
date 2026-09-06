@@ -4,7 +4,7 @@ import { QueryFilter, SortOrder } from './types.js';
 export class FunctionalityTable<T extends { id: string }> extends BaseDataProvider<T> {
   private data: Map<string, T> = new Map();
 
-  async query(filters?: QueryFilter[], sort?: SortOrder[], limit?: number): Promise<T[]> {
+  async query(filters?: QueryFilter[], _sort?: SortOrder[], limit?: number): Promise<T[]> {
     let results = Array.from(this.data.values());
     if (filters) {
       results = results.filter(item => {

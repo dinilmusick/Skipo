@@ -1,5 +1,4 @@
 'use client';
-import React from 'react';
 import type { DockItemConfig } from './types.js';
 
 interface DockItemProps {

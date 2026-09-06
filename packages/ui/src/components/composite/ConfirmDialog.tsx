@@ -1,5 +1,5 @@
-\'use client\';
-import React, { forwardRef } from 'react';
+'use client';
+import { forwardRef } from 'react';
 import { ModalContainer } from '../containers/ModalContainer.js';
 import { BaseButton } from '../base/BaseButton.js';
 import '../../styles/composite.css';

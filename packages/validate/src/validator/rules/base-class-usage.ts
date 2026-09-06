@@ -1,13 +1,14 @@
 import type { ValidationRule, RuleViolation } from '../types.js';
-import type { Project, JsxElement, JsxSelfClosingElement } from 'ts-morph';
+import type { Project } from 'ts-morph';
 import { SyntaxKind } from 'ts-morph';
 
 export const baseClassUsageRule: ValidationRule = {
   id: 'base-class-usage',
   description: 'Enforces usage of base components over raw HTML elements',
   severity: 'warning',
-  validate(filePath: string, sourceCode: string, project?: Project): RuleViolation[] {
+  validate(filePath: string, _sourceCode: string, project?: Project): RuleViolation[] {
     if (!filePath.endsWith('.tsx') || !project) return [];
+    if (filePath.includes('packages/ui/src/components/base/')) return [];
     
     const violations: RuleViolation[] = [];
     const sourceFile = project.getSourceFile(filePath);

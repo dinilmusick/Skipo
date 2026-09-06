@@ -14,8 +14,8 @@ import { join } from 'node:path';
  */
 export async function generateElectron(
   projectName: string,
-  skipGit: boolean,
-  skipInstall: boolean
+  _skipGit: boolean,
+  _skipInstall: boolean
 ): Promise<void> {
   const projectDir = join(process.cwd(), projectName);
   

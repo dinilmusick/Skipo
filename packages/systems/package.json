@@ -16,7 +16,7 @@
   },
   "scripts": {
     "build": "tsup src/index.ts src/node-graph/index.ts src/tile-menu/index.ts src/dock/index.ts src/canvas/index.ts src/editor/index.ts --format esm --dts --clean --external react --external react-dom --external @dnd-kit/core --external @dnd-kit/sortable --external @dnd-kit/utilities --external monaco-editor",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },

@@ -1,9 +1,10 @@
 'use client';
-import React, { useRef, useState, useEffect } from 'react';
+import type React from 'react';
+import { useRef, useState } from 'react';
 import type { GraphNode, GraphEdge, NodeGraphConfig, ViewportState } from './types.js';
 import { NodeCard } from './NodeCard.js';
 import { WireRenderer } from './WireRenderer.js';
-import { screenToCanvas, canvasToScreen } from './Viewport.js';
+import { canvasToScreen } from './Viewport.js';
 import { getNodesInSelection } from './BoxSelection.js';
 
 interface NodeGraphCanvasProps {
@@ -26,7 +27,7 @@ export function NodeGraphCanvas({
   config,
   selectedNodeIds,
   onNodesChange,
-  onEdgesChange,
+  onEdgesChange: _onEdgesChange,
   onNodeDoubleClick,
   onViewportChange,
   onSelectionChange
@@ -124,7 +125,7 @@ export function NodeGraphCanvas({
     }
   };
 
-  const handleMouseUp = (e: React.MouseEvent) => {
+  const handleMouseUp = (_e: React.MouseEvent) => {
     setIsPanning(false);
     setDragNodeId(null);
     

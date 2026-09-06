@@ -13,57 +13,83 @@ Universal reference for AI agents constructing custom application features. Enfo
 
 Every custom component created for an application MUST extend or compose `@skipo/ui` base primitives.
 
-### A. Custom Button Example
+### A. Icon-Only Action Button Pattern
+Interactive action buttons MUST NOT have static text labels. The label appears exclusively in the bottom strip center on hover.
 ```tsx
 'use client';
-
 import React from 'react';
-import { BaseButton, BaseButtonProps } from '@skipo/ui';
+import { IconOnlyButton, BaseButtonProps } from '@skipo/ui';
 
-export interface ActionButtonProps extends Omit<BaseButtonProps, 'variant'> {
-  actionType: 'primary' | 'destructive' | 'neutral';
+export interface DeleteActionProps {
+  onDelete: () => void;
+  itemName: string;
 }
 
-export const ActionButton: React.FC<ActionButtonProps> = ({ actionType, children, ...props }) => {
-  const variantMap = {
-    primary: 'accent' as const,
-    destructive: 'danger' as const,
-    neutral: 'secondary' as const,
-  };
-
+export const DeleteActionButton: React.FC<DeleteActionProps> = ({ onDelete, itemName }) => {
   return (
-    <BaseButton variant={variantMap[actionType]} {...props}>
-      {children}
-    </BaseButton>
+    <IconOnlyButton
+      variant="danger"
+      label={`DELETE ${itemName.toUpperCase()} (PERMANENT REMOVAL)`}
+      onClick={onDelete}
+      icon={
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        </svg>
+      }
+    />
   );
 };
 ```
 
-### B. Custom Card Container Example
+### B. Credential Input Pattern with External Key Portal Link
+Any field asking for external credentials MUST use `CredentialField` with a link directly to the service's key generation dashboard.
 ```tsx
 'use client';
-
 import React from 'react';
-import { BaseCard, BaseBadge } from '@skipo/ui';
+import { CredentialField } from '@skipo/ui';
 
-export interface ProjectCardProps {
-  title: string;
-  status: 'active' | 'archived';
-  description: string;
-  onClick?: () => void;
+export interface ProviderApiConfigProps {
+  apiKey: string;
+  onChangeKey: (val: string) => void;
 }
 
-export const ProjectCard: React.FC<ProjectCardProps> = ({ title, status, description, onClick }) => {
+export const OpenAiKeyInput: React.FC<ProviderApiConfigProps> = ({ apiKey, onChangeKey }) => {
   return (
-    <BaseCard depth="md" interactive onClick={onClick} className="project-card">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-bold text-base text-[var(--skipo-text)]">{title}</h3>
-        <BaseBadge variant={status === 'active' ? 'success' : 'neutral'}>
-          {status}
-        </BaseBadge>
-      </div>
-      <p className="text-sm text-[var(--skipo-text-muted)]">{description}</p>
-    </BaseCard>
+    <CredentialField
+      serviceId="openai"
+      value={apiKey}
+      onChange={(e) => onChangeKey(e.target.value)}
+      placeholder="sk-proj-..."
+    />
+  );
+};
+```
+
+### C. Top Toolbar Navigation Pattern (Flat Tabs Only)
+All primary navigation MUST be flat in `TopToolbar`. Creating nested tabs inside child views is strictly forbidden.
+```tsx
+'use client';
+import React from 'react';
+import { TopToolbar, TopToolbarTab } from '@skipo/ui';
+
+const APP_TABS: TopToolbarTab[] = [
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'workspace', label: 'Workspace' },
+  { id: 'settings', label: 'Settings' }
+];
+
+export const AppNavigation: React.FC<{ activeTab: string; onSelect: (id: string) => void }> = ({
+  activeTab,
+  onSelect
+}) => {
+  return (
+    <TopToolbar
+      title="MY APPLICATION"
+      tabs={APP_TABS}
+      activeTabId={activeTab}
+      onSelectTab={onSelect}
+    />
   );
 };
 ```
@@ -73,18 +99,20 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ title, status, descrip
 ## 2. Inviolable Component Rules
 
 1. **Zero Raw HTML Controls**:
-   - `❌ <button onClick={...}>` $\longrightarrow$ `✅ <BaseButton onClick={...}>`
-   - `❌ <input type="text" ...>` $\longrightarrow$ `✅ <BaseInput ...>`
+   - `❌ <button onClick={...}>` $\longrightarrow$ `✅ <BaseButton onClick={...}>` or `<IconOnlyButton ...>`
+   - `❌ <input type="text" ...>` $\longrightarrow$ `✅ <BaseInput ...>` or `<CredentialField ...>`
    - `❌ <textarea ...>` $\longrightarrow$ `✅ <BaseTextarea ...>`
    - `❌ <select ...>` $\longrightarrow$ `✅ <BaseSelect ...>`
-2. **Mandatory Theme Tokens**:
-   - Never hardcode HEX colors or RGB values in inline styles.
-   - Use CSS custom properties: `var(--skipo-bg)`, `var(--skipo-text)`, `var(--skipo-accent)`, `var(--skipo-border)`.
-3. **One Component Per File**:
+2. **Zero Floating Tooltip Bubbles**:
+   - Never render floating `.skipo-tooltip` bubbles or popover text. Hovering an element MUST route text to the bottom strip center.
+3. **Zero Static Text Labels on Interactive Buttons**:
+   - Buttons in toolbars and docks must be strictly icon-only with monochromatic SVGs.
+4. **Mandatory Semantic Theme Tokens**:
+   - Never hardcode HEX or RGB values (`#D4AF37`, `rgba(0,0,0,0.5)`).
+   - Use CSS custom properties: `var(--skipo-bg)`, `var(--skipo-text)`, `var(--skipo-accent)`, `var(--skipo-border)`, etc.
+5. **One Component Per File & 200-Line Limit**:
    - Exactly one exported component per `.tsx` file.
-   - Accompanying types and small pure helpers ($< 20$ lines) are permitted.
-4. **200-Line Limit**:
-   - If a component grows beyond 180 lines, extract sub-views into separate sibling files.
+   - Max 200 lines per file (enforced statically).
 
 ---
 
@@ -92,75 +120,33 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ title, status, descrip
 
 All backend services, providers, and controllers MUST inherit from `SkipoBase` or domain-specific base classes.
 
-### A. Custom Service Class
 ```typescript
 import { SkipoBase, type SkipoConfig } from '@skipo/core';
 
-export interface TaskManagerConfig extends SkipoConfig {
-  maxConcurrency: number;
-}
-
 export class TaskManagerService extends SkipoBase {
-  private maxConcurrency: number;
-
-  constructor(config: TaskManagerConfig) {
-    super(config);
-    this.maxConcurrency = config.maxConcurrency;
-  }
-
   protected async onInitialize(): Promise<void> {
-    this.logger.log(`Initializing TaskManager with concurrency: ${this.maxConcurrency}`);
+    this.logger.log('Initializing TaskManager');
   }
 
   protected async onDispose(): Promise<void> {
-    this.logger.log('Disposing TaskManager workers');
-  }
-
-  public async executeTask(taskId: string): Promise<void> {
-    this.ensureInitialized();
-    this.ensureNotDisposed();
-    // Implementation
-  }
-}
-```
-
-### B. Custom Account Provider
-Extend `BaseAccountProvider` to implement custom identity persistence (e.g. Postgres, DynamoDB) while automatically inheriting password hashing, rate limiting, session management, and admin bootstrap protection.
-```typescript
-import { BaseAccountProvider, type User, type CreateUserData } from '@skipo/backend/auth';
-
-export class CustomDbAccountProvider extends BaseAccountProvider {
-  protected async findUserByEmail(email: string): Promise<User | null> {
-    // Custom database query
-    return null;
-  }
-
-  protected async createUser(data: CreateUserData): Promise<User> {
-    // Custom database insert
-    return {} as User;
-  }
-
-  protected async updateUser(id: string, patch: Partial<User>): Promise<User> {
-    // Custom database update
-    return {} as User;
-  }
-
-  protected async findUserById(id: string): Promise<User | null> {
-    return null;
-  }
-
-  protected async listUsers(): Promise<User[]> {
-    return [];
+    this.logger.log('Disposing TaskManager');
   }
 }
 ```
 
 ---
 
-## 4. Summary & Verification
+## 4. Verification Checklist
 
-When reviewing generated code:
-1. Does every UI element trace back to `@skipo/ui`?
-2. Does every backend service extend `SkipoBase`?
-3. Does every file stay under 200 lines?
-4. Does `npx skipo-validate` succeed with 0 violations?
+Before considering an app generation turn complete, run:
+```bash
+# 1. Typecheck
+pnpm typecheck
+
+# 2. Architectural constraints verification
+npx skipo-validate
+
+# 3. Unit and integration test suite
+pnpm test
+```
+All gates must pass with 0 errors.

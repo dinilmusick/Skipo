@@ -18,10 +18,10 @@ export abstract class SkipoBase implements Disposable {
   /** Whether this component has been disposed */
   protected disposed = false;
 
-  constructor(config: SkipoConfig) {
+  constructor(config: SkipoConfig = { name: 'SkipoComponent' }) {
     this.instanceId = shortId();
-    this.name = config.name;
-    this.logger = config.logger ?? console;
+    this.name = config?.name ?? 'SkipoComponent';
+    this.logger = config?.logger ?? console;
   }
 
   /** Initialize the component. Call before use. */

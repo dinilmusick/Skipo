@@ -1,4 +1,4 @@
-\'use client\';
+'use client';
 import React, { forwardRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import '../../styles/containers.css';
