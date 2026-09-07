@@ -31,6 +31,7 @@ export async function generateNextjs(
   await writeFile(join(projectDir, 'package.json'), nextjsTemplates.packageJson(projectName));
   await writeFile(join(projectDir, 'tsconfig.json'), nextjsTemplates.tsconfigJson());
   await writeFile(join(projectDir, 'next.config.js'), nextjsTemplates.nextConfigJs());
+  await writeFile(join(projectDir, '.gitignore'), nextjsTemplates.gitignore());
   await writeFile(join(projectDir, 'src', 'app', 'globals.css'), '@tailwind base;\n@tailwind components;\n@tailwind utilities;\n');
 
   // App router pages

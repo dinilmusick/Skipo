@@ -3,5 +3,5 @@
 .gemini/
 *.tmp
 node_modules/
-dist/
+/dist/
 .turbo/

@@ -1,0 +1,467 @@
+/* src/styles/base.css */
+.skipo-btn {
+  font-family: var(--skipo-font);
+  border: var(--skipo-border);
+  box-shadow: var(--skipo-shadow-btn);
+  border-radius: var(--skipo-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.skipo-btn:hover {
+  box-shadow: var(--skipo-shadow-btn-hover);
+  transform: translate(-1px, -1px);
+}
+.skipo-btn:active {
+  box-shadow: var(--skipo-shadow-btn-active);
+  transform: translate(1px, 1px);
+}
+.skipo-btn--sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 11px;
+  height: 1.75rem;
+}
+.skipo-btn--md {
+  padding: 0.375rem 0.75rem;
+  font-size: 12px;
+  height: 2.25rem;
+}
+.skipo-btn--lg {
+  padding: 0.625rem 1rem;
+  font-size: 14px;
+  height: 2.75rem;
+}
+.skipo-btn--accent {
+  background: var(--skipo-accent);
+  color: var(--skipo-accent-fg);
+}
+.skipo-btn--secondary {
+  background: var(--skipo-matte-bg);
+  color: var(--skipo-text);
+}
+.skipo-btn--danger {
+  background: var(--skipo-danger);
+  color: var(--skipo-danger-fg);
+}
+.skipo-btn--success {
+  background: var(--skipo-success);
+  color: var(--skipo-success-fg);
+}
+.skipo-btn--warning {
+  background: var(--skipo-warning);
+  color: var(--skipo-warning-fg);
+}
+.skipo-btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--skipo-text);
+}
+.skipo-btn--ghost:hover {
+  background: rgba(0, 0, 0, 0.1);
+  border: var(--skipo-border);
+}
+.skipo-input {
+  width: 100%;
+  border: var(--skipo-border-input);
+  background: var(--skipo-matte-bg);
+  color: var(--skipo-text);
+  padding: 0.375rem 0.625rem;
+  font-size: 12px;
+  font-family: var(--skipo-font-mono);
+  font-weight: bold;
+  border-radius: var(--skipo-radius-sm);
+  outline: none;
+}
+.skipo-input:focus {
+  border-color: var(--skipo-accent);
+}
+.skipo-textarea {
+  width: 100%;
+  border: var(--skipo-border-input);
+  background: var(--skipo-matte-bg);
+  color: var(--skipo-text);
+  padding: 0.375rem 0.625rem;
+  font-family: var(--skipo-font);
+  border-radius: var(--skipo-radius-sm);
+  outline: none;
+  resize: vertical;
+}
+.skipo-select {
+  border: var(--skipo-border-input);
+  background: var(--skipo-matte-bg);
+  color: var(--skipo-text);
+  padding: 0.375rem 0.625rem;
+  font-family: var(--skipo-font-mono);
+  font-weight: bold;
+  border-radius: var(--skipo-radius-sm);
+  text-transform: uppercase;
+}
+.skipo-card {
+  border: var(--skipo-border);
+  background: var(--skipo-matte-bg);
+  color: var(--skipo-text);
+  padding: 0.75rem;
+  border-radius: var(--skipo-radius);
+  transition: all 0.1s ease;
+}
+.skipo-card--surface {
+  background: var(--skipo-matte-bg);
+}
+.skipo-card--subtle {
+  background: rgba(0, 0, 0, 0.1);
+}
+.skipo-card--base {
+  background: var(--skipo-bg);
+}
+.skipo-card--sm {
+  box-shadow: var(--skipo-shadow-btn);
+}
+.skipo-card--md {
+  box-shadow: var(--skipo-shadow);
+}
+.skipo-card--lg {
+  box-shadow: var(--skipo-shadow-hover);
+}
+.skipo-badge {
+  border: var(--skipo-border);
+  padding: 0.125rem 0.375rem;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  border-radius: 4px;
+}
+.skipo-badge--accent {
+  background: var(--skipo-accent);
+  color: var(--skipo-accent-fg);
+}
+.skipo-badge--success {
+  background: var(--skipo-success);
+  color: var(--skipo-success-fg);
+}
+.skipo-toggle {
+  appearance: none;
+  width: 32px;
+  height: 18px;
+  background: var(--skipo-matte-bg);
+  border: var(--skipo-border);
+  border-radius: 9px;
+  position: relative;
+  cursor: pointer;
+}
+.skipo-toggle:checked {
+  background: var(--skipo-success);
+}
+.skipo-toggle::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 12px;
+  height: 12px;
+  background: var(--skipo-text);
+  border-radius: 50%;
+  transition: 0.2s;
+}
+.skipo-toggle:checked::after {
+  left: 15px;
+}
+.skipo-tooltip {
+  position: absolute;
+  background: var(--skipo-matte-bg);
+  color: var(--skipo-text);
+  padding: 4px 8px;
+  border: var(--skipo-border);
+  border-radius: var(--skipo-radius-sm);
+  font-size: 11px;
+  z-index: 1000;
+}
+
+/* src/styles/containers.css */
+.skipo-page-container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.skipo-section-container {
+  margin-bottom: 2rem;
+}
+.skipo-sidebar-container {
+  border-right: var(--skipo-border);
+  background: var(--skipo-matte-bg);
+}
+.skipo-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: var(--skipo-matte-blur);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.skipo-modal-content {
+  background: var(--skipo-bg);
+  border: var(--skipo-border);
+  box-shadow: var(--skipo-shadow-hover);
+  border-radius: var(--skipo-radius);
+  padding: 1.5rem;
+  max-width: 500px;
+  width: 100%;
+}
+.skipo-drawer-container {
+  position: fixed;
+  background: var(--skipo-bg);
+  border: var(--skipo-border);
+  z-index: 9999;
+}
+.skipo-panel-container {
+  background: var(--skipo-matte-bg);
+  backdrop-filter: var(--skipo-matte-blur);
+  border: var(--skipo-border);
+  border-radius: var(--skipo-radius);
+}
+.skipo-split-container {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+.skipo-tab-container {
+  display: flex;
+  flex-direction: column;
+}
+
+/* src/styles/composite.css */
+.skipo-icon-btn {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--skipo-border);
+  background: var(--skipo-matte-bg);
+  cursor: pointer;
+  border-radius: var(--skipo-radius-sm);
+}
+.skipo-search-input {
+  position: relative;
+}
+.skipo-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.skipo-loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+}
+.skipo-empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: var(--skipo-text-muted);
+}
+
+/* src/styles/details-panel.css */
+.skipo-details-panel {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  background: var(--skipo-matte-bg);
+  backdrop-filter: var(--skipo-matte-blur);
+  -webkit-backdrop-filter: var(--skipo-matte-blur);
+  border: var(--skipo-border);
+  border-radius: var(--skipo-radius);
+  box-shadow: var(--skipo-shadow);
+  color: var(--skipo-text);
+  overflow: hidden;
+  z-index: 50;
+  box-sizing: border-box;
+}
+.skipo-details-panel.is-dragging {
+  user-select: none;
+  box-shadow: var(--skipo-shadow-hover);
+}
+.skipo-details-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--skipo-surface);
+  border-bottom: var(--skipo-border);
+  cursor: grab;
+  user-select: none;
+  min-height: 38px;
+  box-sizing: border-box;
+}
+.skipo-details-panel.is-dragging .skipo-details-panel-header {
+  cursor: grabbing;
+}
+.skipo-details-panel-title-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+.skipo-details-panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--skipo-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.skipo-details-panel-subtitle {
+  font-size: 11px;
+  color: var(--skipo-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.skipo-details-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.skipo-details-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px;
+  box-sizing: border-box;
+}
+.skipo-resize-handle {
+  position: absolute;
+  z-index: 60;
+  box-sizing: border-box;
+}
+.skipo-resize-nw {
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  cursor: nwse-resize;
+}
+.skipo-resize-ne {
+  top: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  cursor: nesw-resize;
+}
+.skipo-resize-se {
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  cursor: nwse-resize;
+}
+.skipo-resize-sw {
+  bottom: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  cursor: nesw-resize;
+}
+.skipo-resize-n {
+  top: 0;
+  left: 10px;
+  right: 10px;
+  height: 6px;
+  cursor: ns-resize;
+}
+.skipo-resize-s {
+  bottom: 0;
+  left: 10px;
+  right: 10px;
+  height: 6px;
+  cursor: ns-resize;
+}
+.skipo-resize-w {
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 6px;
+  cursor: ew-resize;
+}
+.skipo-resize-e {
+  right: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+/* src/styles/layout.css */
+.skipo-app-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--skipo-bg);
+  color: var(--skipo-text);
+  font-family: var(--skipo-font);
+}
+.skipo-header {
+  border-bottom: var(--skipo-border);
+  padding: 0 1rem;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--skipo-matte-bg);
+}
+.skipo-top-toolbar {
+  height: var(--skipo-top-toolbar-height, 44px);
+  border-bottom: var(--skipo-border);
+  background: var(--skipo-top-toolbar-bg, var(--skipo-matte-bg));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.75rem;
+}
+.skipo-bottom-strip {
+  height: var(--skipo-bottom-strip-height, 30px);
+  border-top: var(--skipo-border);
+  background: var(--skipo-bottom-strip-bg, var(--skipo-matte-bg));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.75rem;
+  font-family: var(--skipo-font-mono);
+  font-size: 11px;
+}
+.skipo-breadcrumb {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--skipo-text-muted);
+}
+@keyframes skipo-pulse-glow {
+  0% {
+    opacity: 0.6;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 0.6;
+    transform: scale(0.98);
+  }
+}
+.skipo-status-light--pulse {
+  animation: skipo-pulse-glow 1.8s infinite ease-in-out;
+}

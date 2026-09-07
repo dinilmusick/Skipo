@@ -5,3 +5,4 @@ export * from './NodeCard.js';
 export * from './BoxSelection.js';
 export * from './useNodeGraph.js';
 export * from './NodeGraphCanvas.js';
+export * from './NodeDetailsPanel.js';

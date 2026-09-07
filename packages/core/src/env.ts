@@ -93,3 +93,31 @@ export function validateEnvSchema<T extends ZodTypeAny>(zodSchema: T): T['_outpu
     throw new Error(`[SkipoEnvError] Environment validation failed: ${err.message || String(err)}`);
   }
 }
+
+/**
+ * Checks if a connection string is a placeholder or template value.
+ */
+export function isPlaceholderConnection(url?: string): boolean {
+  if (!url || typeof url !== 'string') return true;
+  const trimmed = url.trim().toLowerCase();
+  const placeholders = [
+    'ep-sample',
+    'example.com',
+    'placeholder',
+    'user:password@',
+    'my_database',
+    'your_password',
+    'xxx.neon.tech',
+    'username:password'
+  ];
+  return placeholders.some(p => trimmed.includes(p));
+}
+
+/**
+ * Sanitizes a database URL, returning undefined if it is empty or a placeholder.
+ */
+export function sanitizeDatabaseUrl(url?: string): string | undefined {
+  if (!url || isPlaceholderConnection(url)) return undefined;
+  return url.trim();
+}
+

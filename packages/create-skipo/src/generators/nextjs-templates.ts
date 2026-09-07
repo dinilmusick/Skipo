@@ -163,5 +163,15 @@ export function CustomButton(props: any) {
   validateTs: () => `// import { validate } from 'skipo-validate';
 console.log('Validate script');\n`,
 
-  agentStateJson: () => JSON.stringify({ turnCounter: 0 }, null, 2)
+  agentStateJson: () => JSON.stringify({ turnCounter: 0 }, null, 2),
+
+  gitignore: () => `.DS_Store
+*.log
+.gemini/
+*.tmp
+node_modules/
+/dist/
+/.next/
+.turbo/
+`
 };

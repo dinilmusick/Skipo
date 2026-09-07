@@ -46,15 +46,41 @@ export async function requestRaw(url: string, opts: SkipoHTTPOptions = {}): Prom
 export async function request<T>(url: string, opts: SkipoHTTPOptions = {}): Promise<SkipoHTTPResult<T>> {
   try {
     const res = await requestRaw(url, opts);
+    const contentType = res.headers.get("content-type") || "";
+    const isJson = contentType.toLowerCase().includes("application/json");
+
     if (!res.ok) {
-      return { status: "error", message: `HTTP Error ${res.status}: ${res.statusText}`, code: res.status };
+      let errorMessage = `HTTP Error ${res.status}: ${res.statusText}`;
+      try {
+        if (isJson) {
+          const errData = (await res.json()) as any;
+          errorMessage = errData?.message || errData?.error || errorMessage;
+        } else {
+          const rawText = await res.text();
+          if (rawText.trim()) {
+            errorMessage = rawText.length > 200 ? `${rawText.slice(0, 200)}...` : rawText;
+          }
+        }
+      } catch {}
+      return { status: "error", message: errorMessage, code: res.status };
     }
+
+    if (!isJson) {
+      const text = await res.text();
+      return {
+        status: "error",
+        message: `Expected JSON response but received "${contentType || 'text/plain'}": ${text.slice(0, 100)}`,
+        code: res.status
+      };
+    }
+
     const data = await res.json() as T;
     return { status: "success", data };
   } catch (e: any) {
     return { status: "error", message: e.message || String(e) };
   }
 }
+
 
 export async function get<T>(url: string, opts: SkipoHTTPOptions = {}): Promise<SkipoHTTPResult<T>> {
   return await request<T>(url, { ...opts, method: "GET" });

@@ -46,3 +46,20 @@ describe('Skipo Credential Portals Link Resolution', () => {
     expect(KNOWN_CREDENTIAL_URLS.neon.url).toContain('neon.tech');
   });
 });
+
+describe('Skipo Floating Details Panel System', () => {
+  it('provides default panel geometry with valid viewport dimensions', async () => {
+    const { DEFAULT_PANEL_GEOMETRY } = await import('../components/containers/usePanelGeometry.js');
+    expect(DEFAULT_PANEL_GEOMETRY.x).toBeGreaterThanOrEqual(0);
+    expect(DEFAULT_PANEL_GEOMETRY.y).toBeGreaterThanOrEqual(0);
+    expect(DEFAULT_PANEL_GEOMETRY.width).toBeGreaterThanOrEqual(260);
+    expect(DEFAULT_PANEL_GEOMETRY.height).toBeGreaterThanOrEqual(180);
+  });
+
+  it('exports FloatingDetailsPanel and ResizeHandles components', async () => {
+    const { FloatingDetailsPanel, ResizeHandles } = await import('../components/containers/index.js');
+    expect(typeof FloatingDetailsPanel).toBe('function');
+    expect(typeof ResizeHandles).toBe('function');
+  });
+});
+

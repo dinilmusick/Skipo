@@ -6,3 +6,7 @@ export * from './ModalContainer.js';
 export * from './PanelContainer.js';
 export * from './SplitContainer.js';
 export * from './TabContainer.js';
+export * from './FloatingDetailsPanel.js';
+export * from './usePanelGeometry.js';
+export * from './ResizeHandles.js';
+export * from './usePanelInteraction.js';

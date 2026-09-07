@@ -66,6 +66,23 @@ At 180 lines → split into sub-modules.
 Applies to: controllers, services, repositories, route files, middleware, utilities.
 ```
 
+### LAW D: Serverless Portability & Zero Static Dev Tooling in Server Factories
+```
+1. ZERO STATIC DEV TOOLING IN RUNTIME SERVERS:
+   Never write static imports for vite, esbuild, or dev watchers in AppFactory.ts or server.ts:
+   ✗ import { createServer } from 'vite';
+   ✓ if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
+       const { createServer } = await import('vite');
+     }
+2. PRE-BUNDLED SERVERLESS OUTPUT:
+   For Vercel/serverless targets, pre-bundle the server entry into a single standalone ESM bundle:
+   `esbuild api/index.ts --bundle --platform=node --format=esm --packages=external --outfile=api/index.js`
+3. PLACEHOLDER DB SANITIZATION:
+   Never boot connection pools against template URIs ('ep-sample', 'example.com', 'user:password@').
+   Use sanitizeDatabaseUrl() from @skipo/core to safely verify database readiness.
+```
+
+
 ---
 
 Architectural standard for constructing portable, scalable, environment-agnostic backends capable of running seamlessly on local runtimes (Node.js, Electron, Tauri), local-network services (Docker, LAN, self-hosted BaaS), or cloud serverless environments (Vercel, Supabase, AWS, Cloudflare).

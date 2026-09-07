@@ -12,6 +12,8 @@ import { importSuffixRule } from './rules/import-suffix.js';
 import { baseClassUsageRule } from './rules/base-class-usage.js';
 import { themeTokenSemanticsRule } from './rules/theme-token-semantics.js';
 import { uiInvariantsRule } from './rules/ui-invariants.js';
+import { gitIgnoreAnchoringRule } from './rules/git-ignore-anchoring.js';
+import { serverlessCompatibilityRule } from './rules/serverless-compatibility.js';
 
 export class SkipoValidator {
   private config: ValidatorConfig;
@@ -25,8 +27,11 @@ export class SkipoValidator {
     importSuffixRule,
     baseClassUsageRule,
     themeTokenSemanticsRule,
-    uiInvariantsRule
+    uiInvariantsRule,
+    gitIgnoreAnchoringRule,
+    serverlessCompatibilityRule
   ];
+
   private project?: Project;
 
   constructor(config: ValidatorConfig) {
@@ -41,7 +46,12 @@ export class SkipoValidator {
         if (!entry.name.includes('node_modules') && !entry.name.includes('dist')) {
           this.scanDir(fullPath, files);
         }
-      } else if (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx') || entry.name.endsWith('.js')) {
+      } else if (
+        entry.name.endsWith('.ts') ||
+        entry.name.endsWith('.tsx') ||
+        entry.name.endsWith('.js') ||
+        entry.name === '.gitignore'
+      ) {
         files.push(fullPath);
       }
     }

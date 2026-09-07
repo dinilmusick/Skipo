@@ -80,3 +80,21 @@ REQUIRE:
       borders: 1px - 2px solid locked accent / border tone
       options: monochromatic icons + hover highlight
 ```
+
+---
+
+## 5. PRE-BUNDLED CSS & VITE BUNDLER COMPATIBILITY
+```
+∀ vite_app ∈ Skipo_Applications:
+  css_import ≡ "@import '@skipo/ui/dist/index.css';" ∨ "@skipo/ui/dist/index.css"
+```
+- **Vite & Tailwind v4 Integration**:
+  In Vite applications using `@tailwindcss/vite` or plain CSS imports, `@skipo/ui` exports its compiled CSS bundle at `@skipo/ui/dist/index.css`.
+- **Pre-Bundled Artifact Requirement**:
+  - The `dist/index.css` artifact MUST exist prior to running Vite build (`pnpm --filter @skipo/ui build`).
+  - Monorepo `.gitignore` MUST use `/dist/` to avoid masking `packages/ui/dist/index.css`.
+  - When importing `@skipo/ui` styles in `src/index.css`:
+    ```css
+    @import '@skipo/ui/dist/index.css';
+    ```
+

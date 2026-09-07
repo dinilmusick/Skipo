@@ -43,5 +43,20 @@ export async function generateElectron(
     'utf-8'
   );
 
+  const gitignoreContent = `.DS_Store
+*.log
+.gemini/
+*.tmp
+node_modules/
+/dist/
+.turbo/
+`;
+
+  await fs.writeFile(
+    join(projectDir, '.gitignore'),
+    gitignoreContent,
+    'utf-8'
+  );
+
   console.log('Electron project setup complete (stub).');
 }

@@ -287,6 +287,46 @@ RULE:
    - Serverless requests MUST NOT default or expose /tmp/ serverless scratch paths in the UI or graph root nodes.
 ```
 
+### F. CI/CD BUILD & PRE-BUNDLED PACKAGE DISTRIBUTION INVARIANT (VITE & MONOREPO COMPATIBILITY)
+```
+1. ANCHORED GITIGNORE MANDATE:
+   - Root and project .gitignore files MUST prefix top-level output directories with a leading slash:
+     ✓ /dist/
+     ✓ /.next/
+     ✓ /out/
+   - FORBIDDEN in root .gitignore:
+     ✗ dist/   (unanchored recursive pattern that silently masks packages/*/dist/)
+     ✗ dist    (masks any directory named dist across the monorepo)
+   - Rationale: Unanchored `dist/` prevents sub-package distribution files (such as
+     `packages/ui/dist/index.css` and `packages/ui/dist/index.js`) from being committed or
+     resolved in fresh CI/CD environments (Vercel, GitHub Actions), causing fatal Vite
+     asset generation failures:
+     [@tailwindcss/vite:generate:build] ENOENT: no such file or directory, open '.../dist/index.css'
+
+2. PRE-BUNDLED ARTIFACT AVAILABILITY FOR VITE APPS:
+   - Any app or sub-app consuming @skipo/ui styles via Vite must verify or invoke the build
+     of @skipo/ui (`pnpm --filter @skipo/ui build`) before running Vite build.
+   - All scaffolds and templates MUST emit anchored `.gitignore` (`/dist/`).
+
+3. DYNAMIC DEV TOOLING IN SERVERS (ZERO STATIC VITE IMPORTS):
+   - In hybrid/full-stack engines, never statically import development-only tooling (Vite, esbuild)
+     at the module level of server factories.
+   - In Vercel or AWS Lambda microVMs, development dependencies are excluded, causing fatal
+     FUNCTION_INVOCATION_FAILED.
+   - Wrap all dev server initialization in `if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') { const { createServer } = await import('vite'); }`.
+
+4. PRE-BUNDLED SERVERLESS RUNTIME OUTPUT:
+   - Never rely on Vercel's automatic TypeScript resolution when server routes reference files
+     outside the `api/` directory.
+   - Bundle the backend layer into a standalone ESM module:
+     `esbuild api/index.ts --bundle --platform=node --format=esm --packages=external --outfile=api/index.js`.
+
+5. SAFE JSON PARSING & COPYABLE ERROR UI:
+   - Client HTTP requests must verify `res.headers.get('content-type')?.includes('application/json')`
+     before calling `res.json()`, capturing non-JSON error payloads cleanly.
+   - Use @skipo/ui's CopyableErrorAlert to provide 1-click clipboard error debugging for users and agents.
+```
+
 ---
 
 ## 5. GLOBAL OUTPUT PREFERENCES

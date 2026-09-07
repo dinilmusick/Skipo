@@ -94,7 +94,39 @@ export const AppNavigation: React.FC<{ activeTab: string; onSelect: (id: string)
 };
 ```
 
+### D. Draggable, Corner-Resizable Details Panel Pattern
+All details panels must use `FloatingDetailsPanel` with pinning and cross-element persistent geometry:
+```tsx
+'use client';
+import React from 'react';
+import { FloatingDetailsPanel } from '@skipo/ui';
+
+export const EntityDetailsView: React.FC<{
+  entity: { id: string; name: string } | null;
+  isOpen: boolean;
+  onClose: () => void;
+  isPinned: boolean;
+  onTogglePin: () => void;
+}> = ({ entity, isOpen, onClose, isPinned, onTogglePin }) => {
+  if (!isOpen || !entity) return null;
+  return (
+    <FloatingDetailsPanel
+      title={entity.name}
+      subtitle={`ID: ${entity.id}`}
+      isOpen={isOpen}
+      onClose={onClose}
+      isPinned={isPinned}
+      onTogglePin={onTogglePin}
+      storageKey="skipo:entity:details-panel"
+    >
+      <div>Content here</div>
+    </FloatingDetailsPanel>
+  );
+};
+```
+
 ---
+
 
 ## 2. Inviolable Component Rules
 

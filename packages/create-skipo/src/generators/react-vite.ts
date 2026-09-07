@@ -29,6 +29,7 @@ export async function generateReactVite(
     scripts: {
       "dev": "vite",
       "build": "tsc -b && vite build",
+      "build:serverless": "esbuild api/index.ts --bundle --platform=node --format=esm --packages=external --outfile=api/index.js",
       "preview": "vite preview"
     },
     dependencies: {
@@ -42,6 +43,7 @@ export async function generateReactVite(
       "@types/react": "^18.3.3",
       "@types/react-dom": "^18.3.0",
       "@vitejs/plugin-react": "^4.3.1",
+      "esbuild": "^0.25.0",
       "typescript": "^5.5.3",
       "vite": "^5.4.1"
     }
@@ -53,5 +55,34 @@ export async function generateReactVite(
     'utf-8'
   );
 
-  console.log('React+Vite project setup complete (stub).');
+  const gitignoreContent = `.DS_Store
+*.log
+.gemini/
+*.tmp
+node_modules/
+/dist/
+.turbo/
+`;
+
+  await fs.writeFile(
+    join(projectDir, '.gitignore'),
+    gitignoreContent,
+    'utf-8'
+  );
+
+  const vercelJson = {
+    rewrites: [
+      { source: "/api/(.*)", destination: "/api" },
+      { source: "/(.*)", destination: "/index.html" }
+    ]
+  };
+
+  await fs.writeFile(
+    join(projectDir, 'vercel.json'),
+    JSON.stringify(vercelJson, null, 2),
+    'utf-8'
+  );
+
+  console.log('React+Vite project setup complete.');
+
 }

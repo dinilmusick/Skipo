@@ -69,3 +69,20 @@ Run `pnpm run validate` (`skipo-validate`) on every build turn and during routin
 6. Zero nested tabs.
 7. Zero floating tooltips / floating text bubbles.
 8. Theme token semantics (`--skipo-*` variables only).
+
+### Law 9: Details Panel Invariant (Draggable, 8-Way Resizable, Pinnable, Persistent)
+- All element inspection (e.g. nodes in NodeGraph, entities, canvas elements) MUST use `FloatingDetailsPanel`.
+- Must be resizable from all 4 corners (`nw`, `ne`, `se`, `sw`) and 4 edges (`n`, `s`, `e`, `w`).
+- Must be draggable and placeable anywhere on the UI via its header.
+- Must feature a Pin toggle button (`IconOnlyButton` with pin SVG).
+  - When unpinned: focusing or selecting another element updates the details panel to that newly focused element.
+  - When pinned: the panel remains locked to the pinned element even when other elements are focused.
+- Geometry persistence: The position `(x, y)` and dimensions `(width, height)` of the details panel are shared and remembered across elements via `usePanelGeometry`. Opening a details panel for Node 2 after resizing/moving Node 1 opens it in the exact same position and size.
+
+### Law 10: Anchored Output & Monorepo Sub-package Artifact Tracking
+$$\text{.gitignore pattern} \equiv /\text{dist/ } (\text{anchored}) \quad \text{NOT} \quad \text{dist/ } (\text{unanchored})$$
+- Monorepo root `.gitignore` and template `.gitignore` files MUST always anchor build output patterns (`/dist/`, `/.next/`, `/out/`).
+- **Forbidden**: Unanchored `dist/` or `dist` in root `.gitignore`. An unanchored rule silently ignores `packages/*/dist/`, preventing pre-bundled artifacts like `@skipo/ui/dist/index.css` from existing on clean checkouts in CI/CD (Vercel, GitHub Actions) during Vite builds.
+- **Enforcement**: Statically verified via `@skipo/validate` (`git-ignore-anchoring` rule).
+
+

@@ -55,14 +55,46 @@ export function useNodeGraph(initialNodes: GraphNode[] = [], initialEdges: Graph
     setSelectedNodeIds(new Set());
   }, []);
 
+  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isDetailsPinned, setIsDetailsPinned] = useState(false);
+
+  const openDetails = useCallback((nodeId: string) => {
+    setFocusedNodeId(nodeId);
+    setIsDetailsOpen(true);
+  }, []);
+
+  const closeDetails = useCallback(() => setIsDetailsOpen(false), []);
+  const togglePinDetails = useCallback(() => setIsDetailsPinned(p => !p), []);
+
+  const selectNode = useCallback((nodeId: string) => {
+    setSelectedNodeIds(new Set([nodeId]));
+    if (!isDetailsPinned) setFocusedNodeId(nodeId);
+  }, [isDetailsPinned]);
+
+  const updateNode = useCallback((nodeId: string, updates: Partial<GraphNode>) => {
+    setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, ...updates } : n));
+  }, []);
+
   return {
     nodes,
     edges,
     viewport,
     selectedNodeIds,
+    focusedNodeId,
+    isDetailsOpen,
+    isDetailsPinned,
     setNodes,
     setEdges,
     setSelectedNodeIds,
+    setFocusedNodeId,
+    setIsDetailsOpen,
+    setIsDetailsPinned,
+    openDetails,
+    closeDetails,
+    togglePinDetails,
+    selectNode,
+    updateNode,
     addNode,
     removeNode,
     addEdge,

@@ -33,6 +33,26 @@ When deploying backends to Vercel, Next.js API routes, or Cloudflare Workers:
    - `DATABASE_URL` / `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY`
    - `STORAGE_BUCKET_URL` / `S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY`
 5. **No Ephemeral Local Disk for Persistence**: `/tmp` is ephemeral and lost between cold starts. All persistent workspace files must be directed to cloud object storage.
+6. **Pre-Bundled Serverless Output**:
+   Never rely on Vercel's automatic TypeScript resolution when server routes reference files outside the `api/` directory (e.g. `src/server/AppFactory`). Always pre-bundle the server layer into a standalone ESM file:
+   ```bash
+   esbuild api/index.ts --bundle --platform=node --format=esm --packages=external --outfile=api/index.js
+   ```
+   Deploy `api/index.js` as the direct serverless entrypoint for Vercel.
+7. **Dynamic Dev Tooling Import Invariant**:
+   Never statically import development-only tooling (`vite`, `@vitejs/plugin-react`, `esbuild`) in server factories (`AppFactory.ts`, `server.ts`). Inside Vercel/AWS Lambda microVMs, development dependencies do not exist and cause immediate `FUNCTION_INVOCATION_FAILED`. Always isolate via dynamic import:
+   ```typescript
+   if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
+     const { createServer } = await import('vite');
+     // configure dev middleware
+   }
+   ```
+8. **Placeholder Database Connection Sanitization**:
+   Never allow connection poolers (`pg.Pool`, `neon`) to attempt connecting to template strings (`ep-sample.neon.tech`, `example.com`, `user:password@`). Connection attempts to dummy hosts hang serverless bootstrap and cause 500 lambda crashes. Always sanitize via `sanitizeDatabaseUrl()` from `@skipo/core`.
+9. **Safe JSON Response Parsing**:
+   Client requests must always check `res.headers.get('content-type')?.includes('application/json')` before calling `res.json()`. If edge routers (Vercel, Cloudflare) return an HTML error page (404/500), raw `.json()` crashes with `Unexpected token 'T'`. Use `@skipo/core`'s `request<T>()` or inspect content-type defensively.
+10. **One-Click Copyable Error Alerts**:
+    All authentication, connection setup, and error notification views should incorporate `CopyableErrorAlert` from `@skipo/ui` to allow users and debugging agents to copy raw backend error payloads to clipboard.
 
 ---
 
