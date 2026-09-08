@@ -85,4 +85,27 @@ $$\text{.gitignore pattern} \equiv /\text{dist/ } (\text{anchored}) \quad \text{
 - **Forbidden**: Unanchored `dist/` or `dist` in root `.gitignore`. An unanchored rule silently ignores `packages/*/dist/`, preventing pre-bundled artifacts like `@skipo/ui/dist/index.css` from existing on clean checkouts in CI/CD (Vercel, GitHub Actions) during Vite builds.
 - **Enforcement**: Statically verified via `@skipo/validate` (`git-ignore-anchoring` rule).
 
+### Law 11: Absolute Zero-Placeholder & Real-Data Invariant
+The AI agent is STRICTLY FORBIDDEN from generating placeholder entries of any kind.
+- **Prohibited Placeholders**:
+  - `❌ Placeholder Results`: Fake computational outputs, stubbed evaluation metrics, mock search results.
+  - `❌ Placeholder Telemetry`: Synthetic charts, hardcoded latency numbers, simulated health metrics, dummy traffic pings.
+  - `❌ Placeholder Listings`: Hardcoded dummy arrays (`[{ id: 1, name: 'Item 1' }]`), mock user lists, fake product cards.
+  - `❌ Prohibited Tokens`: `"placeholder"`, `"lorem ipsum"`, `"mock"`, `"dummy"`, `"test user"`, `"sample item"`.
+- **Mandatory Real Data Integration**:
+  - When backend data is available $\longrightarrow$ Wire directly to real API endpoints, real database tables, or real hardware telemetry.
+  - When backend data is absent or unconfigured $\longrightarrow$ Render an explicit `@skipo/ui` `<EmptyState>` with a configuration/retry action, or an informative error indicator.
+  - NEVER synthesize fake data to simulate completeness.
+
+### Law 12: Mandatory End-to-End Verification & Debugging Gate
+The AI agent MUST NEVER declare a feature, view, or bugfix "complete" without authoring and running comprehensive automated end-to-end tests.
+- **The Completion Rule**:
+  $$\text{Task Status} = \text{DONE} \iff \text{All Features Have Tests} \wedge \text{All Tests Pass (exit 0)} \wedge \text{Zero AST Violations}$$
+- **Mandatory 3-Step Completion Protocol**:
+  1. `pnpm typecheck`: 0 TypeScript compilation errors across all packages.
+  2. `pnpm test`: Execute all Vitest test suites verifying positive paths, negative paths, and edge cases. Any failure must be debugged immediately.
+  3. `npx skipo-validate`: Run AST validation gate (`no-placeholder-data`, `feature-test-coverage`, `theme-token-semantics`, `ui-invariants`).
+- **No Self-Declared Done Without Proof**: Output test run logs and validation logs to the user as verifiable evidence of operational readiness.
+
+
 

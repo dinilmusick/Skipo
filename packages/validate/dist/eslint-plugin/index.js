@@ -167,6 +167,43 @@ var helperPurity = {
   }
 };
 
+// src/eslint-plugin/rules/no-placeholder-data.ts
+var FORBIDDEN_PLACEHOLDER_REGEX = /\b(placeholder|lorem\s+ipsum|mock_data|dummy_data|fake_telemetry|fake_listing|sample\s+item|dummy\s+value|test\s+user|todo\s+implement)\b/i;
+var noPlaceholderData = {
+  meta: {
+    type: "problem",
+    docs: {
+      description: "Prohibits synthetic placeholders, dummy telemetry, and fake listings in production code"
+    },
+    schema: []
+  },
+  create(context) {
+    const filename = context.filename || "";
+    if (filename.includes(".test.") || filename.includes(".spec.") || filename.includes("/__tests__/")) {
+      return {};
+    }
+    return {
+      Literal(node) {
+        if (typeof node.value === "string" && FORBIDDEN_PLACEHOLDER_REGEX.test(node.value)) {
+          context.report({
+            node,
+            message: `Prohibited placeholder string "${node.value}". Real backend data or <EmptyState> required.`
+          });
+        }
+      },
+      JSXText(node) {
+        const text = (node.value || "").trim();
+        if (text && FORBIDDEN_PLACEHOLDER_REGEX.test(text)) {
+          context.report({
+            node,
+            message: `Prohibited placeholder UI text "${text}". Real backend data or <EmptyState> required.`
+          });
+        }
+      }
+    };
+  }
+};
+
 // src/eslint-plugin/index.ts
 var rules = {
   "file-line-limit": fileLineLimit,
@@ -174,7 +211,8 @@ var rules = {
   "top-level-purity": topLevelPurity,
   "no-polling": noPolling,
   "import-suffix": importSuffix,
-  "helper-purity": helperPurity
+  "helper-purity": helperPurity,
+  "no-placeholder-data": noPlaceholderData
 };
 var configs = {
   recommended: {
@@ -187,7 +225,8 @@ var configs = {
       "@skipo/top-level-purity": "warn",
       "@skipo/no-polling": "error",
       "@skipo/import-suffix": "warn",
-      "@skipo/helper-purity": ["warn", { max: 30 }]
+      "@skipo/helper-purity": ["warn", { max: 30 }],
+      "@skipo/no-placeholder-data": "error"
     }
   }
 };

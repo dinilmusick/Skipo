@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {
   SkipoValidator
-} from "../chunk-EK3RR5XH.js";
+} from "../chunk-H4HZE2XW.js";
 
 // src/cli/report.ts
 function printReport(result) {
@@ -42,14 +42,28 @@ Violations:
 // src/cli/validate.ts
 function main() {
   const rootDir = process.argv[2] || process.cwd();
-  console.log(`Running Skipo validation on ${rootDir}...`);
+  console.log(`
+======================================================`);
+  console.log(`  SKIPO MANDATORY VERIFICATION & ANTI-PLACEHOLDER GATE`);
+  console.log(`======================================================`);
+  console.log(`Scanning target: ${rootDir}`);
+  console.log(`[Rule 1] Zero placeholder data, synthetic telemetry, or fake listings allowed.`);
+  console.log(`[Rule 2] Features are only considered complete after end-to-end tests are written, debugged, and passing.
+`);
   const validator = new SkipoValidator({
     rootDir
   });
   const result = validator.validate();
   printReport(result);
   if (!result.valid) {
+    console.error(`
+\u274C Validation failed with ${result.violations.filter((v) => v.severity === "error").length} error(s).`);
+    console.error(`AI Agent: You MUST resolve all errors and verify end-to-end tests before considering this task done.
+`);
     process.exit(1);
   }
+  console.log(`
+\u2728 Gate Passed: Code meets all architectural purity, zero-placeholder, and testing standards.
+`);
 }
 main();

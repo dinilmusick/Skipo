@@ -12,4 +12,6 @@ export * from './rules/theme-token-semantics.js';
 export * from './rules/ui-invariants.js';
 export * from './rules/git-ignore-anchoring.js';
 export * from './rules/serverless-compatibility.js';
+export * from './rules/no-placeholder-data.js';
+export * from './rules/feature-test-coverage.js';
 

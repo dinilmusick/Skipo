@@ -7,6 +7,7 @@ declare const rules: {
     'no-polling': eslint.Rule.RuleModule;
     'import-suffix': eslint.Rule.RuleModule;
     'helper-purity': eslint.Rule.RuleModule;
+    'no-placeholder-data': eslint.Rule.RuleModule;
 };
 declare const configs: {
     recommended: {
@@ -19,6 +20,7 @@ declare const configs: {
                     'no-polling': eslint.Rule.RuleModule;
                     'import-suffix': eslint.Rule.RuleModule;
                     'helper-purity': eslint.Rule.RuleModule;
+                    'no-placeholder-data': eslint.Rule.RuleModule;
                 };
             };
         };
@@ -33,6 +35,7 @@ declare const configs: {
             '@skipo/helper-purity': (string | {
                 max: number;
             })[];
+            '@skipo/no-placeholder-data': string;
         };
     };
 };
@@ -44,6 +47,7 @@ declare const _default: {
         'no-polling': eslint.Rule.RuleModule;
         'import-suffix': eslint.Rule.RuleModule;
         'helper-purity': eslint.Rule.RuleModule;
+        'no-placeholder-data': eslint.Rule.RuleModule;
     };
     configs: {
         recommended: {
@@ -56,6 +60,7 @@ declare const _default: {
                         'no-polling': eslint.Rule.RuleModule;
                         'import-suffix': eslint.Rule.RuleModule;
                         'helper-purity': eslint.Rule.RuleModule;
+                        'no-placeholder-data': eslint.Rule.RuleModule;
                     };
                 };
             };
@@ -70,6 +75,7 @@ declare const _default: {
                 '@skipo/helper-purity': (string | {
                     max: number;
                 })[];
+                '@skipo/no-placeholder-data': string;
             };
         };
     };

@@ -1,6 +1,77 @@
 import * as react from 'react';
 import react__default from 'react';
 
+type HandleCategory = 'DATA' | 'VIEW';
+type HandleDirection = 'INPUT' | 'OUTPUT';
+type ConnectionMode = 'SINGLE' | 'MULTI';
+interface HandlePosition {
+    x: number;
+    y: number;
+}
+interface HandleOffset {
+    x: number;
+    y: number;
+}
+interface HandleDefinition {
+    id: string;
+    label?: string;
+    category: HandleCategory;
+    dataType: string;
+    connectionMode: ConnectionMode;
+    direction: HandleDirection;
+}
+interface BaseHandleProps {
+    id: string;
+    nodeId: string;
+    direction: HandleDirection;
+    dataType: string;
+    connectionMode?: ConnectionMode;
+    basePosition?: HandlePosition;
+    offset?: HandleOffset;
+    label?: string;
+}
+declare abstract class BaseHandle {
+    id: string;
+    nodeId: string;
+    direction: HandleDirection;
+    dataType: string;
+    connectionMode: ConnectionMode;
+    basePosition: HandlePosition;
+    offset: HandleOffset;
+    label?: string;
+    abstract readonly handleCategory: HandleCategory;
+    constructor(props: BaseHandleProps);
+    get effectivePosition(): HandlePosition;
+}
+declare class DataHandle extends BaseHandle {
+    readonly handleCategory: HandleCategory;
+}
+declare class ViewHandle extends BaseHandle {
+    readonly handleCategory: HandleCategory;
+    readonly icon: string;
+    constructor(props: Omit<BaseHandleProps, 'dataType' | 'direction'> & {
+        dataType?: string;
+        direction?: HandleDirection;
+    });
+}
+
+type SocketType = 'input' | 'output';
+interface Socket {
+    id: string;
+    label: string;
+    type: SocketType;
+    dataType?: string;
+    direction?: HandleDirection;
+    offset?: {
+        x: number;
+        y: number;
+    };
+    basePosition?: {
+        x: number;
+        y: number;
+    };
+    connectionMode?: 'SINGLE' | 'MULTI';
+}
 interface GraphNode {
     id: string;
     type: string;
@@ -9,17 +80,17 @@ interface GraphNode {
         x: number;
         y: number;
     };
+    size?: {
+        width: number;
+        height: number;
+    };
     data?: Record<string, unknown>;
     inputs?: Socket[];
     outputs?: Socket[];
     width?: number;
     height?: number;
-}
-interface Socket {
-    id: string;
-    label: string;
-    type: 'input' | 'output';
-    dataType?: string;
+    positionLocked?: boolean;
+    handles?: BaseHandle[];
 }
 interface GraphEdge {
     id: string;
@@ -29,6 +100,9 @@ interface GraphEdge {
     targetSocket: string;
     label?: string;
     color?: string;
+    wireType?: string;
+    locked?: boolean;
+    deletable?: boolean;
 }
 interface ViewportState {
     panX: number;
@@ -41,6 +115,19 @@ interface NodeGraphConfig {
     gridSize?: number;
     snapToGrid?: boolean;
     wireStyle?: 'bezier' | 'straight' | 'step';
+    tracingEnabled?: boolean;
+    autoSolidify?: boolean;
+    traceCutoffDistance?: number;
+}
+interface NodeGraphPlugin {
+    registerNodeDefinition?: (def: unknown) => void;
+    registerHandleType?: (type: string) => void;
+    registerWireType?: (wire: unknown) => void;
+    registerCompatibilityRule?: (rule: unknown) => void;
+    registerViewType?: (view: unknown) => void;
+    registerTheme?: (theme: unknown) => void;
+    registerContextMenuAction?: (action: unknown) => void;
+    registerSpawnMenuItem?: (item: unknown) => void;
 }
 
 /**
@@ -166,4 +253,507 @@ interface NodeDetailsPanelProps {
 }
 declare function NodeDetailsPanel({ node, isOpen, onClose, isPinned, onTogglePin, onUpdateNode, storageKey }: NodeDetailsPanelProps): react.JSX.Element | null;
 
-export { type GraphEdge, type GraphNode, NodeCard, NodeDetailsPanel, type NodeDetailsPanelProps, NodeGraphCanvas, type NodeGraphConfig, type Socket, type ViewportState, WireRenderer, canvasToScreen, clampZoom, fitToView, getNodesInSelection, screenToCanvas, useNodeGraph, zoomAtPoint };
+interface NodePosition {
+    x: number;
+    y: number;
+}
+interface NodeSize {
+    width: number;
+    height: number;
+}
+interface NodeDefinition {
+    type: string;
+    label: string;
+    description?: string;
+    inputs?: HandleDefinition[];
+    outputs?: HandleDefinition[];
+    views?: string[];
+    metadata?: Record<string, unknown>;
+}
+interface BaseNodeProps {
+    id: string;
+    type: string;
+    label?: string;
+    position: NodePosition;
+    size?: NodeSize;
+    handles?: BaseHandle[];
+    state?: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
+    settings?: Record<string, unknown>;
+    positionLocked?: boolean;
+}
+declare abstract class BaseNode {
+    id: string;
+    type: string;
+    label: string;
+    position: NodePosition;
+    size: NodeSize;
+    handles: BaseHandle[];
+    state: Record<string, unknown>;
+    metadata: Record<string, unknown>;
+    settings: Record<string, unknown>;
+    positionLocked: boolean;
+    constructor(props: BaseNodeProps);
+    getHandle(handleId: string): BaseHandle | undefined;
+    addHandle(handle: BaseHandle): void;
+    lockPosition(): void;
+    unlockPosition(): void;
+}
+declare class CustomNode extends BaseNode {
+    customDefinition?: NodeDefinition;
+}
+
+interface BaseConnectionProps {
+    id: string;
+    sourceNodeId: string;
+    sourceHandleId: string;
+    targetNodeId: string;
+    targetHandleId: string;
+}
+declare abstract class BaseConnection {
+    id: string;
+    sourceNodeId: string;
+    sourceHandleId: string;
+    targetNodeId: string;
+    targetHandleId: string;
+    constructor(props: BaseConnectionProps);
+}
+interface SolidConnectionProps extends BaseConnectionProps {
+    wireType?: string;
+    locked?: boolean;
+    lastSignal?: unknown;
+    widgets?: ('DELETE' | 'INSPECT' | 'LOCK')[];
+}
+declare class SolidConnection extends BaseConnection {
+    wireType: string;
+    locked: boolean;
+    lastSignal?: unknown;
+    widgets: ('DELETE' | 'INSPECT' | 'LOCK')[];
+    constructor(props: SolidConnectionProps);
+    toggleLock(): boolean;
+}
+interface ViewLinkProps {
+    id: string;
+    sourceNodeId: string;
+    sourceViewHandleId: string;
+    targetViewWindowId: string;
+}
+declare class ViewLink extends BaseConnection {
+    sourceViewHandleId: string;
+    targetViewWindowId: string;
+    readonly widgets: string[];
+    constructor(props: ViewLinkProps);
+}
+
+type DynamicState = 'INACTIVE' | 'ACTIVE' | 'PINNED_LIVE';
+interface BaseViewWindowProps {
+    id: string;
+    viewType: string;
+    sourceNodeId: string;
+    position: NodePosition;
+    size?: NodeSize;
+    selected?: boolean;
+    pinnedLive?: boolean;
+    snapshot?: unknown;
+}
+declare abstract class BaseViewWindow {
+    id: string;
+    viewType: string;
+    sourceNodeId: string;
+    position: NodePosition;
+    size: NodeSize;
+    selected: boolean;
+    pinnedLive: boolean;
+    snapshot?: unknown;
+    constructor(props: BaseViewWindowProps);
+    get dynamicState(): DynamicState;
+    setPinnedLive(pinned: boolean): void;
+    setSelected(selected: boolean): void;
+    captureSnapshot(data: unknown): void;
+}
+declare class CustomViewWindow extends BaseViewWindow {
+    appSpecificContent?: unknown;
+}
+
+interface GraphSettings {
+    tracingEnabled: boolean;
+    autoSolidify: boolean;
+    traceCutoffDistance: number;
+    attractionEnabled: boolean;
+    attractionSpeed: number;
+    attractionStrength: number;
+}
+declare const DEFAULT_GRAPH_SETTINGS: GraphSettings;
+interface Group {
+    id: string;
+    name?: string;
+    nodeIds: string[];
+    childGroups: string[];
+    settingsOverrides: Partial<GraphSettings>;
+    position: NodePosition;
+    size: NodeSize;
+}
+interface Landmark {
+    id: string;
+    number: number;
+    name: string;
+    cameraPosition: {
+        x: number;
+        y: number;
+    };
+    zoom: number;
+}
+interface GraphView {
+    id: string;
+    name: string;
+    nodePositions: Record<string, NodePosition>;
+    nodeSizes: Record<string, NodeSize>;
+    handleOffsets: Record<string, {
+        x: number;
+        y: number;
+    }>;
+    groupStates: Record<string, unknown>;
+    viewWindows: unknown[];
+    camera: {
+        x: number;
+        y: number;
+    };
+    zoom: number;
+    selectedNodes: string[];
+    graphSettingsOverrides: Partial<GraphSettings>;
+}
+declare abstract class BaseGraph {
+    id: string;
+    type: string;
+    nodes: BaseNode[];
+    connections: BaseConnection[];
+    groups: Group[];
+    viewWindows: BaseViewWindow[];
+    landmarks: Landmark[];
+    views: GraphView[];
+    settings: GraphSettings;
+    theme: string;
+    constructor(id: string, type?: string);
+}
+declare class CustomGraph extends BaseGraph {
+    customGraphDefinition?: Record<string, unknown>;
+}
+
+interface HandleTypeDefinition {
+    dataType: string;
+    category: 'DATA' | 'VIEW';
+    description?: string;
+    color?: string;
+}
+declare class HandleTypeRegistry {
+    private static types;
+    static register(typeDef: HandleTypeDefinition): void;
+    static get(dataType: string): HandleTypeDefinition | undefined;
+    static has(dataType: string): boolean;
+    static list(): HandleTypeDefinition[];
+    static clear(): void;
+}
+
+interface WireTypeDefinition {
+    wireType: string;
+    color: string;
+    strokeWidth: number;
+    dashArray?: string;
+    style?: 'bezier' | 'straight' | 'step';
+    description?: string;
+}
+declare class WireTypeRegistry {
+    private static wireTypes;
+    static register(def: WireTypeDefinition): void;
+    static get(wireType: string): WireTypeDefinition | undefined;
+    static list(): WireTypeDefinition[];
+    static clear(): void;
+}
+
+interface CompatibilityRule {
+    sourceCategory: HandleCategory;
+    sourceDataType: string;
+    targetCategory: HandleCategory;
+    targetDataType: string;
+    allowed: boolean;
+    wireType: string;
+    priority: number;
+}
+interface CompatibilityResolution {
+    allowed: boolean;
+    wireType?: string;
+    priority?: number;
+    reason?: string;
+}
+declare class CompatibilityMatrix {
+    private static rules;
+    static registerRule(rule: CompatibilityRule): void;
+    static clear(): void;
+    static resolve(sourceHandle: Pick<BaseHandle, 'handleCategory' | 'dataType' | 'direction'>, targetHandle: Pick<BaseHandle, 'handleCategory' | 'dataType' | 'direction'>): CompatibilityResolution;
+}
+
+declare function initializeDefaultGraphRules(): void;
+
+declare class SpatialEngine {
+    static calculateEffectiveHandlePosition(node: BaseNode, handle: BaseHandle): HandlePosition;
+    static calculateDistance(p1: HandlePosition, p2: HandlePosition): number;
+    static calculateOffsetMagnitude(handle: BaseHandle): number;
+}
+
+interface Trace {
+    id: string;
+    sourceNodeId: string;
+    sourceHandleId: string;
+    targetNodeId: string;
+    targetHandleId: string;
+    wireType: string;
+    compatibility: CompatibilityResolution;
+    spatialScore: number;
+}
+declare class TraceEngine {
+    static computeTraces(nodes: BaseNode[], cutoffDistance: number): Trace[];
+}
+
+declare class AutoSolidify {
+    static resolve(nodes: BaseNode[], traces: Trace[], existingConnections: SolidConnection[]): SolidConnection[];
+}
+
+declare class AttractionEngine {
+    static computeSimilarity(nodeA: BaseNode, nodeB: BaseNode): number;
+    static calculateStep(nodes: BaseNode[], strength?: number, speed?: number): Map<string, NodePosition>;
+}
+
+declare class GroupSettingsResolver {
+    static resolveEffectiveSetting<K extends keyof GraphSettings>(settingKey: K, rootSettings: GraphSettings, targetOverrides?: Partial<GraphSettings>, groupId?: string, groups?: Group[]): GraphSettings[K];
+    static resolveAllSettings(rootSettings: GraphSettings, targetOverrides?: Partial<GraphSettings>, groupId?: string, groups?: Group[]): GraphSettings;
+}
+
+declare class LandmarkManager {
+    private landmarks;
+    constructor(initialLandmarks?: Landmark[]);
+    createLandmark(number: number, name: string, cameraPosition: {
+        x: number;
+        y: number;
+    }, zoom: number): Landmark;
+    getByNumber(number: number): Landmark | undefined;
+    getById(id: string): Landmark | undefined;
+    updateLandmark(id: string, updates: Partial<Omit<Landmark, 'id'>>): Landmark | undefined;
+    deleteLandmark(id: string): boolean;
+    list(): Landmark[];
+    clear(): void;
+}
+
+interface CaptureGraphSnapshotParams {
+    id?: string;
+    name: string;
+    nodes: BaseNode[];
+    viewWindows: BaseViewWindow[];
+    camera: {
+        x: number;
+        y: number;
+    };
+    zoom: number;
+    selectedNodeIds: string[];
+    settingsOverrides?: Partial<GraphSettings>;
+}
+declare class ViewEngine {
+    private views;
+    constructor(initialViews?: GraphView[]);
+    captureView(params: CaptureGraphSnapshotParams): GraphView;
+    getView(id: string): GraphView | undefined;
+    listViews(): GraphView[];
+    deleteView(id: string): boolean;
+}
+
+interface CreateViewWindowParams {
+    id?: string;
+    viewType: string;
+    sourceNodeId: string;
+    sourceViewHandleId: string;
+    position: NodePosition;
+    size?: NodeSize;
+}
+declare class ViewWindowManager {
+    private windows;
+    private links;
+    createWindow(params: CreateViewWindowParams): {
+        window: BaseViewWindow;
+        link: ViewLink;
+    };
+    selectWindow(id: string): void;
+    pinLive(id: string, pinned: boolean): void;
+    removeWindow(id: string): boolean;
+    getProcessingWindows(): BaseViewWindow[];
+    getWindow(id: string): BaseViewWindow | undefined;
+    getLink(windowId: string): ViewLink | undefined;
+    listWindows(): BaseViewWindow[];
+    listLinks(): ViewLink[];
+}
+
+type GraphListener = () => void;
+declare class GraphStore {
+    nodes: BaseNode[];
+    connections: SolidConnection[];
+    traces: Trace[];
+    groups: Group[];
+    settings: GraphSettings;
+    selectedNodeIds: Set<string>;
+    readonly viewWindows: ViewWindowManager;
+    readonly landmarks: LandmarkManager;
+    readonly views: ViewEngine;
+    private listeners;
+    subscribe(listener: GraphListener): () => void;
+    notify(): void;
+    refreshTraces(): void;
+    solidifyTrace(traceId: string): SolidConnection | undefined;
+    lockAllConnections(): void;
+}
+
+declare class CommandApi {
+    private store;
+    constructor(store: GraphStore);
+    get nodes(): {
+        create: (props: BaseNodeProps) => BaseNode;
+        delete: (nodeId: string) => void;
+        move: (nodeId: string, x: number, y: number) => void;
+        lockPosition: (nodeId: string) => void;
+        unlockPosition: (nodeId: string) => void;
+    };
+    get handles(): {
+        move: (nodeId: string, handleId: string, offset: HandleOffset) => void;
+        resetOffset: (nodeId: string, handleId: string) => void;
+    };
+    get traces(): {
+        refresh: () => void;
+        enable: () => void;
+        disable: () => void;
+        solidify: (traceId: string) => SolidConnection | undefined;
+    };
+    get connections(): {
+        create: (sourceNodeId: string, sourceHandleId: string, targetNodeId: string, targetHandleId: string, wireType?: string) => SolidConnection;
+        delete: (connectionId: string) => void;
+        lock: (connectionId: string) => void;
+        unlock: (connectionId: string) => void;
+        lockAll: () => void;
+    };
+    get groups(): {
+        create: (group: Group) => void;
+        delete: (groupId: string) => void;
+    };
+    get landmarks(): {
+        create: (num: number, name: string, camera: {
+            x: number;
+            y: number;
+        }, zoom: number) => Landmark;
+        delete: (id: string) => boolean;
+        list: () => Landmark[];
+    };
+    get viewWindows(): {
+        create: (params: Parameters<typeof this$1.store.viewWindows.createWindow>[0]) => {
+            window: BaseViewWindow;
+            link: ViewLink;
+        };
+        close: (id: string) => boolean;
+        select: (id: string) => void;
+        pinLive: (id: string, pinned: boolean) => void;
+    };
+}
+
+interface MidpointWidgetsProps {
+    x: number;
+    y: number;
+    locked: boolean;
+    onDelete?: () => void;
+    onInspect?: () => void;
+    onToggleLock?: () => void;
+}
+declare function MidpointWidgets({ x, y, locked, onDelete, onInspect, onToggleLock }: MidpointWidgetsProps): react.JSX.Element;
+
+interface SolidifyWidgetProps {
+    x: number;
+    y: number;
+    onSolidify: () => void;
+}
+declare function SolidifyWidget({ x, y, onSolidify }: SolidifyWidgetProps): react.JSX.Element;
+
+interface GraphToolbarProps {
+    settings: GraphSettings;
+    onUpdateSettings: (updates: Partial<GraphSettings>) => void;
+    onRefreshTraces: () => void;
+    onLockAllConnections: () => void;
+    onSaveView?: () => void;
+    onLoadView?: () => void;
+    className?: string;
+}
+declare function GraphToolbar({ settings, onUpdateSettings, onRefreshTraces, onLockAllConnections, onSaveView, onLoadView, className }: GraphToolbarProps): react__default.JSX.Element;
+
+interface ReactFlowNodeData {
+    nodeId: string;
+    label: string;
+    type: string;
+    handles: {
+        id: string;
+        direction: 'INPUT' | 'OUTPUT';
+        category: 'DATA' | 'VIEW';
+        dataType: string;
+        offset: {
+            x: number;
+            y: number;
+        };
+    }[];
+    positionLocked: boolean;
+    customData?: Record<string, unknown>;
+}
+interface ReactFlowEdgeData {
+    connectionId: string;
+    sourceNodeId: string;
+    sourceHandleId: string;
+    targetNodeId: string;
+    targetHandleId: string;
+    wireType: string;
+    locked: boolean;
+    isTrace?: boolean;
+    isViewLink?: boolean;
+}
+declare class ReactFlowAdapter {
+    static toReactFlowNodes(nodes: BaseNode[]): Array<{
+        id: string;
+        type: string;
+        position: {
+            x: number;
+            y: number;
+        };
+        data: ReactFlowNodeData;
+    }>;
+    static toReactFlowEdges(connections: SolidConnection[], traces?: Trace[], viewLinks?: ViewLink[]): Array<{
+        id: string;
+        source: string;
+        sourceHandle: string;
+        target: string;
+        targetHandle: string;
+        type: string;
+        animated?: boolean;
+        data: ReactFlowEdgeData;
+    }>;
+    static toReactFlowViewWindows(windows: BaseViewWindow[]): Array<{
+        id: string;
+        type: string;
+        position: {
+            x: number;
+            y: number;
+        };
+        data: {
+            windowId: string;
+            viewType: string;
+            sourceNodeId: string;
+            dynamicState: string;
+            pinnedLive: boolean;
+            size: {
+                width: number;
+                height: number;
+            };
+        };
+    }>;
+}
+
+export { AttractionEngine, AutoSolidify, BaseConnection, type BaseConnectionProps, BaseGraph, BaseHandle, type BaseHandleProps, BaseNode, type BaseNodeProps, BaseViewWindow, type BaseViewWindowProps, type CaptureGraphSnapshotParams, CommandApi, CompatibilityMatrix, type CompatibilityResolution, type CompatibilityRule, type ConnectionMode, type CreateViewWindowParams, CustomGraph, CustomNode, CustomViewWindow, DEFAULT_GRAPH_SETTINGS, DataHandle, type DynamicState, type GraphEdge, type GraphListener, type GraphNode, type GraphSettings, GraphStore, GraphToolbar, type GraphToolbarProps, type GraphView, type Group, GroupSettingsResolver, type HandleCategory, type HandleDefinition, type HandleDirection, type HandleOffset, type HandlePosition, type HandleTypeDefinition, HandleTypeRegistry, type Landmark, LandmarkManager, MidpointWidgets, type MidpointWidgetsProps, NodeCard, type NodeDefinition, NodeDetailsPanel, type NodeDetailsPanelProps, NodeGraphCanvas, type NodeGraphConfig, type NodeGraphPlugin, type NodePosition, type NodeSize, ReactFlowAdapter, type ReactFlowEdgeData, type ReactFlowNodeData, type Socket, type SocketType, SolidConnection, type SolidConnectionProps, SolidifyWidget, type SolidifyWidgetProps, SpatialEngine, type Trace, TraceEngine, ViewEngine, ViewHandle, ViewLink, type ViewLinkProps, ViewWindowManager, type ViewportState, WireRenderer, type WireTypeDefinition, WireTypeRegistry, canvasToScreen, clampZoom, fitToView, getNodesInSelection, initializeDefaultGraphRules, screenToCanvas, useNodeGraph, zoomAtPoint };

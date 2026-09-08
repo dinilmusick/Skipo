@@ -145,6 +145,12 @@ export const EntityDetailsView: React.FC<{
 5. **One Component Per File & 200-Line Limit**:
    - Exactly one exported component per `.tsx` file.
    - Max 200 lines per file (enforced statically).
+6. **Absolute Zero-Placeholder Mandate**:
+   - Strictly forbidden from generating synthetic results, dummy telemetry charts, fake listings, or placeholder strings (`"placeholder"`, `"lorem ipsum"`, `"mock"`, `"dummy"`).
+   - Real backend data query OR explicit `@skipo/ui` `<EmptyState>` / `<StatusIndicator>` rendering.
+7. **End-to-End Test Suite Required for Every Feature**:
+   - Every feature/view MUST be accompanied by dedicated Vitest suites (`__tests__/*.test.tsx`).
+   - Work is NEVER considered complete without executing and passing `pnpm test`.
 
 ---
 

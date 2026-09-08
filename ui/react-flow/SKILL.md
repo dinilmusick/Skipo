@@ -85,3 +85,27 @@ All node categories MUST have distinctly different silhouettes, color themes, an
 - **Quad-Unit Functionality**: Blue technical frame (`#61afef`), 4-compartment grid (`[Atom]`, `[Logic]`, `[State]`, `[Helpers]`).
 - **Domain Concept Library**: Warm Amber bronze (`#e5c07b`), `Layer 0 Pure Math` badge.
 - **Sub-App Container**: Cyan dashed frame (`#56b6c2`), fullstack SPA route container.
+
+---
+
+## 7. MAGNETIC TRACING & PURELY SPATIAL AUTO-SOLIDIFY
+- **Centralized Rules Engine**: Nodes NEVER own connection compatibility logic. All resolutions flow through `CompatibilityMatrix.resolve(source, target)`.
+- **Proximity Traces**: When `tracingEnabled = true`, compatible handle pairs within `traceCutoffDistance` automatically display transient, translucent ghost wires with a `[ SOLIDIFY ]` badge.
+- **Effective Handle Offset**: Handles support local displacement ($P_{\text{effective}} = P_{\text{base}} + P_{\text{offset}}$) to resolve spatial contention without altering node cards.
+- **Pure Spatial Auto-Solidify**: When `autoSolidify = true`, closest candidate wins with deterministic tie-breaking (exact distance $\to$ offset distance $\to$ deterministic node ID). Zero blacklist memory.
+
+---
+
+## 8. QUAD-TIER LOCKING SEMANTICS
+1. **Topology Lock (`SolidConnection.locked`)**: Immune to spatial auto-replacement; prevents proximity disconnection.
+2. **Geometry Lock (`BaseNode.positionLocked`)**: Protects coordinates from attraction clustering and manual movement.
+3. **Dynamic State Pin (`BaseViewWindow.pinnedLive`)**: Keeps view window processing live (`PINNED_LIVE`) independently of selection focus.
+4. **UI Instance Pin (`DetailsPanel.pinned`)**: Locks inspector to current element when selecting other canvas objects.
+
+---
+
+## 9. HIERARCHY, LANDMARKS & PERSISTENT VIEWS
+- **Group Sub-Canvases**: Groups inherit global settings with partial override resolution: `object.override ?? nearestGroup.override ?? parentGroup.override ?? rootGraph.setting`.
+- **Landmarks**: Canvas navigation anchors bound to number keys (`1`–`9`) and tiled context menu navigation.
+- **Persistent Graph Views**: Preserves complete layouts (positions, sizes, offsets, camera, zoom, overrides) without persisting transient traces.
+

@@ -1,18 +1,20 @@
 import {
   SkipoValidator,
   baseClassUsageRule,
+  featureTestCoverageRule,
   fileLineLimitRule,
   gitIgnoreAnchoringRule,
   helperLineLimitRule,
   importSuffixRule,
   mainDelegationRule,
+  noPlaceholderDataRule,
   noPollingRule,
   oneComponentRule,
   serverlessCompatibilityRule,
   themeTokenSemanticsRule,
   topLevelPurityRule,
   uiInvariantsRule
-} from "./chunk-EK3RR5XH.js";
+} from "./chunk-H4HZE2XW.js";
 
 // src/index.ts
 function validate(rootDir) {
@@ -22,11 +24,13 @@ function validate(rootDir) {
 export {
   SkipoValidator,
   baseClassUsageRule,
+  featureTestCoverageRule,
   fileLineLimitRule,
   gitIgnoreAnchoringRule,
   helperLineLimitRule,
   importSuffixRule,
   mainDelegationRule,
+  noPlaceholderDataRule,
   noPollingRule,
   oneComponentRule,
   serverlessCompatibilityRule,

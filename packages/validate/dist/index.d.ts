@@ -65,6 +65,10 @@ declare const gitIgnoreAnchoringRule: ValidationRule;
 
 declare const serverlessCompatibilityRule: ValidationRule;
 
+declare const noPlaceholderDataRule: ValidationRule;
+
+declare const featureTestCoverageRule: ValidationRule;
+
 declare function validate(rootDir: string): ValidationResult;
 
-export { type RuleViolation, type Severity, SkipoValidator, type ValidationResult, type ValidationRule, type ValidatorConfig, baseClassUsageRule, fileLineLimitRule, gitIgnoreAnchoringRule, helperLineLimitRule, importSuffixRule, mainDelegationRule, noPollingRule, oneComponentRule, serverlessCompatibilityRule, themeTokenSemanticsRule, topLevelPurityRule, uiInvariantsRule, validate };
+export { type RuleViolation, type Severity, SkipoValidator, type ValidationResult, type ValidationRule, type ValidatorConfig, baseClassUsageRule, featureTestCoverageRule, fileLineLimitRule, gitIgnoreAnchoringRule, helperLineLimitRule, importSuffixRule, mainDelegationRule, noPlaceholderDataRule, noPollingRule, oneComponentRule, serverlessCompatibilityRule, themeTokenSemanticsRule, topLevelPurityRule, uiInvariantsRule, validate };

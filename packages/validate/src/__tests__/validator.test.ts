@@ -3,8 +3,9 @@ import { themeTokenSemanticsRule } from '../validator/rules/theme-token-semantic
 import { uiInvariantsRule } from '../validator/rules/ui-invariants.js';
 import { gitIgnoreAnchoringRule } from '../validator/rules/git-ignore-anchoring.js';
 import { serverlessCompatibilityRule } from '../validator/rules/serverless-compatibility.js';
+import { noPlaceholderDataRule } from '../validator/rules/no-placeholder-data.js';
+import { featureTestCoverageRule } from '../validator/rules/feature-test-coverage.js';
 import { Project } from 'ts-morph';
-
 
 describe('themeTokenSemanticsRule', () => {
   it('flags hardcoded hex colors in tsx files', () => {
@@ -111,5 +112,62 @@ export async function createApp() {
     expect(violations).toHaveLength(0);
   });
 });
+
+describe('noPlaceholderDataRule', () => {
+  it('flags forbidden placeholder literals in production files', () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile('src/views/Dashboard.tsx', `
+      export const Dashboard = () => {
+        return (
+          <div>
+            <h1>placeholder title</h1>
+            <span>dummy_data</span>
+          </div>
+        );
+      };
+    `);
+
+    const violations = noPlaceholderDataRule.validate('src/views/Dashboard.tsx', '', project);
+    expect(violations.length).toBeGreaterThan(0);
+    expect(violations.some(v => v.message.includes('placeholder'))).toBe(true);
+  });
+
+  it('permits genuine real data access without placeholder strings', () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile('src/views/UserProfile.tsx', `
+      export const UserProfile = ({ user }: { user: { name: string, email: string } }) => {
+        return (
+          <div>
+            <h1>{user.name}</h1>
+            <span>{user.email}</span>
+          </div>
+        );
+      };
+    `);
+
+    const violations = noPlaceholderDataRule.validate('src/views/UserProfile.tsx', '', project);
+    expect(violations).toHaveLength(0);
+  });
+
+  it('exempts test files from placeholder checks', () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile('src/views/__tests__/Dashboard.test.tsx', `
+      const mock_data = { id: 1 };
+    `);
+
+    const violations = noPlaceholderDataRule.validate('src/views/__tests__/Dashboard.test.tsx', '', project);
+    expect(violations).toHaveLength(0);
+  });
+});
+
+describe('featureTestCoverageRule', () => {
+  it('identifies modules without companion test files', () => {
+    const violations = featureTestCoverageRule.validate('/virtual/project/src/components/UncoveredFeature.tsx', '');
+    expect(violations.length).toBe(1);
+    expect(violations[0].message).toContain('is missing a dedicated test file');
+    expect(violations[0].suggestion).toContain('verify with pnpm test');
+  });
+});
+
 
 

@@ -111,6 +111,9 @@ var noPollingRule = {
   description: "Bans setInterval and polling mechanisms",
   severity: "error",
   validate(filePath, sourceCode) {
+    if (filePath.includes("/rules/") || filePath.includes("__tests__") || filePath.endsWith(".test.ts") || filePath.endsWith(".test.tsx")) {
+      return [];
+    }
     const violations = [];
     const lines = sourceCode.split("\n");
     lines.forEach((line, index) => {
@@ -345,10 +348,97 @@ var serverlessCompatibilityRule = {
   }
 };
 
-// src/validator/SkipoValidator.ts
-import { Project } from "ts-morph";
+// src/validator/rules/no-placeholder-data.ts
+import { SyntaxKind as SyntaxKind3 } from "ts-morph";
+var FORBIDDEN_PLACEHOLDER_REGEX = /\b(placeholder|lorem\s+ipsum|mock_data|dummy_data|fake_telemetry|fake_listing|sample\s+item|dummy\s+value|test\s+user|todo\s+implement)\b/i;
+function isExemptPath(filePath) {
+  const normalized = filePath.replace(/\\/g, "/");
+  return normalized.includes("/__tests__/") || normalized.includes(".test.") || normalized.includes(".spec.") || normalized.includes("packages/validate/src/");
+}
+var noPlaceholderDataRule = {
+  id: "no-placeholder-data",
+  description: "Prohibits synthetic placeholders, dummy telemetry, and fake listings in production code",
+  severity: "error",
+  validate(filePath, _sourceCode, project) {
+    if (isExemptPath(filePath) || !project) return [];
+    const violations = [];
+    const sourceFile = project.getSourceFile(filePath);
+    if (!sourceFile) return violations;
+    sourceFile.getDescendantsOfKind(SyntaxKind3.StringLiteral).forEach((lit) => {
+      const val = lit.getLiteralValue();
+      if (FORBIDDEN_PLACEHOLDER_REGEX.test(val)) {
+        violations.push({
+          ruleId: this.id,
+          severity: this.severity,
+          message: `Prohibited placeholder string detected: "${val}". Real data or explicit empty states required.`,
+          filePath,
+          line: lit.getStartLineNumber(),
+          suggestion: "Fetch real data from backend/database or render an <EmptyState> component."
+        });
+      }
+    });
+    sourceFile.getDescendantsOfKind(SyntaxKind3.JsxText).forEach((jsxText) => {
+      const text = jsxText.getText().trim();
+      if (text && FORBIDDEN_PLACEHOLDER_REGEX.test(text)) {
+        violations.push({
+          ruleId: this.id,
+          severity: this.severity,
+          message: `Prohibited placeholder UI text detected: "${text}".`,
+          filePath,
+          line: jsxText.getStartLineNumber(),
+          suggestion: "Render genuine UI data or use @skipo/ui <EmptyState> / <StatusIndicator>."
+        });
+      }
+    });
+    return violations;
+  }
+};
+
+// src/validator/rules/feature-test-coverage.ts
 import * as fs from "fs";
 import * as path3 from "path";
+function isProductionComponent(filePath) {
+  const norm = filePath.replace(/\\/g, "/");
+  if (norm.includes("/__tests__/") || norm.includes(".test.") || norm.includes(".spec.")) return false;
+  if (norm.includes("packages/validate/") || norm.includes("packages/create-skipo/")) return false;
+  return norm.endsWith(".tsx") || norm.includes("/api/") && norm.endsWith(".ts");
+}
+var featureTestCoverageRule = {
+  id: "feature-test-coverage",
+  description: "Enforces that production features and components have companion test suites",
+  severity: "warning",
+  validate(filePath, _sourceCode, _project) {
+    if (!isProductionComponent(filePath)) return [];
+    const dir = path3.dirname(filePath);
+    const baseName = path3.basename(filePath, path3.extname(filePath));
+    const potentialTests = [
+      path3.join(dir, `${baseName}.test.ts`),
+      path3.join(dir, `${baseName}.test.tsx`),
+      path3.join(dir, `${baseName}.spec.ts`),
+      path3.join(dir, `${baseName}.spec.tsx`),
+      path3.join(dir, "__tests__", `${baseName}.test.ts`),
+      path3.join(dir, "__tests__", `${baseName}.test.tsx`),
+      path3.join(dir, "..", "__tests__", `${baseName}.test.ts`),
+      path3.join(dir, "..", "__tests__", `${baseName}.test.tsx`)
+    ];
+    const hasTest = potentialTests.some((testPath) => fs.existsSync(testPath));
+    if (!hasTest) {
+      return [{
+        ruleId: this.id,
+        severity: this.severity,
+        message: `Feature module "${baseName}" is missing a dedicated test file. Work is not done without end-to-end testing.`,
+        filePath,
+        suggestion: `Create a companion test suite at ${path3.join(dir, "__tests__", `${baseName}.test.ts`)} and verify with pnpm test.`
+      }];
+    }
+    return [];
+  }
+};
+
+// src/validator/SkipoValidator.ts
+import { Project } from "ts-morph";
+import * as fs2 from "fs";
+import * as path4 from "path";
 var SkipoValidator = class {
   config;
   rules = [
@@ -363,16 +453,18 @@ var SkipoValidator = class {
     themeTokenSemanticsRule,
     uiInvariantsRule,
     gitIgnoreAnchoringRule,
-    serverlessCompatibilityRule
+    serverlessCompatibilityRule,
+    noPlaceholderDataRule,
+    featureTestCoverageRule
   ];
   project;
   constructor(config) {
     this.config = config;
   }
   scanDir(dir, files = []) {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    const entries = fs2.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
-      const fullPath = path3.join(dir, entry.name);
+      const fullPath = path4.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (!entry.name.includes("node_modules") && !entry.name.includes("dist")) {
           this.scanDir(fullPath, files);
@@ -394,7 +486,7 @@ var SkipoValidator = class {
       this.project.addSourceFileAtPath(file);
     }
     for (const file of files) {
-      const sourceCode = fs.readFileSync(file, "utf8");
+      const sourceCode = fs2.readFileSync(file, "utf8");
       for (const rule of this.rules) {
         if (this.config.rules && this.config.rules[rule.id] === "off") {
           continue;
@@ -436,5 +528,7 @@ export {
   uiInvariantsRule,
   gitIgnoreAnchoringRule,
   serverlessCompatibilityRule,
+  noPlaceholderDataRule,
+  featureTestCoverageRule,
   SkipoValidator
 };

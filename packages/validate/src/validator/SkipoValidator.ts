@@ -14,6 +14,8 @@ import { themeTokenSemanticsRule } from './rules/theme-token-semantics.js';
 import { uiInvariantsRule } from './rules/ui-invariants.js';
 import { gitIgnoreAnchoringRule } from './rules/git-ignore-anchoring.js';
 import { serverlessCompatibilityRule } from './rules/serverless-compatibility.js';
+import { noPlaceholderDataRule } from './rules/no-placeholder-data.js';
+import { featureTestCoverageRule } from './rules/feature-test-coverage.js';
 
 export class SkipoValidator {
   private config: ValidatorConfig;
@@ -29,7 +31,9 @@ export class SkipoValidator {
     themeTokenSemanticsRule,
     uiInvariantsRule,
     gitIgnoreAnchoringRule,
-    serverlessCompatibilityRule
+    serverlessCompatibilityRule,
+    noPlaceholderDataRule,
+    featureTestCoverageRule
   ];
 
   private project?: Project;

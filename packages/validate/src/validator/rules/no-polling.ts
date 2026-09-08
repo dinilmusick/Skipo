@@ -5,6 +5,11 @@ export const noPollingRule: ValidationRule = {
   description: 'Bans setInterval and polling mechanisms',
   severity: 'error',
   validate(filePath: string, sourceCode: string): RuleViolation[] {
+    // Exempt rule implementation files themselves from self-flagging
+    if (filePath.includes('/rules/') || filePath.includes('__tests__') || filePath.endsWith('.test.ts') || filePath.endsWith('.test.tsx')) {
+      return [];
+    }
+
     const violations: RuleViolation[] = [];
     const lines = sourceCode.split('\n');
     
