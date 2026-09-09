@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { debugManager } from '@/lib/debug-manager';
 import { authorizeDebugRequest } from '@/lib/debug-auth';
+import { createSecureRoute } from '@/lib/api-governance';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -10,23 +11,28 @@ export const runtime = 'nodejs';
  * Returns recorded persistence operations.
  * Query Params: workspaceId, type, limit
  */
-export async function GET(req: NextRequest) {
-  const auth = authorizeDebugRequest(req);
-  if (!auth.authorized) {
-    return NextResponse.json({ success: false, error: auth.error }, { status: 401 });
-  }
+export const GET = createSecureRoute({
+  id: 'api-debug-persistence-get',
+  method: 'GET',
+  public: true,
+  rateLimit: { tier: 'CHEAP_READ' },
+  handler: async (req, { query }) => {
+    const auth = authorizeDebugRequest(req);
+    if (!auth.authorized) {
+      return NextResponse.json({ success: false, error: auth.error }, { status: 401 });
+    }
 
-  const { searchParams } = new URL(req.url);
-  const workspaceId = searchParams.get('workspaceId') || undefined;
-  const type = searchParams.get('type') || undefined;
-  const limit = parseInt(searchParams.get('limit') || '100', 10);
+    const workspaceId = query.get('workspaceId') || undefined;
+    const type = query.get('type') || undefined;
+    const limit = parseInt(query.get('limit') || '100', 10);
 
-  const events = debugManager.getPersistenceEvents({ workspaceId, type, limit });
+    const events = debugManager.getPersistenceEvents({ workspaceId, type, limit });
 
-  return NextResponse.json({
-    success: true,
-    count: events.length,
-    persistenceEvents: events,
-    timestamp: Date.now(),
-  });
-}
+    return NextResponse.json({
+      success: true,
+      count: events.length,
+      persistenceEvents: events,
+      timestamp: Date.now(),
+    });
+  },
+});

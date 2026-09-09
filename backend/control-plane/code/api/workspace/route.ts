@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import {
@@ -13,11 +13,9 @@ import {
   purgeAssetFromPhysicalWorkspace,
 } from '@/lib/workspaceFS';
 import {
-  updateUserProfile,
   findUserById,
   findUserByIdAsync,
   updateUserProfileAsync,
-  switchActiveWorkspace,
   switchActiveWorkspaceAsync,
   resolveRequestContextVault,
 } from '@/lib/auth-storage';
@@ -25,23 +23,30 @@ import { extractCanonicalFolderPrefix } from '@/lib/workspace-canonical';
 import {
   writeCloudWorkspaceFile,
   readCloudWorkspaceFile,
-  deleteCloudWorkspaceFile,
   initializeCloudWorkspaceBucket,
   buildCloudWorkspaceFileTree,
 } from '@/lib/cloud-storage-service';
+import { createSecureRoute } from '@/lib/api-governance';
 
-export async function GET(req: NextRequest) {
-  try {
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+export const GET = createSecureRoute({
+  id: 'api-workspace-get',
+  method: 'GET',
+  auth: { required: true },
+  rateLimit: { tier: 'CHEAP_READ' },
+  handler: async (req, { query }) => {
     await resolveRequestContextVault(req);
 
-    const requestedFile = req.nextUrl.searchParams.get('file');
-    const source = req.nextUrl.searchParams.get('source'); // 'primary' | 'cloud' | 'local'
+    const requestedFile = query.get('file');
+    const source = query.get('source'); // 'primary' | 'cloud' | 'local'
     const storageConn = getActiveStorageConn();
     const folderPrefix = getActiveFolderPrefix();
     const vaultPath = storageConn && storageConn.provider !== 'local_fs' ? (folderPrefix || 'cloud_vault') : getVaultAbsolutePath();
     const vaultName = getActiveVaultName();
 
-    // 1. Single file content read mode (for Physical Workspace Vault Explorer)
+    // 1. Single file content read mode
     if (requestedFile) {
       const cleanRel = requestedFile.replace(/^\/+/, '');
       if (storageConn && storageConn.provider !== 'local_fs' && folderPrefix && source !== 'local') {
@@ -84,7 +89,6 @@ export async function GET(req: NextRequest) {
     }
 
     // 2. Directory tree mode
-    // If active storage connection is cloud (e.g. Backblaze B2) and source !== 'local'
     if (storageConn && storageConn.provider !== 'local_fs' && folderPrefix && source !== 'local') {
       try {
         const { tree, stats } = await buildCloudWorkspaceFileTree(storageConn, folderPrefix);
@@ -162,38 +166,25 @@ export async function GET(req: NextRequest) {
       },
       tree,
     });
-  } catch (err: any) {
-    console.error('[Workspace API] GET error:', err);
-    const vaultPath = getVaultAbsolutePath();
-    return NextResponse.json({
-      success: true,
-      isCloudPrimary: false,
-      storageProvider: 'local_fs',
-      vaultPath,
-      vaultName: getActiveVaultName(),
-      stats: {
-        fileCount: 0,
-        folderCount: 0,
-      },
-      tree: {
-        name: 'docustack_vault',
-        relativePath: 'docustack_vault',
-        absolutePath: vaultPath,
-        isDirectory: true,
-        children: [],
-      },
-    });
-  }
-}
+  },
+});
 
-export async function POST(req: NextRequest) {
-  try {
+export const POST = createSecureRoute({
+  id: 'api-workspace-post',
+  method: 'POST',
+  auth: { required: true },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  limits: {
+    maxBodySize: 5 * 1024 * 1024,
+    maxExecutionMs: 20000,
+  },
+  handler: async (req, { body }) => {
     await resolveRequestContextVault(req);
-    const body = await req.json();
+    const payload = body || {};
 
     // Action to atomically save entire workspace state to local disk and cloud storage
-    if (body.action === 'save_all') {
-      const { nodes, edges, groups, categories, documents } = body;
+    if (payload.action === 'save_all') {
+      const { nodes, edges, groups, categories, documents } = payload;
       const result = await syncEntireWorkspaceToDiskAndCloud({
         nodes: nodes || [],
         edges: edges || [],
@@ -210,9 +201,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 0. Action to verify / preview a workspace folder path
-    if (body.action === 'verify') {
-      const { workspacePath } = body;
+    // Action to verify / preview a workspace folder path
+    if (payload.action === 'verify') {
+      const { workspacePath } = payload;
       const targetPath = getVaultAbsolutePath(workspacePath || '');
       const exists = fs.existsSync(targetPath);
       let fileCount = 0;
@@ -226,7 +217,7 @@ export async function POST(req: NextRequest) {
             if (item.isDirectory()) folderCount++;
             else fileCount++;
           }
-        } catch (e) {
+        } catch {
           // ignore permission error during probe
         }
       }
@@ -240,9 +231,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 1. Action to configure / switch workspace folder & name
-    if (body.action === 'configure') {
-      const { workspacePath, workspaceName, userId, workspaceId, storageConnectionId, storageProvider } = body;
+    // Action to configure / switch workspace folder & name
+    if (payload.action === 'configure') {
+      const { workspacePath, workspaceName, userId, workspaceId, storageConnectionId } = payload;
       if (!workspacePath) {
         return NextResponse.json({ success: false, error: 'MISSING_WORKSPACE_PATH' }, { status: 400 });
       }
@@ -326,10 +317,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 2. Action to write file
+    // Action to write file
     const storageConn = getActiveStorageConn();
     const folderPrefix = getActiveFolderPrefix();
-    const { relativePath, content } = body;
+    const { relativePath, content } = payload;
 
     if (!relativePath) {
       return NextResponse.json({ success: false, error: 'MISSING_RELATIVE_PATH' }, { status: 400 });
@@ -354,7 +345,6 @@ export async function POST(req: NextRequest) {
       ensureWorkspaceExists();
       const vaultPath = getVaultAbsolutePath();
 
-      // Sanitize path to prevent directory traversal outside vault
       const targetPath = path.normalize(path.join(vaultPath, relativePath));
       if (!targetPath.startsWith(vaultPath)) {
         return NextResponse.json({ success: false, error: 'INVALID_PATH_OUTSIDE_VAULT' }, { status: 403 });
@@ -385,23 +375,17 @@ export async function POST(req: NextRequest) {
       message: 'FILE WRITTEN TO PRIMARY CLOUD WORKSPACE VAULT',
       storageProvider: storageConn.provider,
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
-  }
-}
+  },
+});
 
-
-export async function DELETE(req: NextRequest) {
-  try {
+export const DELETE = createSecureRoute({
+  id: 'api-workspace-delete',
+  method: 'DELETE',
+  auth: { required: true },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  handler: async (req, { body, query }) => {
     await resolveRequestContextVault(req);
-
-    let relativePath = req.nextUrl.searchParams.get('relativePath');
-    if (!relativePath) {
-      try {
-        const body = await req.json();
-        relativePath = body?.relativePath;
-      } catch {}
-    }
+    const relativePath = query.get('relativePath') || body?.relativePath;
 
     if (!relativePath) {
       return NextResponse.json({ success: false, error: 'MISSING_RELATIVE_PATH' }, { status: 400 });
@@ -413,7 +397,5 @@ export async function DELETE(req: NextRequest) {
     }
 
     return NextResponse.json(purgeResult);
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
-  }
-}
+  },
+});

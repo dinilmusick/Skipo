@@ -596,6 +596,68 @@ else
   ERRORS=$((ERRORS + MISSING_ROUTES))
 fi
 
+# Check 33: API Security & Resource Governance Compliance (Canonical 8-Gate Pipeline)
+echo "→ Checking API Security & Resource Governance Compliance (8-Gate Pipeline)..."
+API_GOV_DIR="$TARGET_DIR/lib/api-governance"
+if [ ! -d "$API_GOV_DIR" ] && [ -d "$TARGET_DIR/backend/control-plane/code/lib/api-governance" ]; then
+  API_GOV_DIR="$TARGET_DIR/backend/control-plane/code/lib/api-governance"
+fi
+
+if [ -d "$API_GOV_DIR" ]; then
+  REQUIRED_GOV_FILES=("create-secure-route.ts" "abuse-detector.ts" "rate-limiter.ts" "resource-budget.ts" "security-headers.ts" "error-handler.ts" "observability.ts" "types.ts" "index.ts")
+  MISSING_GOV=0
+  for gf in "${REQUIRED_GOV_FILES[@]}"; do
+    if [ ! -f "$API_GOV_DIR/$gf" ]; then
+      echo "❌ VIOLATION: Missing api-governance module file: $API_GOV_DIR/$gf!"
+      MISSING_GOV=$((MISSING_GOV + 1))
+    fi
+  done
+  if [ "$MISSING_GOV" -eq 0 ]; then
+    echo "✅ PASS: Complete API Governance framework module present in $API_GOV_DIR."
+  else
+    ERRORS=$((ERRORS + MISSING_GOV))
+  fi
+else
+  echo "❌ VIOLATION: Missing lib/api-governance framework directory!"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Verify Edge Middleware
+MIDDLEWARE_FILE="$TARGET_DIR/middleware.ts"
+if [ ! -f "$MIDDLEWARE_FILE" ] && [ -f "$TARGET_DIR/backend/control-plane/code/middleware.ts" ]; then
+  MIDDLEWARE_FILE="$TARGET_DIR/backend/control-plane/code/middleware.ts"
+fi
+
+if [ -f "$MIDDLEWARE_FILE" ]; then
+  if grep -q "isIpBlocked" "$MIDDLEWARE_FILE" && grep -q "SECURITY_HEADERS" "$MIDDLEWARE_FILE"; then
+    echo "✅ PASS: Edge security middleware active with IP blocklist and security headers."
+  else
+    echo "❌ VIOLATION: $MIDDLEWARE_FILE lacks isIpBlocked or SECURITY_HEADERS enforcement!"
+    ERRORS=$((ERRORS + 1))
+  fi
+else
+  echo "❌ VIOLATION: Missing middleware.ts! Edge bot filtering is required."
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Verify 100% of API routes use createSecureRoute
+API_DIR="$TARGET_DIR/app/api"
+if [ ! -d "$API_DIR" ] && [ -d "$TARGET_DIR/backend/control-plane/code/api" ]; then
+  API_DIR="$TARGET_DIR/backend/control-plane/code/api"
+fi
+
+if [ -d "$API_DIR" ]; then
+  UNWRAPPED_ROUTES=$(find "$API_DIR" -type f -name "route.ts" -exec grep -L "createSecureRoute" {} + || true)
+  if [ -n "$UNWRAPPED_ROUTES" ]; then
+    echo "❌ VIOLATION: Found unwrapped API routes without createSecureRoute! Raw exports violate Law 3."
+    echo "$UNWRAPPED_ROUTES"
+    ERRORS=$((ERRORS + 1))
+  else
+    TOTAL_ROUTES=$(find "$API_DIR" -type f -name "route.ts" | wc -l | tr -d ' ')
+    echo "✅ PASS: 100% of API routes ($TOTAL_ROUTES routes) strictly wrapped with createSecureRoute."
+  fi
+fi
+
 # Summary
 echo "══════════════════════════════════════════════════════════════════════════════════════════"
 if [ "$ERRORS" -gt 0 ]; then
@@ -605,3 +667,4 @@ else
   echo "🎉 AUDIT SUCCESS: All Control Plane, Auth, and UI standards strictly satisfied!"
   exit 0
 fi
+

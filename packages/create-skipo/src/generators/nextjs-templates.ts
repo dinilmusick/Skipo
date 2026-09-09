@@ -127,28 +127,40 @@ export default function AdminDashboard() {
 }
 `,
 
-  authRouteTs: () => `import { BaseAccountProvider, LocalAccountProvider } from '@skipo/backend';
+  authRouteTs: () => `import { NextRequest, NextResponse } from 'next/server';
+import { createSecureRoute } from '@/lib/api-governance';
 
-export async function GET(request: Request) {
-  // Auth logic using LocalAccountProvider
-  return new Response('Auth API Route');
-}
+export const GET = createSecureRoute({
+  rateLimitTier: 'AUTHENTICATION',
+  public: true,
+  async handler(req: NextRequest) {
+    return NextResponse.json({ message: 'Auth API Route' });
+  }
+});
 `,
 
-  eventsRouteTs: () => `// import { sseHelper } from '@skipo/backend';
+  eventsRouteTs: () => `import { NextRequest, NextResponse } from 'next/server';
+import { createSecureRoute } from '@/lib/api-governance';
 
-export async function GET(request: Request) {
-  // SSE helper usage
-  return new Response('SSE Endpoint');
-}
+export const GET = createSecureRoute({
+  rateLimitTier: 'CHEAP_READ',
+  public: false,
+  async handler(req: NextRequest) {
+    return NextResponse.json({ message: 'Events Endpoint' });
+  }
+});
 `,
 
-  workspaceRouteTs: () => `// import { WorkspaceFS } from '@skipo/backend';
+  workspaceRouteTs: () => `import { NextRequest, NextResponse } from 'next/server';
+import { createSecureRoute } from '@/lib/api-governance';
 
-export async function GET(request: Request) {
-  // WorkspaceFS usage
-  return new Response('Workspace API');
-}
+export const GET = createSecureRoute({
+  rateLimitTier: 'NORMAL_MUTATION',
+  public: false,
+  async handler(req: NextRequest) {
+    return NextResponse.json({ message: 'Workspace API' });
+  }
+});
 `,
 
   customComponentTsx: () => `import { BaseButton } from '@skipo/ui';

@@ -1,12 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { registerUserAsync, isValidEmail, attachSessionCookie } from '@/lib/auth-storage';
+import { createSecureRoute } from '@/lib/api-governance';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function POST(req: NextRequest) {
-  try {
-    const { email, password, name, username } = await req.json();
+export const POST = createSecureRoute({
+  id: 'api-auth-register',
+  method: 'POST',
+  public: true,
+  rateLimit: {
+    tier: 'AUTHENTICATION',
+    key: 'ip',
+  },
+  limits: { maxBodySize: 32 * 1024 },
+  handler: async (req, { body }) => {
+    const { email, password, name, username } = body || {};
 
     if (!email || !password) {
       return NextResponse.json(
@@ -30,7 +39,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Persist directly to Primary Database (Neon / Supabase) and Clones
     const { user, token } = await registerUserAsync(cleanEmail, password, name, username);
 
     const response = NextResponse.json({
@@ -41,12 +49,5 @@ export async function POST(req: NextRequest) {
     });
 
     return attachSessionCookie(response, token);
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: err.message || 'REGISTRATION_FAILED' },
-      { status: 400 }
-    );
-  }
-}
-
-
+  },
+});

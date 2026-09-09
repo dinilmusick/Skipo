@@ -82,6 +82,27 @@ Applies to: controllers, services, repositories, route files, middleware, utilit
    Use sanitizeDatabaseUrl() from @skipo/core to safely verify database readiness.
 ```
 
+### LAW E: Mandatory API Security & Resource Governance Pipeline (8-Gate Pipeline)
+```
+INVARIANT: UI_CAPABILITY_SET == API_CAPABILITY_SET
+All API endpoints across the backend MUST be wrapped with createSecureRoute() adhering to the 8-Gate Pipeline:
+
+[0. IP Blocklist] -> [1. Request Validation] -> [2. Auth] -> [3. Authorization] -> [4. Rate Limit] -> [5. Resource Limits] -> [6. Application Logic] -> [7. Security Headers & Observability]
+
+1. ZERO RAW UNGUARDED ROUTE HANDLERS:
+   Raw Next.js App Router exports or Express handlers are strictly forbidden. All handlers must use:
+   export const GET = createSecureRoute({ ... });
+2. EARLY REJECTION SHORT-CIRCUITS:
+   Failure at any gate immediately halts downstream execution (STOP -> NO_DOWNSTREAM_EXECUTION).
+   No DB connections, heavy business logic, or file I/O run for unauthorized/invalid/rate-limited requests.
+3. RESOURCE BUDGETS & CONCURRENCY:
+   - Max payload size enforced pre-flight (content-length header) before reading body into memory.
+   - Runaway requests aborted via executionTimeoutMs (default 8s, expensive 30s).
+   - In-flight concurrency slots protect the event loop.
+4. AUTO-BLOCKING ABUSE DETECTION:
+   Spike anomalies (401, 403, 429, 5xx, or request surges) automatically ban malicious IPs for 15 minutes.
+```
+
 
 ---
 
@@ -230,5 +251,51 @@ Before implementing backend logic for any application or sub-app, execute this c
    All backend route handlers modifying system state (`POST`, `PUT`, `DELETE` on documents, categories, nodes, workspaces, biomes) MUST invoke `publishRealtimeEvent()` from `lib/realtime-events.ts` before returning.
 2. **Multi-Tenant Workspace Header**:
    Backend handlers must extract `x-workspace-id` and authenticate via `Authorization: Bearer <token>`, scoping all data operations to the specific workspace.
-3. **Zero-Crash Local Cluster Fallback**:
+3. Zero-Crash Local Cluster Fallback:
    When external databases (`DATABASE_URL`, `SUPABASE_URL`) are omitted from `.env`, user persistence must gracefully persist to local storage (`{ success: true, targetsUpdated: ['local_storage'] }`) without throwing unhandled exceptions.
+
+---
+
+## 9. API Security & Resource Governance Architecture (The 8-Gate Pipeline)
+
+### Request Lifecycle Pipeline
+```
+REQUEST
+  │
+  ▼
+[GATE 0: IP Blocklist]            ──(banned IP)───────────► HTTP 403 (Zero CPU/DB cost)
+  │
+  ▼
+[GATE 1: Request Validation]      ──(bad method/type/len)─► HTTP 400 / 405 / 413 / 415 / 422
+  │
+  ▼
+[GATE 2: Authentication]          ──(missing/bad token)───► HTTP 401 Unauthorized
+  │
+  ▼
+[GATE 3: Authorization]           ──(role mismatch)───────► HTTP 403 Forbidden
+  │
+  ▼
+[GATE 4: Rate Limiting]           ──(rate exceeded)───────► HTTP 429 Too Many Requests
+  │
+  ▼
+[GATE 5: Resource Budgeting]      ──(concurrency/timeout)─► HTTP 503 / 504 (Clamped limit)
+  │
+  ▼
+[GATE 6: Application Logic]       ──(unhandled error)─────► HTTP 500 (Sanitized incident ID)
+  │
+  ▼
+[GATE 7: Headers & Observability] ──(attach headers)──────► Final Secured Response
+```
+
+### Rate Limiting Tiers
+| Tier | Capacity | Window | Typical Endpoints |
+| :--- | :--- | :--- | :--- |
+| `CHEAP_READ` | 120 requests | 1 minute | `/api/health`, `/api/categories`, `/api/wallpapers`, status queries |
+| `NORMAL_MUTATION` | 60 requests | 1 minute | Document creation, category edits, workspace updates |
+| `EXPENSIVE_OPERATION` | 20 requests | 1 minute | Bulk export/import, sync-clones, database test, AI doc analysis |
+| `AUTHENTICATION` | 25 requests | 15 minutes | `/api/auth/login`, `/api/auth/register`, password updates |
+
+### Abuse Anomaly Auto-Blocking
+- **Monitored Anomalies**: 401 spikes, 403 spikes, 429 spikes, 5xx bursts, raw request floods.
+- **Penalty**: 15-minute ban in the in-memory blocklist. Gate 0 drops the connection immediately without calling route handlers or hitting the database.
+- **Observability**: Metrics recorded in an in-memory ring buffer (500 entries) accessible via `/api/telemetry` for authenticated admins.

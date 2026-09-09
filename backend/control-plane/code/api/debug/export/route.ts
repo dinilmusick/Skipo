@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { debugManager } from '@/lib/debug-manager';
 import { authorizeDebugRequest } from '@/lib/debug-auth';
+import { createSecureRoute } from '@/lib/api-governance';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -9,15 +10,20 @@ export const runtime = 'nodejs';
  * POST /api/debug/export
  * Compiles and returns comprehensive diagnostic export bundle for AI agent diagnostics.
  */
-export async function POST(req: NextRequest) {
-  const auth = authorizeDebugRequest(req);
-  if (!auth.authorized) {
-    return NextResponse.json({ success: false, error: auth.error }, { status: 401 });
-  }
+export const POST = createSecureRoute({
+  id: 'api-debug-export-post',
+  method: 'POST',
+  public: true,
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  limits: { maxBodySize: 64 * 1024, executionTimeoutMs: 15000 },
+  handler: async (req, { body }) => {
+    const auth = authorizeDebugRequest(req);
+    if (!auth.authorized) {
+      return NextResponse.json({ success: false, error: auth.error }, { status: 401 });
+    }
 
-  try {
-    const body = await req.json().catch(() => ({}));
-    const workspaceId = body.workspaceId || 'default';
+    const payload = body || {};
+    const workspaceId = payload.workspaceId || 'default';
 
     const bundle = await debugManager.exportDiagnostics(workspaceId);
 
@@ -26,10 +32,5 @@ export async function POST(req: NextRequest) {
       diagnosticBundle: bundle,
       timestamp: Date.now(),
     });
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: 'DIAGNOSTIC_EXPORT_FAILED', message: err?.message },
-      { status: 500 }
-    );
-  }
-}
+  },
+});

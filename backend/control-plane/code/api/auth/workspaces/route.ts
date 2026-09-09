@@ -1,6 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import {
-  verifySession,
   findUserByIdAsync,
   loadUsers,
   getUserWorkspacesAsync,
@@ -17,14 +16,18 @@ import { formatCanonicalWorkspaceFolderName, sanitizeFolderSegment } from '@/lib
 import { buildS3Client } from '@/lib/storage-providers';
 import { ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { publishRealtimeEvent } from '@/lib/realtime-events';
+import { createSecureRoute } from '@/lib/api-governance';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET(req: NextRequest) {
-  try {
-    const session = await verifySession(req);
-    if (!session) {
+export const GET = createSecureRoute({
+  id: 'api-auth-workspaces-get',
+  method: 'GET',
+  auth: { required: true },
+  rateLimit: { tier: 'CHEAP_READ' },
+  handler: async (req, { session }) => {
+    if (!session?.userId) {
       return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
     }
 
@@ -41,23 +44,24 @@ export async function GET(req: NextRequest) {
       activeWorkspaceId: user.activeWorkspaceId || workspaces[0]?.id,
       count: workspaces.length,
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
-  }
-}
+  },
+});
 
-export async function POST(req: NextRequest) {
-  try {
-    const session = await verifySession(req);
-    if (!session) {
+export const POST = createSecureRoute({
+  id: 'api-auth-workspaces-post',
+  method: 'POST',
+  auth: { required: true },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  limits: { maxBodySize: 256 * 1024, maxExecutionMs: 20000 },
+  handler: async (req, { session, body }) => {
+    if (!session?.userId) {
       return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
     }
 
-    const body = await req.json();
+    const payload = body || {};
     const {
       name,
       engine,
-      workspacePath,
       description,
       icon,
       storageSettings,
@@ -66,7 +70,7 @@ export async function POST(req: NextRequest) {
       storageProvider,
       localFolderName,
       localFolderKey,
-    } = body;
+    } = payload;
 
     if (!name) {
       return NextResponse.json({ success: false, error: 'WORKSPACE_NAME_REQUIRED' }, { status: 400 });
@@ -105,13 +109,12 @@ export async function POST(req: NextRequest) {
       isDefault: isDefault || false,
     });
 
-    // Re-fetch updated user record to ensure active workspace id and state are in sync
     const freshUser = await findUserByIdAsync(session.userId);
     const freshUserConns: UserStorageConnection[] =
       freshUser?.appProfiles?.docustack?.storage_connections || (freshUser as any)?.storage_connections || [];
     let storageConn = effectiveStorageConnId ? freshUserConns.find((c: any) => c.id === effectiveStorageConnId) : null;
-    if (!storageConn && body.storageConnection) {
-      storageConn = body.storageConnection;
+    if (!storageConn && payload.storageConnection) {
+      storageConn = payload.storageConnection;
     }
     if (!storageConn) {
       storageConn = primaryConn;
@@ -124,14 +127,13 @@ export async function POST(req: NextRequest) {
     }
 
     let cloudInitStatus: { initialized: boolean; count: number; error?: string } = { initialized: false, count: 0 };
-    // Direct End-to-End initialization on ALL user-owned cloud buckets (Backblaze B2, R2, S3, Supabase)
     const cloudTargets: UserStorageConnection[] = [];
     if (storageConn && storageConn.provider !== 'local_fs') {
       cloudTargets.push(storageConn);
     }
     const combinedConns = [
       ...freshUserConns,
-      ...(Array.isArray(body.storageConnections) ? body.storageConnections : []),
+      ...(Array.isArray(payload.storageConnections) ? payload.storageConnections : []),
     ];
     for (const c of combinedConns) {
       if (
@@ -181,20 +183,22 @@ export async function POST(req: NextRequest) {
       user: safeUser,
       cloudInit: cloudInitStatus,
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
-  }
-}
+  },
+});
 
-export async function PUT(req: NextRequest) {
-  try {
-    const session = await verifySession(req);
-    if (!session) {
+export const PUT = createSecureRoute({
+  id: 'api-auth-workspaces-put',
+  method: 'PUT',
+  auth: { required: true },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  limits: { maxBodySize: 256 * 1024, maxExecutionMs: 20000 },
+  handler: async (req, { session, body }) => {
+    if (!session?.userId) {
       return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { workspaceId, action, updates } = body;
+    const payload = body || {};
+    const { workspaceId, action, updates } = payload;
 
     if (action === 'switch' && workspaceId) {
       const activeWs = await switchActiveWorkspaceAsync(session.userId, workspaceId);
@@ -236,13 +240,13 @@ export async function PUT(req: NextRequest) {
     }
 
     const updatesToApply = updates || {
-      ...(body.storageConnectionId !== undefined ? { storageConnectionId: body.storageConnectionId } : {}),
-      ...(body.storageProvider !== undefined ? { storageProvider: body.storageProvider } : {}),
-      ...(body.engine !== undefined ? { engine: body.engine } : {}),
-      ...(body.name !== undefined ? { name: body.name } : {}),
-      ...(body.localFolderName !== undefined ? { localFolderName: body.localFolderName } : {}),
-      ...(body.localFolderKey !== undefined ? { localFolderKey: body.localFolderKey } : {}),
-      ...(body.storageSettings !== undefined ? { storageSettings: body.storageSettings } : {}),
+      ...(payload.storageConnectionId !== undefined ? { storageConnectionId: payload.storageConnectionId } : {}),
+      ...(payload.storageProvider !== undefined ? { storageProvider: payload.storageProvider } : {}),
+      ...(payload.engine !== undefined ? { engine: payload.engine } : {}),
+      ...(payload.name !== undefined ? { name: payload.name } : {}),
+      ...(payload.localFolderName !== undefined ? { localFolderName: payload.localFolderName } : {}),
+      ...(payload.localFolderKey !== undefined ? { localFolderKey: payload.localFolderKey } : {}),
+      ...(payload.storageSettings !== undefined ? { storageSettings: payload.storageSettings } : {}),
     };
     const updated = await updateUserWorkspaceAsync(session.userId, workspaceId, updatesToApply);
     const user = await findUserByIdAsync(session.userId);
@@ -289,42 +293,31 @@ export async function PUT(req: NextRequest) {
       workspace: updated,
       user: safeUser,
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
-  }
-}
+  },
+});
 
-export async function DELETE(req: NextRequest) {
-  try {
-    const session = await verifySession(req);
-    if (!session) {
+export const DELETE = createSecureRoute({
+  id: 'api-auth-workspaces-delete',
+  method: 'DELETE',
+  auth: { required: true },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  limits: { maxBodySize: 128 * 1024, maxExecutionMs: 20000 },
+  handler: async (req, { session, body, query }) => {
+    if (!session?.userId) {
       return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(req.url);
-    let workspaceId = searchParams.get('id') || searchParams.get('workspaceId');
-    let extraCandidatePrefixes: string[] = [];
-    let extraStorageConnections: any[] = [];
-    let bodyWorkspaceName = '';
-    let bodyWorkspacePath = '';
-
-    // Also support JSON body payload if provided
-    try {
-      const body = await req.json();
-      if (body?.workspaceId) workspaceId = body.workspaceId;
-      if (body?.id) workspaceId = body.id;
-      if (body?.workspaceName) bodyWorkspaceName = body.workspaceName;
-      if (body?.name) bodyWorkspaceName = body.name;
-      if (body?.workspacePath) bodyWorkspacePath = body.workspacePath;
-      if (Array.isArray(body?.candidatePrefixes)) extraCandidatePrefixes = body.candidatePrefixes;
-      if (Array.isArray(body?.storageConnections)) extraStorageConnections = body.storageConnections;
-    } catch {}
+    const payload = body || {};
+    let workspaceId = query.get('id') || query.get('workspaceId') || payload.workspaceId || payload.id;
+    let extraCandidatePrefixes: string[] = payload.candidatePrefixes || [];
+    let extraStorageConnections: any[] = payload.storageConnections || [];
+    let bodyWorkspaceName = payload.workspaceName || payload.name || '';
+    let bodyWorkspacePath = payload.workspacePath || '';
 
     if (!workspaceId) {
       return NextResponse.json({ success: false, error: 'WORKSPACE_ID_REQUIRED' }, { status: 400 });
     }
 
-    // 1. Fetch user to locate target workspace and its storage config before deleting
     const user = await findUserByIdAsync(session.userId);
     const localDbUser = loadUsers().find((u) => u.id === session.userId);
 
@@ -342,7 +335,6 @@ export async function DELETE(req: NextRequest) {
       ? targetWs.workspacePath.replace(/^\.\//, '')
       : (bodyWorkspacePath ? bodyWorkspacePath.replace(/^\.\//, '') : '');
 
-    // 2. Gather all possible candidate folder prefixes used by this workspace
     const candidatePrefixes = Array.from(
       new Set(
         [
@@ -360,8 +352,6 @@ export async function DELETE(req: NextRequest) {
       )
     );
 
-    // 3. Aggregate all user cloud connections (Backblaze B2, Cloudflare R2, AWS S3, Supabase)
-    // Prioritize authentic, unmasked credentials stored in database
     const dbConns: any[] = [
       ...(user?.appProfiles?.docustack?.storage_connections || []),
       ...((user as any)?.storage_connections || []),
@@ -399,7 +389,6 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    // Attempt credential rehydration for any connection that is still masked
     for (const [key, conn] of cloudConnsMap.entries()) {
       if (conn.provider === 'backblaze_b2' && !isSecretValid(conn.b2ApplicationKey)) {
         const unmaskedMatch = dbConns.find(
@@ -427,7 +416,6 @@ export async function DELETE(req: NextRequest) {
 
     const cloudConns = Array.from(cloudConnsMap.values());
 
-    // 4. Dynamic prefix discovery: List root folders in bucket to find any matching prefixes
     for (const cloudConn of cloudConns) {
       if (cloudConn.provider === 'backblaze_b2' || cloudConn.provider === 'cloudflare_r2' || cloudConn.provider === 'aws_s3') {
         try {
@@ -452,7 +440,6 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    // 5. Permanently purge all candidate prefixes from ALL connected cloud buckets (Backblaze B2, R2, S3)
     for (const cloudConn of cloudConns) {
       for (const prefix of candidatePrefixes) {
         try {
@@ -464,7 +451,6 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    // 6. Clean up local workspace directories on server disk if present
     for (const prefix of candidatePrefixes) {
       try {
         const vaultPath = getVaultAbsolutePath(prefix);
@@ -476,7 +462,6 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    // 7. Reset active vault config if deleting the current active workspace
     if (globalActiveFolderPrefix && candidatePrefixes.includes(globalActiveFolderPrefix)) {
       setActiveVaultConfig('', 'DocuStack Vault', null, null);
     }
@@ -504,7 +489,5 @@ export async function DELETE(req: NextRequest) {
       purgedPrefixes: candidatePrefixes,
       purgedCloudCount: cloudConns.length,
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
-  }
-}
+  },
+});

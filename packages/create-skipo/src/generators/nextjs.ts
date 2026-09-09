@@ -5,6 +5,19 @@
 import { promises as fs } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { nextjsTemplates } from './nextjs-templates.js';
+import {
+  governanceMiddlewareTemplate,
+  governanceTypesTemplate,
+  governanceRateLimiterTemplate,
+  governanceAbuseDetectorTemplate,
+  governanceBudgetTemplate,
+  governanceValidatorTemplate,
+  governanceHeadersTemplate,
+  governanceObservabilityTemplate,
+  governanceErrorHandlerTemplate,
+  governanceRouteTemplate,
+  governanceIndexTemplate
+} from './templates/index.js';
 
 async function writeFile(path: string, content: string) {
   await fs.mkdir(dirname(path), { recursive: true });
@@ -45,6 +58,21 @@ export async function generateNextjs(
   await writeFile(join(projectDir, 'src', 'app', 'api', 'auth', '[...route]', 'route.ts'), nextjsTemplates.authRouteTs());
   await writeFile(join(projectDir, 'src', 'app', 'api', 'events', 'route.ts'), nextjsTemplates.eventsRouteTs());
   await writeFile(join(projectDir, 'src', 'app', 'api', 'workspace', 'route.ts'), nextjsTemplates.workspaceRouteTs());
+
+  // Edge Security Middleware
+  await writeFile(join(projectDir, 'middleware.ts'), governanceMiddlewareTemplate());
+
+  // API Governance Framework
+  await writeFile(join(projectDir, 'src', 'lib', 'api-governance', 'types.ts'), governanceTypesTemplate());
+  await writeFile(join(projectDir, 'src', 'lib', 'api-governance', 'rate-limiter.ts'), governanceRateLimiterTemplate());
+  await writeFile(join(projectDir, 'src', 'lib', 'api-governance', 'abuse-detector.ts'), governanceAbuseDetectorTemplate());
+  await writeFile(join(projectDir, 'src', 'lib', 'api-governance', 'resource-budget.ts'), governanceBudgetTemplate());
+  await writeFile(join(projectDir, 'src', 'lib', 'api-governance', 'request-validator.ts'), governanceValidatorTemplate());
+  await writeFile(join(projectDir, 'src', 'lib', 'api-governance', 'security-headers.ts'), governanceHeadersTemplate());
+  await writeFile(join(projectDir, 'src', 'lib', 'api-governance', 'observability.ts'), governanceObservabilityTemplate());
+  await writeFile(join(projectDir, 'src', 'lib', 'api-governance', 'error-handler.ts'), governanceErrorHandlerTemplate());
+  await writeFile(join(projectDir, 'src', 'lib', 'api-governance', 'create-secure-route.ts'), governanceRouteTemplate());
+  await writeFile(join(projectDir, 'src', 'lib', 'api-governance', 'index.ts'), governanceIndexTemplate());
 
   // Components
   await writeFile(join(projectDir, 'src', 'components', 'CustomButton.tsx'), nextjsTemplates.customComponentTsx());

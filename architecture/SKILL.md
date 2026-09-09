@@ -17,6 +17,7 @@ When designing, structuring, or refactoring codebase modules, consult the specif
 | **Skeleton + Components** | [`skeleton-components/SKILL.md`](./skeleton-components/SKILL.md) | `Entity<TState, TEvents>` Skeletons = Impure Orchestrators (`@role skeleton`), Components = Pure/Atomic (`@role component`) | `define_entity`, `add_behavior`, `skeleton`, `component_composition`, `design_pattern` |
 | **Code Limits & Sizing** | [`code-limits/SKILL.md`](./code-limits/SKILL.md) | 200 lines/file max, $\le 30$ lines in helpers before concept delegation, $\le 20$ lines in main before helper delegation | `file_size`, `line_limit`, `refactor_monolith`, `200_lines` |
 | **Sub-App Engine Authoring** | [`sub-app-engine/SKILL.md`](./sub-app-engine/SKILL.md) | 100% drag-and-drop KrnlTS sub-app compatibility, zero-server rule, `subapp.json`, `register.ts`, pure operations | `subapp_engine`, `subapp_authoring`, `drag_and_drop_app`, `engine_wrapper`, `subapp_json`, `register_entry` |
+| **API Security & Governance** | [`../api/SKILL.md`](../api/SKILL.md) | Canonical 8-Gate Pipeline (`createSecureRoute`), bot anomaly zero-cost IP blocklist, multi-tiered rate limiting, expensive NLP/AI task isolation, payload/query clamping, security headers | `api_security`, `resource_governance`, `createSecureRoute`, `rate_limit`, `bot_blocking`, `abuse_detector`, `concurrency_limit`, `expensive_operation`, `8_gate_pipeline` |
 
 ---
 
@@ -30,8 +31,12 @@ def dispatch_architecture_task(task_type: str) -> str:
         "libraries-concepts": ["shared_utilities", "common_structs", "libraries_folder", "concept_file"],
         "skeleton-components": ["define_entity", "add_behavior", "skeleton", "component_composition", "design_pattern"],
         "code-limits": ["file_size", "line_limit", "refactor_monolith", "200_lines"],
-        "sub-app-engine": ["subapp_engine", "subapp_authoring", "drag_and_drop_app", "engine_wrapper", "subapp_json", "register_entry"]
+        "sub-app-engine": ["subapp_engine", "subapp_authoring", "drag_and_drop_app", "engine_wrapper", "subapp_json", "register_entry"],
+        "api-governance": ["api_security", "resource_governance", "createSecureRoute", "rate_limit", "bot_blocking", "abuse_detector", "concurrency_limit", "expensive_operation", "8_gate_pipeline"]
     }
+    if any(kw in task_type.lower() for kw in mapping["api-governance"]):
+        return "../api/SKILL.md"
+
     for subskill, keywords in mapping.items():
         if any(kw in task_type.lower() for kw in keywords):
             return f"./{subskill}/SKILL.md"

@@ -15,6 +15,7 @@ import {
 } from '@/lib/workspaceFS';
 import { resolveRequestContextVault } from '@/lib/auth-storage';
 import { debugManager } from '@/lib/debug-manager';
+import { createSecureRoute } from '@/lib/api-governance';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -39,15 +40,21 @@ declare global {
  * POST /api/debug/ui-state
  * Allows the browser client (or automated test harness) to publish its live UI state.
  */
-export async function POST(req: NextRequest) {
-  try {
-    const payload = await req.json();
+export const POST = createSecureRoute({
+  id: 'api-debug-ui-state-post',
+  method: 'POST',
+  public: true,
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  limits: { maxBodySize: 5 * 1024 * 1024 },
+  handler: async (req, { body }) => {
+    const payload = body;
     if (!payload || !payload.state) {
       return NextResponse.json(
         { success: false, error: 'INVALID_PAYLOAD: Expected { state: FullFrontendUiState }' },
         { status: 400 }
       );
     }
+
 
     const state: FullFrontendUiState = payload.state;
     const clientMeta = {
@@ -94,13 +101,8 @@ export async function POST(req: NextRequest) {
         isSynced: state.syncAudit?.isSynced,
       },
     });
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: 'FAILED_TO_PROCESS_UI_STATE', message: err?.message },
-      { status: 500 }
-    );
-  }
-}
+  },
+});
 
 /**
  * GET /api/debug/ui-state
@@ -109,11 +111,15 @@ export async function POST(req: NextRequest) {
  *  - section: 'nodegraph' | 'menus' | 'vault' | 'settings' | 'localstorage' | 'sync' | 'all'
  *  - format: 'pretty' (returns indented JSON)
  */
-export async function GET(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const section = searchParams.get('section') || 'all';
-    const isPretty = searchParams.get('format') === 'pretty';
+export const GET = createSecureRoute({
+  id: 'api-debug-ui-state-get',
+  method: 'GET',
+  public: true,
+  rateLimit: { tier: 'CHEAP_READ' },
+  handler: async (req, { query }) => {
+    const section = query.get('section') || 'all';
+    const isPretty = query.get('format') === 'pretty';
+
 
     const cached = global.__docustack_latest_ui_state;
     const isFresh = cached && Date.now() - cached.clientMeta!.receivedAt < 300000; // within 5 mins
@@ -316,10 +322,6 @@ export async function GET(req: NextRequest) {
           headers: { 'Content-Type': 'application/json' },
         })
       : NextResponse.json(responsePayload);
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: 'FAILED_TO_FETCH_UI_STATE', message: err?.message },
-      { status: 500 }
-    );
-  }
-}
+  },
+});
+

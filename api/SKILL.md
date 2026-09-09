@@ -19,7 +19,34 @@ Silent / phantom API execution is strictly forbidden. Any mutation triggered ext
 3. Trigger a visible toast notification and HUD telemetry log in the client.
 4. Mutate in-memory React state in place without requiring a page reload.
 
+### Law 3: Mandatory Framework Route Gating (The 8-Gate Pipeline)
+$$\forall \text{route} \in \text{AppApiRoutes}, \quad \text{route} = \text{createSecureRoute}(\text{config})$$
+Direct raw route handler exports (`export async function GET`, `export async function POST`) are strictly prohibited. Every endpoint MUST be registered through the canonical `createSecureRoute` factory enforcing the sequential 8-gate security pipeline:
+```
+[0. IP Blocklist] ──> [1. Request Validation] ──> [2. Authentication] ──> [3. Authorization]
+                                                                                │
+[7. Security Headers] <── [6. Application Logic] <── [5. Resource Limits] <── [4. Rate Limit]
+```
+**Mandatory Invariant**:
+$$\text{FailureAtAnyGate} \implies \text{STOP} \land \text{NoDownstreamExecution}$$
+Expensive computational work (Wink NLP, token scoring, cloud syncing, complex joins) MUST NEVER execute downstream of a failed validation, authentication, rate limit, or resource limit check.
+
+### Law 4: Multi-Tiered Rate Limiting & Expensive Work Isolation
+$$\text{rateLimitTier} \in \{\text{CHEAP\_READ}, \text{NORMAL\_MUTATION}, \text{EXPENSIVE\_OPERATION}, \text{AUTHENTICATION}\}$$
+1. `CHEAP_READ`: High throughput (120 req/min) for simple cacheable reads.
+2. `NORMAL_MUTATION`: Balanced (60 req/min) for CRUD mutations.
+3. `EXPENSIVE_OPERATION`: Low threshold (10-20 req/min), mandatory concurrency limiting (`maxConcurrency: 2-5`), payload clamping (`maxBodySize <= 256KB`), and strict execution timeout (`maxExecutionMs <= 10000`).
+4. `AUTHENTICATION`: Low threshold (15-25 req/15m) on `/api/auth/login`, `/api/auth/register`, `/api/auth/logout`.
+
+### Law 5: Strict Resource Governance, Payload Clamping & Abuse Anomaly Blocking
+$$\forall \text{query}, \quad \text{limit} \le \text{MAX\_PAGE\_SIZE} \quad (100)$$
+- **Zero Unbounded Queries**: All collection queries must clamp `limit = Math.min(requestedLimit, MAX_PAGE_SIZE)`.
+- **Payload Bounds**: Max body size, max query length (2KB), and max parameter size (1KB) must be validated before parsing JSON.
+- **Bot Anomaly Blocking**: Malicious scanners (`.php`, `.env`, `wp-admin`) and anomaly spikes (`401_SPIKE`, `403_SPIKE`, `429_SPIKE`, `REQUEST_RATE_SPIKE`, `ERROR_SPIKE`) trigger automated 15-minute zero-cost IP blocks at Edge Middleware and Gate 0.
+- **Security Headers & Sanitization**: Every response MUST attach `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy`, and `X-Request-Id`. Internal 500 errors must NEVER leak stack traces to callers.
+
 ---
+
 
 ## 2. THE 5-STEP AGENT SCAFFOLDING BLUEPRINT
 

@@ -1,13 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { loadUsersAsync, saveUsers, findUserByIdAsync } from '@/lib/auth-storage';
+import { NextResponse } from 'next/server';
+import { loadUsersAsync, findUserByIdAsync } from '@/lib/auth-storage';
 import { persistUserToCluster, deleteUserFromCluster } from '@/lib/control-plane';
 import { UserRole } from '@/lib/types';
+import { createSecureRoute } from '@/lib/api-governance';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET() {
-  try {
+export const GET = createSecureRoute({
+  id: 'api-auth-users-get',
+  method: 'GET',
+  auth: true,
+  rateLimit: { tier: 'CHEAP_READ' },
+  handler: async () => {
     const users = await loadUsersAsync();
     const safeUsers = users.map((u) => {
       const { passwordHash: _, ...safe } = u;
@@ -19,14 +24,17 @@ export async function GET() {
       total: safeUsers.length,
       users: safeUsers,
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
-  }
-}
+  },
+});
 
-export async function PUT(req: NextRequest) {
-  try {
-    const { userId, role, workspacePath, workspaceName, name } = await req.json();
+export const PUT = createSecureRoute({
+  id: 'api-auth-users-put',
+  method: 'PUT',
+  auth: true,
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  limits: { maxBodySize: 64 * 1024 },
+  handler: async (_req, { body }) => {
+    const { userId, role, workspacePath, workspaceName, name } = body || {};
     if (!userId) {
       return NextResponse.json({ success: false, error: 'MISSING_USER_ID' }, { status: 400 });
     }
@@ -59,14 +67,16 @@ export async function PUT(req: NextRequest) {
       message: 'USER_PROFILE_UPDATED',
       user: safe,
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
-  }
-}
+  },
+});
 
-export async function DELETE(req: NextRequest) {
-  try {
-    const userId = req.nextUrl.searchParams.get('userId');
+export const DELETE = createSecureRoute({
+  id: 'api-auth-users-delete',
+  method: 'DELETE',
+  auth: true,
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  handler: async (_req, { query }) => {
+    const userId = query.get('userId');
     if (!userId) {
       return NextResponse.json({ success: false, error: 'MISSING_USER_ID' }, { status: 400 });
     }
@@ -79,7 +89,6 @@ export async function DELETE(req: NextRequest) {
 
     await deleteUserFromCluster(userId);
     return NextResponse.json({ success: true, message: 'USER_REMOVED_SUCCESSFULLY', purgedId: userId });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
-  }
-}
+  },
+});
+

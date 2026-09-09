@@ -4,27 +4,25 @@
  * User-Scoped Storage Connections Management.
  * Manages user's saved storage credentials (Backblaze B2, Cloudflare R2, AWS S3, Supabase, Local)
  * with Primary vs Redundant Clone role mechanism (mirroring the admin database cluster pattern).
- *
- * GET: List all saved connections for authenticated user (secrets masked), ensuring one primary exists.
- * POST: Create or update a storage connection. Supports action: 'set_primary'.
- * PUT: Update connection status, role, or elevate to primary.
- * DELETE: Remove a connection by connectionId and reassign primary if necessary.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { verifySession, findUserByIdAsync, updateUserProfileAsync } from '@/lib/auth-storage';
+import { NextResponse } from 'next/server';
+import { findUserByIdAsync, updateUserProfileAsync } from '@/lib/auth-storage';
 import { maskStorageConnection, testStorageConnection } from '@/lib/storage-providers';
 import { UserStorageConnection, UserWorkspaceRecord, DatabaseEngine } from '@/lib/types';
 import { initializeCloudWorkspaceBucket } from '@/lib/cloud-storage-service';
 import { setActiveVaultConfig } from '@/lib/workspaceFS';
 import { extractCanonicalFolderPrefix } from '@/lib/workspace-canonical';
+import { createSecureRoute } from '@/lib/api-governance';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 function ensurePrimaryRole(connections: UserStorageConnection[]): UserStorageConnection[] {
   if (connections.length === 0) return [];
   const hasExplicitPrimary = connections.some((c) => c.role === 'primary');
   if (hasExplicitPrimary) return connections;
 
-  // If no primary is set, promote the first cloud connection (e.g. Backblaze B2) or the first connection
   const cloudIdx = connections.findIndex((c) => c.provider !== 'local_fs');
   const targetIdx = cloudIdx >= 0 ? cloudIdx : 0;
 
@@ -35,10 +33,13 @@ function ensurePrimaryRole(connections: UserStorageConnection[]): UserStorageCon
   }));
 }
 
-export async function GET(req: NextRequest) {
-  try {
-    const session = await verifySession(req);
-    if (!session) {
+export const GET = createSecureRoute({
+  id: 'api-auth-storage-connections-get',
+  method: 'GET',
+  auth: { required: true },
+  rateLimit: { tier: 'CHEAP_READ' },
+  handler: async (req, { session }) => {
+    if (!session?.userId) {
       return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
     }
 
@@ -56,20 +57,21 @@ export async function GET(req: NextRequest) {
       success: true,
       connections: masked,
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err?.message || 'Failed to list connections' }, { status: 500 });
-  }
-}
+  },
+});
 
-export async function POST(req: NextRequest) {
-  try {
-    const session = await verifySession(req);
-    if (!session) {
+export const POST = createSecureRoute({
+  id: 'api-auth-storage-connections-post',
+  method: 'POST',
+  auth: { required: true },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  limits: { maxBodySize: 128 * 1024, maxExecutionMs: 20000 },
+  handler: async (req, { session, body }) => {
+    if (!session?.userId) {
       return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
     }
 
-    const body = await req.json();
-
+    const payload = body || {};
     const user = await findUserByIdAsync(session.userId);
     if (!user) {
       return NextResponse.json({ success: false, error: 'USER_NOT_FOUND' }, { status: 404 });
@@ -79,22 +81,21 @@ export async function POST(req: NextRequest) {
       user.appProfiles?.docustack?.storage_connections || (user as any)?.storage_connections || [];
 
     // Action: Set an existing connection as primary
-    if (body.action === 'set_primary' && body.id) {
-      const targetConn = existingConnections.find((c) => c.id === body.id);
+    if (payload.action === 'set_primary' && payload.id) {
+      const targetConn = existingConnections.find((c) => c.id === payload.id);
       if (!targetConn) {
         return NextResponse.json({ success: false, error: 'CONNECTION_NOT_FOUND' }, { status: 404 });
       }
 
       const updatedConnections: UserStorageConnection[] = existingConnections.map((c) => ({
         ...c,
-        role: c.id === body.id ? 'primary' : 'redundant_clone',
-        enabled: c.id === body.id ? true : c.enabled,
+        role: c.id === payload.id ? 'primary' : 'redundant_clone',
+        enabled: c.id === payload.id ? true : c.enabled,
       }));
 
-      // Bind active workspace to this new primary connection
       const workspaces: UserWorkspaceRecord[] =
         user.appProfiles?.docustack?.workspaces || user.workspaces || [];
-      const requestedWsId = body.workspaceId || req.headers.get('x-workspace-id');
+      const requestedWsId = payload.workspaceId || req.headers.get('x-workspace-id');
       const activeWsId = requestedWsId || user.appProfiles?.docustack?.activeWorkspaceId || user.activeWorkspaceId;
       const targetWs = workspaces.find((w) => w.id === activeWsId) || workspaces[0];
 
@@ -160,29 +161,28 @@ export async function POST(req: NextRequest) {
     }
 
     // Creating or Updating a Storage Connection
-    if (!body || !body.provider) {
+    if (!payload || !payload.provider) {
       return NextResponse.json(
         { success: false, error: 'MISSING_PROVIDER: provider is required.' },
         { status: 400 }
       );
     }
 
-    const connectionId = body.id || `conn_${body.provider}_${Date.now()}`;
+    const connectionId = payload.id || `conn_${payload.provider}_${Date.now()}`;
     const targetIdx = existingConnections.findIndex((c) => c.id === connectionId);
     const existing = targetIdx >= 0 ? existingConnections[targetIdx] : undefined;
 
     const isMaskedOrEmpty = (str?: string) => !str || str.includes('•');
     const hydratedBody: UserStorageConnection = {
-      ...body,
+      ...payload,
       id: connectionId,
-      b2ApplicationKey: isMaskedOrEmpty(body.b2ApplicationKey) && existing ? existing.b2ApplicationKey : body.b2ApplicationKey,
-      r2SecretAccessKey: isMaskedOrEmpty(body.r2SecretAccessKey) && existing ? existing.r2SecretAccessKey : body.r2SecretAccessKey,
-      s3SecretAccessKey: isMaskedOrEmpty(body.s3SecretAccessKey) && existing ? existing.s3SecretAccessKey : body.s3SecretAccessKey,
-      supabaseAnonKey: isMaskedOrEmpty(body.supabaseAnonKey) && existing ? existing.supabaseAnonKey : body.supabaseAnonKey,
-      supabaseServiceKey: isMaskedOrEmpty(body.supabaseServiceKey) && existing ? existing.supabaseServiceKey : body.supabaseServiceKey,
+      b2ApplicationKey: isMaskedOrEmpty(payload.b2ApplicationKey) && existing ? existing.b2ApplicationKey : payload.b2ApplicationKey,
+      r2SecretAccessKey: isMaskedOrEmpty(payload.r2SecretAccessKey) && existing ? existing.r2SecretAccessKey : payload.r2SecretAccessKey,
+      s3SecretAccessKey: isMaskedOrEmpty(payload.s3SecretAccessKey) && existing ? existing.s3SecretAccessKey : payload.s3SecretAccessKey,
+      supabaseAnonKey: isMaskedOrEmpty(payload.supabaseAnonKey) && existing ? existing.supabaseAnonKey : payload.supabaseAnonKey,
+      supabaseServiceKey: isMaskedOrEmpty(payload.supabaseServiceKey) && existing ? existing.supabaseServiceKey : payload.supabaseServiceKey,
     };
 
-    // Run test probe before saving if cloud provider
     let testStatus: 'ok' | 'failed' = 'ok';
     let testError: string | undefined = undefined;
     let latencyMs: number | undefined = undefined;
@@ -194,18 +194,17 @@ export async function POST(req: NextRequest) {
       latencyMs = probe.latencyMs;
     }
 
-    // Role assignment: if user specified role === 'primary' or it's the first connection, make it primary
     const willBePrimary =
-      body.role === 'primary' ||
+      payload.role === 'primary' ||
       existingConnections.length === 0 ||
       (existing && existing.role === 'primary');
 
     const newOrUpdatedConn: UserStorageConnection = {
       ...hydratedBody,
-      label: body.label?.trim() || existing?.label || `${body.provider.toUpperCase()} Vault`,
-      role: willBePrimary ? 'primary' : body.role || 'redundant_clone',
-      enabled: body.enabled !== undefined ? body.enabled : true,
-      createdAt: body.createdAt || existing?.createdAt || new Date().toISOString(),
+      label: payload.label?.trim() || existing?.label || `${payload.provider.toUpperCase()} Vault`,
+      role: willBePrimary ? 'primary' : payload.role || 'redundant_clone',
+      enabled: payload.enabled !== undefined ? payload.enabled : true,
+      createdAt: payload.createdAt || existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       testedAt: new Date().toISOString(),
       testStatus,
@@ -229,10 +228,9 @@ export async function POST(req: NextRequest) {
       updatedList = ensurePrimaryRole(updatedList);
     }
 
-    // If primary, update active workspace binding
     const workspaces: UserWorkspaceRecord[] =
       user.appProfiles?.docustack?.workspaces || user.workspaces || [];
-    const requestedWsId = body.workspaceId || req.headers.get('x-workspace-id');
+    const requestedWsId = payload.workspaceId || req.headers.get('x-workspace-id');
     const activeWsId = requestedWsId || user.appProfiles?.docustack?.activeWorkspaceId || user.activeWorkspaceId;
     const targetWs = workspaces.find((w) => w.id === activeWsId) || workspaces[0];
 
@@ -294,25 +292,31 @@ export async function POST(req: NextRequest) {
       testResult: { ok: testStatus === 'ok', latencyMs, error: testError },
       user: safeUser,
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err?.message || 'Failed to save connection' }, { status: 500 });
-  }
-}
+  },
+});
 
-export async function PUT(req: NextRequest) {
-  return POST(req);
-}
+export const PUT = createSecureRoute({
+  id: 'api-auth-storage-connections-put',
+  method: 'PUT',
+  auth: { required: true },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  limits: { maxBodySize: 128 * 1024, maxExecutionMs: 20000 },
+  handler: async (req, ctx) => {
+    return (POST as any)(req, ctx);
+  },
+});
 
-export async function DELETE(req: NextRequest) {
-  try {
-    const session = await verifySession(req);
-    if (!session) {
+export const DELETE = createSecureRoute({
+  id: 'api-auth-storage-connections-delete',
+  method: 'DELETE',
+  auth: { required: true },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  handler: async (req, { session, query }) => {
+    if (!session?.userId) {
       return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
     }
 
-    const url = new URL(req.url);
-    const connectionId = url.searchParams.get('id');
-
+    const connectionId = query.get('id');
     if (!connectionId) {
       return NextResponse.json({ success: false, error: 'MISSING_CONNECTION_ID' }, { status: 400 });
     }
@@ -327,7 +331,6 @@ export async function DELETE(req: NextRequest) {
     const removedConn = existingConnections.find((c) => c.id === connectionId);
     let updatedList = existingConnections.filter((c) => c.id !== connectionId);
 
-    // If deleted connection was primary, reassign primary to first remaining
     if (removedConn?.role === 'primary' && updatedList.length > 0) {
       updatedList = ensurePrimaryRole(updatedList);
     }
@@ -370,7 +373,5 @@ export async function DELETE(req: NextRequest) {
       user: safeUser,
       connections: updatedList.map(maskStorageConnection),
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err?.message || 'Failed to delete connection' }, { status: 500 });
-  }
-}
+  },
+});

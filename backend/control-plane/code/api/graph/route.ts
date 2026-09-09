@@ -1,7 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import {
-  loadGraphFromFS,
-  saveGraphToFS,
   loadGraphFromFSAsync,
   saveGraphToFSAsync,
   loadCategoriesFromFS,
@@ -14,25 +12,43 @@ import { extractTagsFromText } from '@/lib/tag-extractor';
 import { GraphNode } from '@/lib/types';
 import { resolveRequestContextVault } from '@/lib/auth-storage';
 import { publishRealtimeEvent } from '@/lib/realtime-events';
+import { createSecureRoute } from '@/lib/api-governance';
 
-export async function GET(req: NextRequest) {
-  await resolveRequestContextVault(req);
-  const graph = await loadGraphFromFSAsync();
-  return NextResponse.json({
-    success: true,
-    nodes: graph.nodes,
-    edges: graph.edges,
-    groups: graph.groups || [],
-    timestamp: Date.now(),
-    storageType: 'PHYSICAL_FILE_SYSTEM_VAULT',
-  });
-}
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-export async function POST(req: NextRequest) {
-  try {
+export const GET = createSecureRoute({
+  id: 'api-graph-get',
+  method: 'GET',
+  auth: { required: true },
+  rateLimit: { tier: 'CHEAP_READ' },
+  handler: async (req) => {
+    await resolveRequestContextVault(req);
+    const graph = await loadGraphFromFSAsync();
+    return NextResponse.json({
+      success: true,
+      nodes: graph.nodes,
+      edges: graph.edges,
+      groups: graph.groups || [],
+      timestamp: Date.now(),
+      storageType: 'PHYSICAL_FILE_SYSTEM_VAULT',
+    });
+  },
+});
+
+export const POST = createSecureRoute({
+  id: 'api-graph-post',
+  method: 'POST',
+  auth: { required: true },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  limits: {
+    maxBodySize: 2 * 1024 * 1024,
+    maxExecutionMs: 15000,
+  },
+  handler: async (req, { body }) => {
     await resolveRequestContextVault(req);
     const wsId = req.headers.get('x-workspace-id') || undefined;
-    const payload = await req.json();
+    const payload = body || {};
     const { action } = payload;
     const { nodes: currentNodes, edges: currentEdges, groups: currentGroups } = await loadGraphFromFSAsync();
 
@@ -260,7 +276,5 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: false, error: 'UNKNOWN_ACTION' }, { status: 400 });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
-  }
-}
+  },
+});

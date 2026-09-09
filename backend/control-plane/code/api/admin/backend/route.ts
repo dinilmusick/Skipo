@@ -1,8 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
-
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
-
+import { NextResponse } from 'next/server';
 import {
   enforceAdminGuard,
   loadAdminBackendConfig,
@@ -20,9 +16,17 @@ import {
 } from '@/lib/control-plane';
 import { AdminBackendConfig, DatabaseConnectionEntry } from '@/lib/control-plane-types';
 import { logAdminEvent } from '@/lib/audit-logger';
+import { createSecureRoute } from '@/lib/api-governance';
 
-export async function GET(req: NextRequest) {
-  try {
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+export const GET = createSecureRoute({
+  id: 'api-admin-backend-get',
+  method: 'GET',
+  auth: { required: true, role: 'admin' },
+  rateLimit: { tier: 'CHEAP_READ' },
+  handler: async (req) => {
     const guard = await enforceAdminGuard(req);
     if (!guard.authorized) {
       return NextResponse.json({ success: false, error: guard.error }, { status: 403 });
@@ -38,26 +42,25 @@ export async function GET(req: NextRequest) {
       config,
       telemetry,
     });
-  } catch (err: any) {
-    console.error('[Admin Backend API] GET error:', err);
-    return NextResponse.json({
-      success: false,
-      error: err?.message || 'Failed to retrieve admin backend configuration',
-    }, { status: 500 });
-  }
-}
+  },
+});
 
-export async function POST(req: NextRequest) {
-  const guard = await enforceAdminGuard(req);
-  if (!guard.authorized) {
-    return NextResponse.json({ success: false, error: guard.error }, { status: 403 });
-  }
+export const POST = createSecureRoute({
+  id: 'api-admin-backend-post',
+  method: 'POST',
+  auth: { required: true, role: 'admin' },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  limits: { maxBodySize: 256 * 1024, maxExecutionMs: 20000 },
+  handler: async (req, { body, ip }) => {
+    const guard = await enforceAdminGuard(req);
+    if (!guard.authorized) {
+      return NextResponse.json({ success: false, error: guard.error }, { status: 403 });
+    }
 
-  try {
-    const body = await req.json();
+    const payload = body || {};
 
     // 1. Sync Redundancy Clones
-    if (body.action === 'sync_redundancy') {
+    if (payload.action === 'sync_redundancy') {
       const syncResult = await syncRedundantDatabases(guard.session?.userId || 'admin');
       const cluster = loadDatabaseClusterConfig();
       return NextResponse.json({
@@ -68,18 +71,17 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Provision Table on target database (e.g. Neon)
-    if (body.action === 'provision_table') {
-      const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
-      if (body.engine === 'neon') {
-        const result = await autoProvisionNeonTable(body.connectionString, body.tableName);
+    // Provision Table on target database
+    if (payload.action === 'provision_table') {
+      if (payload.engine === 'neon') {
+        const result = await autoProvisionNeonTable(payload.connectionString, payload.tableName);
         logAdminEvent({
           actor_user_id: guard.session?.userId || 'admin',
           action: result.success ? 'DATABASE_PROVISION_SUCCESS' : 'DATABASE_PROVISION_FAILED',
           target_type: 'database_table',
-          target_id: body.tableName || 'ultrst-users',
-          ip_address: clientIp,
-          details: `Auto-provisioned table [${body.tableName || 'ultrst-users'}] on Neon: ${result.message}`,
+          target_id: payload.tableName || 'ultrst-users',
+          ip_address: ip,
+          details: `Auto-provisioned table [${payload.tableName || 'ultrst-users'}] on Neon: ${result.message}`,
         });
         return NextResponse.json({
           success: result.success,
@@ -88,21 +90,20 @@ export async function POST(req: NextRequest) {
       }
       return NextResponse.json({
         success: false,
-        error: `Auto-provisioning not supported for engine [${body.engine}]`,
+        error: `Auto-provisioning not supported for engine [${payload.engine}]`,
       }, { status: 400 });
     }
 
     // 2. Test Individual Database Connection Entry
-    if (body.action === 'test_entry' && body.entry) {
-      const result = await testDatabaseEntryConnection(body.entry as DatabaseConnectionEntry);
-      const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
+    if (payload.action === 'test_entry' && payload.entry) {
+      const result = await testDatabaseEntryConnection(payload.entry as DatabaseConnectionEntry);
       logAdminEvent({
         actor_user_id: guard.session?.userId || 'admin',
         action: result.success ? 'DATABASE_TEST_SUCCESS' : 'DATABASE_TEST_FAILED',
         target_type: 'database_entry',
-        target_id: body.entry?.id,
-        ip_address: clientIp,
-        details: `[${body.entry?.name || body.entry?.engine}] Connection probe ${result.success ? 'PASSED' : 'FAILED'}: ${result.message}${result.latencyMs !== undefined ? ` (${result.latencyMs}ms)` : ''}`,
+        target_id: payload.entry?.id,
+        ip_address: ip,
+        details: `[${payload.entry?.name || payload.entry?.engine}] Connection probe ${result.success ? 'PASSED' : 'FAILED'}: ${result.message}${result.latencyMs !== undefined ? ` (${result.latencyMs}ms)` : ''}`,
       });
       return NextResponse.json({
         success: result.success,
@@ -112,8 +113,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Test Entire Cluster
-    if (body.action === 'test_cluster') {
-      const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
+    if (payload.action === 'test_cluster') {
       const cluster = loadDatabaseClusterConfig();
       const results = await Promise.all(
         cluster.databases.map(async (db) => {
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
         actor_user_id: guard.session?.userId || 'admin',
         action: 'DATABASE_CLUSTER_TEST',
         target_type: 'cluster',
-        ip_address: clientIp,
+        ip_address: ip,
         details: `Tested ${results.length} cluster database connections. Results: ${results.map((r) => `[${r.name}]: ${r.success ? `${r.latencyMs}ms` : 'FAIL'}`).join(', ')}`,
       });
       return NextResponse.json({
@@ -141,15 +141,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Fallback: Legacy Single Engine Test
-    const result = await testAdminBackendConnection(body as AdminBackendConfig);
-    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
+    const result = await testAdminBackendConnection(payload as AdminBackendConfig);
     logAdminEvent({
       actor_user_id: guard.session?.userId || 'admin',
       action: result.success ? 'DATABASE_TEST_SUCCESS' : 'DATABASE_TEST_FAILED',
       target_type: 'backend_engine',
-      target_id: body.engine,
-      ip_address: clientIp,
-      details: `[${body.engine || 'storage'}] Connection test ${result.success ? 'PASSED' : 'FAILED'}: ${result.message}${result.latencyMs !== undefined ? ` (${result.latencyMs}ms)` : ''}`,
+      target_id: payload.engine,
+      ip_address: ip,
+      details: `[${payload.engine || 'storage'}] Connection test ${result.success ? 'PASSED' : 'FAILED'}: ${result.message}${result.latencyMs !== undefined ? ` (${result.latencyMs}ms)` : ''}`,
     });
     return NextResponse.json({
       success: result.success,
@@ -157,26 +156,26 @@ export async function POST(req: NextRequest) {
       latencyMs: result.latencyMs,
       engine: result.engine,
     });
-  } catch (err: any) {
-    return NextResponse.json({
-      success: false,
-      error: err.message || 'Admin backend test failed',
-    }, { status: 400 });
-  }
-}
+  },
+});
 
-export async function PUT(req: NextRequest) {
-  const guard = await enforceAdminGuard(req);
-  if (!guard.authorized) {
-    return NextResponse.json({ success: false, error: guard.error }, { status: 403 });
-  }
+export const PUT = createSecureRoute({
+  id: 'api-admin-backend-put',
+  method: 'PUT',
+  auth: { required: true, role: 'admin' },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  limits: { maxBodySize: 256 * 1024, maxExecutionMs: 20000 },
+  handler: async (req, { body }) => {
+    const guard = await enforceAdminGuard(req);
+    if (!guard.authorized) {
+      return NextResponse.json({ success: false, error: guard.error }, { status: 403 });
+    }
 
-  try {
-    const body = await req.json();
+    const payload = body || {};
 
     // 1. Save Cluster Configuration
-    if (body.action === 'save_cluster' && body.cluster) {
-      const saved = saveDatabaseClusterConfig(body.cluster);
+    if (payload.action === 'save_cluster' && payload.cluster) {
+      const saved = saveDatabaseClusterConfig(payload.cluster);
       return NextResponse.json({
         success: true,
         cluster: saved,
@@ -185,8 +184,8 @@ export async function PUT(req: NextRequest) {
     }
 
     // 2. Add New Database Connection Entry
-    if (body.action === 'add_database' && body.entry) {
-      const added = addDatabaseConnection(body.entry);
+    if (payload.action === 'add_database' && payload.entry) {
+      const added = addDatabaseConnection(payload.entry);
       const cluster = loadDatabaseClusterConfig();
       return NextResponse.json({
         success: true,
@@ -197,8 +196,8 @@ export async function PUT(req: NextRequest) {
     }
 
     // 3. Update Existing Database Entry
-    if (body.action === 'update_database' && body.id && body.updates) {
-      const updated = updateDatabaseConnection(body.id, body.updates);
+    if (payload.action === 'update_database' && payload.id && payload.updates) {
+      const updated = updateDatabaseConnection(payload.id, payload.updates);
       const cluster = loadDatabaseClusterConfig();
       return NextResponse.json({
         success: true,
@@ -209,29 +208,27 @@ export async function PUT(req: NextRequest) {
     }
 
     // Fallback: Legacy Single Config Save
-    const saved = saveAdminBackendConfig(body as AdminBackendConfig);
+    const saved = saveAdminBackendConfig(payload as AdminBackendConfig);
     return NextResponse.json({
       success: true,
       config: saved,
       message: 'Admin Control Plane backend configuration updated successfully.',
     });
-  } catch (err: any) {
-    return NextResponse.json({
-      success: false,
-      error: err.message || 'Failed to update admin backend config',
-    }, { status: 400 });
-  }
-}
+  },
+});
 
-export async function DELETE(req: NextRequest) {
-  const guard = await enforceAdminGuard(req);
-  if (!guard.authorized) {
-    return NextResponse.json({ success: false, error: guard.error }, { status: 403 });
-  }
+export const DELETE = createSecureRoute({
+  id: 'api-admin-backend-delete',
+  method: 'DELETE',
+  auth: { required: true, role: 'admin' },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  handler: async (req, { query }) => {
+    const guard = await enforceAdminGuard(req);
+    if (!guard.authorized) {
+      return NextResponse.json({ success: false, error: guard.error }, { status: 403 });
+    }
 
-  try {
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
+    const id = query.get('id');
     if (!id) {
       return NextResponse.json({ success: false, error: 'Database ID is required for deletion' }, { status: 400 });
     }
@@ -243,10 +240,5 @@ export async function DELETE(req: NextRequest) {
       cluster,
       message: `Database entry [${id}] removed from cluster.`,
     });
-  } catch (err: any) {
-    return NextResponse.json({
-      success: false,
-      error: err.message || 'Failed to delete database entry',
-    }, { status: 400 });
-  }
-}
+  },
+});

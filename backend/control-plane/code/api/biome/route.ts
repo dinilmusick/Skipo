@@ -1,23 +1,38 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { BiomeType, ThemeMode } from '@/lib/types';
 import { publishRealtimeEvent } from '@/lib/realtime-events';
+import { createSecureRoute } from '@/lib/api-governance';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 let currentBiome: BiomeType = 'forest';
 let currentTheme: ThemeMode = 'dark';
 
-export async function GET() {
-  return NextResponse.json({
-    success: true,
-    biome: currentBiome,
-    theme: currentTheme,
-    timestamp: Date.now(),
-  });
-}
+export const GET = createSecureRoute({
+  id: 'api-biome-get',
+  method: 'GET',
+  auth: { required: true },
+  rateLimit: { tier: 'CHEAP_READ' },
+  handler: async () => {
+    return NextResponse.json({
+      success: true,
+      biome: currentBiome,
+      theme: currentTheme,
+      timestamp: Date.now(),
+    });
+  },
+});
 
-export async function POST(req: NextRequest) {
-  try {
+export const POST = createSecureRoute({
+  id: 'api-biome-post',
+  method: 'POST',
+  auth: { required: true },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  limits: { maxBodySize: 32 * 1024 },
+  handler: async (req, { body }) => {
     const wsId = req.headers.get('x-workspace-id') || undefined;
-    const { biome, theme } = await req.json();
+    const { biome, theme } = body || {};
     if (biome) currentBiome = biome;
     if (theme) currentTheme = theme;
 
@@ -37,7 +52,5 @@ export async function POST(req: NextRequest) {
       theme: currentTheme,
       updatedAt: Date.now(),
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
-  }
-}
+  },
+});

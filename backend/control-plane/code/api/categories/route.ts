@@ -1,18 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import {
-  loadCategoriesFromFS,
-  saveCategoriesToFS,
   loadCategoriesFromFSAsync,
   saveCategoriesToFSAsync,
-  deleteCategoryAndDocumentsFromFS,
   deleteCategoryAndDocumentsFromFSAsync,
 } from '@/lib/workspaceFS';
 import { DocCategory } from '@/lib/types';
 import { findBestSemanticWallpaper } from '@/lib/wallpaper-nlp';
 import { resolveRequestContextVault } from '@/lib/auth-storage';
 import { publishRealtimeEvent } from '@/lib/realtime-events';
+import { createSecureRoute } from '@/lib/api-governance';
 import fs from 'fs';
 import path from 'path';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 function getAvailableWallpapers(): string[] {
   try {
@@ -28,22 +29,33 @@ function getAvailableWallpapers(): string[] {
   return [];
 }
 
-export async function GET(req: NextRequest) {
-  await resolveRequestContextVault(req);
-  const categories = await loadCategoriesFromFSAsync();
-  return NextResponse.json({
-    success: true,
-    total: categories.length,
-    categories,
-    storageType: 'PHYSICAL_FILE_SYSTEM_VAULT',
-  });
-}
+export const GET = createSecureRoute({
+  id: 'api-categories-get',
+  method: 'GET',
+  auth: { required: true },
+  rateLimit: { tier: 'CHEAP_READ' },
+  handler: async (req) => {
+    await resolveRequestContextVault(req);
+    const categories = await loadCategoriesFromFSAsync();
+    return NextResponse.json({
+      success: true,
+      total: categories.length,
+      categories,
+      storageType: 'PHYSICAL_FILE_SYSTEM_VAULT',
+    });
+  },
+});
 
-export async function POST(req: NextRequest) {
-  try {
+export const POST = createSecureRoute({
+  id: 'api-categories-post',
+  method: 'POST',
+  auth: { required: true },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  limits: { maxBodySize: 512 * 1024 },
+  handler: async (req, { body }) => {
     await resolveRequestContextVault(req);
     const wsId = req.headers.get('x-workspace-id') || undefined;
-    const payload = await req.json();
+    const payload = body || {};
     const currentCategories = await loadCategoriesFromFSAsync();
     const availableWp = getAvailableWallpapers();
 
@@ -83,16 +95,19 @@ export async function POST(req: NextRequest) {
       { success: true, category: newCat, message: 'CATEGORY SAVED TO DISK' },
       { status: 201 }
     );
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
-  }
-}
+  },
+});
 
-export async function PUT(req: NextRequest) {
-  try {
+export const PUT = createSecureRoute({
+  id: 'api-categories-put',
+  method: 'PUT',
+  auth: { required: true },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  limits: { maxBodySize: 512 * 1024 },
+  handler: async (req, { body }) => {
     await resolveRequestContextVault(req);
     const wsId = req.headers.get('x-workspace-id') || undefined;
-    const payload = await req.json();
+    const payload = body || {};
     if (!payload.id) {
       return NextResponse.json({ success: false, error: 'MISSING_ID' }, { status: 400 });
     }
@@ -107,7 +122,6 @@ export async function PUT(req: NextRequest) {
 
     let wallpaper = payload.wallpaper;
 
-    // If not manual override, evaluate new title with wink-nlp
     if (!isManual && payload.title) {
       const match = findBestSemanticWallpaper(payload.title, availableWp);
       wallpaper = match.filename;
@@ -134,23 +148,18 @@ export async function PUT(req: NextRequest) {
     });
 
     return NextResponse.json({ success: true, category: target });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
-  }
-}
+  },
+});
 
-export async function DELETE(req: NextRequest) {
-  try {
+export const DELETE = createSecureRoute({
+  id: 'api-categories-delete',
+  method: 'DELETE',
+  auth: { required: true },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  handler: async (req, { body, query }) => {
     await resolveRequestContextVault(req);
     const wsId = req.headers.get('x-workspace-id') || undefined;
-    let id = req.nextUrl.searchParams.get('id');
-
-    if (!id) {
-      try {
-        const body = await req.json();
-        id = body?.id;
-      } catch {}
-    }
+    const id = query.get('id') || body?.id;
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'MISSING_ID' }, { status: 400 });
@@ -169,7 +178,5 @@ export async function DELETE(req: NextRequest) {
     });
 
     return NextResponse.json({ success: true, purgedId: id, ...result });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err?.message || 'DELETE_FAILED' }, { status: 500 });
-  }
-}
+  },
+});

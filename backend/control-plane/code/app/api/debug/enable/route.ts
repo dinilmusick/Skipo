@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { debugManager } from '@/lib/debug-manager';
 import { authorizeDebugRequest } from '@/lib/debug-auth';
+import { createSecureRoute } from '@/lib/api-governance';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -9,19 +10,24 @@ export const runtime = 'nodejs';
  * POST /api/debug/enable
  * Activates a debug session with specified mode (OBSERVE | TRACE) and bounded TTL.
  */
-export async function POST(req: NextRequest) {
-  const auth = authorizeDebugRequest(req);
-  if (!auth.authorized) {
-    return NextResponse.json({ success: false, error: auth.error }, { status: 401 });
-  }
+export const POST = createSecureRoute({
+  id: 'api-debug-enable-post',
+  method: 'POST',
+  public: true,
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  limits: { maxBodySize: 64 * 1024 },
+  handler: async (req, { body }) => {
+    const auth = authorizeDebugRequest(req);
+    if (!auth.authorized) {
+      return NextResponse.json({ success: false, error: auth.error }, { status: 401 });
+    }
 
-  try {
-    const body = await req.json().catch(() => ({}));
-    const mode = body.mode === 'TRACE' ? 'TRACE' : 'OBSERVE';
-    const ttlMinutes = typeof body.ttlMinutes === 'number' ? body.ttlMinutes : 30;
-    const workspaceId = body.workspaceId;
-    const capturePayloads = body.capturePayloads;
-    const maskDocumentText = body.maskDocumentText;
+    const payload = body || {};
+    const mode = payload.mode === 'TRACE' ? 'TRACE' : 'OBSERVE';
+    const ttlMinutes = typeof payload.ttlMinutes === 'number' ? payload.ttlMinutes : 30;
+    const workspaceId = payload.workspaceId;
+    const capturePayloads = payload.capturePayloads;
+    const maskDocumentText = payload.maskDocumentText;
 
     const session = debugManager.enableSession({
       mode,
@@ -29,7 +35,7 @@ export async function POST(req: NextRequest) {
       workspaceId,
       capturePayloads,
       maskDocumentText,
-      actor: body.actor || 'ai-agent',
+      actor: payload.actor || 'ai-agent',
     });
 
     return NextResponse.json({
@@ -38,10 +44,5 @@ export async function POST(req: NextRequest) {
       session,
       timestamp: Date.now(),
     });
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: 'FAILED_TO_ENABLE_DEBUG', message: err?.message },
-      { status: 500 }
-    );
-  }
-}
+  },
+});

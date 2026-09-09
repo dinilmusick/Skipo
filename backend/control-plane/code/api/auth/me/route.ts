@@ -1,14 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { verifySession, findUserByIdAsync, updateUserProfileAsync } from '@/lib/auth-storage';
+import { NextResponse } from 'next/server';
+import { findUserByIdAsync, updateUserProfileAsync, resolveRequestContextVault } from '@/lib/auth-storage';
 import { setActiveVaultConfig, ensureWorkspaceExists } from '@/lib/workspaceFS';
+import { createSecureRoute } from '@/lib/api-governance';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET(req: NextRequest) {
-  try {
-    const session = await verifySession(req);
-    if (!session) {
+export const GET = createSecureRoute({
+  id: 'api-auth-me-get',
+  method: 'GET',
+  auth: { required: true },
+  rateLimit: { tier: 'CHEAP_READ' },
+  handler: async (req, { session }) => {
+    if (!session?.userId) {
       return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
     }
 
@@ -17,9 +21,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'USER_NOT_FOUND' }, { status: 404 });
     }
 
-    if (user.workspacePath) {
-      setActiveVaultConfig(user.workspacePath, user.workspaceName);
-    }
+    await resolveRequestContextVault(req);
 
     const { passwordHash: _, ...safeUser } = user;
 
@@ -27,20 +29,22 @@ export async function GET(req: NextRequest) {
       success: true,
       user: safeUser,
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
-  }
-}
+  },
+});
 
-export async function PUT(req: NextRequest) {
-  try {
-    const session = await verifySession(req);
-    if (!session) {
+export const PUT = createSecureRoute({
+  id: 'api-auth-me-put',
+  method: 'PUT',
+  auth: { required: true },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  limits: { maxBodySize: 64 * 1024 },
+  handler: async (req, { session, body }) => {
+    if (!session?.userId) {
       return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { workspacePath, workspaceName, name, avatarGlyph, username, workspaces, activeWorkspaceId } = body;
+    const payload = body || {};
+    const { workspacePath, workspaceName, name, avatarGlyph, username, workspaces, activeWorkspaceId } = payload;
 
     const updates: any = {};
     if (workspacePath !== undefined) updates.workspacePath = workspacePath;
@@ -65,9 +69,5 @@ export async function PUT(req: NextRequest) {
       message: 'PROFILE_WORKSPACE_UPDATED',
       user: safeUser,
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
-  }
-}
-
-
+  },
+});

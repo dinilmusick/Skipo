@@ -1,22 +1,30 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import {
-  loadDocumentsFromFS,
-  saveDocumentToFS,
   loadDocumentsFromFSAsync,
   saveDocumentToFSAsync,
-  deleteDocumentFromFS,
+  deleteDocumentFromFSAsync,
 } from '@/lib/workspaceFS';
 import { DocumentItem } from '@/lib/types';
 import { extractTagsFromText } from '@/lib/tag-extractor';
 import { resolveRequestContextVault } from '@/lib/auth-storage';
 import { publishRealtimeEvent } from '@/lib/realtime-events';
+import { createSecureRoute, clampPaginationLimit } from '@/lib/api-governance';
 
-export async function GET(req: NextRequest) {
-  try {
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+export const GET = createSecureRoute({
+  id: 'api-documents-get',
+  method: 'GET',
+  auth: { required: true },
+  rateLimit: { tier: 'CHEAP_READ' },
+  handler: async (req, { query }) => {
     await resolveRequestContextVault(req);
-    const docId = req.nextUrl.searchParams.get('id');
-    const catId = req.nextUrl.searchParams.get('categoryId');
-    const tag = req.nextUrl.searchParams.get('tag');
+    const docId = query.get('id');
+    const catId = query.get('categoryId');
+    const tag = query.get('tag');
+    const includeContent = query.get('includeContent') === 'true';
+    const limit = clampPaginationLimit(query.get('limit'), 100);
 
     const allDocs = await loadDocumentsFromFSAsync();
 
@@ -36,22 +44,42 @@ export async function GET(req: NextRequest) {
     if (catId) filtered = filtered.filter((d) => d.categoryId === catId);
     if (tag) filtered = filtered.filter((d) => d.tags.includes(tag));
 
+    // Clamp pagination limit
+    if (filtered.length > limit) {
+      filtered = filtered.slice(0, limit);
+    }
+
+    // Lazy load optimization: strip large markdown bodies from metadata listing
+    const sanitizedDocs = includeContent
+      ? filtered
+      : filtered.map(({ content, ...meta }) => ({
+          ...meta,
+          hasContent: Boolean(content && content.length > 0),
+          contentLength: content ? content.length : 0,
+        }));
+
     return NextResponse.json({
       success: true,
-      total: filtered.length,
-      documents: filtered,
+      total: sanitizedDocs.length,
+      documents: sanitizedDocs,
       storageType: 'PHYSICAL_FILE_SYSTEM_VAULT',
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err?.message || 'FAILED_GET_DOCS' }, { status: 500 });
-  }
-}
+  },
+});
 
-export async function POST(req: NextRequest) {
-  try {
+export const POST = createSecureRoute({
+  id: 'api-documents-post',
+  method: 'POST',
+  auth: { required: true },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  limits: {
+    maxBodySize: 2 * 1024 * 1024, // 2MB max doc payload
+    maxExecutionMs: 15000,
+  },
+  handler: async (req, { body }) => {
     await resolveRequestContextVault(req);
     const wsId = req.headers.get('x-workspace-id') || undefined;
-    const payload = await req.json();
+    const payload = body || {};
     const docTitle = payload.title || 'UNTITLED_DOC.MD';
     const docDesc = payload.description || '';
     const docContent = payload.content || '';
@@ -94,16 +122,22 @@ export async function POST(req: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
-  }
-}
+  },
+});
 
-export async function PUT(req: NextRequest) {
-  try {
+export const PUT = createSecureRoute({
+  id: 'api-documents-put',
+  method: 'PUT',
+  auth: { required: true },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  limits: {
+    maxBodySize: 2 * 1024 * 1024,
+    maxExecutionMs: 15000,
+  },
+  handler: async (req, { body }) => {
     await resolveRequestContextVault(req);
     const wsId = req.headers.get('x-workspace-id') || undefined;
-    const payload = await req.json();
+    const payload = body || {};
     if (!payload.id) {
       return NextResponse.json({ success: false, error: 'MISSING_ID' }, { status: 400 });
     }
@@ -151,29 +185,24 @@ export async function PUT(req: NextRequest) {
       document: savedDoc,
       message: 'DOCUMENT UPDATED ON PHYSICAL FILE SYSTEM WITH AUTO TAGS',
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
-  }
-}
+  },
+});
 
-export async function DELETE(req: NextRequest) {
-  try {
+export const DELETE = createSecureRoute({
+  id: 'api-documents-delete',
+  method: 'DELETE',
+  auth: { required: true },
+  rateLimit: { tier: 'NORMAL_MUTATION' },
+  handler: async (req, { body, query }) => {
     await resolveRequestContextVault(req);
     const wsId = req.headers.get('x-workspace-id') || undefined;
-    let id = req.nextUrl.searchParams.get('id');
-
-    if (!id) {
-      try {
-        const body = await req.json();
-        id = body?.id;
-      } catch {}
-    }
+    const id = query.get('id') || body?.id;
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'MISSING_ID' }, { status: 400 });
     }
 
-    deleteDocumentFromFS(id);
+    await deleteDocumentFromFSAsync(id);
 
     publishRealtimeEvent({
       workspaceId: wsId,
@@ -190,7 +219,5 @@ export async function DELETE(req: NextRequest) {
       purgedId: id,
       message: 'DOCUMENT UNLINKED FROM PHYSICAL DISK',
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err?.message || 'FAILED_DELETE_DOC' }, { status: 500 });
-  }
-}
+  },
+});

@@ -6,28 +6,29 @@
  * cloud storage options (Backblaze B2, Cloudflare R2, AWS S3, Supabase).
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { verifySession, findUserByIdAsync, updateUserProfileAsync, resolveRequestContextVault } from '@/lib/auth-storage';
+import { NextResponse } from 'next/server';
+import { findUserByIdAsync, updateUserProfileAsync, resolveRequestContextVault } from '@/lib/auth-storage';
 import { loadDocumentsFromFSAsync, loadCategoriesFromFSAsync, loadGraphFromFSAsync, formatCanonicalWorkspaceFolderName } from '@/lib/workspaceFS';
 import { syncEntireWorkspaceToCloud } from '@/lib/cloud-storage-service';
 import { UserStorageConnection } from '@/lib/types';
+import { createSecureRoute } from '@/lib/api-governance';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-export async function POST(req: NextRequest) {
-  try {
-    const session = await verifySession(req);
-    if (!session) {
-      return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
-    }
-
-    const user = await findUserByIdAsync(session.userId);
+export const POST = createSecureRoute({
+  id: 'api-auth-storage-sync-clones-post',
+  method: 'POST',
+  auth: true,
+  rateLimit: { tier: 'EXPENSIVE_OPERATION' },
+  limits: { maxBodySize: 64 * 1024, executionTimeoutMs: 60000, maxConcurrency: 2 },
+  handler: async (req, { session, body }) => {
+    const user = await findUserByIdAsync(session!.userId);
     if (!user) {
       return NextResponse.json({ success: false, error: 'USER_NOT_FOUND' }, { status: 404 });
     }
 
-    const body = await req.json().catch(() => ({}));
-    const targetCloneIds: string[] | undefined = body.cloneIds;
+    const targetCloneIds: string[] | undefined = body?.cloneIds;
 
     // Resolve active workspace and primary storage context
     const vaultContext = await resolveRequestContextVault(req);
@@ -95,7 +96,7 @@ export async function POST(req: NextRequest) {
 
     // Persist updated lastTestedAt on synced connections safely
     const nowIso = new Date().toISOString();
-    const freshUser = await findUserByIdAsync(session.userId);
+    const freshUser = await findUserByIdAsync(session!.userId);
     const targetUser = freshUser || user;
     const currentConnections: UserStorageConnection[] =
       targetUser.appProfiles?.docustack?.storage_connections || (targetUser as any)?.storage_connections || allConnections;
@@ -113,10 +114,11 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    await updateUserProfileAsync(session.userId, {
+    await updateUserProfileAsync(session!.userId, {
       appProfiles: updatedAppProfiles,
       storage_connections: mergedConnections,
     } as any);
+
 
     return NextResponse.json({
       success: true,
@@ -124,11 +126,6 @@ export async function POST(req: NextRequest) {
       totalFilesSynced: totalFiles,
       message: `Successfully replicated ${totalFiles} files across ${results.length} clone storage options.`,
     });
-  } catch (err: any) {
-    console.error('[SyncClones] Error replicating to clones:', err);
-    return NextResponse.json(
-      { success: false, error: err?.message || 'Failed to sync to clones.' },
-      { status: 500 }
-    );
-  }
-}
+  },
+});
+

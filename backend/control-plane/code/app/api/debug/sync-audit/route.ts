@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import {
   loadGraphFromFSAsync,
   loadCategoriesFromFSAsync,
@@ -8,6 +8,7 @@ import {
 } from '@/lib/workspaceFS';
 import { resolveRequestContextVault } from '@/lib/auth-storage';
 import { debugManager } from '@/lib/debug-manager';
+import { createSecureRoute } from '@/lib/api-governance';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -18,11 +19,14 @@ export const runtime = 'nodejs';
  *  1. Frontend In-Memory React State (if reported by browser)
  *  2. Browser LocalStorage (if reported by browser)
  *  3. Backend Persistent Vault Storage (stored on physical disk / cloud)
- *
- * Delegates internally to DebugManager consistency engine while preserving backward compatibility.
  */
-export async function GET(req: NextRequest) {
-  try {
+export const GET = createSecureRoute({
+  id: 'api-debug-sync-audit-get',
+  method: 'GET',
+  public: true,
+  rateLimit: { tier: 'CHEAP_READ' },
+  limits: { executionTimeoutMs: 15000 },
+  handler: async (req) => {
     const session = await resolveRequestContextVault(req);
     const serverGraph = await loadGraphFromFSAsync();
     const serverCategories = await loadCategoriesFromFSAsync();
@@ -72,6 +76,7 @@ export async function GET(req: NextRequest) {
       if (catDiff > 0) {
         diffs.push(`Category count divergence: Client UI (${uiCatCount}) vs Server Disk (${serverCatCount})`);
       }
+
 
       // Check LocalStorage vs React state
       if (clientState?.syncAudit?.diffSummary && clientState.syncAudit.diffSummary.length > 0) {
@@ -134,10 +139,5 @@ export async function GET(req: NextRequest) {
       },
       divergences: diffs,
     });
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: 'SYNC_AUDIT_FAILED', message: err?.message },
-      { status: 500 }
-    );
-  }
-}
+  },
+});
