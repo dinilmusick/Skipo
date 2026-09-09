@@ -29,6 +29,8 @@ This directory contains **task-specific, token-efficient prompt attachments** fo
 | **Bug Fixing & Verification** | [`TASK_DEBUG_FIX_VERIFY.md`](./TASK_DEBUG_FIX_VERIFY.md) | Invariant verification, regression test scripts, type-safety, contract preservation |
 | **System Orchestration & P2P** | [`TASK_SYSTEM_ORCHESTRATION.md`](./TASK_SYSTEM_ORCHESTRATION.md) | Magnetic Loader autoloading, P2P Ingress network, cross-entity event bus cascading |
 | **API Security & Resource Governance** | [`TASK_API_SECURITY_GOVERNANCE.md`](./TASK_API_SECURITY_GOVERNANCE.md) | Mandatory 8-gate request pipeline, multi-tier rate limiting, abuse anomaly detection, in-flight concurrency, timeouts |
+| **Multi-Session & Progressive Trust Spec** | [`TASK_SESSION_PROGRESSIVE_TRUST.md`](./TASK_SESSION_PROGRESSIVE_TRUST.md) | Multi-session storage, cryptographic refresh token rotation, token theft detection, email challenges, progressive trust tiers |
+| **Enforce Security & Session Infrastructure** | [`TASK_ENFORCE_SECURITY_AND_SESSION_INFRASTRUCTURE.md`](./TASK_ENFORCE_SECURITY_AND_SESSION_INFRASTRUCTURE.md) | Jump-start audit & enforcement of 8-gate pipeline, multi-session storage, refresh token rotation, and 5-step validation gate |
 | **Align Codebase to Updated Skipo Standards** | [`TASK_UPDATE_TO_SKIPO_STANDARDS.md`](./TASK_UPDATE_TO_SKIPO_STANDARDS.md) | Ingestion of copied `Skipo/` folder, 12 Core Architectural Laws, zero-custom UI migration, flat top toolbar, bottom strip, zero floating text, details panel pinning/resizing, zero-placeholder purge, mandatory verification gate |
 
 ---
