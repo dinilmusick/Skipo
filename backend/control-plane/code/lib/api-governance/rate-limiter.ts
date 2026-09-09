@@ -68,7 +68,8 @@ export interface RateLimitCheckResult {
  */
 export function checkGovernanceRateLimit(
   key: string,
-  config?: RateLimitConfig
+  config?: RateLimitConfig,
+  multiplier = 1.0
 ): RateLimitCheckResult {
   const now = Date.now();
 
@@ -86,6 +87,10 @@ export function checkGovernanceRateLimit(
   }
   if (typeof config?.windowMs === 'number' && config.windowMs > 0) {
     windowMs = config.windowMs;
+  }
+
+  if (typeof multiplier === 'number' && multiplier > 0) {
+    maxRequests = Math.max(1, Math.floor(maxRequests * multiplier));
   }
 
   // 2. Fetch or initialize bucket

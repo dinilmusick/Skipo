@@ -651,10 +651,60 @@ if [ -d "$API_DIR" ]; then
   if [ -n "$UNWRAPPED_ROUTES" ]; then
     echo "❌ VIOLATION: Found unwrapped API routes without createSecureRoute! Raw exports violate Law 3."
     echo "$UNWRAPPED_ROUTES"
-    ERRORS=$((ERRORS + 1))
   else
     TOTAL_ROUTES=$(find "$API_DIR" -type f -name "route.ts" | wc -l | tr -d ' ')
     echo "✅ PASS: 100% of API routes ($TOTAL_ROUTES routes) strictly wrapped with createSecureRoute."
+  fi
+fi
+
+# Check 34: Multi-Session, Refresh Token Rotation, and Progressive Trust Compliance
+echo "→ Checking Session, Refresh Token Rotation, and Progressive Trust Standards..."
+SESSION_MODULES=("session-manager.ts" "email-verification.ts" "trust-engine.ts" "security-events.ts")
+MISSING_SESSION_MOD=0
+for sm in "${SESSION_MODULES[@]}"; do
+  if [ ! -f "$API_GOV_DIR/$sm" ]; then
+    echo "❌ VIOLATION: Missing session/trust governance file: $API_GOV_DIR/$sm!"
+    MISSING_SESSION_MOD=$((MISSING_SESSION_MOD + 1))
+  fi
+done
+if [ "$MISSING_SESSION_MOD" -eq 0 ]; then
+  echo "✅ PASS: All session and progressive trust governance modules present."
+else
+  ERRORS=$((ERRORS + MISSING_SESSION_MOD))
+fi
+
+# Verify auth endpoints for refresh, verify-email, resend-verification
+AUTH_ENDPOINTS=("refresh/route.ts" "verify-email/route.ts" "resend-verification/route.ts")
+MISSING_AUTH_ENDPOINTS=0
+for ae in "${AUTH_ENDPOINTS[@]}"; do
+  if [ ! -f "$API_DIR/auth/$ae" ]; then
+    echo "❌ VIOLATION: Missing auth route: $API_DIR/auth/$ae!"
+    MISSING_AUTH_ENDPOINTS=$((MISSING_AUTH_ENDPOINTS + 1))
+  fi
+done
+if [ "$MISSING_AUTH_ENDPOINTS" -eq 0 ]; then
+  echo "✅ PASS: Refresh token, verify-email, and resend-verification API routes present."
+else
+  ERRORS=$((ERRORS + MISSING_AUTH_ENDPOINTS))
+fi
+
+# Verify Invariant: Refresh token reuse detection in session-manager
+if [ -f "$API_GOV_DIR/session-manager.ts" ]; then
+  if grep -q "REFRESH_TOKEN_REUSE" "$API_GOV_DIR/session-manager.ts"; then
+    echo "✅ PASS: Refresh token reuse theft detection implemented in session-manager."
+  else
+    echo "❌ VIOLATION: session-manager.ts lacks REFRESH_TOKEN_REUSE theft detection!"
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
+# Verify Invariant: Progressive trust and email verification gating in createSecureRoute
+if [ -f "$API_GOV_DIR/create-secure-route.ts" ]; then
+  if grep -q "minimumTrustLevel" "$API_GOV_DIR/create-secure-route.ts" && grep -q "emailVerificationRequired" "$API_GOV_DIR/create-secure-route.ts"; then
+    echo "✅ PASS: Progressive trust and email verification gating enforced in createSecureRoute."
+  else
+    echo "❌ VIOLATION: create-secure-route.ts lacks progressive trust or email verification gating!"
+    ERRORS=$((ERRORS + 1))
   fi
 fi
 

@@ -135,10 +135,11 @@ export interface StackCollection {
 
 export type DatabaseEngine =
   | 'local_fs'
-  | 'backblaze_b2'
-  | 'cloudflare_r2'
-  | 'supabase_storage'
-  | 'aws_s3';
+  | 'icloud'
+  | 'google_drive'
+  | 'onedrive'
+  | 's3_blob'
+  | 'firebase';
 
 export type WorkspaceStorageEngine = DatabaseEngine;
 
@@ -148,8 +149,51 @@ export interface LocalFsConfig {
   maxFileSizeMb: number;
 }
 
+export interface ICloudConfig {
+  containerId: string;
+  syncIntervalMinutes: number;
+}
+
+export interface GoogleDriveAccountRecord {
+  id: string;
+  accountEmail: string;
+  accountName?: string;
+  rootFolderId: string;
+  targetFolderPath?: string;
+  authStatus?: 'authorized' | 'connected' | 'unauthorized' | 'expired' | 'pending';
+  lastSyncedAt?: string;
+  clientId?: string;
+  clientSecret?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  tokenExpiry?: number;
+  storageQuota?: {
+    usageBytes: number;
+    limitBytes: number;
+    usageFormatted: string;
+    limitFormatted: string;
+  };
+}
+
+export interface GoogleDriveConfig {
+  rootFolderId: string;
+  accountEmail?: string;
+  syncOnSave: boolean;
+  activeAccountId?: string;
+  accounts?: GoogleDriveAccountRecord[];
+  clientId?: string;
+  clientSecret?: string;
+  redirectUri?: string;
+}
+
+export interface OneDriveConfig {
+  rootFolderId: string;
+  accountEmail?: string;
+  syncOnSave: boolean;
+}
+
 export interface S3BlobConfig {
-  provider: 's3' | 'vercel_blob' | 'cloudflare_r2' | 'backblaze_b2';
+  provider: 's3' | 'vercel_blob' | 'cloudflare_r2';
   bucketName: string;
   region: string;
   accessKeyId?: string;
@@ -172,6 +216,9 @@ export interface DatabaseSettings {
   activeProfileName: string;
   autoSync: boolean;
   local_fs: LocalFsConfig;
+  icloud?: ICloudConfig;
+  google_drive?: GoogleDriveConfig;
+  onedrive?: OneDriveConfig;
   s3_blob?: S3BlobConfig;
   firebase?: FirebaseConfig;
   lastConnectedAt?: string;
@@ -210,6 +257,34 @@ export interface SearchAssetResult {
 
 export type UserRole = 'admin' | 'pro' | 'user';
 
+export type TrustLevel =
+  | 'T0_UNVERIFIED'
+  | 'T1_EMAIL_VERIFIED'
+  | 'T2_ESTABLISHED'
+  | 'T3_TRUSTED'
+  | 'T4_PRIVILEGED';
+
+export type AccountStatus = 'ACTIVE' | 'SUSPENDED' | 'DISABLED' | 'DELETED';
+
+/**
+ * Independent Session record for multi-session support and rotating refresh token chain.
+ * A browser/device gets its own session and its own refresh-token chain.
+ */
+export interface Session {
+  id: string; // Unique Session ID (sess_...)
+  accountId: string; // References User
+  refreshTokenHash: string; // SHA-256 hash of active refresh token
+  refreshTokenCreatedAt: number; // Timestamp of current refresh token issuance
+  refreshTokenExpiresAt: number; // Expiration of current refresh token
+  createdAt: number; // Session creation timestamp
+  lastActivityAt: number; // Last active request timestamp
+  expiresAt: number; // Absolute session expiration (~30 days)
+  revokedAt?: number; // Revocation timestamp if terminated
+  deviceId?: string; // Client device identifier metadata
+  userAgent?: string; // Anomaly / security signal
+  ipAddress?: string; // Anomaly / security signal
+}
+
 export interface UserWorkspaceRecord {
   id: string;
   name: string;
@@ -244,6 +319,13 @@ export interface UltrstIdentity {
   lastLoginAt?: string;
   updatedAt?: string;
   passwordHash?: string;
+  emailVerified?: boolean;
+  emailVerifiedAt?: string;
+  trustLevel?: TrustLevel;
+  status?: AccountStatus;
+  abuseScore?: number;
+  successfulActivityCount?: number;
+  sessions?: Session[];
   /**
    * Namespaced profile objects for each app in the ecosystem.
    * e.g. { docustack: DocuStackAppProfile, "ultrst-notes": { ... }, "ultrst-music": { ... } }

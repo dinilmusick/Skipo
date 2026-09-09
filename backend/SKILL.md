@@ -103,6 +103,26 @@ All API endpoints across the backend MUST be wrapped with createSecureRoute() ad
    Spike anomalies (401, 403, 429, 5xx, or request surges) automatically ban malicious IPs for 15 minutes.
 ```
 
+### LAW F: Multi-Session Storage, Refresh Token Rotation & Progressive Trust Law
+```
+1. ZERO CREDENTIALS ON USER ROOT:
+   - User entity remains account-level (id, email, trustLevel, emailVerified, status, sessions: Session[]).
+   - Monolithic credential storage directly on User is strictly forbidden.
+2. MULTI-SESSION ISOLATION:
+   - Every login generates an independent Session record.
+   - Revoking Session A (e.g. laptop logout) does NOT invalidate Session B (phone) or Session C.
+   - Password reset or explicit "Logout All Devices" revokes all active sessions.
+3. ROTATION & THEFT DETECTION:
+   - Raw refresh tokens are 48-byte cryptographically random, never stored raw in DB (stored as SHA-256(token)).
+   - Stored in HttpOnly + Secure + SameSite=lax cookies (30d TTL). Short-lived Access Tokens (15m TTL).
+   - Reusing an already-invalidated refresh token is detected as token theft -> immediately revokes the Session and rejects with 401.
+4. SERVER-SIDE PROGRESSIVE TRUST (T0 - T4):
+   - T0 (0.25x), T1 (1.0x), T2 (2.0x), T3 (5.0x), T4 (10.0x).
+   - Enforce minimumTrustLevel and emailVerificationRequired in createSecureRoute.
+5. MULTI-SIGNAL ABUSE PENALTIES:
+   - Abuse scores: >= 15 halves rate limits, >= 30 revokes active sessions, >= 50 auto-suspends account.
+```
+
 
 ---
 
@@ -297,5 +317,40 @@ REQUEST
 
 ### Abuse Anomaly Auto-Blocking
 - **Monitored Anomalies**: 401 spikes, 403 spikes, 429 spikes, 5xx bursts, raw request floods.
-- **Penalty**: 15-minute ban in the in-memory blocklist. Gate 0 drops the connection immediately without calling route handlers or hitting the database.
 - **Observability**: Metrics recorded in an in-memory ring buffer (500 entries) accessible via `/api/telemetry` for authenticated admins.
+
+---
+
+## 10. Multi-Session Storage & Progressive Trust Architecture
+
+### Multi-Session Relationship
+```
+User (Account Entity)
+ ├── Session A ──> Device A (Laptop) ──> Rotating Refresh Token A (SHA-256)
+ ├── Session B ──> Device B (Phone)  ──> Rotating Refresh Token B (SHA-256)
+ └── Session C ──> Device C (Tablet) ──> Rotating Refresh Token C (SHA-256)
+```
+
+### Progressive Trust Multipliers & Promotion Ladder
+```
+T0_UNVERIFIED (0.25x)
+      │  (Email Challenge Verified)
+      ▼
+T1_EMAIL_VERIFIED (1.0x)
+      │  (Account Age >= 7d + Low Abuse)
+      ▼
+T2_ESTABLISHED (2.0x)
+      │  (Account Age >= 30d + 50 Activities + Very Low Abuse)
+      ▼
+T3_TRUSTED (5.0x)
+      │  (Admin Grant / Privileged Role)
+      ▼
+T4_PRIVILEGED (10.0x)
+```
+
+### Token Lifecycle & Theft Detection Invariants
+1. **Raw Token Ephemerality**: High-entropy raw refresh tokens (48 bytes) are NEVER stored in persistent storage or logged. Only `SHA-256(rawToken)` is stored in `Session.refreshTokenHash` and in the rotated token history.
+2. **Atomic Rotation**: Every call to `/api/auth/refresh` invalidates the existing refresh token hash, stores the new hash, and issues a fresh short-lived access token (15m) and a fresh refresh token (30d HttpOnly cookie).
+3. **Theft Detection & Session Revocation**: If an invalidated refresh token is ever submitted, it indicates that a stolen token is being replayed. The system immediately revokes the entire `Session`, writes a `REFRESH_TOKEN_REUSE` security event to the audit log, and rejects the request with HTTP 401.
+4. **Session Isolation**: Logging out of Session A revokes only Session A. Sessions B and C remain active without interruption. "Logout All Devices" or password change triggers `revokeAllUserSessions()`.
+

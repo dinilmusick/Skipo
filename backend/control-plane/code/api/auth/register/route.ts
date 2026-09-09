@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
-import { registerUserAsync, isValidEmail, attachSessionCookie } from '@/lib/auth-storage';
-import { createSecureRoute } from '@/lib/api-governance';
+import { registerUserAsync, isValidEmail, attachAuthCookies } from '@/lib/auth-storage';
+import {
+  createSecureRoute,
+  createSession,
+  createEmailVerificationChallenge,
+} from '@/lib/api-governance';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -14,8 +18,8 @@ export const POST = createSecureRoute({
     key: 'ip',
   },
   limits: { maxBodySize: 32 * 1024 },
-  handler: async (req, { body }) => {
-    const { email, password, name, username } = body || {};
+  handler: async (req, { body, ip, userAgent }) => {
+    const { email, password, name, username, deviceId } = body || {};
 
     if (!email || !password) {
       return NextResponse.json(
@@ -39,15 +43,33 @@ export const POST = createSecureRoute({
       );
     }
 
-    const { user, token } = await registerUserAsync(cleanEmail, password, name, username);
+    const { user } = await registerUserAsync(cleanEmail, password, name, username);
+
+    // Create initial session
+    const sessionResult = createSession(user.id, {
+      deviceId,
+      userAgent,
+      ipAddress: ip,
+    });
+
+    // Create email verification challenge
+    const challenge = createEmailVerificationChallenge(user.id, cleanEmail, ip);
 
     const response = NextResponse.json({
       success: true,
       message: 'USER_REGISTERED_SUCCESSFULLY',
       user,
-      token,
+      token: sessionResult.accessToken,
+      accessToken: sessionResult.accessToken,
+      refreshToken: sessionResult.refreshToken,
+      sessionId: sessionResult.session.id,
+      verificationToken: challenge.rawToken,
+      verificationChallengeId: challenge.challenge.id,
     });
 
-    return attachSessionCookie(response, token);
+    return attachAuthCookies(response, {
+      accessToken: sessionResult.accessToken,
+      refreshToken: sessionResult.refreshToken,
+    });
   },
 });

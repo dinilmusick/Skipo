@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { UserRole } from '../types';
+import { UserRole, TrustLevel, AccountStatus, Session } from '../types';
+
+export type { TrustLevel, AccountStatus, Session };
 
 export type RateLimitTier =
   | 'CHEAP_READ'
@@ -37,6 +39,10 @@ export interface SecureSession {
   role: UserRole;
   token?: string;
   sessionId?: string;
+  accountId?: string;
+  trustLevel?: TrustLevel;
+  emailVerified?: boolean;
+  status?: AccountStatus;
 }
 
 export interface SecureRequestContext<TBody = any> {
@@ -62,6 +68,8 @@ export interface RouteConfig<TBody = any> {
         role?: UserRole;
         permission?: string;
       };
+  minimumTrustLevel?: TrustLevel;
+  emailVerificationRequired?: boolean;
   rateLimit?: RateLimitConfig;
   limits?: ResourceLimitsConfig;
 
@@ -94,4 +102,43 @@ export interface RequestMetricRecord {
   userAgent: string;
   rateLimitRemaining?: number;
   errorCode?: string;
+}
+
+export type SecurityEventType =
+  | 'LOGIN_SUCCESS'
+  | 'LOGIN_FAILURE'
+  | 'SESSION_CREATED'
+  | 'SESSION_REVOKED'
+  | 'TOKEN_REFRESH'
+  | 'REFRESH_TOKEN_REUSE'
+  | 'EMAIL_VERIFICATION_REQUESTED'
+  | 'EMAIL_VERIFIED'
+  | 'EMAIL_VERIFICATION_FAILED'
+  | 'RATE_LIMIT_EXCEEDED'
+  | 'TRUST_CHANGED'
+  | 'FEATURE_BLOCKED'
+  | 'ACCOUNT_SUSPENDED'
+  | 'LOGIN_FAILURE'
+  | 'SUSPICIOUS_ACTIVITY';
+
+export interface SecurityEvent {
+  id: string;
+  timestamp: number;
+  type: SecurityEventType;
+  accountId?: string;
+  sessionId?: string;
+  ip: string;
+  metadata?: Record<string, any>;
+}
+
+export interface EmailVerificationChallenge {
+  id: string;
+  accountId: string;
+  email: string;
+  tokenHash: string;
+  createdAt: number;
+  expiresAt: number;
+  consumedAt?: number;
+  attemptCount: number;
+  maxAttempts: number;
 }

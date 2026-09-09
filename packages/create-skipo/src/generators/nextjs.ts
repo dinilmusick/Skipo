@@ -16,7 +16,11 @@ import {
   governanceObservabilityTemplate,
   governanceErrorHandlerTemplate,
   governanceRouteTemplate,
-  governanceIndexTemplate
+  governanceIndexTemplate,
+  governanceSessionTemplate,
+  governanceEmailVerificationTemplate,
+  governanceTrustTemplate,
+  governanceSecurityEventsTemplate
 } from './templates/index.js';
 
 async function writeFile(path: string, content: string) {
@@ -72,6 +76,10 @@ export async function generateNextjs(
   await writeFile(join(projectDir, 'src', 'lib', 'api-governance', 'observability.ts'), governanceObservabilityTemplate());
   await writeFile(join(projectDir, 'src', 'lib', 'api-governance', 'error-handler.ts'), governanceErrorHandlerTemplate());
   await writeFile(join(projectDir, 'src', 'lib', 'api-governance', 'create-secure-route.ts'), governanceRouteTemplate());
+  await writeFile(join(projectDir, 'src', 'lib', 'api-governance', 'session-manager.ts'), governanceSessionTemplate());
+  await writeFile(join(projectDir, 'src', 'lib', 'api-governance', 'email-verification.ts'), governanceEmailVerificationTemplate());
+  await writeFile(join(projectDir, 'src', 'lib', 'api-governance', 'trust-engine.ts'), governanceTrustTemplate());
+  await writeFile(join(projectDir, 'src', 'lib', 'api-governance', 'security-events.ts'), governanceSecurityEventsTemplate());
   await writeFile(join(projectDir, 'src', 'lib', 'api-governance', 'index.ts'), governanceIndexTemplate());
 
   // Components

@@ -201,6 +201,13 @@ export function normalizeUserAccount(rawUser: any): UserAccount {
     lastLoginAt: rawUser.lastLoginAt || undefined,
     updatedAt: rawUser.updatedAt || now,
     passwordHash: rawUser.passwordHash || rawUser.password_hash,
+    emailVerified: rawUser.emailVerified ?? (rawUser.role === 'admin' ? true : false),
+    emailVerifiedAt: rawUser.emailVerifiedAt || (rawUser.role === 'admin' ? now : undefined),
+    trustLevel: rawUser.trustLevel || (rawUser.role === 'admin' ? 'T4_PRIVILEGED' : 'T0_UNVERIFIED'),
+    status: rawUser.status || 'ACTIVE',
+    abuseScore: rawUser.abuseScore || 0,
+    successfulActivityCount: rawUser.successfulActivityCount || 0,
+    sessions: rawUser.sessions || [],
     appProfiles,
     // Direct accessors for DocuStack convenience
     workspacePath: docustackProfile.workspacePath,
@@ -875,6 +882,51 @@ export function attachSessionCookie(response: NextResponse, token: string): Next
     sameSite: 'lax',
     path: '/',
     maxAge: 7 * 24 * 3600,
+  });
+  return response;
+}
+
+export function attachAuthCookies(
+  response: NextResponse,
+  tokens: { accessToken: string; refreshToken?: string }
+): NextResponse {
+  // 1. Access Token Cookie (short-lived / session)
+  response.cookies.set('docustack_session', tokens.accessToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 15 * 60, // 15 minutes
+  });
+
+  // 2. Refresh Token Cookie (HttpOnly + Secure + SameSite=lax)
+  if (tokens.refreshToken) {
+    response.cookies.set('docustack_refresh_token', tokens.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 30 * 24 * 3600, // 30 days
+    });
+  }
+
+  return response;
+}
+
+export function clearAuthCookies(response: NextResponse): NextResponse {
+  response.cookies.set('docustack_session', '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 0,
+  });
+  response.cookies.set('docustack_refresh_token', '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 0,
   });
   return response;
 }

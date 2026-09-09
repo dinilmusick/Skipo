@@ -359,6 +359,37 @@ Every API route across all Skipo applications MUST pass through the canonical 8-
    Stack traces and raw database errors are NEVER leaked to the client.
 ```
 
+### H. MULTI-SESSION ISOLATION, REFRESH TOKEN ROTATION & PROGRESSIVE TRUST LAW
+```
+1. ZERO CREDENTIALS ON USER ROOT:
+   - User entity remains account-level (id, email, trustLevel, emailVerified, status, sessions: Session[]).
+   - Authentication credentials and session tokens must NEVER be stored directly as monolithic fields on User.
+2. MULTI-SESSION ISOLATION:
+   - Each login generates an independent Session record with unique ID, device ID, user agent, and IP.
+   - Revoking Session A (logout on Device A) leaves Sessions B and C intact.
+   - "Log out all devices" and password reset revokes all active sessions for the account.
+3. REFRESH TOKEN ROTATION & THEFT DETECTION:
+   - Raw refresh tokens are high-entropy (48-byte cryptographically random), sent ONLY to the client, NEVER stored raw in DB (stored as SHA-256(token)), and NEVER logged.
+   - Access tokens are short-lived (15 minutes). Refresh tokens are long-lived (30 days) and stored in HttpOnly + Secure + SameSite=lax cookies.
+   - Atomic rotation on /api/auth/refresh: atomically invalidates the old refresh token hash and issues a new pair.
+   - TOKEN THEFT DETECTION: If a client presents an already-invalidated/rotated refresh token, this constitutes active token theft -> immediately revoke the entire Session, record REFRESH_TOKEN_REUSE security event, and reject with 401.
+4. SERVER-SIDE PROGRESSIVE TRUST HIERARCHY (T0 -> T4):
+   - T0 (T0_UNVERIFIED): Rate multiplier 0.25x. Unverified email. Restricted feature access.
+   - T1 (T1_EMAIL_VERIFIED): Rate multiplier 1.0x. Verified email via cryptographic challenge. Full standard access.
+   - T2 (T2_ESTABLISHED): Rate multiplier 2.0x. Verified + Age >= 7 days + Abuse score <= 10.
+   - T3 (T3_TRUSTED): Rate multiplier 5.0x. Verified + Age >= 30 days + Abuse score <= 5 + Successful activities >= 50.
+   - T4 (T4_PRIVILEGED): Rate multiplier 10.0x. Admin grant or verified elevated role.
+   - Enforce minimumTrustLevel and emailVerificationRequired in createSecureRoute. Reject unauthorized calls at Gate 3 with 403.
+5. MULTI-SIGNAL ABUSE SCORING & AUTOMATIC PENALTIES:
+   - Weighted abuse signals: failed logins (+2), verification failures (+3), verification resends (+1), rate limit violations (+2), concurrency spikes (+3), token reuse (+10).
+   - >= 15: Halve rate limits (0.5x multiplier).
+   - >= 30: Revoke active high-privilege sessions immediately.
+   - >= 50: Auto-suspend account (status = 'SUSPENDED'), revoke all sessions, and block at Gate 2 with 403.
+6. EMAIL VERIFICATION CHALLENGE LIFECYCLE:
+   - Cryptographic challenge token (SHA-256 hash stored), 24-hour TTL, max 5 attempts, single-use consumption.
+   - Multi-tier resend rate limiting: max 3/15m per account, max 3/15m per email, max 5/15m per IP.
+```
+
 ---
 
 ## 5. GLOBAL OUTPUT PREFERENCES

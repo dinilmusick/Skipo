@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
-import { authenticateUserAsync, attachSessionCookie } from '@/lib/auth-storage';
+import { authenticateUserAsync, attachAuthCookies, findUserByEmail } from '@/lib/auth-storage';
 import { logAdminEvent } from '@/lib/audit-logger';
-import { createSecureRoute, resetGovernanceRateLimit } from '@/lib/api-governance';
+import {
+  createSecureRoute,
+  resetGovernanceRateLimit,
+  createSession,
+  recordAbuseSignal,
+  recordSecurityEvent,
+} from '@/lib/api-governance';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -15,8 +21,8 @@ export const POST = createSecureRoute({
     key: 'ip',
   },
   limits: { maxBodySize: 32 * 1024 },
-  handler: async (req, { body, ip }) => {
-    const { email, password, isAdminLogin } = body || {};
+  handler: async (req, { body, ip, userAgent }) => {
+    const { email, password, isAdminLogin, deviceId } = body || {};
 
     if (!email || !password) {
       return NextResponse.json(
@@ -26,7 +32,21 @@ export const POST = createSecureRoute({
     }
 
     try {
-      const { user, token } = await authenticateUserAsync(email, password);
+      const { user } = await authenticateUserAsync(email, password);
+
+      // Check account status
+      if (user.status && user.status !== 'ACTIVE') {
+        recordSecurityEvent({
+          type: 'SUSPICIOUS_ACTIVITY',
+          accountId: user.id,
+          ip,
+          metadata: { reason: `Attempted login to ${user.status} account` },
+        });
+        return NextResponse.json(
+          { success: false, error: `Account is ${user.status.toLowerCase()}. Access denied.` },
+          { status: 403 }
+        );
+      }
 
       // If request comes from admin login or role is admin check
       if (isAdminLogin && user.role !== 'admin') {
@@ -41,6 +61,13 @@ export const POST = createSecureRoute({
           { status: 401 }
         );
       }
+
+      // Create independent session with rotating refresh token
+      const sessionResult = createSession(user.id, {
+        deviceId,
+        userAgent,
+        ipAddress: ip,
+      });
 
       // Reset login rate limit on successful authentication
       resetGovernanceRateLimit(`route:api-auth-login:ip:${ip}`);
@@ -58,11 +85,30 @@ export const POST = createSecureRoute({
         success: true,
         message: 'AUTHENTICATION_SUCCESSFUL',
         user,
-        token,
+        token: sessionResult.accessToken,
+        accessToken: sessionResult.accessToken,
+        refreshToken: sessionResult.refreshToken,
+        sessionId: sessionResult.session.id,
       });
 
-      return attachSessionCookie(response, token);
+      return attachAuthCookies(response, {
+        accessToken: sessionResult.accessToken,
+        refreshToken: sessionResult.refreshToken,
+      });
     } catch (err: any) {
+      // Record abuse signal if email exists
+      const existingUser = findUserByEmail(email);
+      if (existingUser) {
+        recordAbuseSignal(existingUser.id, 'failedLogins', 1, ip);
+      }
+
+      recordSecurityEvent({
+        type: 'LOGIN_FAILURE',
+        accountId: existingUser?.id,
+        ip,
+        metadata: { email, error: err?.message },
+      });
+
       logAdminEvent({
         actor_user_id: 'anonymous',
         action: 'LOGIN_FAILURE',

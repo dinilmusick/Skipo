@@ -19,3 +19,7 @@ export * from './security-headers';
 export * from './error-handler';
 export * from './observability';
 export * from './create-secure-route';
+export * from './security-events';
+export * from './session-manager';
+export * from './email-verification';
+export * from './trust-engine';

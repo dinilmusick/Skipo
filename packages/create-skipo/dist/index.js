@@ -691,6 +691,389 @@ export * from './observability';
 export * from './create-secure-route';
 `;
 
+// src/generators/templates/governance-session.ts
+var governanceSessionTemplate = () => `import crypto from 'crypto';
+import { Session } from './types';
+
+export const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000; // 15 minutes
+export const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+export const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
+interface RotatedTokenRecord {
+  tokenHash: string;
+  sessionId: string;
+  accountId: string;
+  rotatedAt: number;
+}
+
+const sessionsById = new Map<string, Session>();
+const sessionsByRefreshHash = new Map<string, string>();
+const rotatedTokenHashes = new Map<string, RotatedTokenRecord>();
+
+export function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token.trim()).digest('hex');
+}
+
+export function generateRandomToken(byteLength = 48): string {
+  return crypto.randomBytes(byteLength).toString('hex');
+}
+
+export function issueAccessToken(session: { id: string; accountId: string }): string {
+  const secret = process.env.AUTH_SECRET || 'skipo_session_secret_key_2026';
+  const now = Date.now();
+  const payload = JSON.stringify({
+    sessionId: session.id,
+    accountId: session.accountId,
+    issuedAt: now,
+    expiresAt: now + ACCESS_TOKEN_TTL_MS,
+  });
+  const b64 = Buffer.from(payload).toString('base64');
+  const signature = crypto.createHmac('sha256', secret).update(b64).digest('hex');
+  return \`\${b64}.\${signature}\`;
+}
+
+export function validateAccessToken(token: string): { accountId: string; sessionId: string } | null {
+  if (!token) return null;
+  const parts = token.split('.');
+  if (parts.length !== 2) return null;
+  const [b64, signature] = parts;
+  const secret = process.env.AUTH_SECRET || 'skipo_session_secret_key_2026';
+  const expectedSig = crypto.createHmac('sha256', secret).update(b64).digest('hex');
+  if (signature !== expectedSig) return null;
+
+  try {
+    const raw = Buffer.from(b64, 'base64').toString('utf-8');
+    const claims = JSON.parse(raw);
+    const now = Date.now();
+    if (claims.expiresAt && now >= claims.expiresAt) return null;
+
+    const session = sessionsById.get(claims.sessionId);
+    if (session) {
+      if (session.revokedAt != null || now >= session.expiresAt) return null;
+      session.lastActivityAt = now;
+    }
+
+    return { accountId: claims.accountId, sessionId: claims.sessionId };
+  } catch {
+    return null;
+  }
+}
+
+export function createSession(
+  accountId: string,
+  metadata?: { deviceId?: string; userAgent?: string; ipAddress?: string }
+): { session: Session; accessToken: string; refreshToken: string } {
+  const now = Date.now();
+  const sessionId = \`sess_\${now}_\${Math.random().toString(36).slice(2, 9)}\`;
+  const rawRefreshToken = generateRandomToken(48);
+  const refreshTokenHash = hashToken(rawRefreshToken);
+  const expiresAt = now + SESSION_MAX_AGE_MS;
+
+  const session: Session = {
+    id: sessionId,
+    accountId,
+    refreshTokenHash,
+    refreshTokenCreatedAt: now,
+    refreshTokenExpiresAt: Math.min(now + REFRESH_TOKEN_TTL_MS, expiresAt),
+    createdAt: now,
+    lastActivityAt: now,
+    expiresAt,
+    deviceId: metadata?.deviceId,
+    userAgent: metadata?.userAgent,
+    ipAddress: metadata?.ipAddress,
+  };
+
+  sessionsById.set(sessionId, session);
+  sessionsByRefreshHash.set(refreshTokenHash, sessionId);
+
+  const accessToken = issueAccessToken({ id: sessionId, accountId });
+  return { session, accessToken, refreshToken: rawRefreshToken };
+}
+
+export function rotateRefreshToken(
+  rawRefreshToken: string,
+  metadata?: { ip?: string; userAgent?: string }
+): { accessToken: string; refreshToken: string; sessionId: string; accountId: string } {
+  if (!rawRefreshToken) throw new Error('MISSING_REFRESH_TOKEN');
+  const tokenHash = hashToken(rawRefreshToken);
+  const now = Date.now();
+
+  const rotatedRecord = rotatedTokenHashes.get(tokenHash);
+  if (rotatedRecord) {
+    const sessionToRevoke = sessionsById.get(rotatedRecord.sessionId);
+    if (sessionToRevoke) {
+      sessionToRevoke.revokedAt = now;
+      sessionsByRefreshHash.delete(sessionToRevoke.refreshTokenHash);
+    }
+    throw new Error('TOKEN_THEFT_DETECTED: Stolen or reused refresh token. Session revoked.');
+  }
+
+  const sessionId = sessionsByRefreshHash.get(tokenHash);
+  if (!sessionId) throw new Error('INVALID_REFRESH_TOKEN');
+  const session = sessionsById.get(sessionId);
+  if (!session || session.revokedAt != null || now >= session.expiresAt) {
+    throw new Error('SESSION_REVOKED_OR_EXPIRED');
+  }
+
+  const newRawRefreshToken = generateRandomToken(48);
+  const newRefreshTokenHash = hashToken(newRawRefreshToken);
+
+  rotatedTokenHashes.set(tokenHash, {
+    tokenHash,
+    sessionId: session.id,
+    accountId: session.accountId,
+    rotatedAt: now,
+  });
+
+  sessionsByRefreshHash.delete(tokenHash);
+  session.refreshTokenHash = newRefreshTokenHash;
+  session.refreshTokenCreatedAt = now;
+  session.refreshTokenExpiresAt = Math.min(now + REFRESH_TOKEN_TTL_MS, session.expiresAt);
+  session.lastActivityAt = now;
+  sessionsByRefreshHash.set(newRefreshTokenHash, session.id);
+
+  const newAccessToken = issueAccessToken({ id: session.id, accountId: session.accountId });
+  return {
+    accessToken: newAccessToken,
+    refreshToken: newRawRefreshToken,
+    sessionId: session.id,
+    accountId: session.accountId,
+  };
+}
+
+export function revokeSession(sessionId: string): boolean {
+  const session = sessionsById.get(sessionId);
+  if (!session) return false;
+  session.revokedAt = Date.now();
+  if (session.refreshTokenHash) sessionsByRefreshHash.delete(session.refreshTokenHash);
+  return true;
+}
+
+export function revokeAllUserSessions(accountId: string): number {
+  const now = Date.now();
+  let count = 0;
+  for (const session of sessionsById.values()) {
+    if (session.accountId === accountId && !session.revokedAt) {
+      session.revokedAt = now;
+      if (session.refreshTokenHash) sessionsByRefreshHash.delete(session.refreshTokenHash);
+      count++;
+    }
+  }
+  return count;
+}
+
+export function getUserSessions(accountId: string): Array<Omit<Session, 'refreshTokenHash'>> {
+  const now = Date.now();
+  const list: Array<Omit<Session, 'refreshTokenHash'>> = [];
+  for (const session of sessionsById.values()) {
+    if (session.accountId === accountId && !session.revokedAt && now < session.expiresAt) {
+      const { refreshTokenHash: _, ...safe } = session;
+      list.push(safe);
+    }
+  }
+  return list;
+}
+`;
+
+// src/generators/templates/governance-email-verification.ts
+var governanceEmailVerificationTemplate = () => `import crypto from 'crypto';
+import { generateRandomToken, hashToken } from './session-manager';
+
+export const VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+export const MAX_VERIFICATION_ATTEMPTS = 5;
+
+export interface EmailVerificationChallenge {
+  id: string;
+  accountId: string;
+  email: string;
+  tokenHash: string;
+  createdAt: number;
+  expiresAt: number;
+  consumedAt?: number;
+  attemptCount: number;
+  maxAttempts: number;
+}
+
+const challengesById = new Map<string, EmailVerificationChallenge>();
+const challengesByHash = new Map<string, EmailVerificationChallenge>();
+const resendRateLimitMap = new Map<string, number[]>();
+
+export function checkResendRateLimit(
+  accountId: string | undefined,
+  email: string,
+  ip: string
+): { allowed: boolean; retryAfterSec?: number } {
+  const now = Date.now();
+  const windowMs = 15 * 60 * 1000;
+
+  const checkBucket = (key: string, max: number) => {
+    let bucket = resendRateLimitMap.get(key) || [];
+    const valid = bucket.filter((ts) => now - ts < windowMs);
+    resendRateLimitMap.set(key, valid);
+    if (valid.length >= max) {
+      const retryAfter = Math.ceil((valid[0] + windowMs - now) / 1000);
+      return { allowed: false, retryAfterSec: Math.max(1, retryAfter) };
+    }
+    return { allowed: true };
+  };
+
+  if (accountId) {
+    const r = checkBucket(\`resend:account:\${accountId}\`, 3);
+    if (!r.allowed) return r;
+  }
+  const rEmail = checkBucket(\`resend:email:\${email.toLowerCase()}\`, 3);
+  if (!rEmail.allowed) return rEmail;
+  const rIp = checkBucket(\`resend:ip:\${ip}\`, 5);
+  if (!rIp.allowed) return rIp;
+
+  if (accountId) resendRateLimitMap.get(\`resend:account:\${accountId}\`)?.push(now);
+  resendRateLimitMap.get(\`resend:email:\${email.toLowerCase()}\`)?.push(now);
+  resendRateLimitMap.get(\`resend:ip:\${ip}\`)?.push(now);
+  return { allowed: true };
+}
+
+export function createEmailVerificationChallenge(
+  accountOrId: { id: string; email: string } | string,
+  emailOrIp?: string,
+  ipArg?: string
+): { challenge: EmailVerificationChallenge; rawToken: string } {
+  const accountId = typeof accountOrId === 'object' ? accountOrId.id : accountOrId;
+  const email = typeof accountOrId === 'object' ? accountOrId.email : (emailOrIp || '');
+
+  for (const c of challengesById.values()) {
+    if (c.accountId === accountId && !c.consumedAt) {
+      c.consumedAt = Date.now();
+      challengesByHash.delete(c.tokenHash);
+    }
+  }
+
+  const rawToken = generateRandomToken(32);
+  const tokenHash = hashToken(rawToken);
+  const now = Date.now();
+
+  const challenge: EmailVerificationChallenge = {
+    id: \`evc_\${now}_\${Math.random().toString(36).slice(2, 7)}\`,
+    accountId,
+    email: email.toLowerCase(),
+    tokenHash,
+    createdAt: now,
+    expiresAt: now + VERIFICATION_TOKEN_TTL_MS,
+    attemptCount: 0,
+    maxAttempts: MAX_VERIFICATION_ATTEMPTS,
+  };
+
+  challengesById.set(challenge.id, challenge);
+  challengesByHash.set(tokenHash, challenge);
+  return { challenge, rawToken };
+}
+
+export function verifyEmailChallenge(rawToken: string): { success: boolean; error?: string; accountId?: string } {
+  if (!rawToken) return { success: false, error: 'TOKEN_REQUIRED' };
+  const tokenHash = hashToken(rawToken);
+  const challenge = challengesByHash.get(tokenHash);
+  if (!challenge) return { success: false, error: 'INVALID_TOKEN' };
+
+  if (challenge.consumedAt) return { success: false, error: 'TOKEN_ALREADY_USED' };
+  if (Date.now() > challenge.expiresAt) return { success: false, error: 'CHALLENGE_EXPIRED' };
+  if (challenge.attemptCount >= challenge.maxAttempts) return { success: false, error: 'MAX_ATTEMPTS_EXCEEDED' };
+
+  challenge.consumedAt = Date.now();
+  challengesByHash.delete(tokenHash);
+  return { success: true, accountId: challenge.accountId };
+}
+`;
+
+// src/generators/templates/governance-trust.ts
+var governanceTrustTemplate = () => `import { TrustLevel } from './types';
+
+export const TRUST_RANK: Record<TrustLevel, number> = {
+  T0_UNVERIFIED: 0,
+  T1_EMAIL_VERIFIED: 1,
+  T2_ESTABLISHED: 2,
+  T3_TRUSTED: 3,
+  T4_PRIVILEGED: 4,
+};
+
+export const TRUST_RATE_MULTIPLIERS: Record<TrustLevel, number> = {
+  T0_UNVERIFIED: 0.25,
+  T1_EMAIL_VERIFIED: 1.0,
+  T2_ESTABLISHED: 2.0,
+  T3_TRUSTED: 5.0,
+  T4_PRIVILEGED: 10.0,
+};
+
+export function getTrustRateMultiplier(trust?: TrustLevel): number {
+  if (!trust) return 1.0;
+  return TRUST_RATE_MULTIPLIERS[trust] ?? 1.0;
+}
+
+export function calculateTrust(account: {
+  role?: string;
+  emailVerified?: boolean;
+  createdAt?: string | number;
+  abuseScore?: number;
+  successfulActivityCount?: number;
+}): TrustLevel {
+  if (account.role === 'admin') return 'T4_PRIVILEGED';
+
+  let rank = TRUST_RANK.T0_UNVERIFIED;
+  if (account.emailVerified) rank = Math.max(rank, TRUST_RANK.T1_EMAIL_VERIFIED);
+
+  const createdAtMs = account.createdAt ? new Date(account.createdAt).getTime() : Date.now();
+  const ageMs = Date.now() - createdAtMs;
+
+  // 7 days + low abuse -> T2 Established
+  if (account.emailVerified && ageMs >= 7 * 24 * 3600 * 1000 && (account.abuseScore || 0) <= 10) {
+    rank = Math.max(rank, TRUST_RANK.T2_ESTABLISHED);
+  }
+
+  // 30 days + 50 activities -> T3 Trusted
+  if (
+    account.emailVerified &&
+    ageMs >= 30 * 24 * 3600 * 1000 &&
+    (account.abuseScore || 0) <= 5 &&
+    (account.successfulActivityCount || 0) >= 50
+  ) {
+    rank = Math.max(rank, TRUST_RANK.T3_TRUSTED);
+  }
+
+  const entries = Object.entries(TRUST_RANK) as [TrustLevel, number][];
+  const matched = entries.find(([_, r]) => r === rank);
+  return matched ? matched[0] : 'T0_UNVERIFIED';
+}
+`;
+
+// src/generators/templates/governance-security-events.ts
+var governanceSecurityEventsTemplate = () => `export interface SecurityEvent {
+  id: string;
+  timestamp: number;
+  type: string;
+  accountId?: string;
+  sessionId?: string;
+  ip: string;
+  metadata?: Record<string, any>;
+}
+
+const events: SecurityEvent[] = [];
+const MAX_EVENTS = 1000;
+
+export function recordSecurityEvent(event: Omit<SecurityEvent, 'id' | 'timestamp'>): SecurityEvent {
+  const fullEvent: SecurityEvent = {
+    ...event,
+    id: \`sec_\${Date.now()}_\${Math.random().toString(36).slice(2, 7)}\`,
+    timestamp: Date.now(),
+  };
+
+  events.push(fullEvent);
+  if (events.length > MAX_EVENTS) events.shift();
+  return fullEvent;
+}
+
+export function getSecurityEvents(): SecurityEvent[] {
+  return [...events];
+}
+`;
+
 // src/generators/nextjs.ts
 async function writeFile(path, content) {
   await fs.mkdir(dirname(path), { recursive: true });
@@ -722,6 +1105,10 @@ async function generateNextjs(projectName, _skipGit, _skipInstall) {
   await writeFile(join(projectDir, "src", "lib", "api-governance", "observability.ts"), governanceObservabilityTemplate());
   await writeFile(join(projectDir, "src", "lib", "api-governance", "error-handler.ts"), governanceErrorHandlerTemplate());
   await writeFile(join(projectDir, "src", "lib", "api-governance", "create-secure-route.ts"), governanceRouteTemplate());
+  await writeFile(join(projectDir, "src", "lib", "api-governance", "session-manager.ts"), governanceSessionTemplate());
+  await writeFile(join(projectDir, "src", "lib", "api-governance", "email-verification.ts"), governanceEmailVerificationTemplate());
+  await writeFile(join(projectDir, "src", "lib", "api-governance", "trust-engine.ts"), governanceTrustTemplate());
+  await writeFile(join(projectDir, "src", "lib", "api-governance", "security-events.ts"), governanceSecurityEventsTemplate());
   await writeFile(join(projectDir, "src", "lib", "api-governance", "index.ts"), governanceIndexTemplate());
   await writeFile(join(projectDir, "src", "components", "CustomButton.tsx"), nextjsTemplates.customComponentTsx());
   await writeFile(join(projectDir, "scripts", "create-admin.ts"), nextjsTemplates.createAdminTs());

@@ -12,3 +12,7 @@ export * from './governance-observability.js';
 export * from './governance-route.js';
 export * from './governance-middleware.js';
 export * from './governance-index.js';
+export * from './governance-session.js';
+export * from './governance-email-verification.js';
+export * from './governance-trust.js';
+export * from './governance-security-events.js';

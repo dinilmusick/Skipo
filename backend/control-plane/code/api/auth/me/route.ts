@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { findUserByIdAsync, updateUserProfileAsync, resolveRequestContextVault } from '@/lib/auth-storage';
 import { setActiveVaultConfig, ensureWorkspaceExists } from '@/lib/workspaceFS';
-import { createSecureRoute } from '@/lib/api-governance';
+import { createSecureRoute, getUserSessions } from '@/lib/api-governance';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -23,11 +23,19 @@ export const GET = createSecureRoute({
 
     await resolveRequestContextVault(req);
 
+    const activeSessions = getUserSessions(user.id);
     const { passwordHash: _, ...safeUser } = user;
 
     return NextResponse.json({
       success: true,
-      user: safeUser,
+      user: {
+        ...safeUser,
+        trustLevel: user.trustLevel || (user.role === 'admin' ? 'T4_PRIVILEGED' : 'T0_UNVERIFIED'),
+        emailVerified: user.emailVerified ?? (user.role === 'admin'),
+        status: user.status || 'ACTIVE',
+        activeSessionsCount: activeSessions.length,
+      },
+      sessions: activeSessions,
     });
   },
 });

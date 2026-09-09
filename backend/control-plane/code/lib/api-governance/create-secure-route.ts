@@ -23,6 +23,14 @@ import { applySecurityHeaders } from './security-headers';
 import { handleSecureApiError } from './error-handler';
 import { recordRequestMetric } from './observability';
 import { verifySessionToken, findUserById, findUserByIdAsync } from '../auth-storage';
+import { validateAccessToken } from './session-manager';
+import {
+  TRUST_RANK,
+  getTrustRateMultiplier,
+  computeAbuseScore,
+  recordSuccessfulActivity,
+  SUSPICIOUS_ABUSE_THRESHOLD,
+} from './trust-engine';
 
 function extractClientIp(req: NextRequest): string {
   const forwarded = req.headers.get('x-forwarded-for');
@@ -66,12 +74,26 @@ export async function authenticateRequest(req: NextRequest): Promise<SecureSessi
   const token = cookieToken || headerToken || queryToken;
   if (!token) return null;
 
-  const sessionData = verifySessionToken(token);
-  if (!sessionData || !sessionData.userId) return null;
+  let accountId: string | null = null;
+  let sessionId: string | undefined;
 
-  let user = findUserById(sessionData.userId);
+  const accessPayload = validateAccessToken(token);
+  if (accessPayload) {
+    accountId = accessPayload.accountId;
+    sessionId = accessPayload.sessionId;
+  } else {
+    const sessionData = verifySessionToken(token);
+    if (sessionData?.userId) {
+      accountId = sessionData.userId;
+      sessionId = sessionData.sessionId;
+    }
+  }
+
+  if (!accountId) return null;
+
+  let user = findUserById(accountId);
   if (!user) {
-    user = await findUserByIdAsync(sessionData.userId);
+    user = await findUserByIdAsync(accountId);
   }
   if (!user) return null;
 
@@ -79,7 +101,11 @@ export async function authenticateRequest(req: NextRequest): Promise<SecureSessi
     userId: user.id,
     role: user.role,
     token,
-    sessionId: sessionData.sessionId,
+    sessionId,
+    accountId: user.id,
+    trustLevel: user.trustLevel || (user.role === 'admin' ? 'T4_PRIVILEGED' : 'T0_UNVERIFIED'),
+    emailVerified: user.emailVerified ?? (user.role === 'admin'),
+    status: user.status || 'ACTIVE',
   };
 }
 
@@ -188,6 +214,33 @@ export function createSecureRoute<TBody = any>(
       return applySecurityHeaders(authRes, requestId);
     }
 
+    // Reject inactive/suspended accounts immediately
+    if (session && session.status && session.status !== 'ACTIVE') {
+      recordRequestAbuseMetrics(clientIp, 403);
+      const suspendedRes = NextResponse.json(
+        {
+          success: false,
+          error: 'ACCOUNT_SUSPENDED',
+          message: `Account is ${session.status.toLowerCase()}. Access denied.`,
+          status: session.status,
+        },
+        { status: 403 }
+      );
+      recordRequestMetric({
+        timestamp: startTime,
+        requestId,
+        route: config.id,
+        method: req.method,
+        status: 403,
+        durationMs: Date.now() - startTime,
+        userId: session.userId,
+        ip: clientIp,
+        userAgent,
+        errorCode: 'ACCOUNT_SUSPENDED',
+      });
+      return applySecurityHeaders(suspendedRes, requestId);
+    }
+
     // ── GATE 3: AUTHORIZATION (ROLE & PERMISSION MATRIX) ──────────────────────────────────
     const requiredRole = typeof config.auth === 'object' ? config.auth?.role : undefined;
     if (requiredRole && session?.role !== requiredRole) {
@@ -214,6 +267,65 @@ export function createSecureRoute<TBody = any>(
         errorCode: 'FORBIDDEN',
       });
       return applySecurityHeaders(forbidRes, requestId);
+    }
+
+    // Email verification gating
+    if (config.emailVerificationRequired && (!session || !session.emailVerified)) {
+      recordRequestAbuseMetrics(clientIp, 403);
+      const emailRes = NextResponse.json(
+        {
+          success: false,
+          error: 'EMAIL_VERIFICATION_REQUIRED',
+          message: 'Email verification is required to access this endpoint.',
+        },
+        { status: 403 }
+      );
+      recordRequestMetric({
+        timestamp: startTime,
+        requestId,
+        route: config.id,
+        method: req.method,
+        status: 403,
+        durationMs: Date.now() - startTime,
+        userId: session?.userId,
+        ip: clientIp,
+        userAgent,
+        errorCode: 'EMAIL_VERIFICATION_REQUIRED',
+      });
+      return applySecurityHeaders(emailRes, requestId);
+    }
+
+    // Progressive trust level gating
+    if (config.minimumTrustLevel) {
+      const userTrust = session?.trustLevel || 'T0_UNVERIFIED';
+      const userRank = TRUST_RANK[userTrust] ?? 0;
+      const requiredRank = TRUST_RANK[config.minimumTrustLevel] ?? 0;
+      if (userRank < requiredRank) {
+        recordRequestAbuseMetrics(clientIp, 403);
+        const trustRes = NextResponse.json(
+          {
+            success: false,
+            error: 'INSUFFICIENT_TRUST_LEVEL',
+            message: `Endpoint requires trust level "${config.minimumTrustLevel}". Current account trust is "${userTrust}".`,
+            requiredTrustLevel: config.minimumTrustLevel,
+            currentTrustLevel: userTrust,
+          },
+          { status: 403 }
+        );
+        recordRequestMetric({
+          timestamp: startTime,
+          requestId,
+          route: config.id,
+          method: req.method,
+          status: 403,
+          durationMs: Date.now() - startTime,
+          userId: session?.userId,
+          ip: clientIp,
+          userAgent,
+          errorCode: 'INSUFFICIENT_TRUST_LEVEL',
+        });
+        return applySecurityHeaders(trustRes, requestId);
+      }
     }
 
     if (config.authorize) {
@@ -265,7 +377,12 @@ export function createSecureRoute<TBody = any>(
         break;
     }
 
-    const rateResult = checkGovernanceRateLimit(rateLimitKey, config.rateLimit);
+    let trustMultiplier = session?.trustLevel ? getTrustRateMultiplier(session.trustLevel) : 1.0;
+    if (session?.userId && computeAbuseScore(session.userId) >= SUSPICIOUS_ABUSE_THRESHOLD) {
+      trustMultiplier *= 0.5;
+    }
+
+    const rateResult = checkGovernanceRateLimit(rateLimitKey, config.rateLimit, trustMultiplier);
     if (!rateResult.allowed) {
       recordRequestAbuseMetrics(clientIp, 429);
       const rateRes = NextResponse.json(
@@ -377,6 +494,11 @@ export function createSecureRoute<TBody = any>(
         userAgent,
         rateLimitRemaining: rateResult.remaining,
       });
+
+      // Record successful activity for progressive trust elevation
+      if (session?.userId && response.status >= 200 && response.status < 300) {
+        recordSuccessfulActivity(session.userId);
+      }
 
       return applySecurityHeaders(response, requestId);
     } catch (err: any) {
