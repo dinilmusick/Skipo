@@ -14,3 +14,4 @@ export * from './spatial/index.js';
 export * from './management/index.js';
 export * from './store/index.js';
 export * from './ui/index.js';
+export * from './Viewer2DNodes.js';

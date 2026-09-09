@@ -91,7 +91,38 @@ All node categories MUST have distinctly different silhouettes, color themes, an
 ## 7. MAGNETIC TRACING & PURELY SPATIAL AUTO-SOLIDIFY
 - **Centralized Rules Engine**: Nodes NEVER own connection compatibility logic. All resolutions flow through `CompatibilityMatrix.resolve(source, target)`.
 - **Proximity Traces**: When `tracingEnabled = true`, compatible handle pairs within `traceCutoffDistance` automatically display transient, translucent ghost wires with a `[ SOLIDIFY ]` badge.
-- **Effective Handle Offset**: Handles support local displacement ($P_{\text{effective}} = P_{\text{base}} + P_{\text{offset}}$) to resolve spatial contention without altering node cards.
+- **Effective Handle Offset & Movable Sockets**: Handles support local displacement ($P_{\text{effective}} = P_{\text{base}} + P_{\text{offset}}$) via `socketOffsets` to resolve spatial contention without altering node cards.
+- **Socket Sizing & Clearance (Anti-Obscuring Rule)**:
+  - Socket handles must be rendered at `28px` / `w-7 h-7` with internal visual state indicators.
+  - Sockets MUST be pushed outward from node body edges by at least `12px`:
+    ```typescript
+    const baseX = isOutput ? (cardWidth / 2) + 12 : -(cardWidth / 2) - 12;
+    ```
+- **Socket Drag Gizmo UI**: Render a hover-activated drag gizmo adjacent to the handle (`-18px` for inputs, `+18px` for outputs) to grab and displace handles independently of wire connections.
+- **Tapered Energy Beam Tethers**: When displaced (`nudge.x !== 0 || nudge.y !== 0`), render dual-layered SVG `<polygon>` beams (intense inner core + glowing outer shroud) using `getBeamPoints`:
+  ```typescript
+  const getBeamPoints = (nudge: { x: number; y: number }, baseW = 5, headW = 1.2) => {
+    const vx = -nudge.x;
+    const vy = -nudge.y;
+    const d = Math.sqrt(vx * vx + vy * vy);
+    if (d < 1) return "";
+
+    const px = -vy / d;
+    const py = vx / d;
+
+    const hL_x = -px * headW;
+    const hL_y = -py * headW;
+    const hR_x = px * headW;
+    const hR_y = py * headW;
+
+    const bR_x = vx + px * baseW;
+    const bR_y = vy + py * baseW;
+    const bL_x = vx - px * baseW;
+    const bL_y = vy - py * baseW;
+
+    return `${hL_x},${hL_y} ${hR_x},${hR_y} ${bR_x},${bR_y} ${bL_x},${bL_y}`;
+  };
+  ```
 - **Pure Spatial Auto-Solidify**: When `autoSolidify = true`, closest candidate wins with deterministic tie-breaking (exact distance $\to$ offset distance $\to$ deterministic node ID). Zero blacklist memory.
 
 ---

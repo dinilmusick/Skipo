@@ -70,3 +70,48 @@ Viewer Nodes on the Omni Canvas act as full **Windowed Canvas Widgets**:
 2. **Resizable**: Drag the bottom-right corner resize handle (`.viewer-resize-handle`) to resize width and height freely with automatic Monaco reflow (`editor.layout()`).
 3. **Window Controls**: `[ ✕ Close ]` closes the viewer node and removes the tethering view wire.
 4. **Z-Index Layering**: Clicking inside any Viewer Node immediately brings it to the top of the canvas focus stack.
+
+---
+
+## 6. MOVABLE SOCKET HANDLES & TAPERED ENERGY BEAM TETHERS
+All node graphs (including Viewer Nodes and concept nodes) must adhere strictly to these physical socket interaction invariants:
+
+### 1. Socket Sizing & Spatial Clearance (Anti-Obscuring Rule)
+- **Large Target Areas**: Socket handles MUST render at a prominent, highly clickable size (`28px` / `w-7 h-7`) with internal visual indicators for connection states.
+- **Node Body Clearance**: To prevent enlarged handles from obscuring labels, text, or status badges, base coordinates MUST be pushed outward from the node body edge by at least `12px`:
+  ```typescript
+  const baseX = isOutput ? (cardWidth / 2) + 12 : -(cardWidth / 2) - 12;
+  ```
+
+### 2. Physical Handle Displacement (Movable Sockets)
+- **Nudge Feature**: Support custom X/Y displacement offsets (`socketOffsets` / `nudge`), allowing users to reposition handles away from the node body to optimize wire layouts.
+- **Gizmo UI**: Each socket must render a hover-activated drag gizmo adjacent to it (`-18px` for inputs, `+18px` for outputs) to grab and displace the handle without initiating wire connections.
+
+### 3. Tapered Energy Beam Tethers
+- **Visual Feedback**: Whenever a socket is displaced (`nudge.x !== 0 || nudge.y !== 0`), it MUST render a dynamic tapered geometric beam connecting the displaced handle back to its base anchor.
+- **Dual-Layered Polygons**: Never use a plain `<line>`. Use dual `<polygon>` layers: an intense inner core and a glowing outer shroud tapering from thick at the node body base to a fine point at the displaced handle.
+- **Beam Mathematics Helper**:
+  ```typescript
+  const getBeamPoints = (nudge: { x: number; y: number }, baseW = 5, headW = 1.2) => {
+    const vx = -nudge.x;
+    const vy = -nudge.y;
+    const d = Math.sqrt(vx * vx + vy * vy);
+    if (d < 1) return "";
+
+    const px = -vy / d;
+    const py = vx / d;
+
+    const hL_x = -px * headW;
+    const hL_y = -py * headW;
+    const hR_x = px * headW;
+    const hR_y = py * headW;
+
+    const bR_x = vx + px * baseW;
+    const bR_y = vy + py * baseW;
+    const bL_x = vx - px * baseW;
+    const bL_y = vy - py * baseW;
+
+    return `${hL_x},${hL_y} ${hR_x},${hR_y} ${bR_x},${bR_y} ${bL_x},${bL_y}`;
+  };
+  ```
+

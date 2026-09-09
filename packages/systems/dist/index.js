@@ -1,4 +1,8 @@
 import {
+  AudioInputManager,
+  MidiManager
+} from "./chunk-5E5H74G7.js";
+import {
   CanvasViewport,
   InfiniteCanvas,
   MiniMap,
@@ -15,12 +19,6 @@ import {
   useMonaco
 } from "./chunk-EUMPTWNH.js";
 import {
-  Tile,
-  TileCreateButton,
-  TileGrid,
-  useTileMenu
-} from "./chunk-UNNSOWNA.js";
-import {
   AttractionEngine,
   AutoSolidify,
   BaseConnection,
@@ -41,6 +39,7 @@ import {
   HandleTypeRegistry,
   LandmarkManager,
   MidpointWidgets,
+  MovableSocketHandle,
   NodeCard,
   NodeDetailsPanel,
   NodeGraphCanvas,
@@ -53,19 +52,29 @@ import {
   ViewHandle,
   ViewLink,
   ViewWindowManager,
+  Viewer2DNodes,
   WireRenderer,
   WireTypeRegistry,
+  calculateSocketCoordinates,
   canvasToScreen,
   clampZoom,
   fitToView,
+  getBeamPoints,
   getNodesInSelection,
   initializeDefaultGraphRules,
   screenToCanvas,
   useNodeGraph,
   zoomAtPoint
-} from "./chunk-XRKZKS55.js";
+} from "./chunk-FUT2ZZWJ.js";
+import {
+  Tile,
+  TileCreateButton,
+  TileGrid,
+  useTileMenu
+} from "./chunk-UNNSOWNA.js";
 export {
   AttractionEngine,
+  AudioInputManager,
   AutoSolidify,
   BaseConnection,
   BaseGraph,
@@ -88,9 +97,11 @@ export {
   HandleTypeRegistry,
   InfiniteCanvas,
   LandmarkManager,
+  MidiManager,
   MidpointWidgets,
   MiniMap,
   MonacoEditor,
+  MovableSocketHandle,
   NodeCard,
   NodeDetailsPanel,
   NodeGraphCanvas,
@@ -106,11 +117,14 @@ export {
   ViewHandle,
   ViewLink,
   ViewWindowManager,
+  Viewer2DNodes,
   WireRenderer,
   WireTypeRegistry,
+  calculateSocketCoordinates,
   canvasToScreen,
   clampZoom,
   fitToView,
+  getBeamPoints,
   getNodesInSelection,
   initializeDefaultGraphRules,
   screenToCanvas,

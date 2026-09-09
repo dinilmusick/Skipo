@@ -523,6 +523,38 @@ declare class AttractionEngine {
     static calculateStep(nodes: BaseNode[], strength?: number, speed?: number): Map<string, NodePosition>;
 }
 
+interface SocketCoordOptions {
+    cardWidth: number;
+    isOutput: boolean;
+    clearance?: number;
+    nudge?: {
+        x: number;
+        y: number;
+    };
+}
+interface SocketCoordResult {
+    baseX: number;
+    effectiveX: number;
+    effectiveY: number;
+    nudge: {
+        x: number;
+        y: number;
+    };
+}
+/**
+ * Calculates socket handle coordinates enforcing the 12px spatial clearance invariant
+ * and applying custom nudge displacement offsets.
+ */
+declare function calculateSocketCoordinates(baseY: number, options: SocketCoordOptions): SocketCoordResult;
+/**
+ * Dual-layered polygon beam points helper for tapered energy beam tethers.
+ * Tapers from thick at base (node body) to a fine point at head (displaced handle).
+ */
+declare const getBeamPoints: (nudge: {
+    x: number;
+    y: number;
+}, baseW?: number, headW?: number) => string;
+
 declare class GroupSettingsResolver {
     static resolveEffectiveSetting<K extends keyof GraphSettings>(settingKey: K, rootSettings: GraphSettings, targetOverrides?: Partial<GraphSettings>, groupId?: string, groups?: Group[]): GraphSettings[K];
     static resolveAllSettings(rootSettings: GraphSettings, targetOverrides?: Partial<GraphSettings>, groupId?: string, groups?: Group[]): GraphSettings;
@@ -756,4 +788,30 @@ declare class ReactFlowAdapter {
     }>;
 }
 
-export { AttractionEngine, AutoSolidify, BaseConnection, type BaseConnectionProps, BaseGraph, BaseHandle, type BaseHandleProps, BaseNode, type BaseNodeProps, BaseViewWindow, type BaseViewWindowProps, type CaptureGraphSnapshotParams, CommandApi, CompatibilityMatrix, type CompatibilityResolution, type CompatibilityRule, type ConnectionMode, type CreateViewWindowParams, CustomGraph, CustomNode, CustomViewWindow, DEFAULT_GRAPH_SETTINGS, DataHandle, type DynamicState, type GraphEdge, type GraphListener, type GraphNode, type GraphSettings, GraphStore, GraphToolbar, type GraphToolbarProps, type GraphView, type Group, GroupSettingsResolver, type HandleCategory, type HandleDefinition, type HandleDirection, type HandleOffset, type HandlePosition, type HandleTypeDefinition, HandleTypeRegistry, type Landmark, LandmarkManager, MidpointWidgets, type MidpointWidgetsProps, NodeCard, type NodeDefinition, NodeDetailsPanel, type NodeDetailsPanelProps, NodeGraphCanvas, type NodeGraphConfig, type NodeGraphPlugin, type NodePosition, type NodeSize, ReactFlowAdapter, type ReactFlowEdgeData, type ReactFlowNodeData, type Socket, type SocketType, SolidConnection, type SolidConnectionProps, SolidifyWidget, type SolidifyWidgetProps, SpatialEngine, type Trace, TraceEngine, ViewEngine, ViewHandle, ViewLink, type ViewLinkProps, ViewWindowManager, type ViewportState, WireRenderer, type WireTypeDefinition, WireTypeRegistry, canvasToScreen, clampZoom, fitToView, getNodesInSelection, initializeDefaultGraphRules, screenToCanvas, useNodeGraph, zoomAtPoint };
+interface Viewer2DNodesProps {
+    node: GraphNode;
+    selected?: boolean;
+    onMouseDown?: (e: react__default.MouseEvent, nodeId: string) => void;
+    onDoubleClick?: (nodeId: string) => void;
+    onSocketMouseDown?: (e: react__default.MouseEvent, nodeId: string, socketId: string, type: 'input' | 'output') => void;
+    onSocketNudgeChange?: (nodeId: string, socketId: string, nudge: {
+        x: number;
+        y: number;
+    }) => void;
+}
+declare function Viewer2DNodes({ node, selected, onMouseDown, onDoubleClick, onSocketMouseDown, onSocketNudgeChange }: Viewer2DNodesProps): react__default.JSX.Element;
+interface MovableSocketHandleProps {
+    socket: Socket;
+    nodeId: string;
+    cardWidth: number;
+    isOutput: boolean;
+    baseY: number;
+    onSocketMouseDown?: (e: react__default.MouseEvent, nodeId: string, socketId: string, type: 'input' | 'output') => void;
+    onSocketNudgeChange?: (nodeId: string, socketId: string, nudge: {
+        x: number;
+        y: number;
+    }) => void;
+}
+declare function MovableSocketHandle({ socket, nodeId, cardWidth, isOutput, baseY, onSocketMouseDown, onSocketNudgeChange }: MovableSocketHandleProps): react__default.JSX.Element;
+
+export { AttractionEngine, AutoSolidify, BaseConnection, type BaseConnectionProps, BaseGraph, BaseHandle, type BaseHandleProps, BaseNode, type BaseNodeProps, BaseViewWindow, type BaseViewWindowProps, type CaptureGraphSnapshotParams, CommandApi, CompatibilityMatrix, type CompatibilityResolution, type CompatibilityRule, type ConnectionMode, type CreateViewWindowParams, CustomGraph, CustomNode, CustomViewWindow, DEFAULT_GRAPH_SETTINGS, DataHandle, type DynamicState, type GraphEdge, type GraphListener, type GraphNode, type GraphSettings, GraphStore, GraphToolbar, type GraphToolbarProps, type GraphView, type Group, GroupSettingsResolver, type HandleCategory, type HandleDefinition, type HandleDirection, type HandleOffset, type HandlePosition, type HandleTypeDefinition, HandleTypeRegistry, type Landmark, LandmarkManager, MidpointWidgets, type MidpointWidgetsProps, MovableSocketHandle, NodeCard, type NodeDefinition, NodeDetailsPanel, type NodeDetailsPanelProps, NodeGraphCanvas, type NodeGraphConfig, type NodeGraphPlugin, type NodePosition, type NodeSize, ReactFlowAdapter, type ReactFlowEdgeData, type ReactFlowNodeData, type Socket, type SocketCoordOptions, type SocketCoordResult, type SocketType, SolidConnection, type SolidConnectionProps, SolidifyWidget, type SolidifyWidgetProps, SpatialEngine, type Trace, TraceEngine, ViewEngine, ViewHandle, ViewLink, type ViewLinkProps, ViewWindowManager, Viewer2DNodes, type Viewer2DNodesProps, type ViewportState, WireRenderer, type WireTypeDefinition, WireTypeRegistry, calculateSocketCoordinates, canvasToScreen, clampZoom, fitToView, getBeamPoints, getNodesInSelection, initializeDefaultGraphRules, screenToCanvas, useNodeGraph, zoomAtPoint };

@@ -928,8 +928,12 @@ function initializeDefaultGraphRules() {
 // src/node-graph/spatial/SpatialEngine.ts
 var SpatialEngine = class {
   static calculateEffectiveHandlePosition(node, handle) {
+    let baseX = handle.basePosition.x;
+    if (baseX === 0 && node.size?.width) {
+      baseX = handle.direction === "OUTPUT" ? node.size.width / 2 + 12 : -(node.size.width / 2) - 12;
+    }
     return {
-      x: node.position.x + handle.basePosition.x + handle.offset.x,
+      x: node.position.x + baseX + handle.offset.x,
       y: node.position.y + handle.basePosition.y + handle.offset.y
     };
   }
@@ -1111,6 +1115,36 @@ var AttractionEngine = class {
   }
 };
 
+// src/node-graph/spatial/socketCoordinates.ts
+function calculateSocketCoordinates(baseY, options) {
+  const clearance = options.clearance ?? 12;
+  const nudge = options.nudge ?? { x: 0, y: 0 };
+  const baseX = options.isOutput ? options.cardWidth / 2 + clearance : -(options.cardWidth / 2) - clearance;
+  return {
+    baseX,
+    effectiveX: baseX + nudge.x,
+    effectiveY: baseY + nudge.y,
+    nudge
+  };
+}
+var getBeamPoints = (nudge, baseW = 5, headW = 1.2) => {
+  const vx = -nudge.x;
+  const vy = -nudge.y;
+  const d = Math.sqrt(vx * vx + vy * vy);
+  if (d < 1) return "";
+  const px = -vy / d;
+  const py = vx / d;
+  const hL_x = -px * headW;
+  const hL_y = -py * headW;
+  const hR_x = px * headW;
+  const hR_y = py * headW;
+  const bR_x = vx + px * baseW;
+  const bR_y = vy + py * baseW;
+  const bL_x = vx - px * baseW;
+  const bL_y = vy - py * baseW;
+  return `${hL_x},${hL_y} ${hR_x},${hR_y} ${bR_x},${bR_y} ${bL_x},${bL_y}`;
+};
+
 // src/node-graph/management/GroupSettingsResolver.ts
 var GroupSettingsResolver = class {
   static resolveEffectiveSetting(settingKey, rootSettings, targetOverrides, groupId, groups = []) {
@@ -1240,7 +1274,7 @@ var ViewWindowManager = class {
   links = /* @__PURE__ */ new Map();
   createWindow(params) {
     const id = params.id ?? `vw-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const window = new CustomViewWindow({
+    const window2 = new CustomViewWindow({
       id,
       viewType: params.viewType,
       sourceNodeId: params.sourceNodeId,
@@ -1256,9 +1290,9 @@ var ViewWindowManager = class {
       targetViewWindowId: id
     });
     this.selectWindow(id);
-    this.windows.set(id, window);
+    this.windows.set(id, window2);
     this.links.set(id, link);
-    return { window, link };
+    return { window: window2, link };
   }
   selectWindow(id) {
     for (const [wId, win] of this.windows) {
@@ -1867,6 +1901,288 @@ var ReactFlowAdapter = class {
   }
 };
 
+// src/node-graph/Viewer2DNodes.tsx
+import { useState as useState3, useRef as useRef2 } from "react";
+import { jsx as jsx8, jsxs as jsxs8 } from "react/jsx-runtime";
+function Viewer2DNodes({
+  node,
+  selected,
+  onMouseDown,
+  onDoubleClick,
+  onSocketMouseDown,
+  onSocketNudgeChange
+}) {
+  const cardWidth = node.width ?? 180;
+  const headerHeight = 36;
+  const socketSpacing = 36;
+  const centerX = cardWidth / 2;
+  return /* @__PURE__ */ jsxs8(
+    "div",
+    {
+      style: {
+        position: "absolute",
+        left: node.position.x,
+        top: node.position.y,
+        width: cardWidth,
+        backgroundColor: "rgba(20, 24, 30, 0.9)",
+        backdropFilter: "blur(12px)",
+        border: `2px solid ${selected ? "#d4af37" : "rgba(255, 255, 255, 0.12)"}`,
+        borderRadius: "10px",
+        color: "#f5ede4",
+        fontFamily: "Inter, system-ui, sans-serif",
+        userSelect: "none",
+        boxShadow: selected ? "0 0 20px rgba(212, 175, 55, 0.45)" : "0 8px 16px rgba(0, 0, 0, 0.4)",
+        zIndex: selected ? 25 : 15
+      },
+      onMouseDown: (e) => onMouseDown?.(e, node.id),
+      onDoubleClick: () => onDoubleClick?.(node.id),
+      children: [
+        /* @__PURE__ */ jsxs8(
+          "div",
+          {
+            style: {
+              height: `${headerHeight}px`,
+              padding: "0 12px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+              backgroundColor: "rgba(0, 0, 0, 0.25)",
+              borderTopLeftRadius: "8px",
+              borderTopRightRadius: "8px"
+            },
+            children: [
+              /* @__PURE__ */ jsx8("span", { style: { fontSize: "12px", fontWeight: 600, letterSpacing: "0.02em" }, children: node.label }),
+              /* @__PURE__ */ jsx8(
+                "span",
+                {
+                  style: {
+                    fontSize: "9px",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    padding: "2px 6px",
+                    borderRadius: "4px",
+                    backgroundColor: "rgba(255, 255, 255, 0.08)",
+                    color: "#a0aec0"
+                  },
+                  children: node.type
+                }
+              )
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsx8("div", { style: { position: "relative", minHeight: "60px", padding: "12px 16px" }, children: node.data && /* @__PURE__ */ jsxs8("div", { style: { fontSize: "11px", color: "#94a3b8" }, children: [
+          Object.keys(node.data).length,
+          " properties"
+        ] }) }),
+        /* @__PURE__ */ jsxs8("div", { style: { position: "absolute", top: headerHeight + 10, left: centerX, width: 0, height: 0 }, children: [
+          node.inputs?.map((socket, idx) => /* @__PURE__ */ jsx8(
+            MovableSocketHandle,
+            {
+              socket,
+              nodeId: node.id,
+              cardWidth,
+              isOutput: false,
+              baseY: idx * socketSpacing,
+              onSocketMouseDown,
+              onSocketNudgeChange
+            },
+            socket.id
+          )),
+          node.outputs?.map((socket, idx) => /* @__PURE__ */ jsx8(
+            MovableSocketHandle,
+            {
+              socket,
+              nodeId: node.id,
+              cardWidth,
+              isOutput: true,
+              baseY: idx * socketSpacing,
+              onSocketMouseDown,
+              onSocketNudgeChange
+            },
+            socket.id
+          ))
+        ] })
+      ]
+    }
+  );
+}
+function MovableSocketHandle({
+  socket,
+  nodeId,
+  cardWidth,
+  isOutput,
+  baseY,
+  onSocketMouseDown,
+  onSocketNudgeChange
+}) {
+  const [isHovered, setIsHovered] = useState3(false);
+  const [localNudge, setLocalNudge] = useState3(
+    socket.offset ?? { x: 0, y: 0 }
+  );
+  const isDraggingGizmoRef = useRef2(false);
+  const dragStartPosRef = useRef2({
+    clientX: 0,
+    clientY: 0,
+    origX: 0,
+    origY: 0
+  });
+  const nudge = socket.offset ?? localNudge;
+  const isDisplaced = nudge.x !== 0 || nudge.y !== 0;
+  const coords = calculateSocketCoordinates(baseY, {
+    cardWidth,
+    isOutput,
+    clearance: 12,
+    nudge
+  });
+  const handleGizmoMouseDown = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    isDraggingGizmoRef.current = true;
+    dragStartPosRef.current = {
+      clientX: e.clientX,
+      clientY: e.clientY,
+      origX: nudge.x,
+      origY: nudge.y
+    };
+    const handleWindowMouseMove = (moveEvt) => {
+      if (!isDraggingGizmoRef.current) return;
+      const dx = moveEvt.clientX - dragStartPosRef.current.clientX;
+      const dy = moveEvt.clientY - dragStartPosRef.current.clientY;
+      const updated = {
+        x: Math.round(dragStartPosRef.current.origX + dx),
+        y: Math.round(dragStartPosRef.current.origY + dy)
+      };
+      setLocalNudge(updated);
+      onSocketNudgeChange?.(nodeId, socket.id, updated);
+    };
+    const handleWindowMouseUp = () => {
+      isDraggingGizmoRef.current = false;
+      window.removeEventListener("mousemove", handleWindowMouseMove);
+      window.removeEventListener("mouseup", handleWindowMouseUp);
+    };
+    window.addEventListener("mousemove", handleWindowMouseMove);
+    window.addEventListener("mouseup", handleWindowMouseUp);
+  };
+  const beamCorePoints = getBeamPoints(nudge, 5, 1.2);
+  const beamShroudPoints = getBeamPoints(nudge, 8, 2.5);
+  const socketThemeColor = isOutput ? "#61afef" : "#98c379";
+  const gizmoOffsetX = isOutput ? 18 : -18;
+  return /* @__PURE__ */ jsxs8(
+    "div",
+    {
+      style: {
+        position: "absolute",
+        left: 0,
+        top: 0
+      },
+      onMouseEnter: () => setIsHovered(true),
+      onMouseLeave: () => setIsHovered(false),
+      children: [
+        isDisplaced && /* @__PURE__ */ jsxs8(
+          "svg",
+          {
+            style: {
+              position: "absolute",
+              left: coords.effectiveX,
+              top: coords.effectiveY,
+              overflow: "visible",
+              pointerEvents: "none",
+              zIndex: 1
+            },
+            children: [
+              /* @__PURE__ */ jsx8(
+                "polygon",
+                {
+                  points: beamShroudPoints,
+                  fill: socketThemeColor,
+                  opacity: 0.35
+                }
+              ),
+              /* @__PURE__ */ jsx8(
+                "polygon",
+                {
+                  points: beamCorePoints,
+                  fill: "#ffffff",
+                  opacity: 0.9
+                }
+              )
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsx8(
+          "div",
+          {
+            style: {
+              position: "absolute",
+              left: coords.effectiveX - 14,
+              top: coords.effectiveY - 14,
+              width: "28px",
+              height: "28px",
+              borderRadius: "50%",
+              backgroundColor: "#181a1f",
+              border: `2px solid ${socketThemeColor}`,
+              boxShadow: isHovered ? `0 0 12px ${socketThemeColor}, inset 0 0 6px ${socketThemeColor}` : "0 2px 6px rgba(0,0,0,0.6)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "crosshair",
+              zIndex: 4
+            },
+            onMouseDown: (e) => {
+              e.stopPropagation();
+              onSocketMouseDown?.(e, nodeId, socket.id, isOutput ? "output" : "input");
+            },
+            children: /* @__PURE__ */ jsx8(
+              "div",
+              {
+                style: {
+                  width: "10px",
+                  height: "10px",
+                  borderRadius: "50%",
+                  backgroundColor: socketThemeColor,
+                  boxShadow: `0 0 4px ${socketThemeColor}`
+                }
+              }
+            )
+          }
+        ),
+        (isHovered || isDraggingGizmoRef.current) && /* @__PURE__ */ jsx8(
+          "div",
+          {
+            title: "Drag to displace socket handle",
+            style: {
+              position: "absolute",
+              left: coords.effectiveX + gizmoOffsetX - 8,
+              top: coords.effectiveY - 8,
+              width: "16px",
+              height: "16px",
+              borderRadius: "4px",
+              backgroundColor: "rgba(30, 34, 42, 0.95)",
+              border: "1px solid rgba(255, 255, 255, 0.3)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "grab",
+              zIndex: 6,
+              boxShadow: "0 2px 4px rgba(0,0,0,0.5)"
+            },
+            onMouseDown: handleGizmoMouseDown,
+            children: /* @__PURE__ */ jsxs8("svg", { width: "10", height: "10", viewBox: "0 0 24 24", fill: "none", stroke: "#d4af37", strokeWidth: "2.5", strokeLinecap: "round", strokeLinejoin: "round", children: [
+              /* @__PURE__ */ jsx8("polyline", { points: "5 9 2 12 5 15" }),
+              /* @__PURE__ */ jsx8("polyline", { points: "9 5 12 2 15 5" }),
+              /* @__PURE__ */ jsx8("polyline", { points: "15 19 12 22 9 19" }),
+              /* @__PURE__ */ jsx8("polyline", { points: "19 9 22 12 19 15" }),
+              /* @__PURE__ */ jsx8("line", { x1: "2", y1: "12", x2: "22", y2: "12" }),
+              /* @__PURE__ */ jsx8("line", { x1: "12", y1: "2", x2: "12", y2: "22" })
+            ] })
+          }
+        )
+      ]
+    }
+  );
+}
+
 export {
   screenToCanvas,
   canvasToScreen,
@@ -1900,6 +2216,8 @@ export {
   TraceEngine,
   AutoSolidify,
   AttractionEngine,
+  calculateSocketCoordinates,
+  getBeamPoints,
   GroupSettingsResolver,
   LandmarkManager,
   ViewEngine,
@@ -1909,5 +2227,7 @@ export {
   MidpointWidgets,
   SolidifyWidget,
   GraphToolbar,
-  ReactFlowAdapter
+  ReactFlowAdapter,
+  Viewer2DNodes,
+  MovableSocketHandle
 };
