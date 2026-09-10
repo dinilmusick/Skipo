@@ -3,7 +3,7 @@ import {
   createSSEResponse,
   withAuth,
   withCors
-} from "./chunk-GWE6PK2T.js";
+} from "./chunk-OSNAPMXJ.js";
 import {
   AdminGuard,
   BaseAccountProvider,
@@ -12,6 +12,35 @@ import {
   RateLimiter,
   SessionManager
 } from "./chunk-DKN5GP4J.js";
+import {
+  BackendProvider,
+  useBackend,
+  useBackendClient
+} from "./chunk-G3ZOSXUR.js";
+import {
+  BackendRegistry,
+  ConcurrencyConflictError,
+  ConcurrencyManager,
+  HealthMonitor,
+  IdempotencyManager,
+  InProcessExecutor,
+  JobScheduler,
+  LoadBalancer,
+  LockManager,
+  RemoteExecutor,
+  createEmptyContract
+} from "./chunk-5E6JRFUH.js";
+import {
+  BackendClient,
+  BackendResolver,
+  CallbackRegistry,
+  EventBus,
+  FrontendSession,
+  HTTPTransport,
+  SequenceTracker,
+  WebSocketTransport,
+  createBackendClient
+} from "./chunk-NIP22V2G.js";
 import {
   BaseStorageAdapter,
   LocalFSAdapter,
@@ -261,26 +290,49 @@ var FunctionalityTable = class extends BaseDataProvider {
 export {
   AdminGuard,
   AuditLogger,
+  BackendClient,
+  BackendProvider,
+  BackendRegistry,
+  BackendResolver,
   BaseAccountProvider,
   BaseApiRoute,
   BaseDataProvider,
   BaseStorageAdapter,
+  CallbackRegistry,
+  ConcurrencyConflictError,
+  ConcurrencyManager,
   ControlPlaneManager,
   DatabaseClusterManager,
+  EventBus,
+  FrontendSession,
   FunctionalityTable,
+  HTTPTransport,
+  HealthMonitor,
+  IdempotencyManager,
+  InProcessExecutor,
+  JobScheduler,
+  LoadBalancer,
   LocalAccountProvider,
   LocalFSAdapter,
+  LockManager,
   PasswordHasher,
   RateLimiter,
+  RemoteExecutor,
   S3Adapter,
+  SequenceTracker,
   SessionManager,
   StorageAdapterFactory,
   SupabaseStorageAdapter,
   SyncEngine,
+  WebSocketTransport,
   WorkspaceFS,
+  createBackendClient,
+  createEmptyContract,
   createSSEResponse,
   formatCanonicalWorkspaceFolderName,
   sanitizeWorkspaceName,
+  useBackend,
+  useBackendClient,
   withAuth,
   withCors
 };

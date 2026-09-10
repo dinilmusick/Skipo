@@ -107,5 +107,9 @@ The AI agent MUST NEVER declare a feature, view, or bugfix "complete" without au
   3. `npx skipo-validate`: Run AST validation gate (`no-placeholder-data`, `feature-test-coverage`, `theme-token-semantics`, `ui-invariants`).
 - **No Self-Declared Done Without Proof**: Output test run logs and validation logs to the user as verifiable evidence of operational readiness.
 
-
-
+### Law 13: Universal Frontend ↔ Backend Connectivity & Root index.html Invariant
+Standalone applications MUST consume backend capabilities exclusively through the canonical `BackendClient` / `BackendContract` public surface:
+- **Mandatory Client Access**: Frontend components MUST import `useBackend`, `BackendProvider`, or `createBackendClient` from `@skipo/backend/client`. Direct imports of backend storage adapters, database classes, or internal controllers are strictly FORBIDDEN.
+- **Single API Invariant**: Business logic calls (`backend.<domain>.<operation>()`) remain 100% identical whether running locally in-process or remotely across a network.
+- **Root index.html Preservation**: Standalone web apps MUST maintain `index.html` at the project root with `<div id="root"></div>` and `<script type="module" src="/src/main.tsx"></script>`. This guarantees immediate native loading in Google AI Studio previews and Vercel deployments.
+- **Local In-Process Fallback**: In browser-only sandboxes (such as Google AI Studio previews where no background Node.js server exists), `BackendResolver` automatically resolves to `ResolutionStrategy.LOCAL` with `InProcessExecutor`, executing directly against in-memory state with zero sockets and zero serialization.

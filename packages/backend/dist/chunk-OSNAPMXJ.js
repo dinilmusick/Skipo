@@ -51,7 +51,15 @@ function withCors(allowedOrigin = "*") {
 }
 
 // src/api/sse.ts
+function getSSEHeaders() {
+  return {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive"
+  };
+}
 function createSSEResponse(setupStream, heartbeatMs = 15e3) {
+  let timer = null;
   const stream = new ReadableStream({
     start(controller) {
       const send = (event, data) => {
@@ -61,24 +69,20 @@ data: ${JSON.stringify(data)}
 `));
       };
       const cleanup = setupStream(send);
-      const heartbeat = setInterval(() => {
-        send("ping", { time: Date.now() });
-      }, heartbeatMs);
+      const ping = () => {
+        timer = setTimeout(() => {
+          send("ping", { time: Date.now() });
+          ping();
+        }, heartbeatMs);
+      };
+      ping();
       controller.cancel = () => {
-        clearInterval(heartbeat);
+        if (timer) clearTimeout(timer);
         cleanup();
       };
-    },
-    cancel() {
     }
   });
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
-      "Connection": "keep-alive"
-    }
-  });
+  return new Response(stream, { headers: getSSEHeaders() });
 }
 
 export {

@@ -4,6 +4,10 @@ import { BaseStorageAdapter, FileInfo } from './storage/index.js';
 export { LocalFSAdapter, S3Adapter, StorageAdapterFactory, StorageConfig, StorageMode, StorageProviderType, SupabaseStorageAdapter, UploadResult } from './storage/index.js';
 import { SkipoBase } from '@skipo/core';
 export { ApiError, ApiResponse, BaseApiRoute, Middleware, RouteConfig, createSSEResponse, withAuth, withCors } from './api/index.js';
+export { A as AuthContext, B as BackendClient, a as BackendClientOptions, b as BackendExecutor, c as BackendInstance, d as BackendResolver, e as BackendResolverOptions, C as CallbackFn, f as CallbackHandle, g as CallbackRegistry, h as CapabilityContext, D as Delegation, i as DistributedLock, j as DomainProxy, E as ErrorHandler, k as EventBus, l as EventHandler, F as FrontendSession, m as FrontendSessionOptions, G as GapHandler, H as HTTPTransport, n as HTTPTransportOptions, I as ITransport, o as IdempotentRequest, J as Job, p as JobPriority, q as JobState, M as Message, r as MessageHandler, s as MessageType, R as ResolutionStrategy, t as ResourceVersion, u as RoutingStrategy, S as SequenceCheckResult, v as SequenceTracker, W as WebSocketTransport, w as WebSocketTransportOptions, x as createBackendClient } from './WebSocketTransport-CHmkJ0tj.js';
+export { BackendContract, BackendRegistry, CallbackDefinition, ConcurrencyConflictError, ConcurrencyManager, DomainContract, EventDefinition, HealthMonitor, IdempotencyManager, InProcessExecutor, JobDefinition, JobHandler, JobScheduler, LoadBalancer, LockManager, OperationDefinition, RemoteExecutor, RemoteExecutorOptions, createEmptyContract } from './connectivity/index.js';
+export { BackendClientInstance, BackendProvider, BackendProviderProps, useBackend, useBackendClient } from './client/index.js';
+import 'react';
 
 interface WorkspaceDescriptor {
     id: string;

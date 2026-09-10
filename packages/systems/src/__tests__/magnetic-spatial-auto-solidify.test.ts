@@ -56,12 +56,12 @@ describe('Skipo Magnetic Node Graph — Spatial Tracing, Offsets & Auto-Solidify
     const sourceNode = new CustomNode({ id: 'node-src', type: 'src', position: { x: 0, y: 0 } });
     sourceNode.addHandle(new DataHandle({ id: 'out-1', nodeId: 'node-src', dataType: 'STRING', direction: 'OUTPUT', connectionMode: 'SINGLE' }));
 
-    // Target 1: distance 80
-    const target1 = new CustomNode({ id: 'node-t1', type: 'tgt', position: { x: 80, y: 0 } });
+    // Target 1: further away (x: 300, distance ~96)
+    const target1 = new CustomNode({ id: 'node-t1', type: 'tgt', position: { x: 300, y: 0 } });
     target1.addHandle(new DataHandle({ id: 'in-1', nodeId: 'node-t1', dataType: 'STRING', direction: 'INPUT', connectionMode: 'SINGLE' }));
 
-    // Target 2: distance 50 (closer!)
-    const target2 = new CustomNode({ id: 'node-t2', type: 'tgt', position: { x: 50, y: 0 } });
+    // Target 2: closer (x: 230, distance ~26)
+    const target2 = new CustomNode({ id: 'node-t2', type: 'tgt', position: { x: 230, y: 0 } });
     target2.addHandle(new DataHandle({ id: 'in-2', nodeId: 'node-t2', dataType: 'STRING', direction: 'INPUT', connectionMode: 'SINGLE' }));
 
     const traces = TraceEngine.computeTraces([sourceNode, target1, target2], 200);

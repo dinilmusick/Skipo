@@ -354,3 +354,75 @@ T4_PRIVILEGED (10.0x)
 3. **Theft Detection & Session Revocation**: If an invalidated refresh token is ever submitted, it indicates that a stolen token is being replayed. The system immediately revokes the entire `Session`, writes a `REFRESH_TOKEN_REUSE` security event to the audit log, and rejects the request with HTTP 401.
 4. **Session Isolation**: Logging out of Session A revokes only Session A. Sessions B and C remain active without interruption. "Logout All Devices" or password change triggers `revokeAllUserSessions()`.
 
+---
+
+## 11. Frontend ↔ Backend Connectivity Infrastructure
+
+```text
+                         FRONTEND
+                            │
+                            ▼
+                      BackendClient
+                            │
+                            ▼
+                   ┌──────────────────┐
+                   │ Backend Contract │
+                   └────────┬─────────┘
+                            │
+                            ▼
+                     BackendResolver
+                            │
+              ┌──────────────┴──────────────┐
+              │                             │
+              ▼                             ▼
+       [ LOCAL MODE ]                [ REMOTE MODE ]
+              │                             │
+              ▼                             ▼
+      InProcessExecutor               RemoteExecutor
+              │                             │
+              │                             ▼
+              │                         Transport
+              │                      (HTTP / WS / RPC)
+              │                             │
+              │                             ▼
+              │                       Load Balancer
+              │                             │
+              │                ┌────────────┼────────────┐
+              │                ▼            ▼            ▼
+              │               BE1          BE2          BEn
+              └────────────────┬────────────┴────────────┘
+                               │
+                               ▼
+                        Backend Runtime
+                               │
+          ┌────────────────────┼────────────────────┐
+          ▼                    ▼                    ▼
+       EventBus            JobScheduler        State Layer
+     (No Polling)        (DAG Sequencing)    (Optimistic CAS)
+          │                    │                    │
+          ▼                    ▼                    ▼
+   CallbackRegistry     SequenceTracker        LockManager
+ (Session Delegation)   (Gap Detection)      (FIFO Mutex)
+```
+
+### 11.1 Non-Negotiable Connectivity Invariants
+1. **Single Public Surface**: Frontend imports ONLY `BackendClient` / `BackendContract` from `@skipo/backend/client`. Frontend MUST NEVER import backend implementation files, internal controllers, or storage adapters directly.
+2. **Identical API Across Topologies**:
+   ```typescript
+   // SAME code runs in Google AI Studio (In-Process) and Vercel (Remote):
+   await backend.documents.create({ title: "Architecture.md" });
+   backend.documents.on("created", (event) => updateState(event.payload));
+   await backend.jobs.submit({ type: "export", payload: { format: "pdf" } });
+   await backend.documents.delegate("process", payload, onProgressCallback);
+   ```
+3. **Dual Mode Execution & Google AI Studio / Vercel Readiness**:
+   - **Google AI Studio / Browser Preview**: `BackendResolver` dynamically selects `ResolutionStrategy.LOCAL`, using `InProcessExecutor` executing against in-memory runtime with zero sockets and zero serialization.
+   - **Vercel / Production**: `BackendResolver` selects `ResolutionStrategy.REMOTE`, using `RemoteExecutor` over `HTTPTransport` (connecting to `/api`) or `WebSocketTransport`.
+4. **Root `index.html` Preservation**: All applications MUST maintain `index.html` at the project root so that Google AI Studio, static preview hosts, and Vercel serve the frontend without proxy rewriting issues.
+5. **Anti-Polling EventBus**: Push events replace periodic polling. Sequence gaps are detected by `SequenceTracker` and trigger automatic authoritative resynchronization.
+6. **Race Condition Prevention & Concurrency**:
+   - Resource-scoped FIFO `LockManager` with bounded timeouts.
+   - In-flight mutation deduplication via `IdempotencyManager`.
+   - Optimistic concurrency control via `ResourceVersion` and `compareAndSwap`.
+   - DAG-based `JobScheduler` ensuring dependent jobs execute strictly after prerequisites complete.
+7. **Session-Scoped Delegation**: Remote functions are never serialized; callbacks are registered as opaque, session-scoped `CallbackHandle` tokens.
