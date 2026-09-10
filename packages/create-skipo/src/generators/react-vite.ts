@@ -141,6 +141,7 @@ import { useBackend } from '@skipo/backend/client';
 
 export function AppShell() {
   const backend = useBackend();
+  const [activeTab, setActiveTab] = React.useState('main');
 
   return (
     <SkipoThemeProvider>
@@ -148,8 +149,8 @@ export function AppShell() {
         <TopToolbar
           title="${projectName}"
           tabs={[{ id: 'main', label: 'Dashboard' }]}
-          activeTab="main"
-          onSelectTab={() => {}}
+          activeTab={activeTab}
+          onSelectTab={setActiveTab}
         />
         <main className="flex-1 overflow-auto p-4">
           <h1 className="text-xl font-bold">Welcome to ${projectName}</h1>

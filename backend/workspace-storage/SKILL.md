@@ -3,391 +3,55 @@ name: workspace-storage-architecture
 description: Workspace Storage Architecture specification governing User -> AppUserContext -> Workspace storage hierarchy, decoupled WorkspaceStorageAdapters (Local, iCloud, Google Drive, OneDrive, Supabase, Firebase), provider-independent WorkspaceFS, high-reliability SyncEngine, conflict resolution, and safe detachment semantics. Workspaces use PURE FILESYSTEM STORAGE with ZERO DATABASE ENGINES.
 ---
 
-# WORKSPACE STORAGE ARCHITECTURE SPECIFICATION
+# WORKSPACE STORAGE ARCHITECTURE (DENSE)
 
-Standardized architectural protocol for Workspace Storage, Multi-Cloud Replication, and Provider-Independent Filesystem operations across local and distributed environments.
+$$\text{User} \xrightarrow{1:N} \text{AppContext} \xrightarrow{1:N} \text{Workspace} \xrightarrow{1:1} \text{Primary} \oplus \text{Backups}^{[0..N]}$$
+$$\text{AdminDB}(\text{MetadataOnly}) \cap \text{WorkspaceData}(\text{VirtualFS}) = \emptyset \quad \wedge \quad \text{Workspace} \cap \text{SQL} = \emptyset$$
 
----
+## 1. STORAGE HIERARCHY & BOUNDARY INVARIANTS
 
-## 1. System Architectural Hierarchy
+1. **Admin DB**: Identity, credentials, app metadata, workspace links ONLY. Zero project files.
+2. **Workspace Content**: Pure virtual filesystem (`.json`, `.md`, text, assets). ZERO relational database engines inside user workspaces.
+3. **Primary vs Backup**: 1 Primary (Single Source of Truth) + $0..N$ Backups (Replicas).
+   - App reads/writes **only** to Primary via `WorkspaceFS`.
+   - `SyncEngine` replicates changes asynchronously to Backups.
+   - Detach $\ne$ Delete: Unlinking a backup preserves remote files.
 
-$$\text{GlobalUser} \xrightarrow{1:N} \text{AppUserContext} \xrightarrow{1:N} \text{Workspace} \xrightarrow{1:1} \text{PrimaryStorage} \oplus \text{BackupStorages}^{[0..N]}$$
+## 2. WORKSPACE INTERFACE CONTRACT
 
-```
-                         GLOBAL USER
-                              │
-                        GLOBAL AUTH
-                              │
-                    APP USER CONTEXT (appId)
-                              │
-                     WORKSPACES[] (1..N)
-                              │
-             ┌────────────────┼────────────────┐
-             │                │                │
-        WORKSPACE A      WORKSPACE B      WORKSPACE C
-             │
-       ┌─────┴────────────────┐
-       │                      │
-    PRIMARY (Canonical)   BACKUPS[] (0..N Replicas)
-       │                      │
-       │              ┌───────┼────────┬────────┐
-       │              │       │        │        │
-     LOCAL          iCLOUD  DRIVE   ONEDRIVE  SUPABASE
-       │
-       ▼
-   WorkspaceFS (Provider-Independent Interface)
-       │
-       ▼
-  APPLICATION LOGIC
-```
-
----
-
-## 2. Fundamental Boundary Invariants
-
-$$\text{AdminDatabase} \cap \text{WorkspaceData} = \emptyset$$
-
-1. **Admin Database (Governance & Metadata ONLY)**:
-   - User identity & credentials
-   - App access & authorizations
-   - App-scoped preferences (`AppUserContext.preferences.workspaceOrder`)
-   - Workspace definitions & metadata
-   - Storage endpoint configurations & sync state
-   - **MANDATORY INVARIANT**: Admin database MUST NOT store normal workspace content.
-2. **User Storage (Workspace Content = PURE VIRTUAL FILESYSTEM ONLY)**:
-   - Project files & folders (stored as `.json`, `.md`, text, and binary assets).
-   - **STRICT INVARIANT**: Normal user workspace backends DO NOT use database engines (No SQLite, No Postgres, No Mongo). User data is strictly stored as files in folders.
-   - Storage Adapters: **Local Filesystem**, **Apple iCloud Drive**, **Google Drive**, **Microsoft OneDrive**, **Supabase Storage / S3**, **Firebase Storage**.
-3. **Canonical Primary vs Replicated Backups**:
-   - Each workspace has **exactly 1 Primary Storage** and **0..$N$ Backup Storages**.
-   - Primary is the single source of truth; all Backups represent the same workspace.
-   - Application reads from and writes to the Primary Storage **only** via `WorkspaceFS`.
-   - `SyncEngine` replicates Primary mutations to Backup Storages. Application code NEVER writes directly to backups.
-4. **Resilient Failure Handling**:
-   - If Primary succeeds and Backup $B$ fails, workspace state remains **VALID**. Backup $B$ is flagged `OUT_OF_SYNC` and queued for retry with exponential backoff.
-   - Detaching a storage endpoint removes its link without deleting remote data ($\text{Detach} \neq \text{Delete}$).
-   - Restoring from backup is an explicit operation that protects against silent data corruption.
-
----
-
-## 3. Core Data Structures
-
-### A. User & AppUserContext
 ```typescript
-interface User {
-  id: string;
-  credentials: AuthCredentials;
-  identity: GlobalUserIdentity;
-  role: UserRole;
-  apps: Record<string, AppUserContext>; // appId -> AppUserContext
-  createdAt: number;
-  updatedAt: number;
+interface WorkspaceFS {
+  stat(path: string): Promise<FileStat | null>;
+  readFile(path: string): Promise<Uint8Array>;
+  writeFile(path: string, content: Uint8Array | string): Promise<void>;
+  deleteFile(path: string): Promise<void>;
+  listDir(path: string): Promise<FileStat[]>;
+  createDir(path: string): Promise<void>;
 }
 
-interface AppUserContext {
-  appId: string;
-  enabled: boolean;
-  preferences: AppPreferences & { workspaceOrder?: string[] };
-  workspaces: Workspace[];
-  createdAt: number;
-  updatedAt: number;
-}
-```
-
-### B. Workspace & Storage Endpoint
-```typescript
 interface Workspace {
   id: string;
   name: string;
-  icon?: string;
-  description?: string;
-  primaryStorage: StorageEndpoint;
-  backupStorages: StorageEndpoint[];
-  sync: SyncConfiguration;
-  preferences: WorkspacePreferences;
-  metadata: Record<string, unknown>;
-  createdAt: number;
-  updatedAt: number;
-}
-
-interface StorageEndpoint {
-  id: string;
-  provider: "local" | "icloud" | "google_drive" | "onedrive" | "supabase_storage" | "firebase_storage" | "s3";
-  configuration: ProviderConfiguration;
-  enabled: boolean;
-  status: "CONNECTED" | "DISCONNECTED" | "SYNCING" | "ERROR";
-  lastSyncAt?: number;
-  syncState?: "SYNCED" | "OUT_OF_SYNC" | "PENDING" | "ERROR";
+  appId: string;
+  primaryStorage: StorageEndpoint;      // Local, iCloud, Drive, OneDrive, S3/B2
+  backupStorages: StorageEndpoint[];     // 0..N background replicas
+  syncStatus: 'SYNCED' | 'OUT_OF_SYNC' | 'REPLICATING' | 'ERROR';
 }
 ```
 
----
+## 3. ASYNCHRONOUS REPLICATION PIPELINE
 
-## 4. `WorkspaceStorageAdapter` Interface
-
-All storage providers implement the uniform, decoupled storage adapter contract:
-
-```typescript
-interface WorkspaceStorageAdapter {
-  readonly provider: StorageProviderType;
-  readonly endpointId: string;
-  initialize(): Promise<void>;
-  exists(pathStr: string): Promise<boolean>;
-  stat(pathStr: string): Promise<FileMetadata>;
-  list(pathStr?: string): Promise<FileEntry[]>;
-  read(pathStr: string): Promise<Uint8Array>;
-  write(pathStr: string, data: Uint8Array | Buffer | string): Promise<void>;
-  mkdir(pathStr: string): Promise<void>;
-  delete(pathStr: string): Promise<void>;
-  move(source: string, destination: string): Promise<void>;
-  copy(source: string, destination: string): Promise<void>;
-  watch?(pathStr: string, callback: FileChangeCallback): Unsubscribe;
-  disconnect(): Promise<void>;
-}
+```
+Client Write -> Primary Storage (Synchronous Commit)
+                     │
+                     ▼
+           SyncEngine Event Trigger
+                     │
+         ┌───────────┴───────────┐
+         ▼                       ▼
+   Backup A (OK)           Backup B (FAIL)
+   Status: SYNCED          Status: OUT_OF_SYNC -> Queue exponential retry (3s -> 60s)
 ```
 
----
-
-## 5. Sync Engine, Conflict Resolution & Checksums
-
-### Comparison Priority
-$$\text{contentHash (SHA-256)} \succ \text{revision (ETag/Generation)} \succ \text{modifiedAt} \succ \text{size}$$
-
-```typescript
-interface SyncConfiguration {
-  enabled: boolean;
-  mode: "on_write" | "interval" | "manual";
-  intervalMs?: number;
-  conflictStrategy: "primary_wins" | "newest_wins" | "manual";
-  deletePropagation: boolean;
-  retry: { maxAttempts: number; backoffMs: number };
-  verification: { verifyChecksums: boolean; intervalMs?: number };
-}
-```
-
-### Write Path Flow Chart
-```
-USER ──► APPLICATION ──► WorkspaceFS.write(path, data)
-                              │
-                              ▼
-                     [Primary Adapter Write]
-                              │
-                (Success) ────┴──── (Failure)
-                    │                    │
-                    ▼                    ▼
-          [SyncEngine.syncFile()]   [Throw Error, Cancel Sync]
-                    │
-        ┌───────────┴───────────┐
-        ▼                       ▼
-   [Backup 1: OK]        [Backup 2: Fail]
-        │                       │
-        ▼                       ▼
- [Mark SYNCED]           [Mark OUT_OF_SYNC, Enqueue Retry]
-```
-
----
-
-## 6. Workspace Lifecycle & UI Workflows
-
-1. **Login & Workspace Selection**:
-   - `App Start` $\to$ `Authenticate` $\to$ `Resolve Global User` $\to$ `Resolve AppID` $\to$ `AppUserContext` $\to$ Render `KrnlWorkspaceSelector`.
-   - Reorder tiles via drag-and-drop atom, storing order in `AppUserContext.preferences.workspaceOrder`.
-2. **Open Workspace**:
-   - User clicks `KrnlWorkspaceTile` $\to$ Instantiate `WorkspaceRuntime` $\to$ Initialize `WorkspaceFS` & `SyncEngine` $\to$ Validate Primary $\to$ Render Application UI.
-3. **Storage Settings (`KrnlWorkspaceStorageSettings`)**:
-   - General Settings $\to$ Workspace $\to$ Storage.
-   - Primary Storage card with live connection probe.
-   - Backup Storages checklist with status badges.
-   - **Promote to Primary**: Validate new target $\to$ Compare checksums $\to$ Switch without silent data loss.
-   - **Detach Storage**: Disconnects endpoint config without deleting remote files ($\text{Detach} \neq \text{Delete}$).
-4. **Dynamic Storage Options Selection & Cloud Bucket Initialization**:
-   - Workspace creation dialogues MUST dynamically render user-connected storage options from `savedConnections`.
-   - **FORBID static, unremovable "Local Disk Folder" default tiles**. Show only active user-configured storage options with live connectivity status.
-   - Upon creating a cloud workspace, automatically initialize the remote bucket hierarchy (`.docustack/workspace_manifest.json`, `.docustack/graph.json`, `.docustack/categories.json`, `.docustack/documents_index.json`, `Core_Kanban/To_Do/welcome_to_{workspace_name}.md`).
-   - **Idempotency Guard**: `initializeCloudWorkspaceBucket` must verify whether `.docustack/graph.json` exists in the bucket first to prevent overwriting user boards or cards upon workspace switches or re-logins.
-5. **Physical Folder & Kanban Board Cloud Directory Mandate**:
-   - Every **Folder Node** created in a workspace graph MUST create a corresponding physical directory on disk and real object prefix in the cloud bucket (`${folderPrefix}/${cleanFolderName}/.keep` and `README.md`).
-   - Every **Kanban Board** created in a workspace MUST create a dedicated board folder (`${folderPrefix}/${boardFolderName}/kanban_board.json`) with subfolders for each column (`To_Do/.keep`, `In_Progress/.keep`, `Done/.keep`).
-   - Documents belonging to a board column must be stored physically inside `${boardFolderName}/${columnName}/${docName}.md`.
-   - **FORBID dummy fallback folders**: Never dump files into arbitrary legacy folders (`inbox`, `active`, `archive`).
-6. **Auto-Save Toggle & Universal `Cmd+S` / `Ctrl+S` Protocol**:
-   - The primary application header MUST feature a prominent Auto-Save toggle button with live status indicators (`🟢 AUTO-SAVE ON`, `⚪ AUTO-SAVE OFF`, `⚡ SAVING...`, `✓ SAVED`, `● UNSAVED (CMD+S)`).
-   - When Auto-Save is OFF, the system MUST listen for global `Cmd+S` (Mac) / `Ctrl+S` (Windows/Linux) to trigger an atomic full workspace sync (`POST /api/workspace` with `action: 'save_all'`).
-   - Client requests MUST automatically inject `Authorization: Bearer <token>` and `x-workspace-id` headers so serverless API routes (`/api/graph`, `/api/categories`, `/api/documents`, `/api/workspace`) can resolve the active workspace storage context via `resolveRequestContextVault(req)`.
-7. **Cloud-First Async Loaders & Serverless Awaitable Savers**:
-   - In serverless environments (Vercel, AWS Lambda), background un-awaited promises are immediately frozen and terminated upon returning the HTTP response.
-   - All workspace mutation routes (`/api/graph`, `/api/categories`, `/api/documents`) MUST `await` all physical filesystem writes and cloud storage network operations (`writeCloudWorkspaceFile`, `syncFolderNodeToCloud`, `syncKanbanNodeToCloud`) prior to responding.
-   - When switching or re-entering workspaces, loaders (`loadGraphFromFSAsync`, `loadCategoriesFromFSAsync`, `loadDocumentsFromFSAsync`) MUST read from Cloud Storage (`.docustack/graph.json`, `.docustack/categories.json`, `.docustack/documents_index.json`) when a cloud storage connection is active, cache them to disk, and restore the exact topology without resetting to default initial states.
-   - Control plane user accounts (`accounts.json`, `revoked_sessions.json`, `audit_logs.json`) MUST NEVER be stored dynamically under a workspace path; they MUST reside in a fixed canonical root control plane directory (`docustack_vault/.docustack/control_plane`) so user and storage credential resolution survives workspace switches.
-8. **Physical Workspace Vault Explorer & Universal Cascade Deletion**:
-   - The Physical Workspace Vault Explorer (`WorkspaceExplorerModal`) provides bidirectional inspection and physical deletion of individual files and entire directories.
-   - **Single File Purge**: Unlinks the file from disk, purges it from cloud buckets (`deleteCloudWorkspaceFile`), and removes it from `documents_index.json`. The asset immediately disappears from the Kanban column, document table, and UI search.
-   - **Directory Cascade Purge**: Deletes all physical files and subfolders from disk, removes all cloud objects under that prefix (`deleteCloudWorkspaceFolder`), discovers and unlinks all contained documents from `documents_index.json`, and cascades deletion to:
-     - Attached Kanban Boards (`graph.json` node + edges + `categories.json` columns)
-     - Specific Kanban Columns (`categories.json`)
-     - Folder Nodes (`graph.json` node + edges)
-   - React state dispatches `handleAssetPurged` so the asset vanishes in real time across all tabs (Kanban, Graph, Documents, Media) without requiring a page reload.
-9. **Serverless Read-Only Filesystem Fallback & Fault Tolerance**:
-   - In serverless runtime environments (such as Vercel Lambdas where `process.cwd()` is read-only at `/var/task`), relative vault paths MUST resolve to `os.tmpdir()` (`/tmp/docustack`).
-   - All local disk writes (`fs.writeFileSync`, `fs.mkdirSync`, `fs.rmSync`, `fs.unlinkSync`) MUST be wrapped in safe `try/catch` blocks so that local filesystem write restrictions never abort HTTP requests or crash cloud bucket synchronization to Backblaze B2.
-10. **Browser Local Filesystem Access Law & Dual-Mode Explorer Fallback (Brave & Safari Compatibility)**:
-    - **Dual-Mode File Picker Strategy**:
-      - For Chromium browsers (Chrome, Edge, and Brave with flag enabled), invoke the W3C File System Access API (`window.showDirectoryPicker({ mode: 'readwrite' })`) to obtain a persistent `FileSystemDirectoryHandle`.
-      - Store the directory handle in IndexedDB (Database: `DocuStack_LocalFS_Vault`, Store: `directory_handles`, Key: `ws_handle_{timestamp}`) so subsequent sessions seamlessly regain read/write access.
-      - Always provide an HTML5 fallback input:
-        ```html
-        <input type="file" ref={html5FolderInputRef} webkitdirectory directory multiple className="hidden" onChange={handleHtml5FolderSelect} />
-        ```
-        If `showDirectoryPicker` is unavailable, programmatically trigger this input to guarantee the native OS file explorer (macOS Finder / Windows Explorer) opens without exception.
-    - **"Upload" vs "Select" OS Button Discrepancy on macOS**:
-      - In macOS Finder, an HTML5 `<input type="file" webkitdirectory>` automatically brands the dialog confirmation button as **"Upload"**.
-      - The W3C `window.showDirectoryPicker()` causes macOS Finder to brand the confirmation button with its native **"Select"** label.
-    - **Brave Privacy Guard Detection & 1-Click Resolution Protocol**:
-      - Brave disables the File System Access API by default for anti-fingerprinting.
-      - When Brave is detected (`(navigator as any).brave?.isBrave?.()`), display an amber **Brave Privacy Guard** notification banner with a 1-click **COPY URL** button for `brave://flags/#file-system-access-api`.
-      - Instruct the user to set the flag to **Enabled** and relaunch Brave to unlock the native "Select" button and background directory handle write sync.
-    - **Error Visibility Surface**: Local storage errors must be rendered directly inside the local storage UI block and never hidden within cloud-only provider blocks.
-11. **1:1 Cloud-Identical Local Folder Mirroring Law & Subfolder Encapsulation**:
-    - **The Canonical Workspace Subfolder Rule**:
-      $$\text{TargetDiskFolder} \xrightarrow{} \text{SelectedRoot} / \text{ultrst\_\{app\}\_\{user\}\_\{workspace\}} / \dots$$
-      - When a user selects a local folder (e.g. `/Volumes/D Hard Disk/DocuStack`), local synchronization MUST NEVER dump loose files into the selected folder root.
-      - It MUST derive the canonical workspace prefix (`folderPrefix` from `/api/workspace` or `activeWorkspace.workspacePath` formatted as `ultrst_{app}_{user}_{workspace}`) and create that directory inside the selected folder:
-        `<SelectedRoot>/ultrst_{app}_{user}_{workspace}/`
-    - **Identical 1:1 Directory & File Layout**:
-      The local disk folder must be an exact physical mirror of the cloud storage bucket:
-      1. `.docustack/` directory:
-         - `manifest.json`: workspace metadata, ecosystem tag, total documents, and timestamps.
-         - `graph.json`: graph nodes, edges, and groups.
-         - `categories.json`: column definitions and category metadata.
-         - `documents_index.json`: complete document metadata array.
-      2. Folder Nodes:
-         - Each `folder`-type graph node creates `<FolderName>/.keep` and `<FolderName>/README.md`.
-      3. Kanban Boards & Columns:
-         - Each `collection`/`kanban`-type graph node creates `<BoardName>/kanban_board.json`.
-         - Subdirectories for each column: `<BoardName>/<ColumnName>/.keep` and `<BoardName>/<ColumnName>/README.md`.
-      4. Standalone Categories:
-         - Each workspace category also creates a physical root-level directory `<CategoryName>/.keep` and `<CategoryName>/README.md`.
-      5. Inbox Directory:
-         - Always creates `inbox/.keep` and `inbox/README.md` (or initial welcome guide).
-      6. Document Markdown Files:
-         - Documents assigned to a board column: `<BoardName>/<ColumnName>/<DocTitle>.md`.
-         - Documents assigned to a standalone category: `<CategoryName>/<DocTitle>.md`.
-         - Unassigned documents: `inbox/<DocTitle>.md`.
-         - Every document MUST include YAML frontmatter (`id`, `title`, `category`, `tags`, `created`).
-    - **Prohibition of Static Placeholder Layouts**:
-      - Sync engines must NEVER assume or hardcode arbitrary board structures (e.g. forcing `Core_Kanban/To_Do/In_Progress/Done`). Real workspace topology must be dynamically traversed from `nodes` and `categories`.
-12. **Storage Tile State Preservation, Star-Toggle Primary, and Concurrency-Safe Clone Replication**:
-    - **Interactive Primary Star-Toggle on Every Tile**:
-      - Every storage option tile (Primary and Clones) MUST render an interactive star-toggle button (`★ PRIMARY / SET PRIMARY`).
-      - Clicking **SET PRIMARY** on any clone promotes it to `role: 'primary'` and demotes all other options to `role: 'redundant_clone'` via `POST /api/auth/storage/connections` (`action: 'set_primary'`).
-      - The active primary tile clearly displays a solid gold `★ PRIMARY` badge, while clone tiles display `CLONE`.
-    - **Dedicated "SYNC ALL TO CLONES" Control Panel**:
-      - A prominent action panel rendered whenever 2+ storage options are registered:
-        `SYNC ALL TO CLONES (<N>)`
-      - Dispatches serverless cloud replication (`POST /api/auth/storage/sync-clones`) for cloud buckets and direct `syncWorkspaceToDirectoryHandle` for local folders.
-      - Individual clone tiles feature dedicated `SYNC` buttons to replicate on demand to a single target.
-      - Primary local storage tiles feature a `SYNC DISK` button to refresh local disk files from the active workspace.
-    - **Serverless Concurrency-Safe Profile Updating**:
-      - In `POST /api/auth/storage/sync-clones`, NEVER overwrite the user profile with an in-memory connection list captured at the start of the request.
-      - Fetch a fresh user account from storage (`findUserByIdAsync`) and safely merge connection timestamps by ID. This prevents newly created storage connections on other lambda instances from being dropped.
-    - **Client State Non-Destructive Update**:
-      - After running clone replication, the client UI MUST NOT perform a destructive full re-fetch (`fetchSavedConnections`) that wipes or re-initializes tiles.
-      - Update connection `lastTestedAt` timestamps in local React state directly to keep all tiles intact.
-    - **Immediate Initial Local Sync with Live Progress Bar**:
-      - Saving or selecting a local folder connection MUST immediately trigger `performLocalHandleSync` to populate disk files with an animated progress bar (percentage, active file, and file counter `N / Total files`).
-13. **Strict Domain-Separated 4-File WorkspaceFS Architecture**:
-    - `workspaceFS.ts` must NEVER become an unmaintainable monolith. It is strictly decomposed into 4 domain-bound files with a backward-compatible facade barrel:
-      - `lib/workspace-fs-core.ts`: Core storage adapters (`LocalStorageAdapter`, `CloudStorageAdapter`), `StorageAdapterFactory`, `SyncEngine`, active vault configuration (`setActiveVaultConfig`, `getVaultAbsolutePath`), and path resolvers.
-      - `lib/workspace-fs-categories.ts`: Category loading and saving (`loadCategoriesFromFS`, `loadCategoriesFromFSAsync`, `saveCategoriesToFS`, `saveCategoriesToFSAsync`).
-      - `lib/workspace-fs-documents.ts`: Document CRUD (`loadDocumentsFromFS`, `saveDocumentToFS`, `deleteDocumentFromFS`, `deleteCategoryAndDocumentsFromFS`, `deleteNodeAssetsAsync`).
-      - `lib/workspace-fs-graph.ts`: Graph topology (`loadGraphFromFS`, `saveGraphToFS`), sticky note persistence, full atomic sync (`syncEntireWorkspaceToDiskAndCloud`), file tree inspection, asset purging, and vault wallpapers.
-      - `lib/workspaceFS.ts`: Barrel facade explicitly re-exporting all symbols for 100% backward compatibility.
-14. **Pure Event-Driven Workspace Persistence**:
-    - Save operations must NEVER run on arbitrary uncoordinated timers.
-    - Persistence is strictly **event-driven**, triggered solely by explicit user workspace mutations (document creation, card edits, board deletion, node movement).
-    - Auto-save debouncing must coalesce rapid events and execute atomic multi-tier saves across primary storage, cloud clones, and registered local directory handles.
-15. **Proactive Zero-Click Cross-Tab / Cross-Device Local Storage Initialization**:
-    - When the application mounts, it must proactively re-initialize active local folder handles stored in IndexedDB without requiring user clicks.
-    - If opened on a different machine or browser where the local directory handle does not exist on disk, the system must display an explicit notification banner:
-      `Local storage folder "<FolderName>" has no registered directory handle on this machine. Local storage is disabled for this session.`
-    - Local storage writes must be safely disabled for that session without crashing or disrupting cloud storage connections.
-16. **Zero-Asterisk Hard Deletion Law (Backblaze B2 Soft-Delete Eradication)**:
-    - In Backblaze B2 (when bucket versioning is enabled), issuing standard S3 `DeleteObject` requests without an explicit `VersionId` creates a **Delete Marker** (hide marker).
-    - The Backblaze B2 web console / storage explorer renders any file or virtual directory that has a Delete Marker with an **asterisk (`*`)** appended to its name (e.g. `FolderA*`).
-    - All cloud deletion routines (`permanentDeleteS3Object`, `permanentDeleteS3Folder`) MUST query `ListObjectVersionsCommand` and pass explicit `{ Key, VersionId }` pairs to `DeleteObjectsCommand({ Objects: [...] })`.
-    - **FORBID unversioned fallback deletions**: Never call `DeleteObjectCommand` without a `VersionId` when versions are empty; doing so creates phantom Delete Markers on non-existent keys.
-    - Folder deletion must target both the directory marker (`bareKey/` and `bareKey/*`) and the bare folder prefix (`bareKey`) to eliminate stray markers.
-    - Cloud sync (`syncEntireWorkspaceToCloud` Step 6b) must run a background sweep querying `ListObjectVersionsCommand` to permanently purge any orphaned `DeleteMarkers` across the workspace prefix, ensuring zero asterisks remain in Backblaze B2.
-17. **Topological Depth Post-Order Deletion Sequence (Bottom-Up Deletion Law)**:
-    - When deleting tree hierarchies (folders, nested kanbans, child documents), all target nodes must be sorted by tree depth in **descending order of depth** (deepest leaf nodes first, parent container last).
-    - Inside every container node:
-      1. Child documents and column categories are deleted first (`deleteCategoryAndDocumentsFromFSAsync`).
-      2. Internal files and column subfolders (`.keep`, `README.md`, `kanban_board.json`) are deleted second (`deleteNodeAssetsAsync`).
-      3. The upper container directory itself is deleted last from physical disk and cloud storage.
-18. **Hierarchical Nested Path Resolution Law (`resolveNodeNestedPath`)**:
-    - When a node is connected to a parent folder node, its physical disk and cloud storage path must be resolved hierarchically (`resolveNodeNestedPath(node, allNodes, edges)`) rather than being flattened at the workspace root.
-    - Kanban boards, folder nodes, column subfolders, and documents must reflect the full ancestor tree (e.g. `${parentFolder}/${childFolder}/${kanbanBoard}/${columnName}/${docName}.md`).
-    - Object reconciliation (`validRelativeKeys`) must traverse and protect nested paths to prevent them from being pruned as orphans.
-19. **Discreet Save Feedback & Session-Aware Local Storage Warnings**:
-    - Save notifications must be compact, non-distracting visual pills (e.g. bottom-right discreet dark pill with a pulsing emerald status dot, auto-dismissing in ~2.2 seconds), replacing large disruptive toasts.
-    - The notification warning for missing directory handles (`Local storage folder has no registered directory handle on this machine`) must be auto-dismissing (~6.5 seconds) and MUST NOT appear if the user has no saved local storage configuration for that workspace.
-20. **Deferred Node Creation Persistence Law**:
-    - Nodes must NOT be persisted to storage or have folders created on disk/cloud when the node creation modal/dialogue opens.
-    - Storage creation must strictly wait until the user completes the dialogue and confirms/saves the node.
-21. **Container / Node Renaming & Physical Folder Deduplication Law**:
-    - When any container node (Kanban board, folder, collection) is renamed in the workspace:
-      1. **Local Filesystem Renaming (`renameNodeOnDisk`)**: The directory on disk MUST be renamed atomically (`fs.renameSync`) or its contents moved recursively (`moveDirectoryRecursive`) into the new folder, followed by `fs.rmSync` of the old folder. Document paths in `documents_index.json` (`doc.fileUrl`) MUST be updated to point into the new folder.
-      2. **Cloud Bucket Renaming (`renameCloudWorkspaceFolder`)**: For S3-compatible cloud storage (Backblaze B2, AWS S3, Cloudflare R2) and Supabase Storage, all objects and subfolder directory markers under the old key prefix MUST be migrated to the new key prefix, the new root directory marker created (`ensureCloudDirectoryMarker`), and the old folder prefix and all historical versions/delete markers permanently purged (`permanentDeleteS3Folder`).
-      3. **Cloud Directory Marker Pruning (`syncEntireWorkspaceToCloud`)**: Empty directories in S3 buckets are represented by directory markers (keys ending with `/`). The bucket reconciliation sweep MUST calculate `validDirPrefixes` (covering all active nodes, categories, and intermediate path prefixes) and permanently delete any orphaned directory marker (`permanentDeleteS3Object`), eliminating ghost folders and asterisks in Backblaze B2. NEVER use a blanket skip `if (rel.endsWith('/')) continue;` which leaves old folder markers behind.
-      4. **Self-Healing Reconciliation (`saveGraphToFS`)**: On every graph save, the filesystem must scan the vault for any orphaned board folder containing a `kanban_board.json` whose `id` matches an active board under an old name, automatically migrating contents into the expected active directory and removing the duplicate folder.
-      5. **Graph API & Browser Directory Handles**: `UPDATE_NODE` action must return `renamedFrom` and `renamedTo`. Client `handleUpdateGraphNode` and realtime listeners must purge `renamedFrom` from browser HTML5 directory handles (`purgeFromAllLocalHandles([res.renamedFrom])`), followed by `triggerWorkspaceMutationSave()`.
-22. **100% Unified Workspace Creation & Cross-Storage Consistency**:
-    - Workspace creation logic MUST be 100% unified and identical across all storage tiers (Local Filesystem, Backblaze B2, S3, R2, Supabase).
-    - Local storage must NEVER inject rogue default placeholder directories or files (e.g. `inbox/welcome_guide.md`) when cloud storage does not.
-    - The canonical workspace folder (`ultrst_{app}_{user}_{workspace}` or canonical prefix) must be initialized consistently across both local and cloud storage without redundant or diverging creation scripts.
-23. **Primary Storage Elevation & Clean Canonical Vault Paths**:
-    - When a user sets or elevates a cloud storage option (e.g. Backblaze B2) to Primary (`role === 'primary'`), `isCloudPrimary = true`.
-    - The workspace path must resolve cleanly to the canonical prefix (`./{folderPrefix}`), and the UI must display the cloud bucket label and badge.
-    - Serverless requests (`resolveRequestContextVault`) MUST NOT default or expose `/tmp/` serverless scratch paths in the UI or in root graph node paths (`loadGraphFromFSAsync`).
-    - Backblaze B2 S3 endpoint derivation: Key IDs starting with `004` or `005` automatically map to `us-west-004` or `us-west-005` endpoints. Masked credentials containing bullet characters `•` must be rejected early with clear diagnostic errors (`BACKBLAZE_APP_KEY_MASKED`).
-24. **Vercel Control Plane & Backblaze B2 Direct Data Plane Transfer Standard**:
-    - **Architecture Separation**:
-      - **Vercel = CONTROL PLANE**: Strictly processes auth, workspace authorization, metadata commits, mutation queues, and presigned URL generation.
-      - **Backblaze B2 = DATA PLANE**: Transports all raw file bytes, document markdown contents, media binaries, and large files directly to/from the user's browser.
-      - **Zero Proxying Rule**: NEVER proxy large file or media bytes through Vercel serverless functions when direct B2 access is available.
-    - **Direct B2 Presigned Storage APIs**:
-      - `POST /api/storage/upload-url`: Generates short-lived (15m) S3/B2 Presigned PUT URLs scoped strictly to authorized workspace paths (`workspaces/{workspaceId}/...`).
-      - `POST /api/storage/download-url`: Generates short-lived Presigned GET URLs for direct B2 retrieval.
-      - `POST /api/storage/delete`: Issues authorized hard deletes and version marker purges on B2.
-      - `POST /api/storage/multipart-upload` & `complete-multipart-upload`: Handles multi-part transfers for large files (> 10MB).
-    - **Media Direct Upload & Zero Ephemeral Storage**:
-      - Eliminate all serverless `/tmp` proxies. Media files upload directly from the browser to Backblaze B2 via presigned URLs.
-      - Upon successful B2 transfer, the client calls `POST /api/media/complete` to commit metadata (`id`, `workspaceId`, `objectKey`, `size`, `mimeType`, `hash`) to the user profile without sending binary bytes.
-    - **Granular Mutation API & Concurrency Control**:
-      - Deprecate monolithic `save_all` snapshots in favor of `POST /api/workspaces/[workspaceId]/mutations` and `/batch`.
-      - Every mutation transmits discrete patches (`entity`, `entityId`, `operation`, `patch`, `baseRevision`).
-      - Server increments workspace `revision` on success and rejects stale base revisions with HTTP 409 and conflict data.
-    - **Client-Side `MutationQueue` & Request Deduplication**:
-      - The client maintains a `MutationQueue` that merges compatible operations and collapses superseded mutations (e.g. repeated node movements send only final coordinates after a debounce of 500ms–1500ms).
-      - `RequestDeduplicator` cancels and deduplicates redundant concurrent GET requests for metadata.
-    - **Document Lazy Loading & Events Optimization**:
-      - `GET /api/documents` returns document metadata without full markdown content strings unless `includeContent=true` is requested.
-      - SSE `/api/events` streams lightweight delta events instead of monolithic snapshots, with heartbeats set to 30s.
-      - Polling fallbacks use exponential backoff (`3s -> 6s -> 12s -> 30s -> 60s`) and pause when the browser tab is hidden.
-
----
-
-## 7. Zero-Leak UI & Anti-Copy Invariants (Frontend Governance)
-
-1. **Zero Leakage of Backend / System Jargon in UI**:
-   $$\text{RenderedUI} \cap \{ \text{"Control Plane"}, \text{"Data Plane"}, \text{"RBAC"}, \text{"Storage Adapter"}, \text{"SyncEngine"}, \text{"WorkspaceFS"}, \text{"Cluster"}, \text{"Failover"}, \text{"Endpoint ID"} \} = \emptyset$$
-   - Backend terms ("Control Plane", "Data Plane", "Storage Adapter", "SyncEngine", "WorkspaceFS", etc.) MUST NEVER be rendered as user-facing headers, labels, or UI views.
-   - Use high-level, human-friendly terms ("Account", "Workspaces", "Storage", "Google Drive", "Local", "Replicas").
-2. **Zero On-Screen Instructional / Promotional Text**:
-   - FORBID direct text descriptions, tutorial paragraphs, marketing copy, or "how-to" guidance rendered into the UI viewport.
-   - The UI must be quiet, minimal, and unobtrusive.
-3. **Strict Icon-Only Buttons (Zero Text Labels on Buttons)**:
-   - Buttons MUST NOT render text labels directly on their surface.
-   - Buttons contain strictly monochromatic vector/SVG icons.
-   - All button labels, action descriptions, and keyboard shortcuts appear **exclusively on hover tooltips**.
-
+## 4. CHECKLIST GATE
+`python3 checklists/07_backend_storage_isolation.py .`

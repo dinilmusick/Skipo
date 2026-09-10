@@ -21,8 +21,20 @@ export interface CanonicalAccount {
   updated_at: string;
 }
 
-export function getDefaultUserWorkspaces(): UserWorkspaceRecord[] {
-  return [];
+export function getDefaultUserWorkspaces(userId: string = 'default'): UserWorkspaceRecord[] {
+  const timestamp = new Date().toISOString();
+  return [
+    {
+      id: `ws-${userId}-primary`,
+      name: 'Primary Workspace',
+      description: 'Default personal workspace',
+      engine: 'sqlite',
+      workspacePath: formatCanonicalWorkspacePath('primary', userId),
+      isDefault: true,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  ];
 }
 
 export function hashPassword(password: string): string {

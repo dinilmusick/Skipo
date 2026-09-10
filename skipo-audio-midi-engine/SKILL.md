@@ -1,106 +1,36 @@
 ---
 name: skipo-audio-midi-engine
-description: Architectural invariants, hardware I/O, Web Audio Named Bus routing, reactive Web MIDI port binding, virtual loopback, and iframe permission security policies for Skipo audio and MIDI applications.
+description: Architectural invariants, hardware I/O, Web Audio Named Bus routing, reactive Web MIDI port binding, and iframe security.
 ---
 
-# SKIPO AUDIO & MIDI ENGINE ARCHITECTURE (`skipo-audio-midi-engine`)
+# SKIPO AUDIO & MIDI ENGINE ARCHITECTURE
 
-All future applications requiring Web Audio API or Web MIDI hardware connectivity **MUST** adhere to these architectural invariants to avoid common iframe, browser permission, audio distortion, and hardware routing failures.
+## 1. HARDWARE AUDIO I/O: NAMED BUS SPEC
 
----
-
-## 1. AUDIO HARDWARE I/O: NAMED BUS ARCHITECTURE
-Audio engines must decouple UI nodes and business logic from physical hardware via a **Named Bus Abstraction Layer** (`AudioInputManager`).
-
-### A. Pro-Audio Stream Constraints (Strict Anti-Filtering Mandate)
-When invoking `navigator.mediaDevices.getUserMedia()`, the application **MUST strictly disable consumer audio processing**. 
-Standard browser speech processors (AEC, NS, AGC) treat low-end bass frequencies, synthesizers, and sustained instrument notes as "background noise" and aggressively filter or distort them:
+$$\begin{array}{ll}
+\mathbf{A_1} \text{ (Pro-Audio Constraints)} & \text{echoCancellation} = \text{false} \wedge \text{noiseSuppression} = \text{false} \wedge \text{autoGainControl} = \text{false} \\
+\mathbf{A_2} \text{ (Channel Splitting)} & \text{stream} \to \text{MediaStreamAudioSourceNode} \to \text{ChannelSplitterNode}(N) \to \text{NamedBus} \\
+\mathbf{A_3} \text{ (User Gesture Gate)} & \text{Init}(\text{AudioContext}) \subset \text{UserGestureEvents} \wedge (\text{InitOnMount} = \text{FORBIDDEN})
+\end{array}$$
 
 ```typescript
-const constraints: MediaStreamConstraints = {
-  audio: {
-    deviceId: targetDevId ? { exact: targetDevId } : undefined,
-    echoCancellation: false,
-    noiseSuppression: false,
-    autoGainControl: false,
-    channelCount: channelCount ?? 2
-  },
-  video: false
-};
-const stream = await navigator.mediaDevices.getUserMedia(constraints);
-```
-
-### B. Multi-Channel Interface Support (Channel Splitting)
-For multi-channel pro interfaces (e.g. Focusrite Scarlett 18i20, Universal Audio Apollo, MOTU), route the raw `MediaStreamAudioSourceNode` into a dedicated `ChannelSplitterNode`:
-```typescript
-const sourceNode = audioCtx.createMediaStreamSource(stream);
-const channelSplitter = audioCtx.createChannelSplitter(resolvedChannelCount);
-sourceNode.connect(channelSplitter);
-namedBuses.set('master-in', channelSplitter);
-```
-Consumers bind to individual discrete hardware inputs using `bus.connect(destinationNode, physicalChannelIndex, 0)`.
-
-### C. Output Sink Routing
-Applications must not assume the system default output is the target monitor:
-- Use `HTMLMediaElement.setSinkId(deviceId)` to route outputs directly to physical studio monitors or cue headphone mixes.
-
-### D. Hot-Plugging Support
-- Register an event listener on `navigator.mediaDevices.addEventListener('devicechange', ...)` to dynamically re-enumerate interfaces without requiring an application reload.
-
----
-
-## 2. MIDI SUBSYSTEM: REACTIVE PORT BINDING & VIRTUAL LOOPBACK
-The MIDI manager (`MidiManager`) acts as a centralized, reactive event dispatch hub translating raw MIDI bytes into high-level structured events (`MidiEventPayload`).
-
-### A. Initialization Options
-Always request access supporting virtual MIDI cables and SysEx communication:
-```typescript
-const midiAccess = await navigator.requestMIDIAccess({
-  sysex: true,
-  software: true
+// Strict anti-filtering raw pro-audio capture
+const stream = await navigator.mediaDevices.getUserMedia({
+  audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 }
 });
 ```
 
-### B. Reactive Hot-Plug Port Binding
-Bind listeners to all existing ports upon initialization, **and** immediately hook the `onstatechange` event of `MIDIAccess` to automatically discover and bind controllers connected while the application is active:
-```typescript
-midiAccess.onstatechange = (event: MIDIConnectionEvent) => {
-  if (event.port.type === 'input' && event.port.state === 'connected') {
-    bindMidiPort(event.port as MIDIInput);
-  }
-};
+## 2. REACTIVE MIDI & VIRTUAL LOOPBACK
 
-function bindMidiPort(port: MIDIInput) {
-  port.onmidimessage = (msgEvent: MIDIMessageEvent) => {
-    if (!msgEvent.data) return;
-    const payload = parseRawMidiBytes(msgEvent.data, port.id, port.name, msgEvent.timeStamp);
-    dispatchEvent(payload);
-  };
-}
+$$\mathbf{M_1} \text{ (Access)} \implies \text{requestMIDIAccess}(\{\text{sysex: true, software: true}\})$$
+
+$$\mathbf{M_2} \text{ (Loopback)} \implies \text{Stream}(\text{MidiEvent}) = \text{HardwarePorts} \cup \text{VirtualUIEmit}$$
+
+```typescript
+midiAccess.onstatechange = (e) => e.port.state === 'connected' && bindPort(e.port);
+export const emitVirtualMidi = (event: MidiEventPayload) => dispatchMidi(event);
 ```
 
-### C. Virtual MIDI Loopback
-The subsystem MUST expose an `emitVirtualMidi(payload)` method:
-- Enables on-screen UI components (piano rolls, onscreen keyboards, algorithmic sequencers, touch drum pads) to emit into the exact same event stream as physical hardware controllers.
+## 3. IFRAME PERMISSIONS GUARD
 
----
-
-## 3. CRITICAL SECURITY & UX ERROR AVOIDANCE
-
-### A. User Gesture Gating (Autoplay Policy Invariant)
-- **NEVER** initialize `AudioContext`, request `getUserMedia()`, or call `requestMIDIAccess()` during page load or component mount.
-- Hardware initialization **MUST** be explicitly gated behind a user interaction (e.g., clicking a `"Connect Audio/MIDI"` button or starting playback).
-
-### B. Iframe Sandbox & Permission Policy Awareness
-Applications running within iframes (e.g., embedded IDEs, testing playgrounds, modal previews) must defensively inspect permission policies:
-- Inspect `document.featurePolicy?.allowsFeature('microphone')` and `('midi')`.
-- Catch DOM Exceptions (`NotAllowedError`, `SecurityError`, `NotFoundError`).
-- Provide immediate, actionable fallback UI informing the user:
-  > *"Hardware access blocked by iframe policy. Grant `allow="microphone; midi"` or open application in a new tab."*
-
----
-
-## 4. CANONICAL CODE TEMPLATES LOCATION
-- Audio Manager: [`skipo-audio-midi-engine/audioInputManager.ts`](./audioInputManager.ts)
-- MIDI Manager: [`skipo-audio-midi-engine/midiManager.ts`](./midiManager.ts)
-- Root Exports: [`skipo-audio-midi-engine/index.ts`](./index.ts)
+Catch `NotAllowedError` / `SecurityError` $\to$ display fallback: `"Hardware access requires allow='microphone; midi' or new tab"`.

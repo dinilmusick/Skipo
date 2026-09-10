@@ -1,36 +1,27 @@
 ---
 name: force-graph-guidelines
-description: Directives for force-graph library performance optimizations, low physics parameters, VSync single-frame scheduler, and DPR capping.
+description: Directives for force-graph physics parameters, RAF batch scheduler, and DPR capping.
 ---
 
 # FORCE GRAPH OPTIMIZATION GUIDELINES (`force-graph`)
 
-## 1. PHYSICS SIMULATION PARAMETERS (LOCKED)
-```
-Simulation Settings:
-  alphaDecay     : 0.08        // Rapid decay to prevent ongoing oscillation
-  alphaMin       : 0.005       // High threshold to cut simulation early (~1.0s)
-  velocityDecay  : 0.45        // High friction to stop node momentum quickly
-  chargeForce    : -70         // Gentle repulsion
-  distanceMax    : 220         // Short-range cutoff to bypass far-field calculations
-  theta          : 0.9         // Barnes-Hut approximation threshold
-  forceCollide   : single-pass check with compact radii
-  linkDensity    : capped per tag node via generateTagLinks()
-```
+## 1. LOCKED PHYSICS CONFIGURATION
 
----
+$$\begin{array}{llll}
+\alpha_{\text{decay}} = 0.08 & \alpha_{\text{min}} = 0.005 & v_{\text{decay}} = 0.45 & F_{\text{charge}} = -70 \\
+d_{\text{max}} = 220 & \theta_{\text{BH}} = 0.9 & \text{DPR} = \min(\text{devicePixelRatio}, 2) & \text{IdleCPU} = 0\%
+\end{array}$$
 
-## 2. CANVAS & RENDERING PERFORMANCE
+## 2. VSYNC BATCH SCHEDULER
+
+```typescript
+let isPending = false;
+export const scheduleGraphDraw = (draw: () => void) => {
+  if (isPending) return;
+  isPending = true;
+  requestAnimationFrame(() => {
+    draw();
+    isPending = false;
+  });
+};
 ```
-function onGraphStateMutation():
-    if not isRenderPending:
-        isRenderPending = true
-        requestAnimationFrame(() => {
-            batchDraw(linkStrokes, nodePasses)
-            isRenderPending = false
-        })
-// FORBID: Runaway tick-triggered parallel recursive RAF loops.
-// ENFORCE: 0% CPU consumption when graph reaches resting equilibrium.
-```
-- **Device Pixel Ratio (DPR)**: `Math.min(window.devicePixelRatio, 2)` (capped at 2x for smooth 60 FPS).
-- **Navigation Controls**: Mouse-wheel zoom, click-drag background panning, Reheat simulation trigger, and instant zoom reset controls.

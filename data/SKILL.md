@@ -5,35 +5,9 @@ description: Directives for data integrity, zero mock data, real backend integra
 
 # DATA INTEGRITY GUIDELINES
 
-## 1. ABSOLUTE PROHIBITION OF FAKE / MOCK DATA
-```
-FORBID:
-  fake_data:       [mock_json, synthetic_records, hardcoded_placeholders]
-  fake_services:   [stubbed_resolvers, mock_timers, fake_auth]
-  fake_endpoints:  [dummy_endpoints, noop_handlers]
-
-REQUIRE:
-  ∀ visual_element ∈ Rendered_Components:
-    source(visual_element) ∈ { real_backend_call, real_db_record, real_endpoint }
-```
-
----
-
-## 2. MISSING DATA & ERROR HANDLING
-```
-if isMissing(data) ∨ isNull(data) ∨ isError(data):
-    renderExplicitErrorState(
-        error_code = data.error_code,
-        message = "Real backend returned no data or failed execution",
-        remediation_action = retry | configure
-    )
-    FORBID(renderPlaceholderData)
-    FORBID(renderSilentNull)
-```
-
----
-
-## 3. AI PROVIDER CONSTRAINTS
-- **User-Specified Only**: Use ONLY the AI provider explicitly requested by the user.
-- **Never Default to Gemini**: Do not assume, inject, or default to Gemini or any other LLM.
-- **Explicit Request Required**: Zero AI pipelines or models shall be initialized without direct user instruction.
+$$\begin{array}{ll}
+\mathbf{D_1} \text{ (Anti-Mock Law)} & \text{DataSources} \cap \{\text{mock\_json}, \text{synthetic\_records}, \text{hardcoded\_arrays}, \text{stubbed\_resolvers}\} = \emptyset \\
+\mathbf{D_2} \text{ (Authentic Drivers)} & \forall v \in \text{RenderedUI}: \text{Source}(v) \in \{\text{real\_backend\_call}, \text{real\_db\_record}, \text{real\_endpoint}\} \\
+\mathbf{D_3} \text{ (Explicit Failures)} & (\text{data} = \emptyset \vee \text{error}) \implies \text{Render}(\langle\text{EmptyState} \mid \text{ErrorAlert}\rangle) \wedge \neg\text{Render}(\text{Placeholder}) \\
+\mathbf{D_4} \text{ (AI Models)} & \text{InitModel}(m) \implies m = \text{UserRequestedProvider} \quad (\text{Never default to Gemini})
+\end{array}$$

@@ -1,44 +1,30 @@
 ---
 name: ui-sub-router
-description: Sub-router directing agents deterministically to modular UI sub-skills for styling, backend wiring, dnd-kit tiled menus, force-graph canvas optimization, react-flow node graphs, omni-canvas windowed widgets, and monaco code editor integration.
+description: Sub-router directing agents deterministically to modular UI sub-skills.
 ---
 
 # UI AGENT SUB-ROUTER
 
-## 1. UI DOMAIN ROUTING TABLE
-When developing or modifying any UI layer components, consult the specific sub-skill:
+$$\text{Route}(\tau) = \arg\max_{s \in \mathcal{S}_{\text{ui}}} |\text{Keywords}(s) \cap \text{Tokens}(\tau)|$$
 
-| UI Domain | Target Sub-Skill File | Key Directives Covered | Trigger Keywords |
-| :--- | :--- | :--- | :--- |
-| **Omni Canvas Paradigm** | [`omni-canvas/SKILL.md`](./omni-canvas/SKILL.md) | Single unified canvas, Viewer Nodes, 'Views' handle, wire-drag view spawn dialog, resizable canvas window management | `omni_canvas`, `viewer_node`, `views_handle`, `view_widget`, `canvas_window_management`, `canvas_ide` |
-| **Visual Styling & Theme** | [`styling/SKILL.md`](./styling/SKILL.md) | Neo-brutalism 2.5D biome, locked palettes, custom scrollbars/dropdowns, top-edge downward tooltips, regression guard | `theme`, `colors`, `biome`, `parallax`, `particles`, `scrollbars`, `dropdowns` |
-| **Monaco Code Editor** | [`code-editor/SKILL.md`](./code-editor/SKILL.md) | Mandatory Monaco Editor for all code snippets, JSON viewers, scripts, schema inspectors; krnl-dark theme; zero unstyled textareas | `code_editor`, `monaco`, `code_snippet`, `json_viewer`, `syntax_highlight`, `script_viewer`, `editor_interface` |
-| **Dock Toolbar & Window Switcher** | [`dock-toolbar/SKILL.md`](./dock-toolbar/SKILL.md) | macOS-style main window switcher dock, 4-edge positioning (top/bottom/left/right), auto-hide trigger zone, icon-only | `dock_toolbar`, `window_switcher`, `auto_hide`, `dock_position`, `main_toolbar`, `view_switcher` |
-| **Tiled Menus & Drag-and-Drop** | [`tiled-menus/SKILL.md`](./tiled-menus/SKILL.md) | `@dnd-kit` sortable tiled menus, icon-only tiles, zero persistent text titles, hover tooltips (top-edge elements pop downward) | `tiled_menu`, `dnd_kit`, `tile_grid`, `icon_only`, `hover_tooltip` |
-| **Wiring & Logic Binding** | [`wiring/SKILL.md`](./wiring/SKILL.md) | Mandatory backend wiring, zero UI stubs, anti-polling reactivity, input empty-state buffering & blur validation | `button_logic`, `form_submit`, `input_wiring`, `input_empty_state`, `form_validation`, `ui_stub` |
-| **Tag Force Graph** | [`force-graph/SKILL.md`](./force-graph/SKILL.md) | Physics simulation optimizations (alphaDecay 0.08, charge -70, theta 0.9), single-frame VSync scheduler, DPR 2x cap | `tag_canvas`, `force_graph`, `simulation_physics`, `vsync_scheduler`, `dpr_cap` |
-| **Connectable Node Graph** | [`react-flow/SKILL.md`](./react-flow/SKILL.md) | Middle-mouse pan, box select, scroll zoom, wire drag auto-spawn, centered wire delete gizmo (deletable edges only), full hotkeys, visual differentiation | `node_graph`, `react_flow`, `connect_nodes`, `wire_drag`, `auto_spawn`, `delete_gizmo`, `box_selection`, `context_menu` |
-| **Backend Connection UX** | [`backend-connection/SKILL.md`](./backend-connection/SKILL.md) | Progressive disclosure, tri-choice storage selection (Local, BYOB, Managed), capability-driven ProviderRegistry, OAuth/Wizard fallback, live probes, auto-init | `backend_connection`, `storage_wizard`, `connect_backend`, `byob`, `workspace_storage`, `provider_registry` |
-| **Admin UI Panel Isolation** | [`backend-connection/SKILL.md#10-strict-admin-ui-panel-isolation--system-separation-architecture`](./backend-connection/SKILL.md) | Strict isolation between Admin Control Plane and User Workspace UI; back button returns to /admin/login; zero workspace leak; route trapping | `admin_ui`, `admin_panel`, `control_plane_ui`, `admin_isolation`, `back_button_admin`, `admin_navigation` |
+| Sub-Skill | Scope / Formal Directives |
+| :--- | :--- |
+| [`omni-canvas/SKILL.md`](./omni-canvas/SKILL.md) | Single canvas viewport, Viewer Nodes, 'Views' handle, wire drag |
+| [`styling/SKILL.md`](./styling/SKILL.md) | Neo-brutalism 2.5D, icon-only buttons, zero tooltips, 100% theme tokens |
+| [`code-editor/SKILL.md`](./code-editor/SKILL.md) | Monaco Editor, krnl-dark, bounded height, zero unstyled textareas |
+| [`dock-toolbar/SKILL.md`](./dock-toolbar/SKILL.md) | 4-edge positioning, auto-hide trigger zones, icon-only switcher |
+| [`tiled-menus/SKILL.md`](./tiled-menus/SKILL.md) | `@dnd-kit` sortable grid, collision-aware popovers ($\text{top} < 80\text{px}$) |
+| [`wiring/SKILL.md`](./wiring/SKILL.md) | Real backend drivers, buffered empty input state, reactive push |
+| [`force-graph/SKILL.md`](./force-graph/SKILL.md) | Physics decay, VSync RAF batch scheduler, DPR $\le 2$ cap |
+| [`react-flow/SKILL.md`](./react-flow/SKILL.md) | 2.5D cards, edge delete gizmo, drag-wire auto-spawn, hotkeys |
+| [`backend-connection/SKILL.md`](./backend-connection/SKILL.md) | Tri-choice storage, ProviderRegistry, Admin UI panel isolation |
 
----
-
-## 2. DETERMINISTIC UI DISPATCH LOGIC
 ```python
-def dispatch_ui_task(task_type: str) -> str:
-    mapping = {
-        "omni-canvas": ["omni_canvas", "viewer_node", "views_handle", "view_widget", "canvas_window", "view_builder"],
-        "styling": ["theme", "colors", "biome", "particles", "scrollbars", "dropdown_styles", "parallax"],
-        "code-editor": ["monaco", "code_editor", "syntax_highlighting", "code_snippet", "json_viewer", "schema_editor"],
-        "dock-toolbar": ["dock_toolbar", "window_switcher", "auto_hide", "dock_position", "main_toolbar", "view_switcher"],
-        "tiled-menus": ["tiled_menu", "dnd_kit", "drag_drop_grid", "menu_tile", "hover_tooltip", "icon_only"],
-        "wiring": ["button_click", "form_submit", "input_wiring", "input_empty_state", "form_validation", "ui_stub"],
-        "force-graph": ["tag_canvas", "force_simulation", "physics_layout", "fps_optimization", "dpr_cap"],
-        "react-flow": ["node_graph", "connect_nodes", "box_selection", "graph_context_menu", "react_flow"],
-        "backend-connection": ["backend_connection", "storage_wizard", "connect_backend", "byob", "workspace_storage", "provider_registry", "admin_ui", "admin_panel", "admin_isolation"]
+def route_ui(intent: str) -> str:
+    routes = {
+        "omni": "omni-canvas", "style": "styling", "monaco": "code-editor",
+        "dock": "dock-toolbar", "tile": "tiled-menus", "wire": "wiring",
+        "graph": "force-graph", "flow": "react-flow", "storage": "backend-connection"
     }
-    for subskill, keywords in mapping.items():
-        if any(kw in task_type.lower() for kw in keywords):
-            return f"./{subskill}/SKILL.md"
-    return "./omni-canvas/SKILL.md"  # Default to Omni Canvas
+    return next((f"./{v}/SKILL.md" for k, v in routes.items() if k in intent.lower()), "./omni-canvas/SKILL.md")
 ```

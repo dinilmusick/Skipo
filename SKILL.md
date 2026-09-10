@@ -3,400 +3,49 @@ name: skipo-agent-router
 description: Master router and deterministic dispatcher directing the AI agent to modular sub-skills across UI, API, Data, Database, Architecture, Features, and Docs.
 ---
 
-# AGENT MASTER ROUTER & DISPATCH DIRECTORY
+# SKIPO AGENT ROUTER (COMPACT KERNEL)
 
-## 0. MANDATORY TURN-COUNTER & ROUTINE CADENCE AUDIT PROTOCOL (STEP 0)
-Whenever this Skipo framework is present in an agent workspace, the AI agent **MUST deterministically execute Step 0 before performing any code generation or editing**:
+$$\mathcal{T}_{\text{agent}} = \langle \text{Guard}(\text{turns}), \text{DetectMode}(\text{deps}), \text{Dispatch}(\text{domain}), \text{Gate}(\text{exitCode}) \rangle$$
+
+## 1. ROUTING LOGIC FLOW
 
 ```python
-def pre_action_turn_counter_guard(workspace_root: str = "."):
-    state_file = f"{workspace_root}/.skipo/agent-state.json"
-    
-    # 1. Initialize or load persistent agent state
-    if not file_exists(state_file):
-        mkdir_p(f"{workspace_root}/.skipo")
-        state = {
-            "schemaVersion": "1.0.0",
-            "turnsSinceLastAudit": 0,
-            "auditCadenceThreshold": 5,  # Mandatory audit triggered every 5 editing turns
-            "totalTurns": 0,
-            "lastAudit": {
-                "timestamp": current_iso_timestamp(),
-                "status": "INITIALIZED",
-                "refactorsPerformed": [],
-                "checksPassed": []
-            },
-            "history": []
-        }
-        write_json(state_file, state)
+def turn_start(workspace="."):
+    # Step 0: Cadence Turn Counter Guard
+    state_file = f"{workspace}/.skipo/agent-state.json"
+    state = read_json(state_file) if exists(state_file) else {"turns": 0, "threshold": 5}
+    state["turns"] += 1
+    if state["turns"] >= state["threshold"]:
+        exec("python3 checklists/full_system_validator.py .")
+        state["turns"] = 0
+    write_json(state_file, state)
+
+    # Step 1: Detect Mode & Load Root Router
+    if exists("krnl.json") or has_dep("@dinilmusick/krnlts"):
+        load_skill("./krnlts/SKILL.md")       # Mode A: KrnlTS Engine
+    elif has_dep("@skipo/core") or exists("pnpm-workspace.yaml"):
+        load_skill("./standalone/SKILL.md")   # Mode B: Standalone Skipo Monorepo
     else:
-        state = read_json(state_file)
-
-    # 2. Check Cadence Threshold
-    if state["turnsSinceLastAudit"] >= state["auditCadenceThreshold"]:
-        # CADENCE TRIGGERED: MANDATORY ROUTINE SYSTEM AUDIT & APP DEBUGGING
-        print("🚨 [Skipo Cadence Trigger]: Threshold reached. Executing mandatory system audit & refactoring...")
-        
-        # A. Execute 5-Pillar Architectural Audit & Deduplication
-        audit_results = execute_full_architectural_audit(scope="ALL_PROJECT_FILES")
-        
-        # B. Run Diagnostic Build & Automated Regression Checks
-        diagnostic_results = run_app_diagnostics_and_tests()
-        
-        # C. Auto-Remediate Violations (Quad-Units, Purity L0-L3, Line Limits, Anti-Polling, Zero-Mock)
-        refactors = auto_remediate_deviations(audit_results, diagnostic_results)
-        
-        # D. Reset Turn Counter & Record Audit State
-        state["turnsSinceLastAudit"] = 0
-        state["totalTurns"] += 1
-        state["lastAudit"] = {
-            "timestamp": current_iso_timestamp(),
-            "status": "PASSED" if diagnostic_results["success"] else "REMEDIATED",
-            "refactorsPerformed": refactors,
-            "checksPassed": ["quad_units", "4_layer_purity", "line_limits", "anti_polling", "zero_mock", "diagnostics"]
-        }
-        state["history"].append(state["lastAudit"])
-        write_json(state_file, state)
-        
-        # E. Record in docs/HISTORY.md
-        append_to_project_history(state["lastAudit"])
-    else:
-        # CADENCE BELOW THRESHOLD: PROCEED WITH NORMAL EDIT
-        state["turnsSinceLastAudit"] += 1
-        state["totalTurns"] += 1
-        write_json(state_file, state)
-
-    return state
+        load_skill("./architecture/SKILL.md") # Mode C: Baseline Architecture
 ```
 
----
+## 2. DOMAIN DISPATCH MATRIX
 
-## 1. MANDATORY PRE-ACTION ROUTING PROTOCOL
-```
-∀ task ∈ Agent_Actions:
-  0. Execute pre_action_turn_counter_guard("."):
-     - If turnsSinceLastAudit >= threshold -> Run routine audit & debug app, refactor deviations, reset counter to 0.
-     - Else -> Increment turn counter in .skipo/agent-state.json and proceed with normal edit.
-  1. Inspect workspace to detect Runtime Mode:
-     if (has_dependency("@dinilmusick/krnlts") ∨ file_exists("krnl.json") ∨ has_import("@dinilmusick/krnlts")):
-         load_skill("./krnlts/SKILL.md")  # Mode A: KrnlTS Runtime Subsystem Extensions
-     elif (has_dependency("@skipo/core") ∨ has_dependency("@skipo/ui") ∨ has_dependency("@skipo/backend") ∨ file_exists("pnpm-workspace.yaml")):
-         load_skill("./standalone/SKILL.md")  # Mode B: Standalone Skipo Architecture & Base Classes
-     else:
-         load_skill("./architecture/SKILL.md") # Mode C: Baseline Skipo Specification Catalog
-  2. Classify task intent(s) into Domain(s).
-  3. Consult corresponding leaf SKILL.md before proposing or writing code.
-  4. If task spans multiple domains, load all relevant skills in dependency order:
-     [ Backend / Database -> Architecture / Deduplication -> KrnlTS -> Data -> API -> UI -> Features -> Docs ]
-  5. Abide strictly by the loaded skill constraints.
-```
-
----
-
-## 2. DOMAIN ROUTING & INTENT MATRIX
-
-| Task Intent / Keywords | Target Skill / Sub-Router | Core Directives & Constraints |
+| Intent Keywords | Target Skill | Core Constraint |
 | :--- | :--- | :--- |
-| `turn_counter`, `agent_state`, `cadence_audit`, `routine_debug`, `5_turn_audit`, `deduplicate_structs`, `unify_functions`, `remediate_deviations` | [`architecture/deduplication/SKILL.md`](./architecture/deduplication/SKILL.md) | **Step 0 Turn Counter Engine**: `.skipo/agent-state.json` persistence, routine 5-turn audit cadence, automated app debugging, KrnlTS quad-unit compliance, deduplication, 4-layer purity, anti-polling audit |
-| `standalone_app`, `skipo_ui`, `base_components`, `base_classes`, `container_classes`, `skipo_backend`, `skipo_systems`, `skipo_validate`, `create_skipo` | [`standalone/SKILL.md`](./standalone/SKILL.md) | **Standalone App Architecture**: `@skipo/*` modular package suite (zero KrnlTS runtime exposure). Base classes, container inheritance, Universal Backend, interactive systems, AST constraint enforcement |
-| `universal_backend`, `control_plane`, `data_plane`, `workspace_storage`, `local_fs`, `local_hosted`, `remote_backend`, `admin_auth`, `vercel_backend`, `decoupled_storage` | [`backend/SKILL.md`](./backend/SKILL.md) | Universal Backend Architecture: Control Plane vs Data Plane separation, 3 Storage Modes (Local FS, Local-Hosted, Remote BaaS), Decoupled Data/Storage providers, Admin authorization, Vercel/Desktop readiness |
-| `theme`, `colors`, `biome`, `parallax`, `particles`, `scrollbars`, `dropdowns` | [`ui/styling/SKILL.md`](./ui/styling/SKILL.md) | Neo-brutalism 2.5D biome, locked coffee/black-gold palettes, custom scrollbars, top-edge downward tooltips |
-| `dock_toolbar`, `window_switcher`, `auto_hide`, `dock_position`, `main_toolbar` | [`ui/dock-toolbar/SKILL.md`](./ui/dock-toolbar/SKILL.md) | macOS-style main window switcher dock, 4-edge positioning (top/bottom/left/right), auto-hide trigger zone, icon-only |
-| `tiled_menu`, `dnd_kit`, `tile_grid`, `icon_only`, `hover_tooltip` | [`ui/tiled-menus/SKILL.md`](./ui/tiled-menus/SKILL.md) | `@dnd-kit` sortable tiles, icon-only (zero persistent text), hover tooltips (top-edge elements pop downward) |
-| `button_logic`, `form_submit`, `input_wiring`, `input_empty_state`, `form_validation`, `ui_stub` | [`ui/wiring/SKILL.md`](./ui/wiring/SKILL.md) | Mandatory backend wiring, zero unlinked UI stubs, anti-polling reactivity, input empty-state buffering & blur validation |
-| `tag_canvas`, `force_graph`, `simulation_physics`, `vsync_scheduler`, `dpr_cap` | [`ui/force-graph/SKILL.md`](./ui/force-graph/SKILL.md) | Physics optimizations (alphaDecay 0.08, charge -70), single-frame VSync, 2x DPR |
-| `node_graph`, `react_flow`, `connect_nodes`, `wire_drag`, `auto_spawn`, `context_menu` | [`ui/react-flow/SKILL.md`](./ui/react-flow/SKILL.md) | Middle-mouse pan, box select, scroll zoom, wire drag auto-spawn, full hotkeys, context menu only (zero tutorial/button clutter) |
-| `audio_engine`, `web_audio`, `web_midi`, `midi_manager`, `audio_input_manager`, `named_bus`, `pro_audio_stream`, `channel_splitter`, `virtual_midi_loopback`, `hot_plug_midi`, `iframe_audio_permission` | [`skipo-audio-midi-engine/SKILL.md`](./skipo-audio-midi-engine/SKILL.md) | **Audio & MIDI Engine**: Named Bus Architecture, anti-filtering pro-audio constraints, multi-channel splitting, output sink routing, reactive MIDI port binding, virtual MIDI loopback, user gesture gating, iframe sandbox defense |
-| `pure_function`, `state_accessor`, `impure_function`, `complex_impure`, `layer_flow` | [`architecture/function-layers/SKILL.md`](./architecture/function-layers/SKILL.md) | 4-layer purity flow (Pure/State -> Impure -> Complex Impure -> API), zero layer bypassing |
-| `create_feature`, `entity_structure`, `quad_unit`, `system_entity`, `helpers_events` | [`architecture/entity-functionality/SKILL.md`](./architecture/entity-functionality/SKILL.md) | KrnlTS quad-units, recursive Entity tree, strict event-driven communication (zero onTick/polling loops) |
-| `shared_utils`, `canonical_structs`, `concept_file`, `libraries_folder` | [`architecture/libraries-concepts/SKILL.md`](./architecture/libraries-concepts/SKILL.md) | `libraries/{Domain}Concepts.ts` at system root level with uniform polymorphic generic templates |
-| `skeleton`, `structural_entity`, `component_composition`, `behavioral_unit` | [`architecture/skeleton-components/SKILL.md`](./architecture/skeleton-components/SKILL.md) | `Entity<TState, TEvents>` Skeletons = Impure Orchestrators (`@role skeleton`), Components = Pure/Atomic (`@role component`) |
-| `file_length`, `line_limit`, `split_file`, `atomic_sizing`, `200_lines`, `top_level_purity`, `one_component_per_file`, `app_tsx_raw_code`, `index_ts_raw_code` | [`architecture/code-limits/SKILL.md`](./architecture/code-limits/SKILL.md) | Top-level File Purity Law (App.tsx/main.ts/index.ts = imports only, zero raw JSX/HTML/logic), One Component Per File, 200 lines/file max (frontend + backend), ≤ 30 lines in helpers before concept delegation, ≤ 20 lines in main before helper delegation |
-| `subapp_engine`, `subapp_authoring`, `drag_and_drop_app`, `engine_wrapper`, `subapp_json` | [`architecture/sub-app-engine/SKILL.md`](./architecture/sub-app-engine/SKILL.md) | 100% drag-and-drop KrnlTS sub-app compatibility, zero-server rule, `subapp.json`, `register.ts`, pure operations |
-| `krnlts`, `krnl_entity`, `magnetic_loader`, `flow_builder`, `krnl_tools`, `krnlts_validate`, `subapp_worker` | [`krnlts/SKILL.md`](./krnlts/SKILL.md) | KrnlTS runtime library extensions (`loadAll`, `Entity<TState, TEvents>`, flows, port gateway, `KrnlFS`, `krnlts-validate`) |
-| `create_endpoint`, `expose_api`, `rpc_surface`, `external_trigger_ui_sync`, `headless_api`, `realtime_events`, `ui_mirroring`, `useRealtimeApiSync`, `events_stream`, `events_route`, `test_api_suite`, `workspace_headers`, `ui_state`, `sync_audit`, `state_discrepancy`, `production_debug`, `debug_manager`, `headless_debug`, `consistency_matrix`, `4_tier_state`, `state_diff`, `test_production_debug_suite`, `api_security`, `resource_governance`, `createSecureRoute`, `8_gate_pipeline`, `rate_limiter`, `abuse_detector`, `concurrency_slot`, `execution_timeout` | [`api/SKILL.md`](./api/SKILL.md) | Absolute feature-to-API parity, real-time UI mirroring, zero phantom executions, `x-workspace-id` isolation, 40-Point Headless Production Debug API Infrastructure, 4-Tier State Inspection (Persisted = Backend = Frontend = Rendered), 24-step verification suite (`scripts/test-production-debug-suite.ts`), 25-point API suite (`scripts/test-api-suite.ts`), **Mandatory 8-Gate Pipeline & Resource Governance** (`createSecureRoute`, multi-tier rate limiting, abuse anomaly detection, 15m IP blocklist, concurrency slots, execution timeouts) |
-| `enforce_security`, `bootstrap_sessions`, `session_infrastructure`, `audit_security_features`, `multi_session`, `refresh_token_rotation`, `progressive_trust`, `email_verification_challenge` | [`prompts/TASK_ENFORCE_SECURITY_AND_SESSION_INFRASTRUCTURE.md`](./prompts/TASK_ENFORCE_SECURITY_AND_SESSION_INFRASTRUCTURE.md) | **Security & Session Jumpstart Protocol**: 7-pillar codebase gap audit, multi-session isolation, rotating refresh tokens (SHA-256), active theft auto-revocation, progressive trust tiers ($T_0 \to T_4$), 5-step verification gate |
-| `fetch_data`, `zero_mock`, `real_backend`, `error_state_render`, `ai_provider` | [`data/SKILL.md`](./data/SKILL.md) | Zero fake/mock data, explicit error states, user-specified AI providers only |
-| `configure_db`, `sqlite_wal`, `postgres_supabase_ssl`, `firebase_mongo`, `test_db` | [`database/SKILL.md`](./database/SKILL.md) | Settings modal database tab, multi-engine support, `/api/database/test` latency ping |
-| `major_change`, `refactor_feature`, `delete_feature`, `purge_pipeline`, `deprecate_flow` | [`features/SKILL.md`](./features/SKILL.md) | Incremental evolution (never nuke/rewrite from scratch on big changes), 100% complete zero-trace feature purge (zero zombie/commented code) |
-| `update_docs`, `document_endpoint`, `sync_skills`, `project_history`, `pre_refactor_memory` | [`docs/SKILL.md`](./docs/SKILL.md) | Chronological user intent tracking in `docs/HISTORY.md`, pre-refactor memory refresh, continuous skill/API sync |
+| `turn_counter`, `cadence`, `dedup`, `remediate` | [`architecture/deduplication/SKILL.md`](./architecture/deduplication/SKILL.md) | State file, $\Delta \text{Logic} = 0$, 5-turn cadence |
+| `code_limits`, `file_lines`, `1_component` | [`architecture/code-limits/SKILL.md`](./architecture/code-limits/SKILL.md) | $\le 200\text{L/file}$, 1-comp/file, pure App.tsx |
+| `purity`, `layers`, `L0_L3`, `helpers` | [`architecture/function-layers/SKILL.md`](./architecture/function-layers/SKILL.md) | $L_0 \dots L_3$ strict hierarchy ($L_a \not\to L_b, a < b$) |
+| `subapp`, `subapp_engine`, `manifest` | [`architecture/sub-app-engine/SKILL.md`](./architecture/sub-app-engine/SKILL.md) | `subapp.json`, zero server, CoreEngine |
+| `entity`, `functionality`, `quad_unit` | [`architecture/entity-functionality/SKILL.md`](./architecture/entity-functionality/SKILL.md) | 4-unit atom: Logic, Schema, Table, Tests |
+| `ui_primitive`, `button`, `input`, `theme` | [`ui/styling/SKILL.md`](./ui/styling/SKILL.md) | Zero raw HTML, 100% `var(--skipo-*)` |
+| `layout`, `top_toolbar`, `bottom_strip`, `panel` | [`ui/dock-toolbar/SKILL.md`](./ui/dock-toolbar/SKILL.md) | TopToolbar(44px), BottomStrip(30px), DetailsPanel |
+| `backend`, `control_plane`, `data_plane` | [`backend/SKILL.md`](./backend/SKILL.md) | ControlPlane $\cap$ DataPlane = $\emptyset$ |
+| `storage`, `b2`, `s3`, `presigned`, `upload` | [`backend/workspace-storage/SKILL.md`](./backend/workspace-storage/SKILL.md) | Presigned URLs, zero `/tmp` proxying |
+| `auth`, `multi_session`, `refresh_token` | [`backend/control-plane/SKILL.md`](./backend/control-plane/SKILL.md) | Token rotation, progressive trust tiers |
+| `api`, `8_gate`, `rate_limit`, `security` | [`api/SKILL.md`](./api/SKILL.md) | 8-gate request lifecycle, anti-polling $\ge 5\text{s}$ |
+| `test`, `coverage`, `anti_stub`, `zero_mock` | [`features/SKILL.md`](./features/SKILL.md) | Companion `*.test.ts(x)`, real assertions, zero stubs |
 
----
+## 3. BLOCKING VERIFICATION GATE
 
-## 3. DETERMINISTIC AGENT DISPATCH PIPELINE
-```python
-def resolve_and_execute(task_intent: str, modified_domains: list[str]):
-    # Step 0: Execute mandatory turn-counter state check & audit guard
-    state = pre_action_turn_counter_guard(".")
-
-    # Step 1: Detect KrnlTS library presence
-    is_krnlts = has_dependency("@dinilmusick/krnlts") or file_exists("krnl.json") or has_import("@dinilmusick/krnlts")
-
-    # Step 2: Resolve all required leaf skills
-    leaf_skills = []
-    if is_krnlts:
-        leaf_skills.append(resolve_krnlts_subskill(task_intent))
-
-    for domain in modified_domains:
-        if domain == "BACKEND":
-            leaf_skills.append(resolve_backend_subskill(task_intent))
-        elif domain == "UI":
-            leaf_skills.append(resolve_ui_subskill(task_intent))
-        elif domain == "ARCHITECTURE":
-            leaf_skills.append(resolve_architecture_subskill(task_intent))
-        elif domain in ["API", "DATA", "DATABASE", "FEATURES", "DOCS"]:
-            leaf_skills.append(f"./{domain.lower()}/SKILL.md")
-
-    # Step 3: Enforce dependency-ordered skill inspection
-    order = ["backend", "database", "architecture", "krnlts", "data", "api", "ui", "features", "docs"]
-    ordered_skills = sorted(leaf_skills, key=lambda path: next((i for i, k in enumerate(order) if k in path), 99))
-
-    # Step 4: Load constraints and execute
-    for skill_path in ordered_skills:
-        load_directives(skill_path)
-
-    execute_code_generation_under_constraints()
-```
-
----
-
-## 4. GLOBAL INVIOLABLE STRUCTURAL INVARIANTS (ALL TASKS — NO EXCEPTIONS)
-
-These rules apply to EVERY code generation and editing action, regardless of domain or task type.
-The agent MUST verify compliance BEFORE finalizing any file write.
-
-### A. TOP-LEVEL FILE PURITY LAW
-```
-TOP-LEVEL FILES = { App.tsx, main.ts, index.ts, server.ts, app.ts, index.tsx, _app.tsx,
-                    main.tsx, entry.ts, entry.tsx, root.tsx }
-
-THESE FILES MUST CONTAIN ONLY:
-  1. Import statements
-  2. A single root export that wires together imported components / modules
-
-ABSOLUTELY FORBIDDEN IN TOP-LEVEL FILES:
-  ✗ Raw JSX / HTML markup of ANY kind
-  ✗ React hooks (useState, useEffect, useRef, useContext, etc.)
-  ✗ Inline styles, CSS objects, or className strings
-  ✗ Business logic, data fetching, API calls, conditionals that render markup
-  ✗ Event handler definitions
-  ✗ Backend route handlers, middleware registration, or Express/Fastify app config
-
-CANONICAL VALID App.tsx:
-  import React from "react";
-  import { AppShell } from "./components/AppShell/AppShell";
-  export default function App() { return <AppShell />; }
-
-CANONICAL VALID server.ts / index.ts (backend):
-  import { createApp } from "./app/AppFactory";
-  const app = createApp();
-  app.listen(process.env.PORT ?? 3000);
-
-VIOLATION RESPONSE: If the agent generates or modifies a top-level file that contains
-any forbidden content, it MUST immediately extract that content into a properly named
-component or factory module and import it.
-```
-
-### B. ONE COMPONENT / ONE MODULE PER FILE
-```
-RULE:
-  Every .tsx / .ts file contains exactly ONE primary exported entity:
-    - Frontend: ONE React component
-    - Backend:  ONE service class | ONE controller | ONE route-group factory | ONE utility
-
-PERMITTED ALONGSIDE the primary export (small helpers only):
-  ✓ Props interface / type (e.g., interface AppShellProps { ... })
-  ✓ Up to 3 pure helper functions, each < 20 lines, exclusively used by the primary export
-  ✓ Local enums / type aliases consumed only within this file
-
-FORBIDDEN:
-  ✗ Two or more React component definitions in one file
-  ✗ Two or more service / controller classes in one file
-  ✗ Unrelated utility functions bundled with a component
-
-DECOMPOSITION PATTERN (when a component grows):
-  ComponentName/
-    ComponentName.tsx              ← root orchestrator (imports sub-components only)
-    ComponentNameHeader.tsx        ← sub-component
-    ComponentNameBody.tsx          ← sub-component
-    ComponentNameSidebar.tsx       ← sub-component
-    useComponentNameLogic.ts       ← extracted hook (stateful logic)
-    ComponentName.types.ts         ← shared prop/state interfaces
-    ComponentName.constants.ts     ← constants / static data
-```
-
-### C. 200-LINE MAXIMUM (FRONTEND AND BACKEND)
-```
-HARD LIMIT: 200 lines per file — applies to ALL .ts / .tsx / .js / .jsx files.
-When a file reaches 180 lines, immediately begin extracting sub-units.
-No exceptions: backend controllers, service layers, and schemas obey this limit equally.
-```
-
-### D. BASE CLASS, THEME PACK & SHELL INHERITANCE LAW
-```
-RULE:
-  In standalone non-KrnlTS applications, all custom UI elements MUST inherit from or compose
-  @skipo/ui base classes, and all views MUST be wrapped in @skipo/ui containers:
-  
-  MANDATORY BASE PRIMITIVES:
-    - Buttons:     BaseButton / IconOnlyButton (strictly icon-only with monochromatic SVGs)
-    - Inputs:      BaseInput / CredentialField (mandatory external link to service key portal)
-    - Textareas:   BaseTextarea
-    - Selects:     BaseSelect
-    - Cards:       BaseCard
-    - Badges:      BaseBadge
-    - Toggles:     BaseToggle
-    
-  MANDATORY SHELL & NAVIGATION:
-    - Root layout: AppShell (enclosing TopToolbar, clean central area, and BottomStrip)
-    - Navigation:  TopToolbar (single top toolbar for app title + flat tabs; ZERO nested tabs)
-    - Inspection:  BottomStrip (thin 30px strip with center translucent hover text, left status & auto-save, right API telemetry & system messages)
-    - Theming:     SkipoThemeProvider with portable theme packs (theme.json + tokens.json + styles.css)
-    
-  MANDATORY CONTAINERS:
-    - Page level:  PageContainer
-    - Sections:    SectionContainer
-    - Overlays:    ModalContainer / DrawerContainer
-    
-  FORBIDDEN:
-    ✗ Raw HTML interactive elements (<button>, <input>, etc.)
-    ✗ Bespoke component libraries bypassing @skipo/ui
-    ✗ Nested tab bars of ANY kind
-    ✗ Floating tooltip bubbles or popover text balloons
-    ✗ Static text labels on action buttons
-    ✗ Credential fields lacking external links to provider portals
-    ✗ Hardcoded hex/rgb colors bypassing standardized --skipo-* tokens
-    ✗ Verbose marketing descriptions or unsolicited explanatory copy on views/modals
-    
-  ENFORCEMENT:
-    Run `skipo-validate` via @skipo/validate to statically assert compliance on build and every 5 turns.
-```
-
-### E. ZERO-DUPLICATION PHYSICAL STORAGE & UNIFIED WORKSPACE INITIALIZATION LAW
-```
-1. CONTAINER RENAMING & DEDUPLICATION:
-   - When any container node (Kanban board, folder, collection) is renamed:
-     - Local disk: MUST rename directory atomically (renameNodeOnDisk), move contents recursively, and update document fileUrl pointers in documents_index.json.
-     - Cloud storage: MUST invoke renameCloudWorkspaceFolder to copy files/markers to new prefix, ensure directory marker exists, and permanently delete old folder and versions (permanentDeleteS3Folder).
-     - Bucket reconciliation: MUST sweep directory markers (keys ending in '/') using validDirPrefixes; NEVER blanket-skip directory markers.
-     - Self-healing: saveGraphToFS MUST detect and migrate any orphaned board folder whose kanban_board.json matches an active board.
-     - API & Client handles: UPDATE_NODE must return renamedFrom and renamedTo, and client handles must purge renamedFrom via purgeFromAllLocalHandles.
-2. UNIFIED WORKSPACE INITIALIZATION:
-   - Workspace creation scripts MUST be 100% identical and unified across all storage tiers (Local, Backblaze B2, S3, R2, Supabase).
-   - Local storage MUST NOT create rogue default placeholder folders (inbox/welcome_guide.md) when cloud storage does not.
-3. PRIMARY CLOUD STORAGE ELEVATION:
-   - Elevating cloud storage (e.g. Backblaze B2) to Primary sets isCloudPrimary = true and vaultPath = ./${folderPrefix}.
-   - Serverless requests MUST NOT default or expose /tmp/ serverless scratch paths in the UI or graph root nodes.
-```
-
-### F. CI/CD BUILD & PRE-BUNDLED PACKAGE DISTRIBUTION INVARIANT (VITE & MONOREPO COMPATIBILITY)
-```
-1. ANCHORED GITIGNORE MANDATE:
-   - Root and project .gitignore files MUST prefix top-level output directories with a leading slash:
-     ✓ /dist/
-     ✓ /.next/
-     ✓ /out/
-   - FORBIDDEN in root .gitignore:
-     ✗ dist/   (unanchored recursive pattern that silently masks packages/*/dist/)
-     ✗ dist    (masks any directory named dist across the monorepo)
-   - Rationale: Unanchored `dist/` prevents sub-package distribution files (such as
-     `packages/ui/dist/index.css` and `packages/ui/dist/index.js`) from being committed or
-     resolved in fresh CI/CD environments (Vercel, GitHub Actions), causing fatal Vite
-     asset generation failures:
-     [@tailwindcss/vite:generate:build] ENOENT: no such file or directory, open '.../dist/index.css'
-
-2. PRE-BUNDLED ARTIFACT AVAILABILITY FOR VITE APPS:
-   - Any app or sub-app consuming @skipo/ui styles via Vite must verify or invoke the build
-     of @skipo/ui (`pnpm --filter @skipo/ui build`) before running Vite build.
-   - All scaffolds and templates MUST emit anchored `.gitignore` (`/dist/`).
-
-3. DYNAMIC DEV TOOLING IN SERVERS (ZERO STATIC VITE IMPORTS):
-   - In hybrid/full-stack engines, never statically import development-only tooling (Vite, esbuild)
-     at the module level of server factories.
-   - In Vercel or AWS Lambda microVMs, development dependencies are excluded, causing fatal
-     FUNCTION_INVOCATION_FAILED.
-   - Wrap all dev server initialization in `if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') { const { createServer } = await import('vite'); }`.
-
-4. PRE-BUNDLED SERVERLESS RUNTIME OUTPUT:
-   - Never rely on Vercel's automatic TypeScript resolution when server routes reference files
-     outside the `api/` directory.
-   - Bundle the backend layer into a standalone ESM module:
-     `esbuild api/index.ts --bundle --platform=node --format=esm --packages=external --outfile=api/index.js`.
-
-5. SAFE JSON PARSING & COPYABLE ERROR UI:
-   - Client HTTP requests must verify `res.headers.get('content-type')?.includes('application/json')`
-     before calling `res.json()`, capturing non-JSON error payloads cleanly.
-   - Use @skipo/ui's CopyableErrorAlert to provide 1-click clipboard error debugging for users and agents.
-```
-
-### G. API SECURITY & RESOURCE GOVERNANCE LAW (THE 8-GATE PIPELINE)
-```
-INVARIANT: UI_CAPABILITY_SET == API_CAPABILITY_SET
-Every API route across all Skipo applications MUST pass through the canonical 8-Gate Pipeline:
-
-[0. IP Blocklist] -> [1. Request Validation] -> [2. Auth] -> [3. Authorization] -> [4. Rate Limit] -> [5. Resource Limits] -> [6. Application Logic] -> [7. Security Headers & Observability]
-
-1. ZERO UNGUARDED ROUTES:
-   Every HTTP endpoint (App Router route.ts, Express handler, etc.) MUST be declared via createSecureRoute({ ... }).
-   Raw unwrapped route exports (e.g. raw `export async function GET(req) { ... }`) are strictly forbidden.
-2. FAILURE AT ANY GATE STOPS DOWNSTREAM EXECUTION:
-   If validation fails, rate limit is exceeded, or credentials are invalid, execution MUST halt immediately:
-   STOP -> NO_DOWNSTREAM_EXECUTION. No heavy application logic, database queries, or AI calls are ever executed.
-3. MULTI-TIERED RATE LIMITING:
-   - CHEAP_READ: 120 req/min (read-only metadata, lightweight queries)
-   - NORMAL_MUTATION: 60 req/min (state modifications, document updates)
-   - EXPENSIVE_OPERATION: 20 req/min (heavy processing, bulk imports, exports, sync)
-   - AUTHENTICATION: 25 req/15min (login, registration, credential changes)
-4. ABUSE ANOMALY AUTO-BLOCKING:
-   Dynamic detection of attack spikes (401, 403, 429, 5xx, or request rate spikes). When an anomaly threshold
-   is breached, the offending client IP is added to an in-memory blocklist for 15 minutes, rejecting all subsequent
-   requests at Gate 0 at zero CPU and zero database cost.
-5. RESOURCE BUDGETS & CONCURRENCY:
-   - In-flight concurrency limits prevent thread/event-loop starvation.
-   - Execution timeouts (default 8s, expensive 30s) abort runaway operations via AbortSignal.
-   - Max body size (default 1MB, uploads 50MB) rejected pre-flight via Content-Length inspection before parsing body.
-   - Pagination limits clamped to max safe caps (max 100).
-6. ZERO SENSITIVE LEAKS:
-   Exceptions during application logic execution are caught and sanitized to generic 500 responses with an incident ID.
-   Stack traces and raw database errors are NEVER leaked to the client.
-```
-
-### H. MULTI-SESSION ISOLATION, REFRESH TOKEN ROTATION & PROGRESSIVE TRUST LAW
-```
-1. ZERO CREDENTIALS ON USER ROOT:
-   - User entity remains account-level (id, email, trustLevel, emailVerified, status, sessions: Session[]).
-   - Authentication credentials and session tokens must NEVER be stored directly as monolithic fields on User.
-2. MULTI-SESSION ISOLATION:
-   - Each login generates an independent Session record with unique ID, device ID, user agent, and IP.
-   - Revoking Session A (logout on Device A) leaves Sessions B and C intact.
-   - "Log out all devices" and password reset revokes all active sessions for the account.
-3. REFRESH TOKEN ROTATION & THEFT DETECTION:
-   - Raw refresh tokens are high-entropy (48-byte cryptographically random), sent ONLY to the client, NEVER stored raw in DB (stored as SHA-256(token)), and NEVER logged.
-   - Access tokens are short-lived (15 minutes). Refresh tokens are long-lived (30 days) and stored in HttpOnly + Secure + SameSite=lax cookies.
-   - Atomic rotation on /api/auth/refresh: atomically invalidates the old refresh token hash and issues a new pair.
-   - TOKEN THEFT DETECTION: If a client presents an already-invalidated/rotated refresh token, this constitutes active token theft -> immediately revoke the entire Session, record REFRESH_TOKEN_REUSE security event, and reject with 401.
-4. SERVER-SIDE PROGRESSIVE TRUST HIERARCHY (T0 -> T4):
-   - T0 (T0_UNVERIFIED): Rate multiplier 0.25x. Unverified email. Restricted feature access.
-   - T1 (T1_EMAIL_VERIFIED): Rate multiplier 1.0x. Verified email via cryptographic challenge. Full standard access.
-   - T2 (T2_ESTABLISHED): Rate multiplier 2.0x. Verified + Age >= 7 days + Abuse score <= 10.
-   - T3 (T3_TRUSTED): Rate multiplier 5.0x. Verified + Age >= 30 days + Abuse score <= 5 + Successful activities >= 50.
-   - T4 (T4_PRIVILEGED): Rate multiplier 10.0x. Admin grant or verified elevated role.
-   - Enforce minimumTrustLevel and emailVerificationRequired in createSecureRoute. Reject unauthorized calls at Gate 3 with 403.
-5. MULTI-SIGNAL ABUSE SCORING & AUTOMATIC PENALTIES:
-   - Weighted abuse signals: failed logins (+2), verification failures (+3), verification resends (+1), rate limit violations (+2), concurrency spikes (+3), token reuse (+10).
-   - >= 15: Halve rate limits (0.5x multiplier).
-   - >= 30: Revoke active high-privilege sessions immediately.
-   - >= 50: Auto-suspend account (status = 'SUSPENDED'), revoke all sessions, and block at Gate 2 with 403.
-6. EMAIL VERIFICATION CHALLENGE LIFECYCLE:
-   - Cryptographic challenge token (SHA-256 hash stored), 24-hour TTL, max 5 attempts, single-use consumption.
-   - Multi-tier resend rate limiting: max 3/15m per account, max 3/15m per email, max 5/15m per IP.
-```
-
----
-
-## 5. GLOBAL OUTPUT PREFERENCES
-- **Style**: Minimal natural language. Prefer mathematics, pseudocode, graphs, flowcharts, and vector-space representations.
-- **Acronyms**: Fully expand all acronyms on first reference.
-- **Veracity**: Science-based and empirically verifiable claims only.
-- **Summaries**: Provide a formal summarizing function per phenomenon or complex architecture discussed.
-- **Code**: Terse, direct to the point, zero fluff.
+$$\text{TaskDone} \iff \text{exitCode}(\text{python3 checklists/full\_system\_validator.py .}) == 0$$

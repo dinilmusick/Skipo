@@ -1,59 +1,31 @@
 ---
 name: krnlts-runtime-core
-description: Directives for generic Entity<TState, TEvents> runtime execution, capability bubbling, flow construction, and state mutations in KrnlTS.
+description: Directives for Entity<TState, TEvents> runtime execution, capability bubbling, flow construction, and state mutations.
 ---
 
 # KRNLTS RUNTIME & CORE ENTITY ENGINE
 
-## 1. GENERIC ENTITY CLASS (`Entity<TState, TEvents>`)
+## 1. RUNTIME LAWS & BUBBLING
+
+$$\forall c \in \text{Capabilities}(\text{Child}): c \xrightarrow{\text{bubble}} \text{Parent}.\text{resolveCapability}(\text{QualifiedID})$$
+
+$$\text{Imports}(\text{Entity}) \cap \text{src/libraries/*} = \emptyset \quad (\text{thenFunction with raw library is FORBIDDEN})$$
+
+## 2. ENTITY & FLOW BUILDER PATTERNS
+
 ```typescript
-import { Entity } from "@dinilmusick/krnlts";
-
-interface OrderState {
-  orderId: string;
-  total: number;
-  status: "pending" | "processed";
-}
-
-interface OrderEvents {
-  "order:processed": { orderId: string; total: number };
-}
-
 /** @role skeleton */
 export class OrderEntity extends Entity<OrderState, OrderEvents> {
   constructor() {
-    super("OrderEntity", null, {
-      initialState: { orderId: "", total: 0, status: "pending" }
-    });
+    super("OrderEntity", null, { initialState: { status: "idle", total: 0 } });
   }
 
-  processOrder(amount: number) {
-    this.setState({ total: amount, status: "processed" });
-    this.emitEvent("order:processed", { orderId: this.state.orderId, total: amount });
+  setupFlows() {
+    this.flow("checkout")
+      .thenFunctionality("ValidateCart")                       // Quad-unit
+      .thenEntityOrchestration("BillingEntity", "ChargeCard")  // Peer orchestration
+      .branch((res) => res.approved, "ShipOrder", "CancelOrder")
+      .register({ visibility: "public" });
   }
 }
 ```
-
----
-
-## 2. CAPABILITY BUBBLING & QUALIFIED RESOLUTION
-1. **Bubbling State**: Child entity capabilities automatically bubble up to parent entities (`localFunctionalities` $\to$ `remoteFunctionalities`).
-2. **Qualified IDs**: Ingress adapters receive qualified IDs (e.g. `Root.Order.processOrder`) and resolve them via `root.resolveCapability("Root.Order.processOrder")` $\to$ `{ owner: orderEntity, fid: "processOrder" }`.
-3. **Execution**: The owner executes `owner.call(fid, input)`.
-
----
-
-## 3. FIRST-CLASS FLOWS & CROSS-ENTITY ORCHESTRATION (`KrnlFlowBuilder`)
-```typescript
-myEntity.flow("checkoutPipeline")
-  .thenFunctionality("validateCart")
-  .thenEntityOrchestration("BillingSystem", "chargeCustomer")
-  .branch((res) => res.isApproved, "fulfillOrder", "cancelOrder")
-  .register({
-    visibility: "public",
-    description: "Multi-step checkout pipeline"
-  });
-```
-- Flows are registered as regular functionalities and invoked via `entity.call("checkoutPipeline", payload)`.
-- **Cross-Entity Orchestration**: `.thenEntityOrchestration(entityName, orchestrationId)` allows flat entities to invoke peer entity orchestrations seamlessly via `KrnlEntityRegistry`.
-- **Library Prohibition Invariant**: Entities MUST NOT call libraries directly via `thenFunction()`. Only functionalities in `src/functionalities/` are permitted to call shared libraries (`src/libraries/*`).
