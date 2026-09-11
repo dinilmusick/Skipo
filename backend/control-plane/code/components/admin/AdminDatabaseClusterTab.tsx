@@ -372,24 +372,16 @@ export default function AdminDatabaseClusterTab({ cluster, userToken, onRefresh 
     if (db.engine === 'neon') {
       const isPrimary = db.role === 'primary';
       const keyName = isPrimary ? 'NEON_DATABASE_URL' : 'CLONE_NEON_DATABASE_URL';
-      const tableNameKey = isPrimary ? 'NEON_TABLE_NAME' : 'CLONE_NEON_TABLE_NAME';
       const conn = db.neon?.connectionString || '';
-      const table = db.neon?.tableName || 'ultrst-users';
       keys.push({
         key: keyName,
         val: conn,
         desc: `${isPrimary ? 'Primary' : 'Redundant Clone'} Neon Serverless PostgreSQL Connection URI (e.g. postgresql://user:pass@ep-xyz.neon.tech/dbname?sslmode=require). Note: DATABASE_URL is also accepted as fallback.`
       });
-      keys.push({
-        key: tableNameKey,
-        val: table,
-        desc: 'Universal Multi-App User Accounts Table Name (default: ultrst-users)'
-      });
     } else if (db.engine === 'supabase') {
       const isPrimary = db.role === 'primary';
       const urlKey = isPrimary ? 'SUPABASE_URL' : 'CLONE_SUPABASE_URL';
       const secKey = isPrimary ? 'SUPABASE_SERVICE_ROLE_KEY' : 'CLONE_SUPABASE_SERVICE_ROLE_KEY';
-      const tableKey = isPrimary ? 'SUPABASE_TABLE_NAME' : 'CLONE_SUPABASE_TABLE_NAME';
       keys.push({
         key: urlKey,
         val: db.supabase?.url || '',
@@ -402,11 +394,6 @@ export default function AdminDatabaseClusterTab({ cluster, userToken, onRefresh 
           desc: `${isPrimary ? 'Primary' : 'Redundant Clone'} Supabase Secret Service Role API Key (Bypasses RLS to manage accounts)`
         });
       }
-      keys.push({
-        key: tableKey,
-        val: db.supabase?.tableName || 'ultrst-users',
-        desc: 'Universal Multi-App User Accounts Table Name'
-      });
     } else if (db.engine === 'postgres') {
       const isPrimary = db.role === 'primary';
       const keyName = isPrimary ? 'POSTGRES_DATABASE_URL' : 'CLONE_POSTGRES_DATABASE_URL';
@@ -419,7 +406,6 @@ export default function AdminDatabaseClusterTab({ cluster, userToken, onRefresh 
       const isPrimary = db.role === 'primary';
       const projKey = isPrimary ? 'FIREBASE_PROJECT_ID' : 'CLONE_FIREBASE_PROJECT_ID';
       const apiKeyKey = isPrimary ? 'FIREBASE_API_KEY' : 'CLONE_FIREBASE_API_KEY';
-      const colKey = isPrimary ? 'FIREBASE_COLLECTION_NAME' : 'CLONE_FIREBASE_COLLECTION_NAME';
       keys.push({
         key: projKey,
         val: db.firebase?.projectId || '',
@@ -432,11 +418,6 @@ export default function AdminDatabaseClusterTab({ cluster, userToken, onRefresh 
           desc: 'Firebase Web API Key'
         });
       }
-      keys.push({
-        key: colKey,
-        val: db.firebase?.collectionName || 'ultrst-users',
-        desc: 'Cloud Firestore Collection Name'
-      });
     }
 
     const envText = keys.map((k) => `${k.key}=${k.val}`).join('\n');

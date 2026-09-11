@@ -100,7 +100,7 @@ export function getDefaultClusterConfig(): AdminDatabaseClusterConfig {
       envVarKey: matchedKey,
       neon: {
         connectionString: neonConn,
-        tableName: cleanEnv(process.env.NEON_TABLE_NAME) || 'ultrst-users',
+        tableName: 'ultrst-users',
       },
       status: 'connected',
       latencyMs: 120,
@@ -129,7 +129,7 @@ export function getDefaultClusterConfig(): AdminDatabaseClusterConfig {
         url: sbUrl,
         serviceRoleKey: sbKey,
         anonKey: cleanEnv(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) || sbKey,
-        tableName: cleanEnv(process.env.SUPABASE_TABLE_NAME) || 'ultrst-users',
+        tableName: 'ultrst-users',
       },
       status: 'connected',
       latencyMs: 80,
@@ -188,7 +188,7 @@ export function getDefaultClusterConfig(): AdminDatabaseClusterConfig {
       firebase: {
         projectId: fbProjectId,
         apiKey: process.env.FIREBASE_API_KEY || '',
-        collectionName: process.env.FIREBASE_COLLECTION_NAME || process.env.FIREBASE_COLLECTION || 'ultrst-users',
+        collectionName: 'ultrst-users',
       },
       status: 'connected',
       latencyMs: 140,
@@ -214,7 +214,7 @@ export function getDefaultClusterConfig(): AdminDatabaseClusterConfig {
       envVarKey: 'CLONE_NEON_DATABASE_URL',
       neon: {
         connectionString: cloneNeon,
-        tableName: process.env.CLONE_NEON_TABLE_NAME || process.env.CLONE_NEON_TABLE || 'ultrst-users',
+        tableName: 'ultrst-users',
       },
       status: 'connected',
       latencyMs: 125,
@@ -239,7 +239,7 @@ export function getDefaultClusterConfig(): AdminDatabaseClusterConfig {
       supabase: {
         url: cloneSupabaseUrl,
         serviceRoleKey: cloneSupabaseKey,
-        tableName: process.env.CLONE_SUPABASE_TABLE_NAME || process.env.CLONE_SUPABASE_TABLE || 'ultrst-users',
+        tableName: 'ultrst-users',
       },
       status: 'connected',
       latencyMs: 90,
@@ -263,7 +263,7 @@ export function getDefaultClusterConfig(): AdminDatabaseClusterConfig {
       firebase: {
         projectId: cloneFirebaseProjectId,
         apiKey: process.env.CLONE_FIREBASE_API_KEY || '',
-        collectionName: process.env.CLONE_FIREBASE_COLLECTION_NAME || 'ultrst-users',
+        collectionName: 'ultrst-users',
       },
       status: 'connected',
       latencyMs: 145,
