@@ -101,6 +101,14 @@ AUDIT CHECKLIST:
 [ ] Pillar 7: Edge Security Middleware & Route Coverage
     ├── middleware.ts active with isIpBlocked and security headers
     └── 100% of API routes in app/api/ wrapped with createSecureRoute (zero unwrapped routes)
+
+[ ] Pillar 8: Real-Time Stream & Client Sync Throttling (Anti-Self-DoS / Anti-Polling)
+    ├── EventSource onerror unconditionally calls eventSource.close() immediately
+    ├── Permanent circuit breaker halts retries on HTTP 401, 403, or 429 until re-auth
+    ├── Jittered exponential backoff (5s -> 120s with +/- 15% random jitter)
+    ├── Hard retry ceiling of max 5 reconnect attempts before entering idle state
+    ├── Tab visibility suspension: pauses reconnect timers when document.hidden is true
+    └── Zero aggressive polling loops (< 5000ms intervals) for network requests
 ```
 
 ---

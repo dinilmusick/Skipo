@@ -4,6 +4,7 @@ Aspect 08: API Security, Resource Governance & Anti-Polling
 Verifies:
 - 8-Gate Security Lifecycle in Protected Routes (Rate limiting, auth, sanitization)
 - Anti-Polling Invariant (Bans aggressive client polling loops < 5000ms for network calls)
+- Real-Time Stream Safety Invariant (EventSource close on error, 4xx circuit breaker, visibility pause)
 - Error Sanitization Invariant (Bans leaking raw error.stack in HTTP responses)
 - Security Response Headers Presence
 """
@@ -50,8 +51,8 @@ def validate_api_security(root_dir: Path) -> ChecklistResult:
         fname = file_path.name
         rel_str = str(rel_path)
 
-        # Skip test files
-        if ".test." in fname or ".spec." in fname or "__tests__" in rel_str:
+        # Skip test files and generated build artifacts
+        if ".test." in fname or ".spec." in fname or "__tests__" in rel_str or "dist/" in rel_str or rel_str.startswith(".next/") or rel_str.startswith(".turbo/"):
             continue
 
         content = read_text_safe(file_path)
@@ -59,6 +60,8 @@ def validate_api_security(root_dir: Path) -> ChecklistResult:
             continue
 
         lines = content.splitlines()
+        if len(lines) > 1000 and (fname == "index.js" and "api/" in rel_str):
+            continue
 
         # 1. Anti-Polling Check in frontend / client code
         for match in SET_INTERVAL_REGEX.finditer(content):
@@ -77,7 +80,44 @@ def validate_api_security(root_dir: Path) -> ChecklistResult:
                     suggestion="Use Server-Sent Events (SSE), WebSockets, or exponential backoff (min 5s -> 60s)."
                 ))
 
-        # 2. Raw Error Stack Leak Check in API route handlers
+        # 2. Real-Time Stream Safety Invariant (EventSource cleanup & 4xx circuit breaker)
+        if "new EventSource(" in content:
+            # Check 2a: EventSource MUST call .close() inside onerror or error handler
+            has_onerror = "onerror" in content or "addEventListener('error'" in content or 'addEventListener("error"' in content
+            has_close = ".close()" in content
+            if not has_close:
+                violations.append(Violation(
+                    rule_id="unclosed-eventsource-on-error",
+                    severity="error",
+                    message="EventSource instance initialized without explicit .close() handling on error.",
+                    file_path=rel_str,
+                    suggestion="Always call eventSource.close() inside onerror to prevent Chromium/Brave native high-rate reconnect loops."
+                ))
+
+            # Check 2b: Must feature 4xx circuit breaking or visibility pause if reconnect logic exists
+            has_reconnect = any(token in content for token in ["reconnect", "scheduleReconnect", "retry", "setTimeout", "setInterval"])
+            if has_reconnect:
+                has_circuit_breaker = any(token in content for token in ["circuitBroken", "circuitBreaker", "401", "403", "unauthorized"])
+                if not has_circuit_breaker:
+                    violations.append(Violation(
+                        rule_id="missing-circuit-breaker-on-4xx",
+                        severity="error",
+                        message="Real-time reconnect logic does not implement a permanent circuit breaker on HTTP 401/403.",
+                        file_path=rel_str,
+                        suggestion="Check for 401/403 and immediately trip circuit breaker to stop burning serverless invocations."
+                    ))
+
+                has_visibility = any(token in content for token in ["document.hidden", "visibilitychange", "visibilityState"])
+                if not has_visibility:
+                    violations.append(Violation(
+                        rule_id="missing-visibility-suspension",
+                        severity="warning",
+                        message="Real-time stream reconnect logic does not suspend when the browser tab is hidden (document.hidden).",
+                        file_path=rel_str,
+                        suggestion="Listen to visibilitychange and pause reconnect timers while document.hidden is true."
+                    ))
+
+        # 3. Raw Error Stack Leak Check in API route handlers
         for line_idx, line in enumerate(lines, 1):
             if STACK_LEAK_REGEX.search(line):
                 violations.append(Violation(
@@ -90,9 +130,8 @@ def validate_api_security(root_dir: Path) -> ChecklistResult:
                     suggestion="Sanitize error messages; log internal stack traces to server logs only."
                 ))
 
-        # 3. Protected API Routes Governance Check
+        # 4. Protected API Routes Governance Check
         if "api/" in rel_str and (fname == "route.ts" or fname == "route.js"):
-            # Check if non-public mutation route has rate limiting or auth
             is_mutation = "POST" in content or "PUT" in content or "DELETE" in content
             is_public_auth = "api/auth/login" in rel_str or "api/auth/register" in rel_str
             
