@@ -31,13 +31,15 @@ export function middleware(req: NextRequest) {
   const forwarded = req.headers.get('x-forwarded-for');
   const ip = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || '127.0.0.1';
 
-  // 3. Early Edge IP Blocklist Check
-  const blockCheck = isIpBlocked(ip);
-  if (blockCheck.blocked) {
-    return new NextResponse('Access Denied: Anomalous Bot Activity Detected.', {
-      status: 403,
-      headers: { 'Retry-After': String(blockCheck.retryAfterSec || 900) },
-    });
+  // 3. Early Edge IP Blocklist Check (Only for protected API routes, never block UI pages or auth endpoints)
+  if (pathname.startsWith('/api') && !pathname.startsWith('/api/auth')) {
+    const blockCheck = isIpBlocked(ip);
+    if (blockCheck.blocked) {
+      return new NextResponse('Access Denied: Anomalous Bot Activity Detected.', {
+        status: 403,
+        headers: { 'Retry-After': String(blockCheck.retryAfterSec || 900) },
+      });
+    }
   }
 
   // 4. Generate Request ID

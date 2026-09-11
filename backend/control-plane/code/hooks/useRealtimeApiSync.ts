@@ -29,27 +29,35 @@ export function useRealtimeApiSync({
   const seenEventIds = useRef<Set<string>>(new Set());
   const lastEventTimestamp = useRef<number>(Date.now());
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const circuitBrokenRef = useRef<boolean>(false);
+
+  // Stabilize callbacks in a mutable ref to prevent unneeded effect re-runs
+  const callbacksRef = useRef({ onDocumentEvent, onCategoryEvent, onGraphEvent, onBiomeEvent, onWorkspaceEvent, onApiAction });
+  callbacksRef.current = { onDocumentEvent, onCategoryEvent, onGraphEvent, onBiomeEvent, onWorkspaceEvent, onApiAction };
 
   useEffect(() => {
-    if (!enabled || typeof window === 'undefined') return;
+    if (!enabled || typeof window === 'undefined') {
+      setIsConnected(false);
+      return;
+    }
 
+    circuitBrokenRef.current = false;
     let eventSource: EventSource | null = null;
     let isSubscribed = true;
+    let backoffIndex = 0;
+    const backoffDelays = [3000, 6000, 12000, 30000, 60000];
 
     const handleIncomingEvent = (event: RealtimeWorkspaceEvent) => {
-      if (!event || !event.id) return;
-      if (seenEventIds.current.has(event.id)) return;
+      if (!event || !event.id || seenEventIds.current.has(event.id)) return;
 
       seenEventIds.current.add(event.id);
       if (seenEventIds.current.size > 500) {
-        // Prevent memory leak
         const first100 = Array.from(seenEventIds.current).slice(0, 100);
         first100.forEach((id) => seenEventIds.current.delete(id));
       }
 
       lastEventTimestamp.current = Math.max(lastEventTimestamp.current, event.timestamp);
 
-      // 1. Emit telemetry to ActivityMonitor HUD
       emitTelemetry({
         id: event.id,
         endpoint: event.endpoint || '/api',
@@ -59,52 +67,87 @@ export function useRealtimeApiSync({
         details: event.details || event.action,
       });
 
-      // 2. Trigger on-screen banner / toast
-      if (onApiAction && event.details) {
-        onApiAction(`[API] ${event.method || 'POST'} ${event.endpoint || ''} ── ${event.details}`);
-      }
-
-      // 3. Dispatch specific state update handlers
-      if (event.action.startsWith('DOCUMENT_') && onDocumentEvent) {
-        onDocumentEvent(event);
-      } else if (event.action.startsWith('CATEGORY_') && onCategoryEvent) {
-        onCategoryEvent(event);
-      } else if (event.action === 'GRAPH_UPDATED' && onGraphEvent) {
-        onGraphEvent(event);
-      } else if (event.action === 'BIOME_CHANGED' && onBiomeEvent) {
-        onBiomeEvent(event);
-      } else if (event.action.startsWith('WORKSPACE_') && onWorkspaceEvent) {
-        onWorkspaceEvent(event);
-      }
+      const cb = callbacksRef.current;
+      if (cb.onApiAction && event.details) cb.onApiAction(`[API] ${event.method || 'POST'} ${event.endpoint || ''} ── ${event.details}`);
+      if (event.action.startsWith('DOCUMENT_') && cb.onDocumentEvent) cb.onDocumentEvent(event);
+      else if (event.action.startsWith('CATEGORY_') && cb.onCategoryEvent) cb.onCategoryEvent(event);
+      else if (event.action === 'GRAPH_UPDATED' && cb.onGraphEvent) cb.onGraphEvent(event);
+      else if (event.action === 'BIOME_CHANGED' && cb.onBiomeEvent) cb.onBiomeEvent(event);
+      else if (event.action.startsWith('WORKSPACE_') && cb.onWorkspaceEvent) cb.onWorkspaceEvent(event);
     };
 
-    // Fast polling fallback runner
-    const runPollingFallback = async () => {
+    // Polling fallback runner with strict circuit breaker
+    const runPollingFallback = async (): Promise<boolean> => {
+      if (!isSubscribed || circuitBrokenRef.current) return false;
       try {
         const token = localStorage.getItem('docustackAuthToken');
         const headers: Record<string, string> = {};
         if (token) headers['Authorization'] = `Bearer ${token}`;
         if (workspaceId) headers['x-workspace-id'] = workspaceId;
 
-        const url = `/api/events?since=${lastEventTimestamp.current}${workspaceId ? `&workspaceId=${encodeURIComponent(workspaceId)}` : ''}`;
+        const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
+        const wsParam = workspaceId ? `&workspaceId=${encodeURIComponent(workspaceId)}` : '';
+        const url = `/api/events?since=${lastEventTimestamp.current}${tokenParam}${wsParam}`;
+
         const res = await fetch(url, { headers });
-        if (!res.ok) return;
+        if (res.status === 401 || res.status === 403) {
+          // Trip circuit breaker immediately to stop invocation floods
+          circuitBrokenRef.current = true;
+          setIsConnected(false);
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+          if (pollIntervalRef.current) {
+            clearTimeout(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+          }
+          return false;
+        }
+
+        if (!res.ok) return true;
         const data = await res.json();
         if (data.success && Array.isArray(data.events)) {
           data.events.forEach(handleIncomingEvent);
         }
+        return true;
       } catch {
-        // Ignore network polling failure
+        return true;
       }
     };
 
-    // Attempt Server-Sent Events (SSE) connection
+    const scheduleNextPoll = () => {
+      if (!isSubscribed || circuitBrokenRef.current) return;
+      if (typeof document !== 'undefined' && document.hidden) {
+        pollIntervalRef.current = setTimeout(scheduleNextPoll, 15000);
+        return;
+      }
+
+      const delay = backoffDelays[Math.min(backoffIndex, backoffDelays.length - 1)];
+      pollIntervalRef.current = setTimeout(async () => {
+        if (!isSubscribed || circuitBrokenRef.current) return;
+        const shouldContinue = await runPollingFallback();
+        if (shouldContinue && isSubscribed && !circuitBrokenRef.current) {
+          backoffIndex++;
+          scheduleNextPoll();
+        }
+      }, delay);
+    };
+
+    // Server-Sent Events (SSE) connection
     try {
-      const sseUrl = `/api/events?stream=true${workspaceId ? `&workspaceId=${encodeURIComponent(workspaceId)}` : ''}`;
+      const token = typeof window !== 'undefined' ? localStorage.getItem('docustackAuthToken') : null;
+      const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
+      const wsParam = workspaceId ? `&workspaceId=${encodeURIComponent(workspaceId)}` : '';
+      const sseUrl = `/api/events?stream=true${tokenParam}${wsParam}`;
+
       eventSource = new EventSource(sseUrl);
 
       eventSource.onopen = () => {
-        if (isSubscribed) setIsConnected(true);
+        if (isSubscribed) {
+          setIsConnected(true);
+          backoffIndex = 0;
+        }
       };
 
       eventSource.onmessage = (e) => {
@@ -117,39 +160,35 @@ export function useRealtimeApiSync({
       };
 
       eventSource.onerror = () => {
-        if (isSubscribed) {
-          setIsConnected(false);
-          // Fallback to fast polling if SSE connection drops or is blocked
-          if (!pollIntervalRef.current) {
-            pollIntervalRef.current = setInterval(runPollingFallback, 3000);
-          }
+        if (!isSubscribed) return;
+        setIsConnected(false);
+        // CRITICAL: Immediately close EventSource to stop the browser's native rapid reconnect loop
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+        if (circuitBrokenRef.current) return;
+
+        if (!pollIntervalRef.current) {
+          scheduleNextPoll();
         }
       };
     } catch {
-      // If EventSource is completely unavailable
-      pollIntervalRef.current = setInterval(runPollingFallback, 3000);
+      scheduleNextPoll();
     }
 
     return () => {
       isSubscribed = false;
       if (eventSource) {
         eventSource.close();
+        eventSource = null;
       }
       if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
+        clearTimeout(pollIntervalRef.current);
         pollIntervalRef.current = null;
       }
     };
-  }, [
-    enabled,
-    workspaceId,
-    onDocumentEvent,
-    onCategoryEvent,
-    onGraphEvent,
-    onBiomeEvent,
-    onWorkspaceEvent,
-    onApiAction,
-  ]);
+  }, [enabled, workspaceId]);
 
   return { isConnected };
 }
