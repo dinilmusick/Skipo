@@ -1,5 +1,6 @@
 'use client';
-import React, { useState, useRef } from 'react';
+import type React from 'react';
+import { useState, useRef } from 'react';
 import type { GraphNode, Socket } from './types.js';
 import { getBeamPoints, calculateSocketCoordinates } from './spatial/socketCoordinates.js';
 

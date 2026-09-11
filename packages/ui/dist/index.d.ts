@@ -210,6 +210,42 @@ interface CopyableErrorAlertProps {
 }
 declare const CopyableErrorAlert: React__default.FC<CopyableErrorAlertProps>;
 
+interface UseSearchKeyboardNavigationOptions<T> {
+    items: T[];
+    onSelect: (item: T) => void;
+    onClose?: () => void;
+    initialIndex?: number;
+}
+/**
+ * Universal hook for keyboard-driven search navigation:
+ * - Automatically highlights the first matching item (index 0).
+ * - ArrowUp / ArrowDown moves highlight through the list.
+ * - Enter selects the highlighted item immediately.
+ * - Escape closes the search interface.
+ */
+declare function useSearchKeyboardNavigation<T>({ items, onSelect, onClose, initialIndex }: UseSearchKeyboardNavigationOptions<T>): {
+    highlightedIndex: number;
+    setHighlightedIndex: React__default.Dispatch<React__default.SetStateAction<number>>;
+    handleKeyDown: (e: React__default.KeyboardEvent | KeyboardEvent) => void;
+    highlightedItem: T | undefined;
+    listContainerRef: React__default.RefObject<HTMLDivElement | null>;
+};
+
+interface SearchableListProps<T> {
+    items: T[];
+    getItemKey: (item: T) => string;
+    renderItem: (item: T, isHighlighted: boolean) => React__default.ReactNode;
+    onSelect: (item: T) => void;
+    onClose?: () => void;
+    placeholder?: string;
+    filterFn: (item: T, query: string) => boolean;
+    emptyMessage?: string;
+    maxHeight?: string | number;
+    className?: string;
+    autoFocus?: boolean;
+}
+declare function SearchableList<T>({ items, getItemKey, renderItem, onSelect, onClose, placeholder, filterFn, emptyMessage, maxHeight, className, autoFocus }: SearchableListProps<T>): React__default.JSX.Element;
+
 interface BottomStripProps extends React__default.HTMLAttributes<HTMLElement> {
     leftSlot?: React__default.ReactNode;
     centerSlot?: React__default.ReactNode;
@@ -324,4 +360,4 @@ interface SystemMessageDisplayProps extends React__default.HTMLAttributes<HTMLDi
 }
 declare const SystemMessageDisplay: React__default.FC<SystemMessageDisplayProps>;
 
-export { ApiCallIndicator, type ApiCallIndicatorProps, AppShell, type AppShellProps, type AutoSaveStatus, AutoSaveToggle, type AutoSaveToggleProps, BaseBadge, type BaseBadgeProps, BaseButton, type BaseButtonProps, BaseCard, type BaseCardProps, BaseInput, type BaseInputProps, BaseSelect, type BaseSelectProps, BaseTextarea, type BaseTextareaProps, BaseToggle, type BaseToggleProps, BaseTooltip, type BaseTooltipProps, BottomStrip, type BottomStripContextValue, type BottomStripProps, BottomStripProvider, type BottomStripProviderProps, BreadcrumbNav, type BreadcrumbNavProps, ConfirmDialog, type ConfirmDialogProps, CopyableErrorAlert, type CopyableErrorAlertProps, CredentialField, type CredentialFieldProps, DEFAULT_PANEL_GEOMETRY, DrawerContainer, type DrawerContainerProps, EmptyState, type EmptyStateProps, FloatingDetailsPanel, type FloatingDetailsPanelProps, HeaderBar, type HeaderBarProps, IconOnlyButton, type IconOnlyButtonProps, KNOWN_CREDENTIAL_URLS, LoadingOverlay, ModalContainer, type ModalContainerProps, PageContainer, type PageContainerProps, PanelContainer, type PanelGeometry, type ResizeDirection, ResizeHandles, type ResizeHandlesProps, SearchInput, SectionContainer, type SectionContainerProps, SidebarContainer, type SidebarContainerProps, SplitContainer, type SplitContainerProps, StatusIndicator, type StatusIndicatorProps, StatusLight, type StatusLightProps, type SystemMessage, SystemMessageDisplay, type SystemMessageDisplayProps, type SystemMessageType, TabContainer, type TabContainerProps, TopToolbar, type TopToolbarProps, type TopToolbarTab, useBottomStrip, usePanelGeometry, usePanelInteraction };
+export { ApiCallIndicator, type ApiCallIndicatorProps, AppShell, type AppShellProps, type AutoSaveStatus, AutoSaveToggle, type AutoSaveToggleProps, BaseBadge, type BaseBadgeProps, BaseButton, type BaseButtonProps, BaseCard, type BaseCardProps, BaseInput, type BaseInputProps, BaseSelect, type BaseSelectProps, BaseTextarea, type BaseTextareaProps, BaseToggle, type BaseToggleProps, BaseTooltip, type BaseTooltipProps, BottomStrip, type BottomStripContextValue, type BottomStripProps, BottomStripProvider, type BottomStripProviderProps, BreadcrumbNav, type BreadcrumbNavProps, ConfirmDialog, type ConfirmDialogProps, CopyableErrorAlert, type CopyableErrorAlertProps, CredentialField, type CredentialFieldProps, DEFAULT_PANEL_GEOMETRY, DrawerContainer, type DrawerContainerProps, EmptyState, type EmptyStateProps, FloatingDetailsPanel, type FloatingDetailsPanelProps, HeaderBar, type HeaderBarProps, IconOnlyButton, type IconOnlyButtonProps, KNOWN_CREDENTIAL_URLS, LoadingOverlay, ModalContainer, type ModalContainerProps, PageContainer, type PageContainerProps, PanelContainer, type PanelGeometry, type ResizeDirection, ResizeHandles, type ResizeHandlesProps, SearchInput, SearchableList, type SearchableListProps, SectionContainer, type SectionContainerProps, SidebarContainer, type SidebarContainerProps, SplitContainer, type SplitContainerProps, StatusIndicator, type StatusIndicatorProps, StatusLight, type StatusLightProps, type SystemMessage, SystemMessageDisplay, type SystemMessageDisplayProps, type SystemMessageType, TabContainer, type TabContainerProps, TopToolbar, type TopToolbarProps, type TopToolbarTab, type UseSearchKeyboardNavigationOptions, useBottomStrip, usePanelGeometry, usePanelInteraction, useSearchKeyboardNavigation };

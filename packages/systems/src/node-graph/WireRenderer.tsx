@@ -21,12 +21,18 @@ export function WireRenderer({ edges, nodesData, config: _config, onDeleteEdge, 
     if (!node) return { x: 0, y: 0 };
     
     // Simplistic socket position calculation for now
-    const socketIndex = type === 'input' 
-      ? node.inputs?.findIndex(s => s.id === socketId) ?? 0
-      : node.outputs?.findIndex(s => s.id === socketId) ?? 0;
+    const sockets = type === 'input' ? node.inputs : node.outputs;
+    const socket = sockets?.find(s => s.id === socketId);
+    const socketIndex = sockets && socket ? sockets.indexOf(socket) : 0;
       
-    const x = type === 'input' ? node.x : node.x + (node.width ?? 150);
-    const y = node.y + 40 + (socketIndex * 24); // 40 header, 24 per socket
+    let x = type === 'input' ? node.x : node.x + (node.width ?? 150);
+    let y = node.y + 40 + (Math.max(0, socketIndex) * 24);
+    
+    if (socket?.offset) {
+      const zoom = (node as any).zoom ?? 1;
+      x += socket.offset.x * zoom;
+      y += socket.offset.y * zoom;
+    }
     
     return { x, y };
   };

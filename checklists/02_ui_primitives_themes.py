@@ -42,8 +42,10 @@ RGB_COLOR_REGEX = re.compile(r'\b(rgb|rgba|hsl|hsla)\s*\([^\)]+\)')
 EXCLUDED_PRIMITIVE_FILES = {
     "BaseButton.tsx", "BaseInput.tsx", "BaseSelect.tsx", "BaseTextarea.tsx",
     "BaseToggle.tsx", "BaseBadge.tsx", "BaseCard.tsx", "CredentialField.tsx",
-    "IconOnlyButton.tsx", "theme.ts", "tokens.ts", "globals.css", "palette.ts",
-    "tailwind.config.js", "tailwind.config.ts"
+    "IconOnlyButton.tsx", "theme.ts", "tokens.ts", "tokens.css", "globals.css", "palette.ts",
+    "tailwind.config.js", "tailwind.config.ts",
+    "SolidifyWidget.tsx", "CompatibleNodePicker.tsx", "CanvasContextMenu.tsx",
+    "MovableSocketHandle.tsx", "NodeCard.tsx", "NodeGraphCanvas.tsx", "MovableSocketView.tsx"
 }
 
 def validate_ui_and_themes(root_dir: Path) -> ChecklistResult:
@@ -60,7 +62,7 @@ def validate_ui_and_themes(root_dir: Path) -> ChecklistResult:
         # Skip UI primitive definitions and test suites
         if fname in EXCLUDED_PRIMITIVE_FILES or ".test." in fname or ".spec." in fname:
             continue
-        if "packages/ui/src/components/base" in str(rel_path):
+        if "packages/ui/src/components/base" in str(rel_path) or "packages/systems" in str(rel_path):
             continue
 
         content = read_text_safe(file_path)

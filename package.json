@@ -9,6 +9,9 @@
     "lint": "turbo run lint",
     "validate": "turbo run validate",
     "validate:checklists": "node checklists/runner.mjs .",
+    "assistant": "python3 assistant.py",
+    "generate": "node generators/runner.mjs",
+    "mutate": "node mutators/runner.mjs",
     "clean": "turbo run clean && rm -rf node_modules",
     "typecheck": "turbo run typecheck"
   },

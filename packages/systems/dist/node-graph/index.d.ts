@@ -156,6 +156,18 @@ declare function clampZoom(zoom: number, config?: NodeGraphConfig): number;
  * Calculates a viewport state that fits all provided nodes within the container.
  */
 declare function fitToView(nodes: GraphNode[], containerWidth: number, containerHeight: number, padding?: number): ViewportState;
+/**
+ * Checks if a node's center is already within the central dead-zone circle of the viewport.
+ * If true, camera should not auto-pan on selection to prevent irritating jitter.
+ */
+declare function isNodeInCenterDeadZone(node: GraphNode, viewport: ViewportState, containerWidth: number, containerHeight: number, deadZoneRatio?: number): boolean;
+/**
+ * Calculates the target pan coordinates required to center the viewport on a given node.
+ */
+declare function getCenterPanForNode(node: GraphNode, viewport: ViewportState, containerWidth: number, containerHeight: number): {
+    panX: number;
+    panY: number;
+};
 
 interface WireRendererProps {
     edges: GraphEdge[];
@@ -185,8 +197,27 @@ interface NodeCardProps {
     onMouseDown?: (e: react__default.MouseEvent, nodeId: string) => void;
     onDoubleClick?: (nodeId: string) => void;
     onSocketMouseDown?: (e: react__default.MouseEvent, nodeId: string, socketId: string, type: 'input' | 'output') => void;
+    onSocketMouseUp?: (e: react__default.MouseEvent, nodeId: string, socketId: string, type: 'input' | 'output') => void;
+    onSocketNudgeChange?: (nodeId: string, socketId: string, nudge: {
+        x: number;
+        y: number;
+    }) => void;
 }
-declare function NodeCard({ node, selected, onMouseDown, onDoubleClick, onSocketMouseDown }: NodeCardProps): react__default.JSX.Element;
+declare function NodeCard({ node, selected, onMouseDown, onDoubleClick, onSocketMouseDown, onSocketMouseUp, onSocketNudgeChange }: NodeCardProps): react__default.JSX.Element;
+
+interface MovableSocketViewProps {
+    nodeId: string;
+    socket: Socket;
+    isRight?: boolean;
+    topOffset?: number;
+    onMouseDown?: (e: react__default.MouseEvent, nodeId: string, socketId: string, type: 'input' | 'output') => void;
+    onMouseUp?: (e: react__default.MouseEvent, nodeId: string, socketId: string, type: 'input' | 'output') => void;
+    onSocketNudgeChange?: (nodeId: string, socketId: string, nudge: {
+        x: number;
+        y: number;
+    }) => void;
+}
+declare function MovableSocketView({ nodeId, socket, isRight, topOffset, onMouseDown, onMouseUp, onSocketNudgeChange }: MovableSocketViewProps): react__default.JSX.Element;
 
 declare function getNodesInSelection(startX: number, startY: number, endX: number, endY: number, nodes: GraphNode[], viewport: ViewportState): string[];
 
@@ -227,31 +258,6 @@ declare function useNodeGraph(initialNodes?: GraphNode[], initialEdges?: GraphEd
         viewport: ViewportState;
     }) => void;
 };
-
-interface NodeGraphCanvasProps {
-    nodes: GraphNode[];
-    edges: GraphEdge[];
-    viewport: ViewportState;
-    config?: NodeGraphConfig;
-    selectedNodeIds: Set<string>;
-    onNodesChange?: (nodes: GraphNode[]) => void;
-    onEdgesChange?: (edges: GraphEdge[]) => void;
-    onNodeDoubleClick?: (nodeId: string) => void;
-    onViewportChange?: (viewport: ViewportState) => void;
-    onSelectionChange?: (selectedIds: Set<string>) => void;
-}
-declare function NodeGraphCanvas({ nodes, edges, viewport, config, selectedNodeIds, onNodesChange, onEdgesChange: _onEdgesChange, onNodeDoubleClick, onViewportChange, onSelectionChange }: NodeGraphCanvasProps): react__default.JSX.Element;
-
-interface NodeDetailsPanelProps {
-    node: GraphNode | null;
-    isOpen: boolean;
-    onClose: () => void;
-    isPinned?: boolean;
-    onTogglePin?: () => void;
-    onUpdateNode?: (nodeId: string, updates: Partial<GraphNode>) => void;
-    storageKey?: string;
-}
-declare function NodeDetailsPanel({ node, isOpen, onClose, isPinned, onTogglePin, onUpdateNode, storageKey }: NodeDetailsPanelProps): react.JSX.Element | null;
 
 interface NodePosition {
     x: number;
@@ -302,6 +308,32 @@ declare abstract class BaseNode {
 declare class CustomNode extends BaseNode {
     customDefinition?: NodeDefinition;
 }
+
+interface NodeGraphCanvasProps {
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+    viewport: ViewportState;
+    config?: NodeGraphConfig;
+    selectedNodeIds: Set<string>;
+    availableNodeTypes?: NodeDefinition[];
+    onNodesChange?: (nodes: GraphNode[]) => void;
+    onEdgesChange?: (edges: GraphEdge[]) => void;
+    onNodeDoubleClick?: (nodeId: string) => void;
+    onViewportChange?: (viewport: ViewportState) => void;
+    onSelectionChange?: (selectedIds: Set<string>) => void;
+}
+declare function NodeGraphCanvas({ nodes, edges, viewport, config, selectedNodeIds, availableNodeTypes, onNodesChange, onEdgesChange, onNodeDoubleClick, onViewportChange, onSelectionChange }: NodeGraphCanvasProps): react__default.JSX.Element;
+
+interface NodeDetailsPanelProps {
+    node: GraphNode | null;
+    isOpen: boolean;
+    onClose: () => void;
+    isPinned?: boolean;
+    onTogglePin?: () => void;
+    onUpdateNode?: (nodeId: string, updates: Partial<GraphNode>) => void;
+    storageKey?: string;
+}
+declare function NodeDetailsPanel({ node, isOpen, onClose, isPinned, onTogglePin, onUpdateNode, storageKey }: NodeDetailsPanelProps): react.JSX.Element | null;
 
 interface BaseConnectionProps {
     id: string;
@@ -493,6 +525,54 @@ declare class CompatibilityMatrix {
 }
 
 declare function initializeDefaultGraphRules(): void;
+
+interface HandleDescriptor {
+    dataType?: string;
+    direction?: HandleDirection | 'input' | 'output';
+    handleCategory?: HandleCategory;
+}
+/**
+ * ConnectionRuleStore — Central authoritative store for:
+ * 1. Handle types
+ * 2. Wire types
+ * 3. Node types & schemas
+ * 4. Inter-handle compatibility and connection rules
+ */
+declare class ConnectionRuleStore {
+    private static nodeTypes;
+    private static listeners;
+    private static initialized;
+    static initializeDefaults(): void;
+    static isInitialized(): boolean;
+    static subscribe(listener: () => void): () => void;
+    private static notify;
+    static registerNodeType(def: NodeDefinition): void;
+    static registerNodeTypes(defs: NodeDefinition[]): void;
+    static getNodeType(type: string): NodeDefinition | undefined;
+    static listNodeTypes(): NodeDefinition[];
+    static hasNodeType(type: string): boolean;
+    static registerHandleType(def: HandleTypeDefinition): void;
+    static getHandleType(dataType: string): HandleTypeDefinition | undefined;
+    static listHandleTypes(): HandleTypeDefinition[];
+    static hasHandleType(dataType: string): boolean;
+    static registerWireType(def: WireTypeDefinition): void;
+    static getWireType(wireType: string): WireTypeDefinition | undefined;
+    static listWireTypes(): WireTypeDefinition[];
+    static registerRule(rule: CompatibilityRule): void;
+    static resolve(sourceHandle: Pick<BaseHandle, 'handleCategory' | 'dataType' | 'direction'>, targetHandle: Pick<BaseHandle, 'handleCategory' | 'dataType' | 'direction'>): CompatibilityResolution;
+    static canConnect(sourceHandle: Pick<BaseHandle, 'handleCategory' | 'dataType' | 'direction'>, targetHandle: Pick<BaseHandle, 'handleCategory' | 'dataType' | 'direction'>): boolean;
+    /**
+     * Returns all node definitions that have at least one socket compatible with the dragged handle.
+     * If source handle is OUTPUT, checks candidate node INPUT sockets.
+     * If source handle is INPUT, checks candidate node OUTPUT sockets.
+     */
+    static getCompatibleNodeTypes(sourceHandle: HandleDescriptor, candidateNodes?: NodeDefinition[]): NodeDefinition[];
+    /**
+     * Find compatible sockets on a given target node for a dragged source handle.
+     */
+    static findCompatibleSockets(sourceHandle: HandleDescriptor, targetNode: NodeDefinition): HandleDefinition[];
+    static clear(): void;
+}
 
 declare class SpatialEngine {
     static calculateEffectiveHandlePosition(node: BaseNode, handle: BaseHandle): HandlePosition;
@@ -708,6 +788,45 @@ interface SolidifyWidgetProps {
 }
 declare function SolidifyWidget({ x, y, onSolidify }: SolidifyWidgetProps): react.JSX.Element;
 
+interface CompatibleNodePickerProps {
+    x: number;
+    y: number;
+    sourceHandle: {
+        nodeId: string;
+        socketId: string;
+        direction: 'input' | 'output';
+        dataType?: string;
+        label?: string;
+    };
+    availableNodeTypes?: NodeDefinition[];
+    onSelect: (selectedTypes: string[]) => void;
+    onClose: () => void;
+}
+declare function CompatibleNodePicker({ x, y, sourceHandle, availableNodeTypes, onSelect, onClose }: CompatibleNodePickerProps): react.JSX.Element;
+
+interface NodeSearchPaletteProps {
+    x: number;
+    y: number;
+    availableNodeTypes?: NodeDefinition[];
+    onSpawnNode: (type: string) => void;
+    onClose: () => void;
+}
+declare function NodeSearchPalette({ x, y, availableNodeTypes, onSpawnNode, onClose }: NodeSearchPaletteProps): react.JSX.Element;
+
+interface CanvasContextMenuProps {
+    x: number;
+    y: number;
+    availableNodeTypes?: NodeDefinition[];
+    hasSelection: boolean;
+    onSpawnNode: (type: string) => void;
+    onOpenSpawnMenu?: () => void;
+    onSelectAll: () => void;
+    onDeleteSelected: () => void;
+    onClearSelection: () => void;
+    onClose: () => void;
+}
+declare function CanvasContextMenu({ x, y, availableNodeTypes, hasSelection, onSpawnNode, onOpenSpawnMenu, onSelectAll, onDeleteSelected, onClearSelection, onClose }: CanvasContextMenuProps): react__default.JSX.Element;
+
 interface GraphToolbarProps {
     settings: GraphSettings;
     onUpdateSettings: (updates: Partial<GraphSettings>) => void;
@@ -814,4 +933,4 @@ interface MovableSocketHandleProps {
 }
 declare function MovableSocketHandle({ socket, nodeId, cardWidth, isOutput, baseY, onSocketMouseDown, onSocketNudgeChange }: MovableSocketHandleProps): react__default.JSX.Element;
 
-export { AttractionEngine, AutoSolidify, BaseConnection, type BaseConnectionProps, BaseGraph, BaseHandle, type BaseHandleProps, BaseNode, type BaseNodeProps, BaseViewWindow, type BaseViewWindowProps, type CaptureGraphSnapshotParams, CommandApi, CompatibilityMatrix, type CompatibilityResolution, type CompatibilityRule, type ConnectionMode, type CreateViewWindowParams, CustomGraph, CustomNode, CustomViewWindow, DEFAULT_GRAPH_SETTINGS, DataHandle, type DynamicState, type GraphEdge, type GraphListener, type GraphNode, type GraphSettings, GraphStore, GraphToolbar, type GraphToolbarProps, type GraphView, type Group, GroupSettingsResolver, type HandleCategory, type HandleDefinition, type HandleDirection, type HandleOffset, type HandlePosition, type HandleTypeDefinition, HandleTypeRegistry, type Landmark, LandmarkManager, MidpointWidgets, type MidpointWidgetsProps, MovableSocketHandle, NodeCard, type NodeDefinition, NodeDetailsPanel, type NodeDetailsPanelProps, NodeGraphCanvas, type NodeGraphConfig, type NodeGraphPlugin, type NodePosition, type NodeSize, ReactFlowAdapter, type ReactFlowEdgeData, type ReactFlowNodeData, type Socket, type SocketCoordOptions, type SocketCoordResult, type SocketType, SolidConnection, type SolidConnectionProps, SolidifyWidget, type SolidifyWidgetProps, SpatialEngine, type Trace, TraceEngine, ViewEngine, ViewHandle, ViewLink, type ViewLinkProps, ViewWindowManager, Viewer2DNodes, type Viewer2DNodesProps, type ViewportState, WireRenderer, type WireTypeDefinition, WireTypeRegistry, calculateSocketCoordinates, canvasToScreen, clampZoom, fitToView, getBeamPoints, getNodesInSelection, initializeDefaultGraphRules, screenToCanvas, useNodeGraph, zoomAtPoint };
+export { AttractionEngine, AutoSolidify, BaseConnection, type BaseConnectionProps, BaseGraph, BaseHandle, type BaseHandleProps, BaseNode, type BaseNodeProps, BaseViewWindow, type BaseViewWindowProps, CanvasContextMenu, type CanvasContextMenuProps, type CaptureGraphSnapshotParams, CommandApi, CompatibilityMatrix, type CompatibilityResolution, type CompatibilityRule, CompatibleNodePicker, type CompatibleNodePickerProps, type ConnectionMode, ConnectionRuleStore, type CreateViewWindowParams, CustomGraph, CustomNode, CustomViewWindow, DEFAULT_GRAPH_SETTINGS, DataHandle, type DynamicState, type GraphEdge, type GraphListener, type GraphNode, type GraphSettings, GraphStore, GraphToolbar, type GraphToolbarProps, type GraphView, type Group, GroupSettingsResolver, type HandleCategory, type HandleDefinition, type HandleDescriptor, type HandleDirection, type HandleOffset, type HandlePosition, type HandleTypeDefinition, HandleTypeRegistry, type Landmark, LandmarkManager, MidpointWidgets, type MidpointWidgetsProps, MovableSocketHandle, MovableSocketView, type MovableSocketViewProps, NodeCard, type NodeCardProps, type NodeDefinition, NodeDetailsPanel, type NodeDetailsPanelProps, NodeGraphCanvas, type NodeGraphCanvasProps, type NodeGraphConfig, type NodeGraphPlugin, type NodePosition, NodeSearchPalette, type NodeSearchPaletteProps, type NodeSize, ReactFlowAdapter, type ReactFlowEdgeData, type ReactFlowNodeData, type Socket, type SocketCoordOptions, type SocketCoordResult, type SocketType, SolidConnection, type SolidConnectionProps, SolidifyWidget, type SolidifyWidgetProps, SpatialEngine, type Trace, TraceEngine, ViewEngine, ViewHandle, ViewLink, type ViewLinkProps, ViewWindowManager, Viewer2DNodes, type Viewer2DNodesProps, type ViewportState, WireRenderer, type WireTypeDefinition, WireTypeRegistry, calculateSocketCoordinates, canvasToScreen, clampZoom, fitToView, getBeamPoints, getCenterPanForNode, getNodesInSelection, initializeDefaultGraphRules, isNodeInCenterDeadZone, screenToCanvas, useNodeGraph, zoomAtPoint };

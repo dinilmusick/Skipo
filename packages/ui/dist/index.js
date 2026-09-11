@@ -962,6 +962,150 @@ var CopyableErrorAlert = ({
 };
 CopyableErrorAlert.displayName = "CopyableErrorAlert";
 
+// src/components/composite/useSearchKeyboardNavigation.ts
+import { useState as useState9, useEffect as useEffect4, useCallback as useCallback4, useRef as useRef2 } from "react";
+function useSearchKeyboardNavigation({
+  items,
+  onSelect,
+  onClose,
+  initialIndex = 0
+}) {
+  const [highlightedIndex, setHighlightedIndex] = useState9(initialIndex);
+  const listContainerRef = useRef2(null);
+  useEffect4(() => {
+    setHighlightedIndex(items.length > 0 ? 0 : -1);
+  }, [items]);
+  useEffect4(() => {
+    if (highlightedIndex >= 0 && listContainerRef.current) {
+      const container = listContainerRef.current;
+      const element = container.children[highlightedIndex];
+      if (element) {
+        const elemTop = element.offsetTop;
+        const elemBottom = elemTop + element.offsetHeight;
+        const containerTop = container.scrollTop;
+        const containerBottom = containerTop + container.clientHeight;
+        if (elemTop < containerTop) {
+          container.scrollTop = elemTop;
+        } else if (elemBottom > containerBottom) {
+          container.scrollTop = elemBottom - container.clientHeight;
+        }
+      }
+    }
+  }, [highlightedIndex]);
+  const handleKeyDown = useCallback4(
+    (e) => {
+      if (items.length === 0) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          onClose?.();
+        }
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setHighlightedIndex((prev) => (prev + 1) % items.length);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setHighlightedIndex((prev) => (prev - 1 + items.length) % items.length);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const activeIdx = highlightedIndex >= 0 && highlightedIndex < items.length ? highlightedIndex : 0;
+        const activeItem = items[activeIdx];
+        if (activeItem !== void 0) {
+          onSelect(activeItem);
+        }
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        onClose?.();
+      }
+    },
+    [items, highlightedIndex, onSelect, onClose]
+  );
+  return {
+    highlightedIndex,
+    setHighlightedIndex,
+    handleKeyDown,
+    highlightedItem: highlightedIndex >= 0 && highlightedIndex < items.length ? items[highlightedIndex] : void 0,
+    listContainerRef
+  };
+}
+
+// src/components/composite/SearchableList.tsx
+import { useState as useState10, useMemo as useMemo2 } from "react";
+import { jsx as jsx28, jsxs as jsxs15 } from "react/jsx-runtime";
+function SearchableList({
+  items,
+  getItemKey,
+  renderItem,
+  onSelect,
+  onClose,
+  placeholder = "Search...",
+  filterFn,
+  emptyMessage = "No matching items",
+  maxHeight = "240px",
+  className = "",
+  autoFocus = true
+}) {
+  const [query, setQuery] = useState10("");
+  const filteredItems = useMemo2(() => {
+    if (!query.trim()) return items;
+    return items.filter((item) => filterFn(item, query));
+  }, [items, query, filterFn]);
+  const {
+    highlightedIndex,
+    setHighlightedIndex,
+    handleKeyDown,
+    listContainerRef
+  } = useSearchKeyboardNavigation({
+    items: filteredItems,
+    onSelect,
+    onClose
+  });
+  return /* @__PURE__ */ jsxs15("div", { className: `skipo-searchable-list ${className}`, style: { display: "flex", flexDirection: "column" }, children: [
+    /* @__PURE__ */ jsx28("div", { style: { padding: "8px" }, children: /* @__PURE__ */ jsx28(
+      SearchInput,
+      {
+        autoFocus,
+        placeholder,
+        value: query,
+        onChange: (e) => setQuery(e.target.value),
+        onKeyDown: handleKeyDown
+      }
+    ) }),
+    /* @__PURE__ */ jsx28(
+      "div",
+      {
+        ref: listContainerRef,
+        style: {
+          overflowY: "auto",
+          maxHeight,
+          padding: "4px 8px"
+        },
+        children: filteredItems.length === 0 ? /* @__PURE__ */ jsx28("div", { style: { padding: "16px", textAlign: "center", fontSize: "11px", color: "var(--skipo-text-muted, #888)" }, children: emptyMessage }) : filteredItems.map((item, idx) => {
+          const isHighlighted = idx === highlightedIndex;
+          return /* @__PURE__ */ jsx28(
+            "div",
+            {
+              onMouseEnter: () => setHighlightedIndex(idx),
+              onClick: () => onSelect(item),
+              style: {
+                cursor: "pointer",
+                borderRadius: "var(--skipo-radius-sm, 4px)",
+                backgroundColor: isHighlighted ? "var(--skipo-accent-subtle, rgba(97, 175, 239, 0.18))" : "transparent",
+                border: isHighlighted ? "1px solid var(--skipo-accent, #61afef)" : "1px solid transparent",
+                marginBottom: "2px",
+                transition: "background-color 0.1s ease"
+              },
+              children: renderItem(item, isHighlighted)
+            },
+            getItemKey(item)
+          );
+        })
+      }
+    )
+  ] });
+}
+
 // src/components/layout/AppShell.tsx
 import { forwardRef as forwardRef25 } from "react";
 
@@ -969,7 +1113,7 @@ import { forwardRef as forwardRef25 } from "react";
 import { forwardRef as forwardRef24 } from "react";
 
 // src/components/bottom-strip/StatusLight.tsx
-import { jsx as jsx28 } from "react/jsx-runtime";
+import { jsx as jsx29 } from "react/jsx-runtime";
 var StatusLight = ({
   status = "idle",
   label,
@@ -996,7 +1140,7 @@ var StatusLight = ({
     warning: "var(--skipo-warning)"
   };
   const currentColor = colorMap[status];
-  return /* @__PURE__ */ jsx28(
+  return /* @__PURE__ */ jsx29(
     "span",
     {
       className: `skipo-status-light skipo-status-light--${status} ${pulse ? "skipo-status-light--pulse" : ""} ${className}`,
@@ -1023,7 +1167,7 @@ var StatusLight = ({
 StatusLight.displayName = "StatusLight";
 
 // src/components/bottom-strip/AutoSaveToggle.tsx
-import { jsx as jsx29, jsxs as jsxs15 } from "react/jsx-runtime";
+import { jsx as jsx30, jsxs as jsxs16 } from "react/jsx-runtime";
 var AutoSaveToggle = ({
   onToggle,
   className = "",
@@ -1037,7 +1181,7 @@ var AutoSaveToggle = ({
     if (props.onClick) props.onClick(e);
   };
   const inspectionLabel = isEnabled ? "AUTO-SAVE: ACTIVE (AUTOMATIC BACKGROUND PERSISTENCE)" : "AUTO-SAVE: PAUSED (CHANGES REQUIRE MANUAL SAVE)";
-  return /* @__PURE__ */ jsx29(
+  return /* @__PURE__ */ jsx30(
     BaseButton,
     {
       variant: "ghost",
@@ -1054,7 +1198,7 @@ var AutoSaveToggle = ({
         color: isEnabled ? "var(--skipo-success)" : "var(--skipo-text-muted)"
       },
       ...props,
-      children: /* @__PURE__ */ jsxs15(
+      children: /* @__PURE__ */ jsxs16(
         "svg",
         {
           width: "14",
@@ -1066,9 +1210,9 @@ var AutoSaveToggle = ({
           strokeLinecap: "round",
           strokeLinejoin: "round",
           children: [
-            /* @__PURE__ */ jsx29("path", { d: "M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" }),
-            /* @__PURE__ */ jsx29("polyline", { points: "17 21 17 13 7 13 7 21" }),
-            /* @__PURE__ */ jsx29("polyline", { points: "7 3 7 8 15 8" })
+            /* @__PURE__ */ jsx30("path", { d: "M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" }),
+            /* @__PURE__ */ jsx30("polyline", { points: "17 21 17 13 7 13 7 21" }),
+            /* @__PURE__ */ jsx30("polyline", { points: "7 3 7 8 15 8" })
           ]
         }
       )
@@ -1078,7 +1222,7 @@ var AutoSaveToggle = ({
 AutoSaveToggle.displayName = "AutoSaveToggle";
 
 // src/components/bottom-strip/ApiCallIndicator.tsx
-import { jsx as jsx30, jsxs as jsxs16 } from "react/jsx-runtime";
+import { jsx as jsx31, jsxs as jsxs17 } from "react/jsx-runtime";
 var ApiCallIndicator = ({
   activeCount,
   className = "",
@@ -1088,7 +1232,7 @@ var ApiCallIndicator = ({
   const count = activeCount !== void 0 ? activeCount : apiActivity.activeCount;
   const isBusy = count > 0;
   const inspectionLabel = isBusy ? `API IN-FLIGHT: ${count} ACTIVE REQUEST(S)${apiActivity.lastEndpoint ? ` (${apiActivity.lastMethod || "REQ"} ${apiActivity.lastEndpoint})` : ""}` : "API NETWORK: IDLE (ZERO PENDING CALLS)";
-  return /* @__PURE__ */ jsxs16(
+  return /* @__PURE__ */ jsxs17(
     "span",
     {
       className: `skipo-api-indicator ${isBusy ? "skipo-api-indicator--busy" : ""} ${className}`,
@@ -1108,7 +1252,7 @@ var ApiCallIndicator = ({
       },
       ...props,
       children: [
-        /* @__PURE__ */ jsx30(
+        /* @__PURE__ */ jsx31(
           "svg",
           {
             width: "13",
@@ -1122,10 +1266,10 @@ var ApiCallIndicator = ({
             style: {
               animation: isBusy ? "skipo-pulse-glow 1.5s infinite ease-in-out" : void 0
             },
-            children: /* @__PURE__ */ jsx30("polyline", { points: "22 12 18 12 15 21 9 3 6 12 2 12" })
+            children: /* @__PURE__ */ jsx31("polyline", { points: "22 12 18 12 15 21 9 3 6 12 2 12" })
           }
         ),
-        isBusy && /* @__PURE__ */ jsx30("span", { style: { fontSize: "10px", fontWeight: 900, fontFamily: "var(--skipo-font-mono)" }, children: count })
+        isBusy && /* @__PURE__ */ jsx31("span", { style: { fontSize: "10px", fontWeight: 900, fontFamily: "var(--skipo-font-mono)" }, children: count })
       ]
     }
   );
@@ -1133,7 +1277,7 @@ var ApiCallIndicator = ({
 ApiCallIndicator.displayName = "ApiCallIndicator";
 
 // src/components/bottom-strip/SystemMessageDisplay.tsx
-import { jsx as jsx31, jsxs as jsxs17 } from "react/jsx-runtime";
+import { jsx as jsx32, jsxs as jsxs18 } from "react/jsx-runtime";
 var SystemMessageDisplay = ({
   className = "",
   ...props
@@ -1149,7 +1293,7 @@ var SystemMessageDisplay = ({
   };
   const currentColor = colorMap[latestMessage.type] || "var(--skipo-text)";
   const inspectionLabel = `SYSTEM [${latestMessage.type.toUpperCase()}]: ${latestMessage.message} (CLICK TO DISMISS)`;
-  return /* @__PURE__ */ jsxs17(
+  return /* @__PURE__ */ jsxs18(
     "div",
     {
       className: `skipo-system-msg-display skipo-system-msg-display--${latestMessage.type} ${className}`,
@@ -1178,7 +1322,7 @@ var SystemMessageDisplay = ({
       },
       ...props,
       children: [
-        /* @__PURE__ */ jsx31(
+        /* @__PURE__ */ jsx32(
           "span",
           {
             style: {
@@ -1190,7 +1334,7 @@ var SystemMessageDisplay = ({
             }
           }
         ),
-        /* @__PURE__ */ jsx31("span", { style: { overflow: "hidden", textOverflow: "ellipsis" }, children: latestMessage.message })
+        /* @__PURE__ */ jsx32("span", { style: { overflow: "hidden", textOverflow: "ellipsis" }, children: latestMessage.message })
       ]
     }
   );
@@ -1198,7 +1342,7 @@ var SystemMessageDisplay = ({
 SystemMessageDisplay.displayName = "SystemMessageDisplay";
 
 // src/components/bottom-strip/BottomStrip.tsx
-import { Fragment as Fragment4, jsx as jsx32, jsxs as jsxs18 } from "react/jsx-runtime";
+import { Fragment as Fragment4, jsx as jsx33, jsxs as jsxs19 } from "react/jsx-runtime";
 var BottomStrip = forwardRef24(({
   leftSlot,
   centerSlot,
@@ -1209,7 +1353,7 @@ var BottomStrip = forwardRef24(({
   ...props
 }, ref) => {
   const { inspectionText } = useBottomStrip();
-  return /* @__PURE__ */ jsxs18(
+  return /* @__PURE__ */ jsxs19(
     "footer",
     {
       ref,
@@ -1233,7 +1377,7 @@ var BottomStrip = forwardRef24(({
       },
       ...props,
       children: [
-        /* @__PURE__ */ jsxs18(
+        /* @__PURE__ */ jsxs19(
           "div",
           {
             className: "skipo-bottom-strip__left",
@@ -1245,15 +1389,15 @@ var BottomStrip = forwardRef24(({
               minWidth: "120px"
             },
             children: [
-              !hideDefaultLeft && /* @__PURE__ */ jsxs18(Fragment4, { children: [
-                /* @__PURE__ */ jsx32(StatusLight, {}),
-                /* @__PURE__ */ jsx32(AutoSaveToggle, {})
+              !hideDefaultLeft && /* @__PURE__ */ jsxs19(Fragment4, { children: [
+                /* @__PURE__ */ jsx33(StatusLight, {}),
+                /* @__PURE__ */ jsx33(AutoSaveToggle, {})
               ] }),
               leftSlot
             ]
           }
         ),
-        /* @__PURE__ */ jsx32(
+        /* @__PURE__ */ jsx33(
           "div",
           {
             className: "skipo-bottom-strip__center",
@@ -1266,7 +1410,7 @@ var BottomStrip = forwardRef24(({
               padding: "0 1rem",
               pointerEvents: "none"
             },
-            children: centerSlot || /* @__PURE__ */ jsx32(
+            children: centerSlot || /* @__PURE__ */ jsx33(
               "span",
               {
                 className: "skipo-inspection-text",
@@ -1288,7 +1432,7 @@ var BottomStrip = forwardRef24(({
             )
           }
         ),
-        /* @__PURE__ */ jsxs18(
+        /* @__PURE__ */ jsxs19(
           "div",
           {
             className: "skipo-bottom-strip__right",
@@ -1302,9 +1446,9 @@ var BottomStrip = forwardRef24(({
             },
             children: [
               rightSlot,
-              !hideDefaultRight && /* @__PURE__ */ jsxs18(Fragment4, { children: [
-                /* @__PURE__ */ jsx32(ApiCallIndicator, {}),
-                /* @__PURE__ */ jsx32(SystemMessageDisplay, {})
+              !hideDefaultRight && /* @__PURE__ */ jsxs19(Fragment4, { children: [
+                /* @__PURE__ */ jsx33(ApiCallIndicator, {}),
+                /* @__PURE__ */ jsx33(SystemMessageDisplay, {})
               ] })
             ]
           }
@@ -1316,7 +1460,7 @@ var BottomStrip = forwardRef24(({
 BottomStrip.displayName = "BottomStrip";
 
 // src/components/layout/AppShell.tsx
-import { jsx as jsx33, jsxs as jsxs19 } from "react/jsx-runtime";
+import { jsx as jsx34, jsxs as jsxs20 } from "react/jsx-runtime";
 var AppShell = forwardRef25(({
   header,
   sidebar,
@@ -1327,7 +1471,7 @@ var AppShell = forwardRef25(({
   className = "",
   ...props
 }, ref) => {
-  return /* @__PURE__ */ jsx33(BottomStripProvider, { children: /* @__PURE__ */ jsxs19(
+  return /* @__PURE__ */ jsx34(BottomStripProvider, { children: /* @__PURE__ */ jsxs20(
     "div",
     {
       ref,
@@ -1344,7 +1488,7 @@ var AppShell = forwardRef25(({
       ...props,
       children: [
         sidebar,
-        /* @__PURE__ */ jsxs19(
+        /* @__PURE__ */ jsxs20(
           "div",
           {
             style: {
@@ -1356,7 +1500,7 @@ var AppShell = forwardRef25(({
             },
             children: [
               header,
-              /* @__PURE__ */ jsx33(
+              /* @__PURE__ */ jsx34(
                 "main",
                 {
                   className: "skipo-app-shell__main",
@@ -1368,7 +1512,7 @@ var AppShell = forwardRef25(({
                   children
                 }
               ),
-              footer !== void 0 ? footer : !disableBottomStrip && /* @__PURE__ */ jsx33(BottomStrip, { ...bottomStripProps })
+              footer !== void 0 ? footer : !disableBottomStrip && /* @__PURE__ */ jsx34(BottomStrip, { ...bottomStripProps })
             ]
           }
         )
@@ -1380,7 +1524,7 @@ AppShell.displayName = "AppShell";
 
 // src/components/layout/HeaderBar.tsx
 import { forwardRef as forwardRef26 } from "react";
-import { jsx as jsx34, jsxs as jsxs20 } from "react/jsx-runtime";
+import { jsx as jsx35, jsxs as jsxs21 } from "react/jsx-runtime";
 var HeaderBar = forwardRef26(({
   title,
   nav,
@@ -1388,34 +1532,34 @@ var HeaderBar = forwardRef26(({
   className = "",
   ...props
 }, ref) => {
-  return /* @__PURE__ */ jsxs20("header", { ref, className: `skipo-header ${className}`, ...props, children: [
-    /* @__PURE__ */ jsxs20("div", { style: { display: "flex", alignItems: "center", gap: "16px" }, children: [
-      title && /* @__PURE__ */ jsx34("strong", { children: title }),
+  return /* @__PURE__ */ jsxs21("header", { ref, className: `skipo-header ${className}`, ...props, children: [
+    /* @__PURE__ */ jsxs21("div", { style: { display: "flex", alignItems: "center", gap: "16px" }, children: [
+      title && /* @__PURE__ */ jsx35("strong", { children: title }),
       nav
     ] }),
-    actions && /* @__PURE__ */ jsx34("div", { children: actions })
+    actions && /* @__PURE__ */ jsx35("div", { children: actions })
   ] });
 });
 HeaderBar.displayName = "HeaderBar";
 
 // src/components/layout/BreadcrumbNav.tsx
-import React28, { forwardRef as forwardRef27 } from "react";
-import { jsx as jsx35, jsxs as jsxs21 } from "react/jsx-runtime";
+import React29, { forwardRef as forwardRef27 } from "react";
+import { jsx as jsx36, jsxs as jsxs22 } from "react/jsx-runtime";
 var BreadcrumbNav = forwardRef27(({
   paths,
   className = "",
   ...props
 }, ref) => {
-  return /* @__PURE__ */ jsx35("nav", { ref, className: `skipo-breadcrumb ${className}`, ...props, children: paths.map((p, i) => /* @__PURE__ */ jsxs21(React28.Fragment, { children: [
-    p.href ? /* @__PURE__ */ jsx35("a", { href: p.href, children: p.label }) : /* @__PURE__ */ jsx35("span", { children: p.label }),
-    i < paths.length - 1 && /* @__PURE__ */ jsx35("span", { children: "/" })
+  return /* @__PURE__ */ jsx36("nav", { ref, className: `skipo-breadcrumb ${className}`, ...props, children: paths.map((p, i) => /* @__PURE__ */ jsxs22(React29.Fragment, { children: [
+    p.href ? /* @__PURE__ */ jsx36("a", { href: p.href, children: p.label }) : /* @__PURE__ */ jsx36("span", { children: p.label }),
+    i < paths.length - 1 && /* @__PURE__ */ jsx36("span", { children: "/" })
   ] }, i)) });
 });
 BreadcrumbNav.displayName = "BreadcrumbNav";
 
 // src/components/layout/TopToolbar.tsx
 import { forwardRef as forwardRef28 } from "react";
-import { jsx as jsx36, jsxs as jsxs22 } from "react/jsx-runtime";
+import { jsx as jsx37, jsxs as jsxs23 } from "react/jsx-runtime";
 var TopToolbar = forwardRef28(({
   title,
   logo,
@@ -1426,7 +1570,7 @@ var TopToolbar = forwardRef28(({
   className = "",
   ...props
 }, ref) => {
-  return /* @__PURE__ */ jsxs22(
+  return /* @__PURE__ */ jsxs23(
     "header",
     {
       ref,
@@ -1448,7 +1592,7 @@ var TopToolbar = forwardRef28(({
       },
       ...props,
       children: [
-        /* @__PURE__ */ jsxs22(
+        /* @__PURE__ */ jsxs23(
           "div",
           {
             className: "skipo-top-toolbar__brand",
@@ -1465,11 +1609,11 @@ var TopToolbar = forwardRef28(({
             },
             children: [
               logo,
-              title && /* @__PURE__ */ jsx36("span", { className: "skipo-top-toolbar__title", children: title })
+              title && /* @__PURE__ */ jsx37("span", { className: "skipo-top-toolbar__title", children: title })
             ]
           }
         ),
-        tabs.length > 0 && /* @__PURE__ */ jsx36(
+        tabs.length > 0 && /* @__PURE__ */ jsx37(
           "nav",
           {
             className: "skipo-top-toolbar__tabs",
@@ -1483,7 +1627,7 @@ var TopToolbar = forwardRef28(({
             },
             children: tabs.map((tab) => {
               const isActive = tab.id === activeTabId;
-              return /* @__PURE__ */ jsx36(BaseTooltip, { content: `SWITCH VIEW: ${tab.label.toUpperCase()}`, children: /* @__PURE__ */ jsxs22(
+              return /* @__PURE__ */ jsx37(BaseTooltip, { content: `SWITCH VIEW: ${tab.label.toUpperCase()}`, children: /* @__PURE__ */ jsxs23(
                 BaseButton,
                 {
                   role: "tab",
@@ -1503,14 +1647,14 @@ var TopToolbar = forwardRef28(({
                   },
                   children: [
                     tab.icon,
-                    /* @__PURE__ */ jsx36("span", { children: tab.label })
+                    /* @__PURE__ */ jsx37("span", { children: tab.label })
                   ]
                 }
               ) }, tab.id);
             })
           }
         ),
-        actions && /* @__PURE__ */ jsx36(
+        actions && /* @__PURE__ */ jsx37(
           "div",
           {
             className: "skipo-top-toolbar__actions",
@@ -1561,6 +1705,7 @@ export {
   PanelContainer,
   ResizeHandles,
   SearchInput,
+  SearchableList,
   SectionContainer,
   SidebarContainer,
   SkipoThemeProvider,
@@ -1576,6 +1721,7 @@ export {
   useBottomStrip,
   usePanelGeometry,
   usePanelInteraction,
+  useSearchKeyboardNavigation,
   useSkipoTheme,
   validateThemePack
 };

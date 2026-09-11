@@ -98,3 +98,48 @@ export function fitToView(
 
   return { zoom: targetZoom, panX, panY };
 }
+
+/**
+ * Checks if a node's center is already within the central dead-zone circle of the viewport.
+ * If true, camera should not auto-pan on selection to prevent irritating jitter.
+ */
+export function isNodeInCenterDeadZone(
+  node: GraphNode,
+  viewport: ViewportState,
+  containerWidth: number,
+  containerHeight: number,
+  deadZoneRatio: number = 0.35
+): boolean {
+  const centerX = containerWidth / 2;
+  const centerY = containerHeight / 2;
+  const nodeW = node.width ?? 130;
+  const nodeH = node.height ?? 130;
+  const nodeCenterX = node.position.x + nodeW / 2;
+  const nodeCenterY = node.position.y + nodeH / 2;
+  const screenNodeX = nodeCenterX * viewport.zoom + viewport.panX;
+  const screenNodeY = nodeCenterY * viewport.zoom + viewport.panY;
+  const dist = Math.hypot(screenNodeX - centerX, screenNodeY - centerY);
+  const deadZoneRadius = Math.min(containerWidth, containerHeight) * deadZoneRatio;
+  return dist <= deadZoneRadius;
+}
+
+/**
+ * Calculates the target pan coordinates required to center the viewport on a given node.
+ */
+export function getCenterPanForNode(
+  node: GraphNode,
+  viewport: ViewportState,
+  containerWidth: number,
+  containerHeight: number
+): { panX: number; panY: number } {
+  const centerX = containerWidth / 2;
+  const centerY = containerHeight / 2;
+  const nodeW = node.width ?? 130;
+  const nodeH = node.height ?? 130;
+  const nodeCenterX = node.position.x + nodeW / 2;
+  const nodeCenterY = node.position.y + nodeH / 2;
+  return {
+    panX: Math.round(centerX - nodeCenterX * viewport.zoom),
+    panY: Math.round(centerY - nodeCenterY * viewport.zoom)
+  };
+}

@@ -22,27 +22,27 @@ export function SolidifyWidget({ x, y, onSolidify }: SolidifyWidgetProps) {
       <button
         type="button"
         title="Solidify Connection"
+        aria-label="Solidify Connection"
         style={{
-          backgroundColor: 'rgba(97, 175, 239, 0.9)',
-          border: '1px solid #61afef',
-          borderRadius: '10px',
-          color: '#ffffff',
-          fontSize: '10px',
-          fontWeight: 600,
+          backgroundColor: 'var(--skipo-accent, #61afef)',
+          border: '1px solid var(--skipo-border, #61afef)',
+          borderRadius: '50%',
+          width: '22px',
+          height: '22px',
+          color: 'var(--skipo-text, #ffffff)',
           cursor: 'pointer',
-          padding: '2px 8px',
+          padding: 0,
           display: 'flex',
           alignItems: 'center',
-          gap: '4px',
-          boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
-          textTransform: 'uppercase'
+          justifyContent: 'center',
+          boxShadow: '0 2px 6px rgba(0, 0, 0, 0.4)',
+          transition: 'transform 0.1s ease'
         }}
         onClick={onSolidify}
       >
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="20 6 9 17 4 12" />
         </svg>
-        Solidify
       </button>
     </div>
   );
