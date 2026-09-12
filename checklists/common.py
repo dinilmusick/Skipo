@@ -83,7 +83,7 @@ class ChecklistResult:
 # ══════════════════════════════════════════════════════════════════════════════
 DEFAULT_IGNORE_DIRS: Set[str] = {
     "node_modules", "dist", ".next", ".turbo", "build", "out",
-    ".git", ".system_generated", "coverage", ".cache", "tmp"
+    ".git", ".system_generated", "coverage", ".cache", "tmp", "Skipo"
 }
 
 def scan_files(

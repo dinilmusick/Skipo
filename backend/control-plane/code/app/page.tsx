@@ -12,6 +12,7 @@ import Header from '../components/Header';
 import LoginScreen from '../components/auth/LoginScreen';
 import WorkspaceViewRouter from '../components/workspace/WorkspaceViewRouter';
 import WorkspaceModalsContainer from '../components/workspace/WorkspaceModalsContainer';
+import WorkspaceTilesMenu from '../components/workspace/WorkspaceTilesMenu';
 import { useWorkspaceTheme } from '../hooks/useWorkspaceTheme';
 import { useWorkspacePersistence } from '../hooks/useWorkspacePersistence';
 import { useRealtimeApiSync } from '../hooks/useRealtimeApiSync';
@@ -31,17 +32,7 @@ function getDescendantNodeIds(rootId: string, allEdges: GraphEdge[]): string[] {
   return Array.from(descendantIds);
 }
 
-const DEFAULT_WORKSPACES: WorkspaceTab[] = [
-  {
-    id: 'ws-main',
-    name: 'MAIN DESK',
-    tiles: [
-      { id: 'tile-1', width: 540, height: 480, activeDocId: 'browser' },
-      { id: 'tile-2', width: 540, height: 480, activeDocId: 'doc-1' },
-    ],
-    createdAt: 1700000000000,
-  },
-];
+const DEFAULT_WORKSPACES: WorkspaceTab[] = [];
 
 export default function DocumentStorageViewer() {
   const router = useRouter();
@@ -280,7 +271,6 @@ export default function DocumentStorageViewer() {
       const token = localStorage.getItem('docustackAuthToken');
       if (!token) {
         setAuthChecked(true);
-        loadUserWorkspaceData();
         return;
       }
       setUserToken(token);
@@ -305,11 +295,8 @@ export default function DocumentStorageViewer() {
             if (activeId) {
               setActiveVaultWorkspaceId(activeId);
               localStorage.setItem('docustack_active_workspace_id', activeId);
+              loadUserWorkspaceData();
             }
-            if (!data.user.workspaces || data.user.workspaces.length === 0) {
-              setIsWorkspacesMenuOpen(true);
-            }
-            loadUserWorkspaceData();
           } else {
             localStorage.removeItem('docustackAuthToken');
           }
@@ -329,8 +316,11 @@ export default function DocumentStorageViewer() {
   ) => {
     setCurrentUser(user);
     setUserToken(token);
+    // Clear active workspace so user is presented with workspace tiles menu in isolation
+    setActiveVaultWorkspaceId('');
     if (typeof window !== 'undefined') {
       localStorage.setItem('docustackAuthToken', token);
+      localStorage.removeItem('docustack_active_workspace_id');
       if (user.workspacePath) {
         localStorage.setItem('docustack_workspace_path', user.workspacePath);
       }
@@ -338,9 +328,7 @@ export default function DocumentStorageViewer() {
         localStorage.setItem('docustack_workspace_name', user.workspaceName);
       }
     }
-    loadUserWorkspaceData();
     setIsLoginOpen(false);
-    // User login -> Workspaces tiles menu flow
     setIsWorkspacesMenuOpen(true);
   };
 
@@ -1451,6 +1439,22 @@ export default function DocumentStorageViewer() {
 
   if (!currentUser) {
     return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Structural Screen Gate: Workspace selection in complete isolation
+  if (!activeVaultWorkspaceId) {
+    return (
+      <WorkspaceTilesMenu
+        currentUser={currentUser}
+        userToken={userToken}
+        onEnterWorkspace={handleEnterWorkspace}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onLogout={handleLogout}
+        onOpenAdminPanel={() => router.push('/admin')}
+        onUserUpdated={(updated) => setCurrentUser(updated)}
+        canClose={false}
+      />
+    );
   }
 
   return (

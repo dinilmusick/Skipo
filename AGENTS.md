@@ -9,7 +9,8 @@ $$\begin{array}{ll}
 \mathbf{L_2} \text{ (Anti-Stub)} & \forall f \in \text{Code}: \text{Statements}(f) \ge 2 \wedge f \cap \{\text{TODO}, \emptyset, \text{no-op}, \text{trivial-return}\} = \emptyset \\
 \mathbf{L_3} \text{ (Real Driver)} & \forall s \in \text{Services}: s \xrightarrow{\text{invoke}} \{\text{@aws-sdk}, \text{sqlite3}, \text{pg}, \text{fetch}, \text{@skipo/backend}, \text{crypto}\} \\
 \mathbf{L_4} \text{ (Verification)} & \text{TurnDone} \implies \text{exitCode}(\text{checklists/full\_system\_validator.py}) == 0 \\
-\mathbf{L_5} \text{ (Deterministic Tooling)} & \forall a \in \text{NewArtifacts}: a \in \text{Generators}(\text{generators/}) \vee a \in \text{Mutators}(\text{mutators/})
+\mathbf{L_5} \text{ (Deterministic Tooling)} & \forall a \in \text{NewArtifacts}: a \in \text{Generators}(\text{generators/}) \vee a \in \text{Mutators}(\text{mutators/}) \\
+\mathbf{L_6} \text{ (Workspace Isolation Gate)} & \forall a \in \text{Apps}: (\neg \text{ActiveWorkspace}) \implies \text{Gate}(\text{WorkspaceTilesMenu}) \wedge \neg \text{Render}(\text{AppCanvas})
 \end{array}$$
 
 ## 2. DETERMINISTIC AGENT EXECUTION ALGORITHM

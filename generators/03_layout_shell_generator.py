@@ -58,6 +58,14 @@ export interface TopToolbarProps {{
   activeTab: ShellTab;
   onTabChange: (tab: ShellTab) => void;
   title?: string;
+  activeWorkspaceName?: string;
+  onOpenWorkspaces?: () => void;
+}}
+
+export interface WorkspaceRecord {{
+  id: string;
+  name: string;
+  storageProvider?: string;
 }}
 
 export interface BottomStripProps {{
@@ -88,7 +96,7 @@ export interface FloatingDetailsPanelProps {{
         tabs_jsx.append(f"""        <BaseButton
           key="{t_id}"
           variant={{activeTab === '{t_id}' ? 'primary' : 'ghost'}}
-          onClick={{() => onTabChange('{t_id}'))}}
+          onClick={{() => onTabChange('{t_id}')}}
           style={{{{
             padding: '0 16px',
             height: '100%',
@@ -102,6 +110,7 @@ export interface FloatingDetailsPanelProps {{
     flowchart_toolbar = generate_ascii_flowchart("TopToolbar 44px Invariant", [
         "Render TopToolbar at 44px Height",
         "Render Flat Navigation Tabs (Anti-Nested)",
+        "Provide Workspace Vault Switcher Button",
         "Dispatch Tab State Updates to AppShell"
     ])
 
@@ -117,7 +126,9 @@ import type {{ TopToolbarProps, ShellTab }} from './types';
 export const TopToolbar: React.FC<TopToolbarProps> = ({{
   activeTab,
   onTabChange,
-  title = '{app_name}'
+  title = '{app_name}',
+  activeWorkspaceName,
+  onOpenWorkspaces
 }}) => {{
   return (
     <header
@@ -143,6 +154,25 @@ export const TopToolbar: React.FC<TopToolbarProps> = ({{
 {chr(10).join(tabs_jsx)}
         </nav>
       </div>
+
+      {{onOpenWorkspaces && (
+        <BaseButton
+          variant="secondary"
+          onClick={{onOpenWorkspaces}}
+          style={{{{
+            fontSize: '11px',
+            height: '28px',
+            padding: '0 10px',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}}}
+        >
+          <span style={{{{ color: '#fbbf24' }}}}>⬡</span>
+          <span>{{activeWorkspaceName || 'Workspaces'}}</span>
+        </BaseButton>
+      )}}
     </header>
   );
 }};
@@ -305,21 +335,37 @@ export interface AppShellProps {{
   children: React.ReactNode;
   title?: string;
   onTabChange?: (tab: ShellTab) => void;
+  activeWorkspaceId?: string;
+  activeWorkspaceName?: string;
+  workspaces?: WorkspaceRecord[];
+  onSelectWorkspace?: (wsId: string) => void;
+  workspaceGate?: React.ReactNode;
 }}
 
 export const AppShell: React.FC<AppShellProps> = ({{
   children,
   title = '{app_name}',
-  onTabChange
+  onTabChange,
+  activeWorkspaceId,
+  activeWorkspaceName,
+  workspaces = [],
+  onSelectWorkspace,
+  workspaceGate
 }}) => {{
   const [activeTab, setActiveTab] = useState<ShellTab>('{tabs[0].lower()}');
   const [hoverText, setHoverText] = useState<string>('Ready');
+  const [wsModalOpen, setWsModalOpen] = useState<boolean>(false);
 
   const handleTabChange = (tab: ShellTab) => {{
     setActiveTab(tab);
     setHoverText(`Switched to ${{tab}}`);
     if (onTabChange) onTabChange(tab);
   }};
+
+  // Invariant: Structural Screen Gate - workspace selection in complete isolation
+  if (!activeWorkspaceId && workspaceGate) {{
+    return <div className="skipo-workspace-screen-gate">{{workspaceGate}}</div>;
+  }}
 
   return (
     <div
@@ -336,6 +382,8 @@ export const AppShell: React.FC<AppShellProps> = ({{
         title={{title}}
         activeTab={{activeTab}}
         onTabChange={{handleTabChange}}
+        activeWorkspaceName={{activeWorkspaceName}}
+        onOpenWorkspaces={{() => setWsModalOpen(true)}}
       />
 
       <main style={{{{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex' }}}}>

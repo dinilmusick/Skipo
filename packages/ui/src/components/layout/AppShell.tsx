@@ -10,10 +10,12 @@ export interface AppShellProps extends React.HTMLAttributes<HTMLDivElement> {
   footer?: React.ReactNode;
   bottomStripProps?: BottomStripProps;
   disableBottomStrip?: boolean;
+  workspaceGate?: React.ReactNode;
 }
 
 /**
  * AppShell — Root layout container providing top toolbar slot, clean central viewport, and bottom strip.
+ * Supports isolated workspaceGate modal/screen rendering before main canvas/app UI loads.
  */
 export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(({
   header,
@@ -21,10 +23,19 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(({
   footer,
   bottomStripProps,
   disableBottomStrip = false,
+  workspaceGate,
   children,
   className = '',
   ...props
 }, ref) => {
+  if (workspaceGate) {
+    return (
+      <div className={`skipo-workspace-screen-gate ${className}`} style={{ minHeight: '100vh', width: '100vw' }}>
+        {workspaceGate}
+      </div>
+    );
+  }
+
   return (
     <BottomStripProvider>
       <div

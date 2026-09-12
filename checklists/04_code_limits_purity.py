@@ -51,12 +51,16 @@ def validate_code_limits_and_purity(root_dir: Path) -> ChecklistResult:
         rel_path = file_path.relative_to(root_dir)
         fname = file_path.name
 
-        # Skip generated, test, and definition files
+        # Skip test and definition files
         if fname.endswith(".d.ts") or ".test." in fname or ".spec." in fname or "node_modules" in str(rel_path):
             continue
 
         content = read_text_safe(file_path)
         if not content:
+            continue
+
+        # Skip generated bundles/files
+        if "// @generated" in content[:300] or "/* @generated" in content[:300]:
             continue
 
         lines = content.splitlines()

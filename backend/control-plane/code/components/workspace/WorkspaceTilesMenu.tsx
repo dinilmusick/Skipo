@@ -460,8 +460,8 @@ export default function WorkspaceTilesMenu({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm overflow-y-auto font-mono">
-      <div className="w-full max-w-5xl my-8">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 p-4 sm:p-8 backdrop-blur-sm font-mono flex flex-col items-center justify-start">
+      <div className="w-full max-w-5xl my-4 sm:my-8">
         {/* Top Control Bar Card */}
         <BrutalistCard variant="base" depth="lg" className="p-4 mb-4 border-2 border-brutalist shadow-[6px_6px_0px_var(--color-border)]">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">

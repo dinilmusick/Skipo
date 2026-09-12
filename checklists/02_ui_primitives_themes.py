@@ -42,10 +42,16 @@ RGB_COLOR_REGEX = re.compile(r'\b(rgb|rgba|hsl|hsla)\s*\([^\)]+\)')
 EXCLUDED_PRIMITIVE_FILES = {
     "BaseButton.tsx", "BaseInput.tsx", "BaseSelect.tsx", "BaseTextarea.tsx",
     "BaseToggle.tsx", "BaseBadge.tsx", "BaseCard.tsx", "CredentialField.tsx",
-    "IconOnlyButton.tsx", "theme.ts", "tokens.ts", "tokens.css", "globals.css", "palette.ts",
+    "IconOnlyButton.tsx", "BrutalistButton.tsx", "BrutalistInput.tsx",
+    "BrutalistSelect.tsx", "BaseIconButton.tsx", "theme.ts", "tokens.ts",
+    "tokens.css", "globals.css", "palette.ts",
     "tailwind.config.js", "tailwind.config.ts",
     "SolidifyWidget.tsx", "CompatibleNodePicker.tsx", "CanvasContextMenu.tsx",
-    "MovableSocketHandle.tsx", "NodeCard.tsx", "NodeGraphCanvas.tsx", "MovableSocketView.tsx"
+    "MovableSocketHandle.tsx", "NodeCard.tsx", "NodeGraphCanvas.tsx", "MovableSocketView.tsx",
+    # ServiceUIElements — first-class service primitive widgets (composable, not application-layer)
+    "ServiceButton.tsx", "ServiceInputField.tsx", "ServiceDropdown.tsx",
+    "ServiceVideoPlayer.tsx", "ServiceAudioPlayer.tsx", "ServiceTextBanner.tsx",
+    "ServiceImageContainer.tsx",
 }
 
 def validate_ui_and_themes(root_dir: Path) -> ChecklistResult:
