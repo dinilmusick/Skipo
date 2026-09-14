@@ -1467,10 +1467,14 @@ var AppShell = forwardRef25(({
   footer,
   bottomStripProps,
   disableBottomStrip = false,
+  workspaceGate,
   children,
   className = "",
   ...props
 }, ref) => {
+  if (workspaceGate) {
+    return /* @__PURE__ */ jsx34("div", { className: `skipo-workspace-screen-gate ${className}`, style: { minHeight: "100vh", width: "100vw" }, children: workspaceGate });
+  }
   return /* @__PURE__ */ jsx34(BottomStripProvider, { children: /* @__PURE__ */ jsxs20(
     "div",
     {

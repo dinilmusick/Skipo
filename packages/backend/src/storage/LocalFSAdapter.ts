@@ -77,4 +77,26 @@ export class LocalFSAdapter extends BaseStorageAdapter {
     const fullPath = this.resolvePath(pathStr);
     await fs.mkdir(fullPath, { recursive: true });
   }
+
+  async deleteFolder(pathStr: string): Promise<{ success: boolean; deletedCount: number }> {
+    const fullPath = this.resolvePath(pathStr);
+    try {
+      await fs.rm(fullPath, { recursive: true, force: true });
+      return { success: true, deletedCount: 1 };
+    } catch {
+      return { success: false, deletedCount: 0 };
+    }
+  }
+
+  async renameFolder(oldPath: string, newPath: string): Promise<{ success: boolean; movedCount: number }> {
+    const oldFull = this.resolvePath(oldPath);
+    const newFull = this.resolvePath(newPath);
+    try {
+      await fs.mkdir(path.dirname(newFull), { recursive: true });
+      await fs.rename(oldFull, newFull);
+      return { success: true, movedCount: 1 };
+    } catch {
+      return { success: false, movedCount: 0 };
+    }
+  }
 }

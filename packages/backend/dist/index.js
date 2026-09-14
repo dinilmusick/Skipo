@@ -42,12 +42,20 @@ import {
   createBackendClient
 } from "./chunk-NIP22V2G.js";
 import {
+  BackblazeB2Adapter,
   BaseStorageAdapter,
   LocalFSAdapter,
   S3Adapter,
   StorageAdapterFactory,
-  SupabaseStorageAdapter
-} from "./chunk-FNUBZ2CF.js";
+  SupabaseStorageAdapter,
+  ensureS3DirectoryMarker,
+  isSecretMasked,
+  normalizeBackblazeCredentials,
+  permanentDeleteS3Folder,
+  permanentDeleteS3Object,
+  renameS3Folder,
+  resolveBackblazeEndpoint
+} from "./chunk-MKILCGOP.js";
 
 // src/workspace/WorkspaceCanonical.ts
 function formatCanonicalWorkspaceFolderName(appName, userName, workspaceName) {
@@ -287,9 +295,27 @@ var FunctionalityTable = class extends BaseDataProvider {
     return results.length;
   }
 };
+
+// src/architecture/types.ts
+function validateServiceDefinition(def) {
+  if (def.deployment === "remote" && def.runtime !== "server") {
+    return {
+      valid: false,
+      error: `Invalid service configuration for '${def.name || "unnamed"}': remote deployment requires 'server' runtime (received runtime='${def.runtime}')`
+    };
+  }
+  if (def.runtime === "client" && def.deployment !== "local") {
+    return {
+      valid: false,
+      error: `Invalid service configuration for '${def.name || "unnamed"}': client runtime requires 'local' deployment (received deployment='${def.deployment}')`
+    };
+  }
+  return { valid: true };
+}
 export {
   AdminGuard,
   AuditLogger,
+  BackblazeB2Adapter,
   BackendClient,
   BackendProvider,
   BackendRegistry,
@@ -329,10 +355,18 @@ export {
   createBackendClient,
   createEmptyContract,
   createSSEResponse,
+  ensureS3DirectoryMarker,
   formatCanonicalWorkspaceFolderName,
+  isSecretMasked,
+  normalizeBackblazeCredentials,
+  permanentDeleteS3Folder,
+  permanentDeleteS3Object,
+  renameS3Folder,
+  resolveBackblazeEndpoint,
   sanitizeWorkspaceName,
   useBackend,
   useBackendClient,
+  validateServiceDefinition,
   withAuth,
   withCors
 };

@@ -54,6 +54,8 @@ mod_07 = _load_module("mod_07", "07_backend_storage_generator.py")
 mod_08 = _load_module("mod_08", "08_secure_api_route_generator.py")
 mod_09 = _load_module("mod_09", "09_companion_test_generator.py")
 mod_10 = _load_module("mod_10", "10_node_graph_generator.py")
+mod_11 = _load_module("mod_11", "11_app_architecture_generator.py")
+mod_12 = _load_module("mod_12", "12_multi_target_build_generator.py")
 
 GENERATOR_REGISTRY = {
     "structure": (mod_01.generate_structure, "Aspect 01: Plane Structure & Scaffolding"),
@@ -71,7 +73,7 @@ GENERATOR_REGISTRY = {
     "quad": (mod_05.generate_entity_quad, "Aspect 05: Quad-Unit Entity Atom & Real Data"),
     "05": (mod_05.generate_entity_quad, "Aspect 05: Quad-Unit Entity Atom & Real Data"),
     "driver": (mod_06.generate_service_driver, "Aspect 06: Authentic Service Driver (Anti-Stub)"),
-    "service": (mod_06.generate_service_driver, "Aspect 06: Authentic Service Driver (Anti-Stub)"),
+    "service": (mod_11.generate_app_architecture, "Aspect 11: Plug-and-Play Service Suite"),
     "06": (mod_06.generate_service_driver, "Aspect 06: Authentic Service Driver (Anti-Stub)"),
     "storage": (mod_07.generate_backend_storage, "Aspect 07: Backend Storage Decoupling"),
     "07": (mod_07.generate_backend_storage, "Aspect 07: Backend Storage Decoupling"),
@@ -83,7 +85,13 @@ GENERATOR_REGISTRY = {
     "nodegraph": (mod_10.generate_node_graph_suite, "Aspect 10: Canonical Node Graph Suite & Rules"),
     "graph": (mod_10.generate_node_graph_suite, "Aspect 10: Canonical Node Graph Suite & Rules"),
     "node-graph": (mod_10.generate_node_graph_suite, "Aspect 10: Canonical Node Graph Suite & Rules"),
-    "10": (mod_10.generate_node_graph_suite, "Aspect 10: Canonical Node Graph Suite & Rules")
+    "10": (mod_10.generate_node_graph_suite, "Aspect 10: Canonical Node Graph Suite & Rules"),
+    "app": (mod_11.generate_app_architecture, "Aspect 11: APP_ARCHITECTURE_SPEC Canonical Suite"),
+    "app-arch": (mod_11.generate_app_architecture, "Aspect 11: APP_ARCHITECTURE_SPEC Canonical Suite"),
+    "11": (mod_11.generate_app_architecture, "Aspect 11: APP_ARCHITECTURE_SPEC Canonical Suite"),
+    "adapter": (mod_12.generate_multi_target_suite, "Aspect 12: MULTI_TARGET_BUILD_SPEC & Protocol Adapters"),
+    "multi-target": (mod_12.generate_multi_target_suite, "Aspect 12: MULTI_TARGET_BUILD_SPEC & Protocol Adapters"),
+    "12": (mod_12.generate_multi_target_suite, "Aspect 12: MULTI_TARGET_BUILD_SPEC & Protocol Adapters")
 }
 
 def generate_full_subapp(target_dir: Path, params: Dict[str, Any]) -> GeneratorResult:

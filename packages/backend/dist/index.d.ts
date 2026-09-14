@@ -1,7 +1,7 @@
 import { BaseAccountProvider } from './auth/index.js';
 export { AdminGuard, AuthCredentials, AuthSession, CreateUserData, LocalAccountProvider, PasswordHasher, RateLimiter, SessionManager, SignupInput, User, UserRole } from './auth/index.js';
 import { BaseStorageAdapter, FileInfo } from './storage/index.js';
-export { LocalFSAdapter, S3Adapter, StorageAdapterFactory, StorageConfig, StorageMode, StorageProviderType, SupabaseStorageAdapter, UploadResult } from './storage/index.js';
+export { BackblazeB2Adapter, ConnectionTestResult, DeleteFolderResult, LocalFSAdapter, RenameFolderResult, S3Adapter, StorageAdapterFactory, StorageConfig, StorageMode, StorageProviderType, SupabaseStorageAdapter, UploadResult, ensureS3DirectoryMarker, isSecretMasked, normalizeBackblazeCredentials, permanentDeleteS3Folder, permanentDeleteS3Object, renameS3Folder, resolveBackblazeEndpoint } from './storage/index.js';
 import { SkipoBase } from '@skipo/core';
 export { ApiError, ApiResponse, BaseApiRoute, Middleware, RouteConfig, createSSEResponse, withAuth, withCors } from './api/index.js';
 export { A as AuthContext, B as BackendClient, a as BackendClientOptions, b as BackendExecutor, c as BackendInstance, d as BackendResolver, e as BackendResolverOptions, C as CallbackFn, f as CallbackHandle, g as CallbackRegistry, h as CapabilityContext, D as Delegation, i as DistributedLock, j as DomainProxy, E as ErrorHandler, k as EventBus, l as EventHandler, F as FrontendSession, m as FrontendSessionOptions, G as GapHandler, H as HTTPTransport, n as HTTPTransportOptions, I as ITransport, o as IdempotentRequest, J as Job, p as JobPriority, q as JobState, M as Message, r as MessageHandler, s as MessageType, R as ResolutionStrategy, t as ResourceVersion, u as RoutingStrategy, S as SequenceCheckResult, v as SequenceTracker, W as WebSocketTransport, w as WebSocketTransportOptions, x as createBackendClient } from './WebSocketTransport-CHmkJ0tj.js';
@@ -140,4 +140,58 @@ declare class FunctionalityTable<T extends {
     count(filters?: QueryFilter[]): Promise<number>;
 }
 
-export { type AuditEvent, AuditLogger, BaseAccountProvider, BaseDataProvider, BaseStorageAdapter, type ClusterConfig, type ConflictPolicy, ControlPlaneManager, DatabaseClusterManager, FileInfo, FunctionalityTable, type HealthStatus, type IDataProvider, type QueryFilter, type SortOrder, SyncEngine, type SyncState, type WorkspaceConfig, type WorkspaceDescriptor, WorkspaceFS, formatCanonicalWorkspaceFolderName, sanitizeWorkspaceName };
+/**
+ * @file types.ts
+ * @description Formal TypeScript types and contracts for APP_ARCHITECTURE_SPEC.
+ * Conforms strictly to Inviolable Law L7 and < 200 lines limit.
+ */
+type Runtime = 'client' | 'server';
+type Deployment = 'local' | 'remote';
+type FunctionSet = Record<string, (...args: any[]) => any>;
+interface ServiceDefinition<T extends FunctionSet = FunctionSet> {
+    name: string;
+    version?: string;
+    runtime: Runtime;
+    deployment: Deployment;
+    facade: T;
+    metadata?: Record<string, unknown>;
+}
+interface ServiceFacade<T extends FunctionSet = FunctionSet> {
+    runtime: Runtime;
+    deployment: Deployment;
+    service: T;
+}
+type OrchestrationFn = (...args: any[]) => Promise<any> | any;
+interface BackendFacade<TServices extends Record<string, any> = Record<string, any>, TOrchestrations extends Record<string, OrchestrationFn> = Record<string, OrchestrationFn>> {
+    services: TServices;
+    orchestrations: TOrchestrations;
+}
+/**
+ * Validates that a ServiceDefinition satisfies the mathematical invariants:
+ * 1. deployment == "remote" => runtime == "server"
+ * 2. runtime == "client" => deployment == "local"
+ */
+declare function validateServiceDefinition(def: {
+    name?: string;
+    runtime: Runtime;
+    deployment: Deployment;
+}): {
+    valid: boolean;
+    error?: string;
+};
+/**
+ * Registry interface for service records in Gateway
+ */
+interface ServiceRegistryRecord {
+    id: string;
+    name: string;
+    version: string;
+    runtime: Runtime;
+    deployment: Deployment;
+    endpoint?: string;
+    protocol?: 'http' | 'ws' | 'in-process';
+    health?: 'healthy' | 'degraded' | 'unhealthy';
+    metadata?: Record<string, unknown>;
+}
+
+export { type AuditEvent, AuditLogger, type BackendFacade, BaseAccountProvider, BaseDataProvider, BaseStorageAdapter, type ClusterConfig, type ConflictPolicy, ControlPlaneManager, DatabaseClusterManager, type Deployment, FileInfo, type FunctionSet, FunctionalityTable, type HealthStatus, type IDataProvider, type OrchestrationFn, type QueryFilter, type Runtime, type ServiceDefinition, type ServiceFacade, type ServiceRegistryRecord, type SortOrder, SyncEngine, type SyncState, type WorkspaceConfig, type WorkspaceDescriptor, WorkspaceFS, formatCanonicalWorkspaceFolderName, sanitizeWorkspaceName, validateServiceDefinition };

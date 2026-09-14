@@ -261,9 +261,11 @@ interface AppShellProps extends React__default.HTMLAttributes<HTMLDivElement> {
     footer?: React__default.ReactNode;
     bottomStripProps?: BottomStripProps;
     disableBottomStrip?: boolean;
+    workspaceGate?: React__default.ReactNode;
 }
 /**
  * AppShell — Root layout container providing top toolbar slot, clean central viewport, and bottom strip.
+ * Supports isolated workspaceGate modal/screen rendering before main canvas/app UI loads.
  */
 declare const AppShell: React__default.ForwardRefExoticComponent<AppShellProps & React__default.RefAttributes<HTMLDivElement>>;
 

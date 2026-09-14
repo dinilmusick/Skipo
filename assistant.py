@@ -99,6 +99,16 @@ SKILL_MAP = {
         "API Security Governance & 8-Gate Pipeline",
         HERE / "api/SKILL.md",
         "Canonical 8-gate request lifecycle (rate limiting, auth, validation, security headers, anti-polling)."
+    ),
+    "app-arch": (
+        "APP_ARCHITECTURE_SPEC Canonical Architecture",
+        HERE / "architecture/app-architecture-spec/SKILL.md",
+        "Canonical 40-section specification: runtime model, backend facade, plug-and-play service suites, and import boundaries."
+    ),
+    "multi-target": (
+        "MULTI_TARGET_BUILD_SPEC & Protocol Adapters",
+        HERE / "architecture/multi-target-build-spec/SKILL.md",
+        "Protocol Adapters (src/backend/adapters/httpsAdapter.ts), Cloudflare Workers, and dual build pipelines."
     )
 }
 
@@ -184,6 +194,11 @@ def advise_agent(query: str, root: Path) -> None:
     if any(k in q for k in ["api", "route", "security", "gate", "rate-limit", "auth", "token"]):
         matched_skills.append(SKILL_MAP["api"])
         recommended_commands.append("python3 assistant.py generate route src/backend/api/[route] --name [route]")
+
+    if any(k in q for k in ["multi-target", "target", "adapter", "worker", "cloudflare", "build:api", "fullstack"]):
+        matched_skills.append(SKILL_MAP["multi-target"])
+        recommended_commands.append("python3 assistant.py generate adapter src/backend/adapters --name httpsAdapter")
+        recommended_commands.append("npm run build:all")
 
     if any(k in q for k in ["subapp", "app", "project", "scaffold", "new"]):
         matched_skills.append(SKILL_MAP["structure"])
