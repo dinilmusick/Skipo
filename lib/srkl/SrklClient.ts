@@ -1,0 +1,137 @@
+/**
+ * @file SrklClient.ts
+ * @description Universal HTTP Client for querying SRKL Service Account Vaults.
+ * Used across the ecosystem by client apps and gateway routers (e.g. Depm).
+ * Strictly adheres to Skipo governance (< 200 lines).
+ */
+
+import {
+  SrklClientOptions,
+  SrklServiceAccount,
+  SrklEcosystemQueryOptions,
+  SrklEcosystemResponse,
+  AdaptedStorageConnection,
+} from './types';
+
+export class SrklClient {
+  private baseUrl: string;
+  private userId: string;
+  private token?: string;
+  private workspaceId?: string;
+  private getAuthHeadersCustom?: () => Record<string, string>;
+
+  constructor(options: SrklClientOptions = {}) {
+    this.baseUrl = (options.srklUrl || 'http://localhost:3001').replace(/\/+$/, '');
+    this.userId = options.userId || 'usr-anon';
+    this.token = options.token;
+    this.workspaceId = options.workspaceId;
+    this.getAuthHeadersCustom = options.getAuthHeaders;
+  }
+
+  public setBaseUrl(url: string): void {
+    this.baseUrl = url.replace(/\/+$/, '');
+  }
+
+  public getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  private buildHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-user-id': this.userId,
+    };
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+    if (this.workspaceId) headers['x-workspace-id'] = this.workspaceId;
+    if (this.getAuthHeadersCustom) {
+      Object.assign(headers, this.getAuthHeadersCustom());
+    }
+    return headers;
+  }
+
+  public async checkHealth(): Promise<{ ok: boolean; latencyMs: number; status?: string }> {
+    const start = Date.now();
+    try {
+      const res = await fetch(`${this.baseUrl}/api/ecosystem/health`, {
+        headers: this.buildHeaders(),
+      });
+      const latencyMs = Date.now() - start;
+      if (!res.ok) return { ok: false, latencyMs };
+      const data = await res.json();
+      return { ok: true, latencyMs, status: data.status };
+    } catch {
+      return { ok: false, latencyMs: Date.now() - start };
+    }
+  }
+
+  public async getServices(
+    types: string[] = [],
+    options: SrklEcosystemQueryOptions = {}
+  ): Promise<SrklServiceAccount[]> {
+    const queryTypes = types.length > 0 ? types.join(',') : (options.types || []).join(',');
+    const wsId = options.workspaceId || this.workspaceId;
+    const url = new URL(`${this.baseUrl}/api/ecosystem/services`);
+    if (queryTypes) url.searchParams.set('types', queryTypes);
+    if (wsId) url.searchParams.set('workspaceId', wsId);
+
+    const res = await fetch(url.toString(), {
+      method: 'GET',
+      headers: this.buildHeaders(),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`SRKL service query failed (${res.status}): ${errText}`);
+    }
+
+    const data: SrklEcosystemResponse = await res.json();
+    return data.services || [];
+  }
+
+  public async getServiceById(id: string, options: SrklEcosystemQueryOptions = {}): Promise<SrklServiceAccount | null> {
+    const wsId = options.workspaceId || this.workspaceId;
+    const url = new URL(`${this.baseUrl}/api/ecosystem/services/${encodeURIComponent(id)}`);
+    if (wsId) url.searchParams.set('workspaceId', wsId);
+
+    const res = await fetch(url.toString(), {
+      method: 'GET',
+      headers: this.buildHeaders(),
+    });
+
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`SRKL service lookup failed (${res.status})`);
+
+    const data = await res.json();
+    return data.service || null;
+  }
+
+  public static adaptToStorageConnection(account: SrklServiceAccount): AdaptedStorageConnection {
+    const creds = account.credentials || {};
+    const sId = (account.serviceId || '').toLowerCase();
+    const isB2 = sId.includes('backblaze') || sId === 'b2';
+    const provider = isB2 ? 'backblaze_b2' : 'aws_s3';
+
+    return {
+      id: `conn-srkl-${account.id}`,
+      provider,
+      label: `SRKL: ${account.name || (isB2 ? 'Backblaze' : 'S3')}`,
+      role: 'redundant_clone',
+      enabled: true,
+      createdAt: account.createdAt || new Date().toISOString(),
+      b2KeyId: creds.keyId || creds.b2KeyId,
+      b2ApplicationKey: creds.applicationKey || creds.b2ApplicationKey,
+      b2BucketName: creds.bucketName || creds.bucketId || creds.b2BucketName,
+      b2Region: creds.region || creds.b2Region,
+      b2Endpoint: creds.endpoint || creds.b2Endpoint,
+      s3AccessKeyId: creds.accessKeyId || creds.keyId || creds.s3AccessKeyId,
+      s3SecretAccessKey: creds.secretAccessKey || creds.applicationKey || creds.s3SecretAccessKey,
+      s3BucketName: creds.bucketName || creds.s3BucketName,
+      s3Region: creds.region || creds.s3Region,
+      s3Endpoint: creds.endpoint || creds.s3Endpoint,
+    };
+  }
+}
+
+export function createSrklClient(options: SrklClientOptions = {}): SrklClient {
+  return new SrklClient(options);
+}

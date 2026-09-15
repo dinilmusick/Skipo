@@ -42,6 +42,11 @@ import {
   createBackendClient
 } from "./chunk-NIP22V2G.js";
 import {
+  SrklClient,
+  createSrklClient,
+  useSrklServices
+} from "./chunk-YTMTTQQ4.js";
+import {
   BackblazeB2Adapter,
   BaseStorageAdapter,
   LocalFSAdapter,
@@ -347,6 +352,7 @@ export {
   S3Adapter,
   SequenceTracker,
   SessionManager,
+  SrklClient,
   StorageAdapterFactory,
   SupabaseStorageAdapter,
   SyncEngine,
@@ -355,6 +361,7 @@ export {
   createBackendClient,
   createEmptyContract,
   createSSEResponse,
+  createSrklClient,
   ensureS3DirectoryMarker,
   formatCanonicalWorkspaceFolderName,
   isSecretMasked,
@@ -366,6 +373,7 @@ export {
   sanitizeWorkspaceName,
   useBackend,
   useBackendClient,
+  useSrklServices,
   validateServiceDefinition,
   withAuth,
   withCors
