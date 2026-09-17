@@ -1097,7 +1097,7 @@ export default function StorageConnectDrawer({
                       title={isPrimary ? 'This is the Primary storage — all others are clones' : 'Set this as Primary storage'}
                     >
                       <Star size={10} className={isPrimary ? 'fill-current' : ''} />
-                      <span>{isPrimary ? '★ PRIMARY' : 'SET PRIMARY'}</span>
+                      <span>{isPrimary ? 'PRIMARY' : 'SET PRIMARY'}</span>
                     </button>
 
                     {/* Sync action: primary local → sync to disk; clone → sync from primary */}
@@ -1224,7 +1224,7 @@ export default function StorageConnectDrawer({
           className="w-full py-1.5 px-2 border border-dashed border-brutalist/60 hover:border-[var(--color-accent)] bg-black/20 hover:bg-black/40 text-xs font-black uppercase flex items-center justify-center gap-1.5 cursor-pointer text-[var(--color-text)] mt-1"
         >
           <Plus size={12} className="text-[var(--color-accent)]" />
-          <span>{showNewConnectionForm ? 'HIDE CONNECT FORM' : '+ CONNECT ANOTHER STORAGE ENGINE'}</span>
+          <span>{showNewConnectionForm ? 'HIDE CONNECT FORM' : 'CONNECT ANOTHER STORAGE ENGINE'}</span>
         </button>
       </div>
 

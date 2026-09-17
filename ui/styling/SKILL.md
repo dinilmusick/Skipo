@@ -15,7 +15,8 @@ $$\begin{array}{ll}
 \mathbf{P_5} \text{ (100% Theme Tokens)} & \forall c \in \text{Styles}: c \cap \{\text{HEX}, \text{RGB}, \text{HSL}\} = \emptyset \wedge c \subset \{\text{var}(--\text{skipo}-*)\} \\
 \mathbf{P_6} \text{ (Overlay Event Trapping)} & \forall o \in \text{Overlays}: \text{Traps}(o, \{\text{Wheel}, \text{Pointer}, \text{Key}\}) \wedge \neg\text{Leaks}(o, \text{Canvas}) \\
 \mathbf{P_7} \text{ (Custom Scrollbars \& Controls)} & \forall c \in \{\text{Scrollbars}, \text{SelectDropdowns}\}: \text{Styles}(c) \subset \{\text{var}(--\text{skipo}-*)\} \wedge \text{Appearance}(c) = \text{Custom} \\
-\mathbf{P_8} \text{ (Progressive Disclosure Dialogues)} & \forall d \in \text{Dialogues}: \text{Count}(\text{Sections}(d)) \ge 2 \implies \text{State}(\text{SecondarySections}(d)) = \text{CompressedByDefault}
+\mathbf{P_8} \text{ (Progressive Disclosure Dialogues)} & \forall d \in \text{Dialogues}: \text{Count}(\text{Sections}(d)) \ge 2 \implies \text{State}(\text{SecondarySections}(d)) = \text{CompressedByDefault} \\
+\mathbf{P_9} \text{ (Icon Purity \& Zero Double-Icons)} & \forall b \in \text{Buttons}: \text{Count}(\text{Icons}(b)) \le 1 \wedge \neg(\text{HasIcon}(b) \wedge \text{SymbolGlyph}(\text{Label}(b)))
 \end{array}$$
 
 ## 2. PORTABLE THEME PACK & CANVAS SPECS

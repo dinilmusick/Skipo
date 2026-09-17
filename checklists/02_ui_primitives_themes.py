@@ -39,19 +39,19 @@ RAW_CONTROL_PATTERNS = [
 HEX_COLOR_REGEX = re.compile(r'(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3})\b')
 RGB_COLOR_REGEX = re.compile(r'\b(rgb|rgba|hsl|hsla)\s*\([^\)]+\)')
 
+BUTTON_BLOCK_REGEX = re.compile(r'<(?:button|BaseButton|BrutalistButton)\b[^>]*>(.*?)</(?:button|BaseButton|BrutalistButton)>', re.DOTALL | re.IGNORECASE)
+ICON_TAG_REGEX = re.compile(r'<([A-Z][A-Za-z0-9]+)\b[^>]*(?:size=|className=|strokeWidth=|fill=)[^>]*\s*/?>')
+REDUNDANT_SYMBOL_REGEX = re.compile(r'(?:[\'"`]|>)\s*([★☆✓✔✕✖\+])\s+[A-Za-z0-9]')
+
 EXCLUDED_PRIMITIVE_FILES = {
-    "BaseButton.tsx", "BaseInput.tsx", "BaseSelect.tsx", "BaseTextarea.tsx",
-    "BaseToggle.tsx", "BaseBadge.tsx", "BaseCard.tsx", "CredentialField.tsx",
-    "IconOnlyButton.tsx", "BrutalistButton.tsx", "BrutalistInput.tsx",
-    "BrutalistSelect.tsx", "BaseIconButton.tsx", "theme.ts", "tokens.ts",
-    "tokens.css", "globals.css", "palette.ts",
-    "tailwind.config.js", "tailwind.config.ts",
-    "SolidifyWidget.tsx", "CompatibleNodePicker.tsx", "CanvasContextMenu.tsx",
+    "BaseButton.tsx", "BaseInput.tsx", "BaseSelect.tsx", "BaseTextarea.tsx", "BaseToggle.tsx",
+    "BaseBadge.tsx", "BaseCard.tsx", "CredentialField.tsx", "IconOnlyButton.tsx",
+    "BrutalistButton.tsx", "BrutalistInput.tsx", "BrutalistSelect.tsx", "BaseIconButton.tsx",
+    "theme.ts", "tokens.ts", "tokens.css", "globals.css", "palette.ts", "tailwind.config.js",
+    "tailwind.config.ts", "SolidifyWidget.tsx", "CompatibleNodePicker.tsx", "CanvasContextMenu.tsx",
     "MovableSocketHandle.tsx", "NodeCard.tsx", "NodeGraphCanvas.tsx", "MovableSocketView.tsx",
-    # ServiceUIElements — first-class service primitive widgets (composable, not application-layer)
-    "ServiceButton.tsx", "ServiceInputField.tsx", "ServiceDropdown.tsx",
-    "ServiceVideoPlayer.tsx", "ServiceAudioPlayer.tsx", "ServiceTextBanner.tsx",
-    "ServiceImageContainer.tsx",
+    "ServiceButton.tsx", "ServiceInputField.tsx", "ServiceDropdown.tsx", "ServiceVideoPlayer.tsx",
+    "ServiceAudioPlayer.tsx", "ServiceTextBanner.tsx", "ServiceImageContainer.tsx",
 }
 
 def validate_ui_and_themes(root_dir: Path) -> ChecklistResult:
@@ -86,14 +86,28 @@ def validate_ui_and_themes(root_dir: Path) -> ChecklistResult:
                 for pattern, msg in RAW_CONTROL_PATTERNS:
                     if pattern.search(line):
                         violations.append(Violation(
-                            rule_id="banned-raw-html-control",
-                            severity="error",
-                            message=msg,
-                            file_path=str(rel_path),
-                            line=line_idx,
-                            snippet=trimmed[:100],
+                            rule_id="banned-raw-html-control", severity="error", message=msg,
+                            file_path=str(rel_path), line=line_idx, snippet=trimmed[:100],
                             suggestion="Import standard @skipo/ui component primitives."
                         ))
+
+            for m in BUTTON_BLOCK_REGEX.finditer(content):
+                b_body, line_no = m.group(1), content[:m.start()].count('\n') + 1
+                icons, sym = ICON_TAG_REGEX.findall(b_body), REDUNDANT_SYMBOL_REGEX.search(b_body)
+                if icons and sym:
+                    violations.append(Violation(
+                        rule_id="duplicate-button-icon-anti-pattern", severity="error",
+                        message=f"Button displays duplicate icons: <{icons[0]}> paired with redundant text symbol '{sym.group(1)}'.",
+                        file_path=str(rel_path), line=line_no, snippet=b_body.strip().splitlines()[0][:100],
+                        suggestion="Remove redundant symbol glyphs (e.g. '+', '★', '✓') when an icon component is present."
+                    ))
+                elif len(icons) > 1 and ("?" not in b_body or ":" not in b_body):
+                    violations.append(Violation(
+                        rule_id="duplicate-button-icon-anti-pattern", severity="error",
+                        message=f"Button renders multiple unconditional icon components ({', '.join(icons[:2])}).",
+                        file_path=str(rel_path), line=line_no, snippet=b_body.strip().splitlines()[0][:100],
+                        suggestion="Ensure buttons contain at most one icon component for a singular action."
+                    ))
 
         # Check hardcoded colors
         for line_idx, line in enumerate(lines, 1):
@@ -158,13 +172,8 @@ def validate_ui_and_themes(root_dir: Path) -> ChecklistResult:
     score = max(0.0, 100.0 - (errors * 10.0))
 
     return ChecklistResult(
-        aspect_id=ASPECT_ID,
-        aspect_title=ASPECT_TITLE,
-        passed=errors == 0,
-        violations=violations,
-        files_scanned=files_scanned,
-        duration_ms=duration_ms,
-        score=score
+        aspect_id=ASPECT_ID, aspect_title=ASPECT_TITLE, passed=errors == 0,
+        violations=violations, files_scanned=files_scanned, duration_ms=duration_ms, score=score
     )
 
 def main():
