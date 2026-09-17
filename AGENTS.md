@@ -12,7 +12,10 @@ $$\begin{array}{ll}
 \mathbf{L_5} \text{ (Deterministic Tooling)} & \forall a \in \text{NewArtifacts}: a \in \text{Generators}(\text{generators/}) \vee a \in \text{Mutators}(\text{mutators/}) \\
 \mathbf{L_6} \text{ (Workspace Isolation Gate)} & \forall a \in \text{Apps}: (\neg \text{ActiveWorkspace}) \implies \text{Gate}(\text{WorkspaceTilesMenu}) \wedge \neg \text{Render}(\text{AppCanvas}) \\
 \mathbf{L_7} \text{ (App Architecture Spec)} & \forall a \in \text{Apps}: \text{src} \implies \{\text{frontend}, \text{backend}, \text{libraries}, \text{frontend-state}\} \wedge \text{SingleFacade}(a) \wedge \text{PreserveRoot}(a) \\
-\mathbf{L_8} \text{ (Multi-Target & Adapters)} & \forall a \in \text{Apps}: \text{Adapters}(a) \implies \text{src/backend/adapters/httpsAdapter.ts} \wedge \text{Targets}(\text{fullstack}, \text{api})
+\mathbf{L_8} \text{ (Multi-Target & Adapters)} & \forall a \in \text{Apps}: \text{Adapters}(a) \implies \text{src/backend/adapters/httpsAdapter.ts} \wedge \text{Targets}(\text{fullstack}, \text{api}) \\
+\mathbf{L_9} \text{ (Bottom Bar Exclusivity & Line Limits)} & \text{BottomStripCenter} \equiv \text{DynamicHoverInspectionOnly} \wedge \forall f \in \text{SourceFiles}: \text{Lines}(f) \le 200 \\
+\mathbf{L_{10}} \text{ (Responsive Grids & Magnetic Auto-Spawn)} & \Delta(\text{TileContainer}) \implies \Delta(\text{Cols}, \text{Rows}, \text{Sizes}) \wedge \text{WireDragDrop}(\text{Canvas}) \implies \text{Picker} \xrightarrow{\text{select}} \text{Spawn} \wedge \text{Connect} \\
+\mathbf{L_{11}} \text{ (Serverless Budget & Standalone Tracing)} & \text{NextConfig} \implies \text{output: 'standalone'} \wedge \text{Size}(\text{ServerlessFn}) \le 50\text{MB} \wedge \text{Media}(\text{api/}) = \emptyset
 \end{array}$$
 
 ## 2. DETERMINISTIC AGENT EXECUTION ALGORITHM

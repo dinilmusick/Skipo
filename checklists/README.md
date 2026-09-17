@@ -20,7 +20,10 @@ This directory contains the **pure Python 3 dynamic checklist validators** desig
 | **07: Backend Storage Decoupling** | [`07_backend_storage_isolation.py`](./07_backend_storage_isolation.py) | Control Plane (`/api/auth`) vs Data Plane (`/api/storage`), direct presigned transfers (ban on `/tmp` file proxying), `CredentialField`. |
 | **08: API Security & Governance** | [`08_api_security_governance.py`](./08_api_security_governance.py) | 8-gate request pipeline, rate limiting, anti-polling (>= 5000ms delay or SSE), sanitized error messages (no stack leaks). |
 | **09: Test Coverage Integrity** | [`09_test_coverage_integrity.py`](./09_test_coverage_integrity.py) | Companion `*.test.ts(x)` for every feature module, anti-test-stub (bans `expect(true).toBe(true)`), real operational assertions. |
-| **10: Full System Pipeline** | [`full_system_validator.py`](./full_system_validator.py) | Master pipeline orchestrating Aspects 01-09 with weighted scoring, executive compliance scorecard, and exit code gate. |
+| **10: App Architecture Spec** | [`10_app_architecture_spec_validator.py`](./10_app_architecture_spec_validator.py) | 4 canonical planes (`src/{frontend, backend, libraries, frontend-state}`), single entrypoint facade, root preservation. |
+| **11: Multi-Target Build Spec** | [`11_multi_target_build_spec_validator.py`](./11_multi_target_build_spec_validator.py) | Dual target build manifests (`fullstack.json`, `api.json`), `httpsAdapter.ts`, `wrangler.toml`, context-neutral orchestrations. |
+| **12: Serverless Deployment Budget** | [`12_serverless_deployment_limits.py`](./12_serverless_deployment_limits.py) | 50MB Hobby / 250MB Pro Vercel function limits, `output: 'standalone'`, tree-shaking, devDependencies isolation, external CDN media. |
+| **Full System Pipeline** | [`full_system_validator.py`](./full_system_validator.py) | Master pipeline orchestrating Aspects 01-12 with weighted scoring, executive compliance scorecard, and exit code gate. |
 
 ---
 

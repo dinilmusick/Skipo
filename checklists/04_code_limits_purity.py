@@ -66,16 +66,16 @@ def validate_code_limits_and_purity(root_dir: Path) -> ChecklistResult:
         lines = content.splitlines()
         line_count = len(lines)
 
-        # 1. Line Count Check: 200 line hard limit (150 for helpers)
+        # 1. Line Count Check: Strict 200 line hard limit (150 for helpers) - BLOCKING ERROR
         max_lines = 150 if "helper" in str(rel_path).lower() or "utils" in str(rel_path).lower() else 200
         if line_count > max_lines:
             violations.append(Violation(
                 rule_id="file-line-limit-exceeded",
-                severity="error" if line_count > 300 else "warning",
+                severity="error",
                 message=f"File exceeds maximum line limit ({line_count} lines > {max_lines} max).",
                 file_path=str(rel_path),
                 line=line_count,
-                suggestion="Decompose file into sub-components, extracted pure helper functions, or custom hooks."
+                suggestion="Decompose file into sub-components, extracted pure helper functions, or custom hooks. No code file may exceed 200 lines."
             ))
 
         # 2. One Component Per File (in TSX/JSX)

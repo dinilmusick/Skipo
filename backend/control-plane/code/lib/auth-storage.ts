@@ -64,32 +64,25 @@ async function getClusterPersister() {
   };
 }
 
+import { getSystemAdminCredentialsSync, getSystemCredentials, saveSystemCredentials } from './system-credentials';
+
 /**
- * Safely parse Admin credentials from any standard environment variable key,
- * handling trailing spaces, whitespace, and surrounding quotes.
+ * Loads Admin credentials directly from ultrst_credentials in the system database.
+ * Falls back to in-memory cached credentials.
  */
 export function getEnvAdminCredentials(): { email: string; password: string } {
-  const rawEmail =
-    process.env.ADMIN_EMAIL ||
-    process.env.NEXT_PUBLIC_ADMIN_EMAIL ||
-    process.env.admin_email ||
-    process.env.ADMIN_USER ||
-    process.env.ADMIN_USERNAME ||
-    process.env.ADMIN_LOGIN ||
-    '';
+  return getSystemAdminCredentialsSync();
+}
 
-  const rawPassword =
-    process.env.ADMIN_PASSWORD ||
-    process.env.NEXT_PUBLIC_ADMIN_PASSWORD ||
-    process.env.admin_password ||
-    process.env.ADMIN_PASS ||
-    process.env.ADMIN_PWD ||
-    '';
-
-  const cleanEmail = rawEmail.trim().replace(/^["']|["']$/g, '').toLowerCase();
-  const cleanPassword = rawPassword.trim().replace(/^["']|["']$/g, '');
-
-  return { email: cleanEmail, password: cleanPassword };
+export async function getSystemAdminCredentialsAsync(): Promise<{ email: string; password: string }> {
+  const creds = await getSystemCredentials('system');
+  if (creds?.admin_email && creds?.admin_password) {
+    return {
+      email: creds.admin_email.trim().toLowerCase(),
+      password: creds.admin_password.trim(),
+    };
+  }
+  return getSystemAdminCredentialsSync();
 }
 
 export function getControlPlaneDir(): string {

@@ -19,6 +19,9 @@ import { getVaultAbsolutePath, ensureWorkspaceExists } from './workspaceFS';
 import { loadUsers, saveUsers, hashPassword, verifySession, authenticateUser, normalizeUserAccount, getEnvAdminCredentials } from './auth-storage';
 import { logAdminEvent, AdminAuditLog } from './audit-logger';
 import { neon } from '@neondatabase/serverless';
+import { autoProvisionCredentialsTable, getSystemCredentials, saveSystemCredentials } from './system-credentials';
+export * from './system-credentials';
+export * from './system-bucket';
 
 // ══════════════════════════════════════════════════════════════════════════════════════════
 // ISOLATION ASSERTION GUARANTEE
@@ -69,8 +72,9 @@ export function getDefaultClusterConfig(): AdminDatabaseClusterConfig {
   // Helper to safely strip quotes and whitespace from env vars
   const cleanEnv = (val?: string): string => (val || '').trim().replace(/^["']|["']$/g, '');
 
-  // 1. Detect Neon Serverless Postgres Primary via env vars
+  // 1. Detect Primary System Database via SYSTEM_DATABASE_URL_1 (with transition fallbacks)
   const rawNeonConn =
+    process.env.SYSTEM_DATABASE_URL_1 ||
     process.env.NEON_DATABASE_URL ||
     process.env.NEON_URL ||
     process.env.DOCUSTACK_NEON_DATABASE_URL ||
@@ -83,6 +87,7 @@ export function getDefaultClusterConfig(): AdminDatabaseClusterConfig {
 
   if (neonConn && (neonConn.startsWith('postgres://') || neonConn.startsWith('postgresql://'))) {
     const matchedKey =
+      process.env.SYSTEM_DATABASE_URL_1 ? 'SYSTEM_DATABASE_URL_1' :
       process.env.NEON_DATABASE_URL ? 'NEON_DATABASE_URL' :
       process.env.NEON_URL ? 'NEON_URL' :
       process.env.POSTGRES_URL_NON_POOLING ? 'POSTGRES_URL_NON_POOLING' :
@@ -90,7 +95,7 @@ export function getDefaultClusterConfig(): AdminDatabaseClusterConfig {
 
     databases.push({
       id: 'cluster_neon_env_primary',
-      name: 'Neon Serverless Postgres',
+      name: 'System Database Primary (SYSTEM_DATABASE_URL_1)',
       engine: 'neon',
       role: 'primary',
       target: 'all',
@@ -199,25 +204,56 @@ export function getDefaultClusterConfig(): AdminDatabaseClusterConfig {
     });
   }
 
-  // 5. Detect Redundant Clones via Environment Variables
-  const cloneNeon = process.env.CLONE_NEON_DATABASE_URL || process.env.CLONE_DATABASE_URL || '';
-  if (cloneNeon && cloneNeon !== neonConn) {
+  // 5. Detect Fallback / Redundant System Databases via SYSTEM_DATABASE_URL_2 and SYSTEM_DATABASE_URL_3
+  const rawSystemDb2 = cleanEnv(
+    process.env.SYSTEM_DATABASE_URL_2 ||
+    process.env.CLONE_NEON_DATABASE_URL ||
+    process.env.CLONE_DATABASE_URL
+  );
+  if (rawSystemDb2 && rawSystemDb2 !== neonConn) {
     databases.push({
-      id: 'cluster_clone_neon_env',
-      name: 'Neon Disaster Recovery Clone',
+      id: 'cluster_system_db_2',
+      name: 'System Database Fallback 1 (SYSTEM_DATABASE_URL_2)',
       engine: 'neon',
       role: 'redundant_clone',
       target: 'all',
       enabled: true,
       source: 'env',
       isFromEnv: true,
-      envVarKey: 'CLONE_NEON_DATABASE_URL',
+      envVarKey: process.env.SYSTEM_DATABASE_URL_2 ? 'SYSTEM_DATABASE_URL_2' : 'CLONE_NEON_DATABASE_URL',
       neon: {
-        connectionString: cloneNeon,
+        connectionString: rawSystemDb2,
         tableName: 'ultrst-users',
       },
       status: 'connected',
       latencyMs: 125,
+      lastTestedAt: now,
+      createdAt: now,
+    });
+  }
+
+  const rawSystemDb3 = cleanEnv(
+    process.env.SYSTEM_DATABASE_URL_3 ||
+    process.env.CLONE_POSTGRES_DATABASE_URL ||
+    process.env.CLONE_POSTGRES_URL
+  );
+  if (rawSystemDb3 && rawSystemDb3 !== neonConn && rawSystemDb3 !== rawSystemDb2) {
+    databases.push({
+      id: 'cluster_system_db_3',
+      name: 'System Database Fallback 2 (SYSTEM_DATABASE_URL_3)',
+      engine: 'postgres',
+      role: 'redundant_clone',
+      target: 'all',
+      enabled: true,
+      source: 'env',
+      isFromEnv: true,
+      envVarKey: process.env.SYSTEM_DATABASE_URL_3 ? 'SYSTEM_DATABASE_URL_3' : 'CLONE_POSTGRES_DATABASE_URL',
+      postgres: {
+        connectionString: rawSystemDb3,
+        ssl: true,
+      },
+      status: 'connected',
+      latencyMs: 110,
       lastTestedAt: now,
       createdAt: now,
     });
@@ -272,36 +308,12 @@ export function getDefaultClusterConfig(): AdminDatabaseClusterConfig {
     });
   }
 
-  const clonePg = process.env.CLONE_POSTGRES_DATABASE_URL || process.env.CLONE_POSTGRES_URL || '';
-  if (clonePg && clonePg !== pgConn) {
-    databases.push({
-      id: 'cluster_clone_postgres_env',
-      name: 'PostgreSQL Redundancy Clone',
-      engine: 'postgres',
-      role: 'redundant_clone',
-      target: 'all',
-      enabled: true,
-      source: 'env',
-      isFromEnv: true,
-      envVarKey: 'CLONE_POSTGRES_DATABASE_URL',
-      postgres: {
-        connectionString: clonePg,
-        ssl: true,
-      },
-      status: 'connected',
-      latencyMs: 110,
-      lastTestedAt: now,
-      createdAt: now,
-    });
-  }
-
-  // 5. If no environment variables detected:
-  // Both locally and on Vercel/Cloud, environment variables are the sole source of truth for the system backend database credentials.
-  // We strictly avoid local-only SQLite or file fallbacks so that local and hosted systems behave identically.
+  // If no environment variables detected:
+  // Environment variables are the sole source of truth for system backend database credentials.
   if (databases.length === 0) {
     databases.push({
       id: 'cluster_cloud_standby',
-      name: 'System Backend Database (Awaiting .env)',
+      name: 'System Database (Awaiting SYSTEM_DATABASE_URL_1)',
       engine: 'neon',
       role: 'primary',
       target: 'all',
@@ -311,7 +323,7 @@ export function getDefaultClusterConfig(): AdminDatabaseClusterConfig {
         tableName: 'ultrst-users',
       },
       status: 'error',
-      lastError: 'No database environment variable detected. Configure NEON_DATABASE_URL (or SUPABASE_URL / POSTGRES_DATABASE_URL) in your environment variables (.env.local locally, or Vercel Environment Variables).',
+      lastError: 'No system database detected. Configure SYSTEM_DATABASE_URL_1 (and optional fallbacks SYSTEM_DATABASE_URL_2, SYSTEM_DATABASE_URL_3) in your environment variables.',
       createdAt: now,
     });
   }
@@ -872,6 +884,9 @@ export async function autoProvisionNeonTable(
   await sql.query(`
     ALTER TABLE public."${cleanTable}" ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
   `).catch(() => {});
+
+  // 3. Auto-provision ultrst_credentials table
+  await autoProvisionCredentialsTable(rawConn).catch(() => {});
 
   return {
     success: true,

@@ -27,3 +27,14 @@ export interface DockConfig {
 }
 ```
 - **Styling**: `backdrop-blur-md`, solid 1px `var(--skipo-border)`, box-shadow `0 0 10px var(--skipo-accent-glow)`.
+
+## 3. BOTTOM STRIP CENTER SLOT EXCLUSIVITY LAW
+
+$$\forall el \in \text{BottomStrip}.\text{CenterSlot}: \text{Content}(el) \in \text{HoverInspectionText} \wedge \text{InteractiveElements}(el) = \emptyset$$
+
+1. **Exclusivity**: The middle portion of the bottom bar is strictly reserved for the dynamic text label of whichever UI element is under the cursor at that moment. Coding agents must NEVER use this area for buttons, status widgets, icons, or navigation.
+2. **Universal Full-Text Visibility**: Inspection text MUST be displayed in full in all viewports.
+   - Text scales dynamically (`fontSize: clamp(8px, 1.1vw, 11px)`).
+   - Multi-line flex wrapping (`whiteSpace: normal`, `wordBreak: break-word`, `display: -webkit-box`, `-webkit-line-clamp: 2`) ensures long identifier labels and descriptions never get cut off.
+   - Left and right slots are flex-clamped to prevent encroachment on the center inspection channel.
+

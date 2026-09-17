@@ -75,6 +75,23 @@ def validate_layout_shell(root_dir: Path) -> ChecklistResult:
                     suggestion="Route inspection text to BottomStrip via BottomStripContext (e.g. useBottomStrip().setHoverText(...))."
                 ))
 
+        # 2b. Bottom Bar Center Slot Exclusivity Law:
+        # The middle portion of the bottom bar is reserved ONLY for cursor-hover dynamic text labels.
+        # It MUST NOT be used for buttons, interactive widgets, forms, navigation, or arbitrary content.
+        if "<BottomStrip" in content and "centerSlot" in content:
+            for line_idx, line in enumerate(lines, 1):
+                if "centerSlot=" in line or "centerSlot:" in line:
+                    if any(bad in line for bad in ["<button", "<BaseButton", "<input", "<form", "<select", "onClick", "Button"]):
+                        violations.append(Violation(
+                            rule_id="bottom-bar-center-slot-reserved",
+                            severity="error",
+                            message="Interactive elements or buttons placed in BottomStrip centerSlot. The middle portion is strictly reserved for cursor hover inspection text.",
+                            file_path=str(rel_path),
+                            line=line_idx,
+                            snippet=line.strip()[:100],
+                            suggestion="Remove interactive controls from BottomStrip centerSlot. The center area is exclusively reserved for cursor-hover inspection text labels."
+                        ))
+
         # 3. FloatingDetailsPanel Invariants Check:
         # If file acts as an inspector / details panel, ensure it uses FloatingDetailsPanel
         if "details" in fname.lower() or "inspector" in fname.lower():

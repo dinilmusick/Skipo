@@ -68,34 +68,41 @@ export const BottomStrip = forwardRef<HTMLElement, BottomStripProps>(({
         {leftSlot}
       </div>
 
-      {/* Center Slot: Smoothly fading translucent inspection text */}
+      {/* Center Slot: Exclusively reserved for dynamic hover inspection labels with full visibility */}
       <div
         className="skipo-bottom-strip__center"
         style={{
           flex: 1,
+          minWidth: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           overflow: 'hidden',
-          padding: '0 1rem',
+          padding: '0 0.5rem',
           pointerEvents: 'none',
+          textAlign: 'center',
         }}
       >
         {centerSlot || (
           <span
             className="skipo-inspection-text"
             style={{
-              color: 'var(--skipo-inspection-text-color, rgba(241, 245, 249, 0.80))',
-              fontSize: '11px',
-              fontWeight: 800,
+              color: 'var(--skipo-inspection-text-color, rgba(241, 245, 249, 0.85))',
+              fontSize: 'clamp(8px, 1.1vw, 11px)',
+              lineHeight: 1.15,
+              fontWeight: 700,
               textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              opacity: inspectionText ? 0.85 : 0,
-              transform: inspectionText ? 'translateY(0)' : 'translateY(2px)',
-              transition: 'opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+              letterSpacing: '0.04em',
+              whiteSpace: 'normal',
+              wordBreak: 'break-word',
+              overflowWrap: 'anywhere',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              maxHeight: '100%',
+              opacity: inspectionText ? 0.9 : 0,
+              transform: inspectionText ? 'translateY(0)' : 'translateY(1px)',
+              transition: 'opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
             {inspectionText || ''}

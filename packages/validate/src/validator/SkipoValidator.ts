@@ -16,6 +16,7 @@ import { gitIgnoreAnchoringRule } from './rules/git-ignore-anchoring.js';
 import { serverlessCompatibilityRule } from './rules/serverless-compatibility.js';
 import { noPlaceholderDataRule } from './rules/no-placeholder-data.js';
 import { featureTestCoverageRule } from './rules/feature-test-coverage.js';
+import { serverlessDeploymentBudgetRule } from './rules/serverless-deployment-budget.js';
 
 export class SkipoValidator {
   private config: ValidatorConfig;
@@ -33,7 +34,8 @@ export class SkipoValidator {
     gitIgnoreAnchoringRule,
     serverlessCompatibilityRule,
     noPlaceholderDataRule,
-    featureTestCoverageRule
+    featureTestCoverageRule,
+    serverlessDeploymentBudgetRule
   ];
 
   private project?: Project;

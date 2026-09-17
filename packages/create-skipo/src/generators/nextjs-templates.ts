@@ -57,7 +57,9 @@ export const nextjsTemplates = {
   }, null, 2),
 
   nextConfigJs: () => `/** @type {import('next').NextConfig} */
-const nextConfig = {};
+const nextConfig = {
+  output: 'standalone',
+};
 export default nextConfig;
 `,
 

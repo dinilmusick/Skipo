@@ -50,6 +50,28 @@ export const uiInvariantsRule: ValidationRule = {
       }
     });
 
+    // 3. Invariant: BottomStrip center slot exclusivity for dynamic hover text
+    const bottomStrips = sourceFile.getDescendantsOfKind(SyntaxKind.JsxOpeningElement)
+      .concat(sourceFile.getDescendantsOfKind(SyntaxKind.JsxSelfClosingElement) as any)
+      .filter(elem => elem.getTagNameNode().getText() === 'BottomStrip');
+
+    bottomStrips.forEach(elem => {
+      const centerAttr = elem.getAttribute('centerSlot');
+      if (centerAttr) {
+        const text = centerAttr.getText();
+        if (text.includes('Button') || text.includes('button') || text.includes('onClick') || text.includes('input')) {
+          violations.push({
+            ruleId: 'ui-invariants',
+            severity: 'error',
+            message: 'BottomStrip centerSlot must not contain interactive buttons or controls. The middle area is reserved exclusively for cursor hover inspection labels.',
+            filePath,
+            line: centerAttr.getStartLineNumber(),
+            suggestion: 'Remove interactive buttons or actions from centerSlot. Use BottomStripContext.setInspectionText for dynamic hover feedback.'
+          });
+        }
+      }
+    });
+
     return violations;
   }
 };

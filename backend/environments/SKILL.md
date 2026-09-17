@@ -19,7 +19,9 @@ $$\begin{array}{ll}
 \mathbf{E_1} \text{ (No Ephemeral Persistence)} & \text{Persistence} \cap \{/\text{tmp}\} = \emptyset \implies \text{Use Cloud Blob / DB} \\
 \mathbf{E_2} \text{ (Dynamic Dev Tooling)} & \forall t \in \{\text{vite}, \text{esbuild}\}: t \xrightarrow{\text{import}} \text{dynamic inside } (\neg\text{VERCEL} \wedge \neg\text{PROD}) \\
 \mathbf{E_3} \text{ (Sanitized DB URLs)} & \text{Conn}(url) \implies \neg\text{Matches}(url, \text{"example.com"|"sample.neon"}) \\
-\mathbf{E_4} \text{ (Safe JSON Ingress)} & \text{ParseJSON}(res) \implies \text{ContentType}(res) = \text{"application/json"}
+\mathbf{E_4} \text{ (Safe JSON Ingress)} & \text{ParseJSON}(res) \implies \text{ContentType}(res) = \text{"application/json"} \\
+\mathbf{E_5} \text{ (Strict Env Invariant)} & \text{AppEnvVars} \subseteq \{\text{SYSTEM\_DATABASE\_URL\_1}, \text{SYSTEM\_DATABASE\_URL\_2}, \text{SYSTEM\_DATABASE\_URL\_3}\} \\
+\mathbf{E_6} \text{ (System Bucket \& Creds)} & \text{AdminAuth} \oplus \text{SystemBucket} \subset \text{DBTable}(\text{ultrst\_credentials})
 \end{array}$$
 
 ## 3. DESKTOP LOCAL SQLITE CONTRACT

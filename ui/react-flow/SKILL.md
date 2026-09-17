@@ -28,20 +28,31 @@ All search palettes, compatible node pickers, and searchable lists MUST implemen
 3. **Immediate Enter-to-Spawn**: Pressing `Enter` immediately spawns the highlighted node at the targeted canvas/drop coordinates without requiring mouse clicks.
 4. **Escape Dismissal**: `Escape` key dismisses any active search palette or context menu.
 
-## 2. WIRE DRAG & AUTO-SPAWN ALGORITHM
+## 2. WIRE DRAG, MAGNETIC SNAPPING & AUTO-SPAWN ALGORITHM
+
+$$\begin{array}{ll}
+\mathbf{W_1} \text{ (Handle Drag Drop)} & \text{DropOnCanvas}(\text{wire}) \implies \text{OpenCompatibleNodePicker}(\text{compatibleTypes}(\text{sourceHandle})) \\
+\mathbf{W_2} \text{ (Selection Auto-Spawn)} & \text{SelectNodeType}(T) \implies \text{Spawn}(T) \wedge \text{AutoWire}(\text{sourceHandle}, T.\text{matchingHandle}) \\
+\mathbf{W_3} \text{ (Magnetic Snapping)} & \text{Distance}(\text{cursor}, \text{targetHandle}) \le 28\text{px} \implies \text{Snap}(\text{wireHead}, \text{targetHandle})
+\end{array}$$
 
 ```python
 def on_connect_end(event, source_handle):
     target = get_drop_target(event)
-    if is_handle(target):
+    if is_handle(target) and can_connect(source_handle, target):
         connect(source_handle, target)
     elif is_canvas(target):
         pos = screen_to_flow(event.clientX, event.clientY)
-        compatible = get_compatible_types(source_handle)
-        open_spawn_menu(pos, compatible, on_select=lambda type: (
-            node := spawn_node(type, at=pos),
-            connect(source_handle, node.matching_handle)
-        ))
+        compatible = ConnectionRuleStore.get_compatible_node_types(source_handle)
+        open_compatible_node_picker(
+            at=pos,
+            candidates=compatible,
+            on_select=lambda selected_types: [
+                node := spawn_node(t, at=offset_pos(pos, idx)),
+                auto_wire(source_handle, node.get_compatible_handle(source_handle))
+                for idx, t in enumerate(selected_types)
+            ]
+        )
 ```
 
 ## 3. Z-INDEX & OCCLUSION LAW

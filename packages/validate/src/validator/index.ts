@@ -14,4 +14,5 @@ export * from './rules/git-ignore-anchoring.js';
 export * from './rules/serverless-compatibility.js';
 export * from './rules/no-placeholder-data.js';
 export * from './rules/feature-test-coverage.js';
+export * from './rules/serverless-deployment-budget.js';
 
