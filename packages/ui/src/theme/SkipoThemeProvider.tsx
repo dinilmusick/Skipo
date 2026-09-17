@@ -1,16 +1,24 @@
 'use client';
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import type { SkipoThemePack } from './types.js';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
+import type { SkipoThemePack, ThemeEngineStatus } from './types.js';
 import { DEFAULT_DARK_THEME_PACK, DEFAULT_LIGHT_THEME_PACK, applyThemePack } from './ThemePackLoader.js';
+
+import { ThemeEngine } from './engine.js';
+import { getThemeEngineStatus } from './status.js';
 
 type SkipoThemeMode = 'dark' | 'light';
 
-interface SkipoThemeContextValue {
+export interface SkipoThemeContextValue {
   theme: SkipoThemeMode;
   themePack: SkipoThemePack;
+  engine?: ThemeEngine;
+  status?: ThemeEngineStatus;
+  elementOverrides: Record<string, string>;
   setTheme: (theme: SkipoThemeMode) => void;
   setThemePack: (pack: SkipoThemePack) => void;
   toggleTheme: () => void;
+  setElementOverride: (elementId: string, packId: string) => void;
+  clearElementOverride: (elementId: string) => void;
 }
 
 const SkipoThemeContext = createContext<SkipoThemeContextValue | null>(null);
@@ -19,12 +27,26 @@ export interface SkipoThemeProviderProps {
   children: React.ReactNode;
   defaultTheme?: SkipoThemeMode;
   initialThemePack?: SkipoThemePack;
+  engine?: ThemeEngine;
 }
 
-function useThemeManager(defaultTheme: SkipoThemeMode = 'dark', initialThemePack?: SkipoThemePack) {
-  const [theme, setThemeState] = useState<SkipoThemeMode>(defaultTheme);
+export function SkipoThemeProvider({
+  children,
+  defaultTheme = 'dark',
+  initialThemePack,
+  engine
+}: SkipoThemeProviderProps) {
+  const [theme, setThemeState] = useState<SkipoThemeMode>(
+    engine ? engine.getMode() : defaultTheme
+  );
   const [themePack, setThemePackState] = useState<SkipoThemePack>(
     initialThemePack || (defaultTheme === 'dark' ? DEFAULT_DARK_THEME_PACK : DEFAULT_LIGHT_THEME_PACK)
+  );
+  const [elementOverrides, setElementOverrides] = useState<Record<string, string>>(
+    engine ? engine.getElementOverrides() : {}
+  );
+  const [status, setStatus] = useState<ThemeEngineStatus | undefined>(
+    engine ? getThemeEngineStatus(engine) : undefined
   );
 
   const applyPack = useCallback((pack: SkipoThemePack) => {
@@ -36,30 +58,72 @@ function useThemeManager(defaultTheme: SkipoThemeMode = 'dark', initialThemePack
   }, []);
 
   const setTheme = useCallback((mode: SkipoThemeMode) => {
-    applyPack(mode === 'dark' ? DEFAULT_DARK_THEME_PACK : DEFAULT_LIGHT_THEME_PACK);
-  }, [applyPack]);
+    if (engine) {
+      engine.setMode(mode);
+      setThemeState(mode);
+    } else {
+      applyPack(mode === 'dark' ? DEFAULT_DARK_THEME_PACK : DEFAULT_LIGHT_THEME_PACK);
+    }
+  }, [engine, applyPack]);
 
   const toggleTheme = useCallback(() => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
-  }, [theme, setTheme]);
+    if (engine) {
+      const next = engine.toggleMode();
+      setThemeState(next);
+    } else {
+      setTheme(theme === 'dark' ? 'light' : 'dark');
+    }
+  }, [engine, theme, setTheme]);
+
+  const setElementOverride = useCallback((elementId: string, packId: string) => {
+    if (engine) {
+      engine.setElementOverride(elementId, packId);
+      setElementOverrides(engine.getElementOverrides());
+      setStatus(getThemeEngineStatus(engine));
+    }
+  }, [engine]);
+
+  const clearElementOverride = useCallback((elementId: string) => {
+    if (engine) {
+      engine.clearElementOverride(elementId);
+      setElementOverrides(engine.getElementOverrides());
+      setStatus(getThemeEngineStatus(engine));
+    }
+  }, [engine]);
 
   useEffect(() => {
-    applyPack(initialThemePack || (defaultTheme === 'dark' ? DEFAULT_DARK_THEME_PACK : DEFAULT_LIGHT_THEME_PACK));
-  }, []);
+    if (engine) {
+      engine.applyToDOM();
+      setThemeState(engine.getMode());
+      setElementOverrides(engine.getElementOverrides());
+      setStatus(getThemeEngineStatus(engine));
+      const unsub = engine.subscribe((state) => {
+        setThemeState(state.activeMode);
+        setElementOverrides(state.elementOverrides);
+        setStatus(getThemeEngineStatus(engine));
+      });
+      return unsub;
+    } else {
+      applyPack(initialThemePack || (defaultTheme === 'dark' ? DEFAULT_DARK_THEME_PACK : DEFAULT_LIGHT_THEME_PACK));
+    }
+  }, [engine, applyPack, defaultTheme, initialThemePack]);
 
-  return { theme, themePack, setTheme, setThemePack: applyPack, toggleTheme };
-}
-
-export function SkipoThemeProvider({
-  children,
-  defaultTheme = 'dark',
-  initialThemePack
-}: SkipoThemeProviderProps) {
-  const themeState = useThemeManager(defaultTheme, initialThemePack);
+  const value: SkipoThemeContextValue = useMemo(() => ({
+    theme,
+    themePack,
+    engine,
+    status,
+    elementOverrides,
+    setTheme,
+    setThemePack: applyPack,
+    toggleTheme,
+    setElementOverride,
+    clearElementOverride
+  }), [theme, themePack, engine, status, elementOverrides, setTheme, applyPack, toggleTheme, setElementOverride, clearElementOverride]);
 
   return (
-    <SkipoThemeContext.Provider value={themeState}>
-      <div data-skipo-theme={themeState.theme} className="skipo-root">
+    <SkipoThemeContext.Provider value={value}>
+      <div data-skipo-theme={theme} className="skipo-root">
         {children}
       </div>
     </SkipoThemeContext.Provider>

@@ -1,3 +1,14 @@
+import type { ThemeTypographyDefinition } from './schema/typography.schema.js';
+import type { SkipoSemanticTokens } from './schema/tokens.schema.js';
+import type { ModularThemePack, ThemeVariantDefinition } from './schema/themePack.schema.js';
+
+export type {
+  ThemeTypographyDefinition,
+  SkipoSemanticTokens,
+  ModularThemePack,
+  ThemeVariantDefinition
+};
+
 export interface SkipoThemeMetadata {
   id: string;
   name: string;
@@ -7,66 +18,95 @@ export interface SkipoThemeMetadata {
   description?: string;
 }
 
-export interface SkipoSemanticTokens {
-  bg: {
-    canvas: string;
-    surface: string;
-    surfaceHover: string;
-    blur: string;
-  };
-  text: {
-    primary: string;
-    muted: string;
-    inverse: string;
-  };
-  accent: {
-    primary: string;
-    fg: string;
-    glow: string;
-    hover?: string;
-  };
-  border: {
-    color: string;
-    input: string;
-    style: string;
-  };
-  radius: {
-    base: string;
-    sm: string;
-    lg?: string;
-  };
-  shadow: {
-    card: string;
-    cardHover: string;
-    btn: string;
-    btnHover: string;
-    btnActive: string;
-  };
-  font: {
-    sans: string;
-    mono: string;
-  };
-  status: {
-    success: string;
-    successFg: string;
-    warning: string;
-    warningFg: string;
-    danger: string;
-    dangerFg: string;
-    info: string;
-    infoFg: string;
-  };
-  shell: {
-    topToolbarHeight: string;
-    topToolbarBg: string;
-    bottomStripHeight: string;
-    bottomStripBg: string;
-    inspectionTextTranslucent: string;
-  };
-}
-
 export interface SkipoThemePack {
   metadata: SkipoThemeMetadata;
   tokens: SkipoSemanticTokens;
   customCss?: string;
+}
+
+export type UIElementCategory =
+  | 'layout'
+  | 'navigation'
+  | 'surface'
+  | 'control'
+  | 'typography'
+  | 'feedback'
+  | 'graph'
+  | 'media'
+  | 'specialized';
+
+export interface UIElementDefinition {
+  id: string;
+  name: string;
+  category: UIElementCategory;
+  description: string;
+  cssVariables?: string[];
+  supportedStyles?: string[];
+  supportedEffects?: string[];
+  supportedAssets?: string[];
+  firstDefinedByApp: string;
+}
+
+export interface UIElementThemeValue {
+  cssVars?: Record<string, string>;
+  styles?: Record<string, string | number>;
+  effects?: {
+    animation?: string;
+    transition?: string;
+    glow?: string;
+    filter?: string;
+    transformHover?: string;
+  };
+  assets?: {
+    wallpaper?: string;
+    overlayImage?: string;
+    texture?: string;
+    iconGlyph?: string;
+    mediaUrl?: string;
+  };
+}
+
+export interface AppThemeSocket {
+  appId: string;
+  appName: string;
+  version: string;
+  elementIds: string[];
+  defaultThemePackId?: string;
+  elementDefaults?: Record<string, Partial<UIElementThemeValue>>;
+}
+
+export interface ThemeApplicationState {
+  activeBasePackId: string;
+  activeMode: 'dark' | 'light';
+  elementOverrides: Record<string, string>;
+}
+
+export interface ElementStatusReport {
+  elementId: string;
+  name: string;
+  category: UIElementCategory;
+  appliedThemePackId: string;
+  appliedVariant: 'dark' | 'light';
+  isOverridden: boolean;
+  isFallback: boolean;
+  effectiveCssVars: Record<string, string>;
+  effectiveStyles: Record<string, string | number>;
+  effectiveEffects: Record<string, string>;
+  effectiveAssets: Record<string, string>;
+}
+
+export interface ThemeEngineStatus {
+  appId: string;
+  socketVersion: string;
+  registeredElementsCount: number;
+  activeBasePackId: string;
+  activeBasePackName: string;
+  activeMode: 'dark' | 'light';
+  elementOverridesCount: number;
+  elementOverrides: Record<string, string>;
+  elements: Record<string, ElementStatusReport>;
+  uncoveredElements: string[];
+  ignoredElements: string[];
+  timestamp: number;
+  isValid: boolean;
 }
