@@ -104,6 +104,78 @@ def validate_layout_shell(root_dir: Path) -> ChecklistResult:
                     suggestion="Wrap inspector in FloatingDetailsPanel to guarantee 8-way resize, dragging, pinning, and geometry persistence."
                 ))
 
+        # 4. Overlay / Dialogue Interaction Isolation Law:
+        # When a modal, dialogue, or overlay is displayed, mouse wheel and keyboard interactions
+        # MUST be captured/trapped by the overlay container and backdrop. No leaking to underlying canvas.
+        is_dialogue_or_overlay = (
+            ("modal" in fname.lower() or "dialog" in fname.lower() or "overlay" in fname.lower())
+            and file_path.suffix in {".tsx", ".jsx"}
+            and fname not in {"ConfirmModal.tsx", "BaseModal.tsx"}
+        ) or (
+            ('role="dialog"' in content or "role='dialog'" in content or "fixed inset-0" in content)
+            and ("backdrop" in content.lower() or "z-50" in content or "z-40" in content)
+        )
+
+        if is_dialogue_or_overlay:
+            has_wheel_isolation = (
+                "onWheel" in content
+                or "overscroll-contain" in content
+                or "wheel" in content.lower()
+                or "ModalContainer" in content
+            )
+            if not has_wheel_isolation:
+                violations.append(Violation(
+                    rule_id="overlay-wheel-leakage-violation",
+                    severity="error",
+                    message=f"Dialogue / Overlay component '{fname}' does not isolate wheel events. Mouse wheel events will leak into underlying canvas.",
+                    file_path=str(rel_path),
+                    suggestion="Add onWheel={(e) => e.stopPropagation()} and CSS overscroll-contain to dialog card and overlay backdrop, or wrap in ModalContainer."
+                ))
+            
+            # Check keyboard / escape isolation if interactive form/dialog
+            has_key_or_close = (
+                "onClose" in content
+                or "escape" in content.lower()
+                or "onkeydown" in content.lower()
+                or "onKeyDown" in content
+                or "ModalContainer" in content
+            )
+            if not has_key_or_close:
+                violations.append(Violation(
+                    rule_id="overlay-keyboard-isolation-warning",
+                    severity="warning",
+                    message=f"Dialogue / Overlay component '{fname}' lacks keyboard escape trap or onClose dismissal handler.",
+                    file_path=str(rel_path),
+                    suggestion="Handle Escape key and trap keyboard interactions inside the overlay."
+                ))
+
+            # 5. Progressive Disclosure & Collapsible Dialog Sections Mandate (Law L13):
+            # Multi-section creation dialogues, edit modals, and configuration dialogs
+            # MUST NOT render flat uncompressed lists of customization sections simultaneously.
+            # Secondary customization sections (icons, typography, colors, tags, advanced options)
+            # MUST mount collapsed/compressed by default via accordion or collapsible containers.
+            if ("edit" in fname.lower() or "create" in fname.lower() or "node" in fname.lower() or "config" in fname.lower()):
+                has_multiple_customization_sections = (
+                    ("section" in content.lower() or "picker" in content.lower() or "emoji" in content.lower())
+                    and ("font" in content.lower() or "color" in content.lower() or "tag" in content.lower())
+                )
+                if has_multiple_customization_sections:
+                    has_collapsible_behavior = (
+                        "collapsible" in content.lower()
+                        or "accordion" in content.lower()
+                        or "opensections" in content.lower()
+                        or "togglesection" in content.lower()
+                        or "isopen" in content.lower()
+                    )
+                    if not has_collapsible_behavior:
+                        violations.append(Violation(
+                            rule_id="dialog-clutter-uncompressed-sections-violation",
+                            severity="error",
+                            message=f"Dialogue / Modal '{fname}' contains multiple customization sections without collapsible accordion state. Secondary sections must mount compressed by default.",
+                            file_path=str(rel_path),
+                            suggestion="Implement collapsible section headers (CollapsibleSectionHeader) defaulting to collapsed state, allowing clean default flow and on-demand expansion."
+                        ))
+
     duration_ms = (time.time() - start_time) * 1000
     errors = sum(1 for v in violations if v.severity == "error")
     score = max(0.0, 100.0 - (errors * 15.0) - (len(violations) - errors) * 5.0)

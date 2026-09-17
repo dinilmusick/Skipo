@@ -15,7 +15,9 @@ $$\begin{array}{ll}
 \mathbf{L_8} \text{ (Multi-Target & Adapters)} & \forall a \in \text{Apps}: \text{Adapters}(a) \implies \text{src/backend/adapters/httpsAdapter.ts} \wedge \text{Targets}(\text{fullstack}, \text{api}) \\
 \mathbf{L_9} \text{ (Bottom Bar Exclusivity & Line Limits)} & \text{BottomStripCenter} \equiv \text{DynamicHoverInspectionOnly} \wedge \forall f \in \text{SourceFiles}: \text{Lines}(f) \le 200 \\
 \mathbf{L_{10}} \text{ (Responsive Grids & Magnetic Auto-Spawn)} & \Delta(\text{TileContainer}) \implies \Delta(\text{Cols}, \text{Rows}, \text{Sizes}) \wedge \text{WireDragDrop}(\text{Canvas}) \implies \text{Picker} \xrightarrow{\text{select}} \text{Spawn} \wedge \text{Connect} \\
-\mathbf{L_{11}} \text{ (Serverless Budget & Standalone Tracing)} & \text{NextConfig} \implies \text{output: 'standalone'} \wedge \text{Size}(\text{ServerlessFn}) \le 50\text{MB} \wedge \text{Media}(\text{api/}) = \emptyset
+\mathbf{L_{11}} \text{ (Serverless Budget & Standalone Tracing)} & \text{NextConfig} \implies \text{output: 'standalone'} \wedge \text{Size}(\text{ServerlessFn}) \le 50\text{MB} \wedge \text{Media}(\text{api/}) = \emptyset \\
+\mathbf{L_{12}} \text{ (Overlay Event Trapping & Themed Controls)} & \text{Overlay} \xrightarrow{\text{trap}} \{\text{Wheel}, \text{Pointer}, \text{Key}\} \wedge \neg\text{Leak}(\text{Canvas}) \wedge \text{Controls} \implies \{\text{CustomScrollbar}, \text{ThemedDropdown}\} \\
+\mathbf{L_{13}} \text{ (Progressive Disclosure & Collapsible Dialogs)} & \forall d \in \text{Dialogs}: \text{PrimaryInputs}(d) \subset \text{Visible} \wedge \text{SecondaryCustomizations}(d) \subset \text{CompressedByDefault}
 \end{array}$$
 
 ## 2. DETERMINISTIC AGENT EXECUTION ALGORITHM

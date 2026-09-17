@@ -23,8 +23,8 @@ export const ModalContainer = forwardRef<HTMLDivElement, ModalContainerProps>(({
 
   if (!open) return null;
   return createPortal(
-    <div className="skipo-modal-overlay" onClick={onClose}>
-      <div ref={ref} className={`skipo-modal-content ${className}`} onClick={e => e.stopPropagation()} {...props}>
+    <div className="skipo-modal-overlay overscroll-contain" onClick={onClose} onWheel={e => e.stopPropagation()}>
+      <div ref={ref} className={`skipo-modal-content overscroll-contain ${className}`} onClick={e => e.stopPropagation()} onWheel={e => e.stopPropagation()} {...props}>
         {children}
       </div>
     </div>,

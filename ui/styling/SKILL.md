@@ -12,7 +12,10 @@ $$\begin{array}{ll}
 \mathbf{P_2} \text{ (Zero Emojis)} & \text{UI} \cap \{\text{OS Emojis}\} = \emptyset \quad (\text{Use monochromatic single-tone SVG glyphs}) \\
 \mathbf{P_3} \text{ (Zero Floating Tooltips)} & \text{Elements} \cap \{\text{TooltipBubbles}, \text{Balloons}\} = \emptyset \\
 \mathbf{P_4} \text{ (Hover Routing)} & \forall el \in \text{Interactive}: \text{Hover}(el) \implies \text{BottomStrip.CenterSlot.render}(\text{Desc}(el)) \\
-\mathbf{P_5} \text{ (100% Theme Tokens)} & \forall c \in \text{Styles}: c \cap \{\text{HEX}, \text{RGB}, \text{HSL}\} = \emptyset \wedge c \subset \{\text{var}(--\text{skipo}-*)\}
+\mathbf{P_5} \text{ (100% Theme Tokens)} & \forall c \in \text{Styles}: c \cap \{\text{HEX}, \text{RGB}, \text{HSL}\} = \emptyset \wedge c \subset \{\text{var}(--\text{skipo}-*)\} \\
+\mathbf{P_6} \text{ (Overlay Event Trapping)} & \forall o \in \text{Overlays}: \text{Traps}(o, \{\text{Wheel}, \text{Pointer}, \text{Key}\}) \wedge \neg\text{Leaks}(o, \text{Canvas}) \\
+\mathbf{P_7} \text{ (Custom Scrollbars \& Controls)} & \forall c \in \{\text{Scrollbars}, \text{SelectDropdowns}\}: \text{Styles}(c) \subset \{\text{var}(--\text{skipo}-*)\} \wedge \text{Appearance}(c) = \text{Custom} \\
+\mathbf{P_8} \text{ (Progressive Disclosure Dialogues)} & \forall d \in \text{Dialogues}: \text{Count}(\text{Sections}(d)) \ge 2 \implies \text{State}(\text{SecondarySections}(d)) = \text{CompressedByDefault}
 \end{array}$$
 
 ## 2. PORTABLE THEME PACK & CANVAS SPECS

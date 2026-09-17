@@ -135,6 +135,24 @@ def validate_ui_and_themes(root_dir: Path) -> ChecklistResult:
                     suggestion="Replace with semantic token: var(--skipo-matte-bg), var(--skipo-accent-glow), etc."
                 ))
 
+    # Check custom scrollbar definitions in CSS files
+    css_files = [f for f in files if f.suffix == ".css"]
+    has_custom_scrollbar = False
+    for cf in css_files:
+        c_text = read_text_safe(cf)
+        if c_text and any(term in c_text for term in ["scrollbar-width", "scrollbar-color", "::-webkit-scrollbar", "scrollbar-thin"]):
+            has_custom_scrollbar = True
+            break
+
+    if css_files and not has_custom_scrollbar:
+        violations.append(Violation(
+            rule_id="missing-custom-themed-scrollbars",
+            severity="error",
+            message="No custom themed scrollbar definitions found in CSS files. Scrollbars must be custom styled to match application theme.",
+            file_path=str(css_files[0].relative_to(root_dir)),
+            suggestion="Add custom scrollbar definitions using theme tokens (e.g., scrollbar-width: thin; scrollbar-color: var(--skipo-accent) var(--skipo-surface); or ::-webkit-scrollbar)."
+        ))
+
     duration_ms = (time.time() - start_time) * 1000
     errors = sum(1 for v in violations if v.severity == "error")
     score = max(0.0, 100.0 - (errors * 10.0))
