@@ -23,7 +23,9 @@ export const BottomStrip = forwardRef<HTMLElement, BottomStripProps>(({
   className = '',
   ...props
 }, ref) => {
-  const { inspectionText } = useBottomStrip();
+  const { inspectionText, inspectionDescription, isDKeyPressed } = useBottomStrip();
+  const showDescription = Boolean(isDKeyPressed && inspectionDescription);
+  const activeText = showDescription ? inspectionDescription : inspectionText;
 
   return (
     <footer
@@ -86,13 +88,14 @@ export const BottomStrip = forwardRef<HTMLElement, BottomStripProps>(({
         {centerSlot || (
           <span
             className="skipo-inspection-text"
+            data-mode={showDescription ? 'description' : 'label'}
             style={{
               color: 'var(--skipo-inspection-text-color, rgba(241, 245, 249, 0.85))',
-              fontSize: 'clamp(8px, 1.1vw, 11px)',
+              fontSize: showDescription ? '10px' : 'clamp(8px, 1.1vw, 11px)',
               lineHeight: 1.15,
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
+              fontWeight: showDescription ? 300 : 700,
+              textTransform: showDescription ? 'none' : 'uppercase',
+              letterSpacing: showDescription ? '0.01em' : '0.04em',
               whiteSpace: 'normal',
               wordBreak: 'break-word',
               overflowWrap: 'anywhere',
@@ -100,12 +103,12 @@ export const BottomStrip = forwardRef<HTMLElement, BottomStripProps>(({
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
               maxHeight: '100%',
-              opacity: inspectionText ? 0.9 : 0,
-              transform: inspectionText ? 'translateY(0)' : 'translateY(1px)',
+              opacity: activeText ? 0.9 : 0,
+              transform: activeText ? 'translateY(0)' : 'translateY(1px)',
               transition: 'opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
-            {inspectionText || ''}
+            {activeText || ''}
           </span>
         )}
       </div>

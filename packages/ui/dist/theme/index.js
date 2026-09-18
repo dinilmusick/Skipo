@@ -40,7 +40,7 @@ import {
   validateModularThemePack,
   validateSocketElements,
   validateThemePack
-} from "../chunk-CWCNGR2T.js";
+} from "../chunk-3MDOQ35C.js";
 export {
   BlockquoteStyleSchema,
   CANONICAL_ELEMENTS,

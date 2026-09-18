@@ -23,6 +23,7 @@ import {
   RefreshCw,
   Copy,
   Zap,
+  ExternalLink,
 } from 'lucide-react';
 import {
   UserAccount,
@@ -33,6 +34,7 @@ import {
 } from '@/lib/types';
 import { BrutalistButton, BrutalistCard, BrutalistInput, BrutalistTextarea } from '../BrutalistUi';
 import { formatCanonicalWorkspaceFolderName } from '@/lib/workspace-canonical';
+import { getWorkspaceStorageLink } from '@/lib/workspace-storage-links';
 import StorageConnectDrawer from './StorageConnectDrawer';
 import {
   getLocalDirectoryHandle,
@@ -460,7 +462,10 @@ export default function WorkspaceTilesMenu({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 p-4 sm:p-8 backdrop-blur-sm font-mono flex flex-col items-center justify-start">
+    <div
+      onWheel={(e) => e.stopPropagation()}
+      className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/85 p-4 sm:p-8 backdrop-blur-sm font-mono flex flex-col items-center justify-start"
+    >
       <div className="w-full max-w-5xl my-4 sm:my-8">
         {/* Top Control Bar Card */}
         <BrutalistCard variant="base" depth="lg" className="p-4 mb-4 border-2 border-brutalist shadow-[6px_6px_0px_var(--color-border)]">
@@ -587,6 +592,8 @@ export default function WorkspaceTilesMenu({
           {filteredWorkspaces.map((ws) => {
             const StorageIcon = getStorageIcon(ws);
             const isActive = ws.id === activeWorkspaceId;
+            const storageConn = userConns.find((c) => c.id === ws.storageConnectionId);
+            const storageLink = getWorkspaceStorageLink(ws, storageConn);
 
             return (
               <div
@@ -657,33 +664,52 @@ export default function WorkspaceTilesMenu({
                     </div>
                   </div>
 
-                  {/* Workspace Title & Raw Folder Pill */}
+                  {/* Workspace Title & Direct Storage Location Link */}
                   <div>
                     <h3 className="text-sm font-black uppercase tracking-tight text-[var(--color-text)] line-clamp-1">
                       {ws.name}
                     </h3>
-                    <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const rawName = (ws.workspacePath || '').replace(/^\.\//, '') || formatCanonicalWorkspaceFolderName('docustack', currentUserName, ws.name);
-                          navigator.clipboard?.writeText(rawName);
-                          setCopiedFolderId(ws.id);
-                          setTimeout(() => setCopiedFolderId(null), 2000);
-                        }}
-                        className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-brutalist/40 bg-black/20 hover:bg-black/35 hover:border-[var(--color-accent)] text-[10px] font-mono text-[var(--color-accent)] transition-all cursor-pointer rounded-xs"
-                        title="Click to copy raw folder name"
-                      >
-                        <FolderOpen size={11} className="shrink-0" />
-                        <span className="truncate max-w-[200px]">
-                          {(ws.workspacePath || '').replace(/^\.\//, '') || formatCanonicalWorkspaceFolderName('docustack', currentUserName, ws.name)}
-                        </span>
-                        {copiedFolderId === ws.id ? (
-                          <span className="text-[8px] bg-emerald-400 text-black px-1 font-bold ml-0.5">COPIED</span>
-                        ) : (
-                          <Copy size={10} className="opacity-60 hover:opacity-100 shrink-0 ml-0.5" />
-                        )}
-                      </button>
+                    <div className="mt-1.5 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      {storageLink.isCloud ? (
+                        <a
+                          href={storageLink.actionUrl || '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-brutalist/40 bg-black/20 hover:bg-black/35 hover:border-[var(--color-accent)] text-[10px] font-mono text-[var(--color-accent)] transition-all cursor-pointer rounded-xs"
+                          title={storageLink.description}
+                        >
+                          <Cloud size={11} className="shrink-0" />
+                          <span className="truncate max-w-[150px]">{storageLink.targetDisplay}</span>
+                          <ExternalLink size={10} className="opacity-70 shrink-0 ml-0.5" />
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const resp = await fetch(`/api/workspace/reveal?path=${encodeURIComponent(storageLink.targetDisplay)}`);
+                              if (resp.ok) {
+                                setCopiedFolderId(ws.id);
+                                setTimeout(() => setCopiedFolderId(null), 2000);
+                                return;
+                              }
+                            } catch {}
+                            navigator.clipboard?.writeText(storageLink.targetDisplay);
+                            setCopiedFolderId(ws.id);
+                            setTimeout(() => setCopiedFolderId(null), 2000);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-brutalist/40 bg-black/20 hover:bg-black/35 hover:border-[var(--color-accent)] text-[10px] font-mono text-[var(--color-accent)] transition-all cursor-pointer rounded-xs"
+                          title={storageLink.description}
+                        >
+                          <FolderOpen size={11} className="shrink-0" />
+                          <span className="truncate max-w-[150px]">{storageLink.targetDisplay}</span>
+                          {copiedFolderId === ws.id ? (
+                            <span className="text-[8px] bg-emerald-400 text-black px-1 font-bold ml-0.5">OPENED</span>
+                          ) : (
+                            <ExternalLink size={10} className="opacity-70 shrink-0 ml-0.5" />
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
 

@@ -44,15 +44,59 @@ function Tile({ tile, onClick, onContextMenu, dragHandleProps, isDragging }) {
 }
 
 // src/tile-menu/TileGrid.tsx
+import { useState, useRef, useEffect } from "react";
 import { jsx as jsx2 } from "react/jsx-runtime";
-function TileGrid({ tiles, onReorder: _onReorder, onTileClick }) {
-  return /* @__PURE__ */ jsx2("div", { style: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
-    gap: "16px",
-    padding: "16px",
-    width: "100%"
-  }, children: tiles.map((tile) => /* @__PURE__ */ jsx2(Tile, { tile, onClick: onTileClick }, tile.id)) });
+function TileGrid({
+  tiles,
+  onReorder: _onReorder,
+  onTileClick
+}) {
+  const containerRef = useRef(null);
+  const [columns, setColumns] = useState(3);
+  const [tileMinHeight, setTileMinHeight] = useState(110);
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width <= 0) return;
+        let cols = 1;
+        if (width >= 1200) cols = 4;
+        else if (width >= 860) cols = 3;
+        else if (width >= 540) cols = 2;
+        else cols = 1;
+        const estimatedRows = Math.ceil(tiles.length / cols);
+        let dynamicHeight = 110;
+        if (height > 0 && estimatedRows > 0) {
+          const availableRowHeight = (height - (estimatedRows + 1) * 16) / estimatedRows;
+          dynamicHeight = Math.max(90, Math.min(180, Math.floor(availableRowHeight)));
+        }
+        setColumns(cols);
+        setTileMinHeight(dynamicHeight);
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [tiles.length]);
+  return /* @__PURE__ */ jsx2(
+    "div",
+    {
+      ref: containerRef,
+      className: "skipo-tile-grid-container",
+      style: {
+        display: "grid",
+        gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+        gridAutoRows: `minmax(${tileMinHeight}px, auto)`,
+        gap: "14px",
+        padding: "14px",
+        width: "100%",
+        height: "100%",
+        boxSizing: "border-box",
+        overflowY: "auto"
+      },
+      children: tiles.map((tile) => /* @__PURE__ */ jsx2(Tile, { tile, onClick: onTileClick }, tile.id))
+    }
+  );
 }
 
 // src/tile-menu/TileCreateButton.tsx
@@ -88,9 +132,9 @@ function TileCreateButton({ onClick }) {
 }
 
 // src/tile-menu/useTileMenu.ts
-import { useState, useCallback } from "react";
+import { useState as useState2, useCallback } from "react";
 function useTileMenu(initialTiles = []) {
-  const [tiles, setTiles] = useState(initialTiles);
+  const [tiles, setTiles] = useState2(initialTiles);
   const addTile = useCallback((tile) => {
     setTiles((prev) => [...prev, tile]);
   }, []);

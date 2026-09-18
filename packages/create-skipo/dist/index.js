@@ -61,7 +61,9 @@ var nextjsTemplates = {
     "exclude": ["node_modules"]
   }, null, 2),
   nextConfigJs: () => `/** @type {import('next').NextConfig} */
-const nextConfig = {};
+const nextConfig = {
+  output: 'standalone',
+};
 export default nextConfig;
 `,
   layoutTsx: () => `import { SkipoThemeProvider } from '@skipo/ui';

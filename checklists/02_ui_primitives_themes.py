@@ -39,7 +39,7 @@ RAW_CONTROL_PATTERNS = [
 HEX_COLOR_REGEX = re.compile(r'(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3})\b')
 RGB_COLOR_REGEX = re.compile(r'\b(rgb|rgba|hsl|hsla)\s*\([^\)]+\)')
 
-BUTTON_BLOCK_REGEX = re.compile(r'<(?:button|BaseButton|BrutalistButton)\b[^>]*>(.*?)</(?:button|BaseButton|BrutalistButton)>', re.DOTALL | re.IGNORECASE)
+BUTTON_BLOCK_REGEX = re.compile(r'<(?:button|BaseButton|BrutalistButton)\b(?:(?:"[^"]*"|\'[^\']*\'|\{[^{}]*\}|[^>"\']))*>\s*(.*?)\s*</(?:button|BaseButton|BrutalistButton)>', re.DOTALL | re.IGNORECASE)
 ICON_TAG_REGEX = re.compile(r'<([A-Z][A-Za-z0-9]+)\b[^>]*(?:size=|className=|strokeWidth=|fill=)[^>]*\s*/?>')
 REDUNDANT_SYMBOL_REGEX = re.compile(r'(?:[\'"`]|>)\s*([★☆✓✔✕✖\+])\s+[A-Za-z0-9]')
 
@@ -108,6 +108,16 @@ def validate_ui_and_themes(root_dir: Path) -> ChecklistResult:
                         file_path=str(rel_path), line=line_no, snippet=b_body.strip().splitlines()[0][:100],
                         suggestion="Ensure buttons contain at most one icon component for a singular action."
                     ))
+                txt_only = re.sub(r'\{[^{}]*\}', ' ', re.sub(r'<[^>]+>', ' ', b_body)).strip()
+                if not any(k in txt_only for k in ['=>', 'const ', 'return ', ';', '{']):
+                    words = [w for w in txt_only.split() if re.search(r'^[a-zA-Z0-9]+$', w)]
+                    if len(words) > 4:
+                        violations.append(Violation(
+                            rule_id="ui-text-label-exceeds-four-words", severity="error",
+                            message=f"UI label '{' '.join(words[:4])}...' has {len(words)} words (max 4). Move detailed copy to D+Hover description.",
+                            file_path=str(rel_path), line=line_no, snippet=b_body.strip().splitlines()[0][:100],
+                            suggestion="Cap visible label to <=4 words. Use element description for extended guidance."
+                        ))
 
         # Check hardcoded colors
         for line_idx, line in enumerate(lines, 1):
@@ -167,26 +177,21 @@ def validate_ui_and_themes(root_dir: Path) -> ChecklistResult:
             suggestion="Add custom scrollbar definitions using theme tokens (e.g., scrollbar-width: thin; scrollbar-color: var(--skipo-accent) var(--skipo-surface); or ::-webkit-scrollbar)."
         ))
 
-    duration_ms = (time.time() - start_time) * 1000
     errors = sum(1 for v in violations if v.severity == "error")
-    score = max(0.0, 100.0 - (errors * 10.0))
-
     return ChecklistResult(
         aspect_id=ASPECT_ID, aspect_title=ASPECT_TITLE, passed=errors == 0,
-        violations=violations, files_scanned=files_scanned, duration_ms=duration_ms, score=score
+        violations=violations, files_scanned=files_scanned, duration_ms=(time.time() - start_time) * 1000,
+        score=max(0.0, 100.0 - (errors * 10.0))
     )
 
 def main():
     args = parse_standard_args("Aspect 02: UI Component Primitives & Theme Token Semantics Validator")
-    root_path = Path(args.path).resolve()
-    result = validate_ui_and_themes(root_path)
-
+    result = validate_ui_and_themes(Path(args.path).resolve())
     if args.json:
         import json
         print(json.dumps(result.to_dict(), indent=2))
     else:
         print_checklist_report(result, verbose=args.verbose)
-
     sys.exit(0 if result.passed else 1)
 
 if __name__ == "__main__":

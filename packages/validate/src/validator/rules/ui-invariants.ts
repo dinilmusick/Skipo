@@ -72,6 +72,33 @@ export const uiInvariantsRule: ValidationRule = {
       }
     });
 
+    // 4. Invariant: 4-Word Maximum UI Text Label Cap (Law L18)
+    const actionElements = sourceFile.getDescendantsOfKind(SyntaxKind.JsxElement)
+      .filter(elem => {
+        const tagName = elem.getOpeningElement().getTagNameNode().getText();
+        return ['BaseButton', 'BrutalistButton', 'BaseBadge', 'button'].includes(tagName);
+      });
+
+    actionElements.forEach(elem => {
+      const textNodes = elem.getJsxChildren().filter(c => c.getKind() === SyntaxKind.JsxText);
+      textNodes.forEach(tNode => {
+        const raw = tNode.getText().trim();
+        if (raw) {
+          const words = raw.split(/\s+/).filter(w => /[a-zA-Z0-9]/.test(w));
+          if (words.length > 4) {
+            violations.push({
+              ruleId: 'ui-invariants',
+              severity: 'error',
+              message: `UI action/badge label "${words.slice(0, 5).join(' ')}..." exceeds 4-word maximum limit (${words.length} words).`,
+              filePath,
+              line: tNode.getStartLineNumber(),
+              suggestion: 'Cap visible UI label to <=4 words. Move detailed guidance to element description (D+Hover mode).'
+            });
+          }
+        }
+      });
+    });
+
     return violations;
   }
 };

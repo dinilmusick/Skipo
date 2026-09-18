@@ -20,7 +20,10 @@ $$\begin{array}{ll}
 \mathbf{L_{13}} \text{ (Progressive Disclosure & Collapsible Dialogs)} & \forall d \in \text{Dialogs}: \text{PrimaryInputs}(d) \subset \text{Visible} \wedge \text{SecondaryCustomizations}(d) \subset \text{CompressedByDefault} \\
 \mathbf{L_{14}} \text{ (Icon Purity \& Zero Double-Icons)} & \forall b \in \text{Buttons}: \text{Count}(\text{Icons}(b)) \le 1 \wedge \neg(\text{HasIcon}(b) \wedge \text{SymbolGlyph}(\text{Label}(b))) \\
 \mathbf{L_{15}} \text{ (File Purity DAG)} & \forall f \in \text{Files}: \text{Grade}(f) \in \{P_0, P_1, P_2, P_3\} \wedge \text{ImportDAG}(f) \text{ acyclic} \wedge \text{NameSuffix}(f) \equiv \text{Grade}(f) \\
-\mathbf{L_{16}} \text{ (Root Code & Enclave Purity)} & \forall f \in \text{CodeFiles}: \text{Dir}(f) \neq \text{Root} \wedge \text{TopDir}(f) \in \text{AllowedPlanes}
+\mathbf{L_{16}} \text{ (Root Code & Enclave Purity)} & \forall f \in \text{CodeFiles}: \text{Dir}(f) \neq \text{Root} \wedge \text{TopDir}(f) \in \text{AllowedPlanes} \\
+\mathbf{L_{17}} \text{ (Storage Deep-Link Transparency)} & \forall w \in \text{Workspaces}: \text{StorageOption}(w) \xrightarrow{\text{click}} (\text{RevealLocalFolder}(w) \vee \text{OpenCloudBucketConsole}(w)) \\
+\mathbf{L_{18}} \text{ (4-Word UI Text Label Cap)} & \forall t \in \text{UITextLabels}: \text{WordCount}(t) \le 4 \wedge (\text{Desc}(el) > 4 \implies \text{D+HoverOnly}) \\
+\mathbf{L_{19}} \text{ (D+Hover Description Mode)} & \text{Hover}(el) \implies (\neg \text{Key}('D') \implies \text{BottomStrip}(\text{Label}(el)) \wedge \text{Key}('D') \implies \text{BottomStrip}(\text{Desc}(el))_{\text{thin,small}})
 \end{array}$$
 
 ## 2. DETERMINISTIC AGENT EXECUTION ALGORITHM

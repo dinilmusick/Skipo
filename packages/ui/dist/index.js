@@ -40,7 +40,7 @@ import {
   validateModularThemePack,
   validateSocketElements,
   validateThemePack
-} from "./chunk-CWCNGR2T.js";
+} from "./chunk-3MDOQ35C.js";
 
 // src/components/base/BaseButton.tsx
 import { forwardRef } from "react";
@@ -158,7 +158,7 @@ BaseToggle.displayName = "BaseToggle";
 import React9, { forwardRef as forwardRef8, cloneElement, isValidElement } from "react";
 
 // src/components/bottom-strip/BottomStripContext.tsx
-import { createContext, useContext, useState, useCallback, useMemo } from "react";
+import { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
 import { jsx as jsx8 } from "react/jsx-runtime";
 var BottomStripContext = createContext(null);
 function useAutoSaveController(initialEnabled) {
@@ -202,19 +202,53 @@ function BottomStripProvider({
   children,
   initialAutoSave = true
 }) {
-  const [inspectionText, setInspectionText] = useState(null);
+  const [inspectionText, setInspectionTextState] = useState(null);
+  const [inspectionDescription, setInspectionDescription] = useState(null);
+  const [isDKeyPressed, setIsDKeyPressed] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isEditable = (el) => {
+      const tag = el?.tagName?.toLowerCase();
+      return tag === "input" || tag === "textarea" || el?.isContentEditable;
+    };
+    const handleKeyDown = (e) => {
+      if ((e.key === "d" || e.key === "D") && !isEditable(e.target)) {
+        setIsDKeyPressed(true);
+      }
+    };
+    const handleKeyUp = (e) => {
+      if (e.key === "d" || e.key === "D") {
+        setIsDKeyPressed(false);
+      }
+    };
+    const handleBlur = () => setIsDKeyPressed(false);
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, []);
+  const setInspectionText = useCallback((text, description) => {
+    setInspectionTextState(text);
+    setInspectionDescription(description || null);
+  }, []);
   const autoSave = useAutoSaveController(initialAutoSave);
   const apiActivity = useApiActivityController();
   const { systemMessages, showSystemMessage, clearSystemMessage } = useSystemMessageController();
   const value = useMemo(() => ({
     inspectionText,
+    inspectionDescription,
+    isDKeyPressed,
     setInspectionText,
     autoSave,
     apiActivity,
     systemMessages,
     showSystemMessage,
     clearSystemMessage
-  }), [inspectionText, autoSave, apiActivity, systemMessages, showSystemMessage, clearSystemMessage]);
+  }), [inspectionText, inspectionDescription, isDKeyPressed, setInspectionText, autoSave, apiActivity, systemMessages, showSystemMessage, clearSystemMessage]);
   return /* @__PURE__ */ jsx8(BottomStripContext.Provider, { value, children });
 }
 function useBottomStrip() {
@@ -222,6 +256,8 @@ function useBottomStrip() {
   if (!ctx) {
     return {
       inspectionText: null,
+      inspectionDescription: null,
+      isDKeyPressed: false,
       setInspectionText: () => {
       },
       autoSave: {
@@ -254,6 +290,7 @@ function useBottomStrip() {
 import { jsx as jsx9 } from "react/jsx-runtime";
 var BaseTooltip = forwardRef8(({
   content,
+  description,
   children,
   className = "",
   ...props
@@ -261,19 +298,19 @@ var BaseTooltip = forwardRef8(({
   const { setInspectionText } = useBottomStrip();
   const textContent = typeof content === "string" ? content : React9.Children.toArray(content).filter((c) => typeof c === "string").join(" ") || String(content ?? "");
   const handleMouseEnter = (e) => {
-    setInspectionText(textContent);
+    setInspectionText(textContent, description);
     if (props.onMouseEnter) props.onMouseEnter(e);
   };
   const handleMouseLeave = (e) => {
-    setInspectionText(null);
+    setInspectionText(null, null);
     if (props.onMouseLeave) props.onMouseLeave(e);
   };
   const handleFocus = (e) => {
-    setInspectionText(textContent);
+    setInspectionText(textContent, description);
     if (props.onFocus) props.onFocus(e);
   };
   const handleBlur = (e) => {
-    setInspectionText(null);
+    setInspectionText(null, null);
     if (props.onBlur) props.onBlur(e);
   };
   if (isValidElement(children)) {
@@ -552,7 +589,7 @@ var DrawerContainer = forwardRef14(({
 DrawerContainer.displayName = "DrawerContainer";
 
 // src/components/containers/ModalContainer.tsx
-import { forwardRef as forwardRef15, useEffect } from "react";
+import { forwardRef as forwardRef15, useEffect as useEffect2 } from "react";
 import { createPortal } from "react-dom";
 import { jsx as jsx16 } from "react/jsx-runtime";
 var ModalContainer = forwardRef15(({
@@ -562,7 +599,7 @@ var ModalContainer = forwardRef15(({
   className = "",
   ...props
 }, ref) => {
-  useEffect(() => {
+  useEffect2(() => {
     const handleEsc = (e) => {
       if (e.key === "Escape") onClose();
     };
@@ -627,7 +664,7 @@ var TabContainer = forwardRef18(({
 TabContainer.displayName = "TabContainer";
 
 // src/components/containers/usePanelGeometry.ts
-import { useState as useState6, useCallback as useCallback2, useEffect as useEffect2 } from "react";
+import { useState as useState6, useCallback as useCallback2, useEffect as useEffect3 } from "react";
 var DEFAULT_PANEL_GEOMETRY = {
   x: 24,
   y: 60,
@@ -676,7 +713,7 @@ function usePanelGeometry(storageKey = "skipo:details-panel:geometry", defaultGe
   const [geometry, setGeometryState] = useState6(
     () => readPersistedGeometry(storageKey, defaultGeometry)
   );
-  useEffect2(() => {
+  useEffect3(() => {
     setGeometryState(readPersistedGeometry(storageKey, defaultGeometry));
     return subscribeToGeometry(storageKey, setGeometryState);
   }, [storageKey]);
@@ -705,7 +742,7 @@ function ResizeHandles({ onStartResize }) {
 }
 
 // src/components/containers/usePanelInteraction.ts
-import { useState as useState7, useCallback as useCallback3, useEffect as useEffect3, useRef } from "react";
+import { useState as useState7, useCallback as useCallback3, useEffect as useEffect4, useRef } from "react";
 function calculateResized(dir, orig, dx, dy, minW, minH) {
   let { x, y, width, height } = orig;
   if (dir.includes("e")) width = Math.max(minW, orig.width + dx);
@@ -730,7 +767,7 @@ function calculateDragged(orig, dx, dy) {
   return { ...orig, x: nextX, y: nextY };
 }
 function useInteractionListeners(isInteracting, setIsInteracting, activeOpRef, updateGeometry, minWidth, minHeight) {
-  useEffect3(() => {
+  useEffect4(() => {
     if (!isInteracting) return;
     const onMouseMove = (e) => {
       const op = activeOpRef.current;
@@ -996,7 +1033,7 @@ var CopyableErrorAlert = ({
 CopyableErrorAlert.displayName = "CopyableErrorAlert";
 
 // src/components/composite/useSearchKeyboardNavigation.ts
-import { useState as useState9, useEffect as useEffect4, useCallback as useCallback4, useRef as useRef2 } from "react";
+import { useState as useState9, useEffect as useEffect5, useCallback as useCallback4, useRef as useRef2 } from "react";
 function useSearchKeyboardNavigation({
   items,
   onSelect,
@@ -1005,10 +1042,10 @@ function useSearchKeyboardNavigation({
 }) {
   const [highlightedIndex, setHighlightedIndex] = useState9(initialIndex);
   const listContainerRef = useRef2(null);
-  useEffect4(() => {
+  useEffect5(() => {
     setHighlightedIndex(items.length > 0 ? 0 : -1);
   }, [items]);
-  useEffect4(() => {
+  useEffect5(() => {
     if (highlightedIndex >= 0 && listContainerRef.current) {
       const container = listContainerRef.current;
       const element = container.children[highlightedIndex];
@@ -1385,7 +1422,9 @@ var BottomStrip = forwardRef24(({
   className = "",
   ...props
 }, ref) => {
-  const { inspectionText } = useBottomStrip();
+  const { inspectionText, inspectionDescription, isDKeyPressed } = useBottomStrip();
+  const showDescription = Boolean(isDKeyPressed && inspectionDescription);
+  const activeText = showDescription ? inspectionDescription : inspectionText;
   return /* @__PURE__ */ jsxs19(
     "footer",
     {
@@ -1449,13 +1488,14 @@ var BottomStrip = forwardRef24(({
               "span",
               {
                 className: "skipo-inspection-text",
+                "data-mode": showDescription ? "description" : "label",
                 style: {
                   color: "var(--skipo-inspection-text-color, rgba(241, 245, 249, 0.85))",
-                  fontSize: "clamp(8px, 1.1vw, 11px)",
+                  fontSize: showDescription ? "10px" : "clamp(8px, 1.1vw, 11px)",
                   lineHeight: 1.15,
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
+                  fontWeight: showDescription ? 300 : 700,
+                  textTransform: showDescription ? "none" : "uppercase",
+                  letterSpacing: showDescription ? "0.01em" : "0.04em",
                   whiteSpace: "normal",
                   wordBreak: "break-word",
                   overflowWrap: "anywhere",
@@ -1463,11 +1503,11 @@ var BottomStrip = forwardRef24(({
                   WebkitLineClamp: 2,
                   WebkitBoxOrient: "vertical",
                   maxHeight: "100%",
-                  opacity: inspectionText ? 0.9 : 0,
-                  transform: inspectionText ? "translateY(0)" : "translateY(1px)",
+                  opacity: activeText ? 0.9 : 0,
+                  transform: activeText ? "translateY(0)" : "translateY(1px)",
                   transition: "opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
                 },
-                children: inspectionText || ""
+                children: activeText || ""
               }
             )
           }

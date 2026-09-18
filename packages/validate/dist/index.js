@@ -11,10 +11,11 @@ import {
   noPollingRule,
   oneComponentRule,
   serverlessCompatibilityRule,
+  serverlessDeploymentBudgetRule,
   themeTokenSemanticsRule,
   topLevelPurityRule,
   uiInvariantsRule
-} from "./chunk-H4HZE2XW.js";
+} from "./chunk-7I23YNF3.js";
 
 // src/index.ts
 function validate(rootDir) {
@@ -34,6 +35,7 @@ export {
   noPollingRule,
   oneComponentRule,
   serverlessCompatibilityRule,
+  serverlessDeploymentBudgetRule,
   themeTokenSemanticsRule,
   topLevelPurityRule,
   uiInvariantsRule,

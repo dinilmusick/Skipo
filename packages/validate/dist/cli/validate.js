@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {
   SkipoValidator
-} from "../chunk-H4HZE2XW.js";
+} from "../chunk-7I23YNF3.js";
 
 // src/cli/report.ts
 function printReport(result) {

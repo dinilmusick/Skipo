@@ -53,10 +53,8 @@ def validate_layout_shell(root_dir: Path) -> ChecklistResult:
         # 1. Anti-Nested Tabs Check: Count TabContainer occurrences in same file and nesting
         tab_container_count = content.count("<TabContainer")
         if tab_container_count > 1:
-            # Check if nested or multiple tab rows in one view
             violations.append(Violation(
-                rule_id="anti-nested-tabs-violation",
-                severity="error",
+                rule_id="anti-nested-tabs-violation", severity="error",
                 message=f"Multiple (<TabContainer>) declarations ({tab_container_count}) detected in single view.",
                 file_path=str(rel_path),
                 suggestion="Primary view navigation MUST be flat in the single top-level TopToolbar. Zero nested tabs allowed."
@@ -66,30 +64,22 @@ def validate_layout_shell(root_dir: Path) -> ChecklistResult:
         for line_idx, line in enumerate(lines, 1):
             if "skipo-tooltip--" in line or ("skipo-tooltip" in line and "BaseTooltip" not in fname):
                 violations.append(Violation(
-                    rule_id="floating-tooltip-bubble-forbidden",
-                    severity="error",
+                    rule_id="floating-tooltip-bubble-forbidden", severity="error",
                     message="Floating tooltip bubble class detected. Floating tooltips and popovers are prohibited.",
-                    file_path=str(rel_path),
-                    line=line_idx,
-                    snippet=line.strip()[:100],
+                    file_path=str(rel_path), line=line_idx, snippet=line.strip()[:100],
                     suggestion="Route inspection text to BottomStrip via BottomStripContext (e.g. useBottomStrip().setHoverText(...))."
                 ))
 
-        # 2b. Bottom Bar Center Slot Exclusivity Law:
-        # The middle portion of the bottom bar is reserved ONLY for cursor-hover dynamic text labels.
-        # It MUST NOT be used for buttons, interactive widgets, forms, navigation, or arbitrary content.
+        # 2b. Bottom Bar Center Slot Exclusivity Law (Dynamic hover inspection labels only)
         if "<BottomStrip" in content and "centerSlot" in content:
             for line_idx, line in enumerate(lines, 1):
                 if "centerSlot=" in line or "centerSlot:" in line:
                     if any(bad in line for bad in ["<button", "<BaseButton", "<input", "<form", "<select", "onClick", "Button"]):
                         violations.append(Violation(
-                            rule_id="bottom-bar-center-slot-reserved",
-                            severity="error",
-                            message="Interactive elements or buttons placed in BottomStrip centerSlot. The middle portion is strictly reserved for cursor hover inspection text.",
-                            file_path=str(rel_path),
-                            line=line_idx,
-                            snippet=line.strip()[:100],
-                            suggestion="Remove interactive controls from BottomStrip centerSlot. The center area is exclusively reserved for cursor-hover inspection text labels."
+                            rule_id="bottom-bar-center-slot-reserved", severity="error",
+                            message="Interactive elements or buttons placed in BottomStrip centerSlot. Exclusively reserved for hover inspection.",
+                            file_path=str(rel_path), line=line_idx, snippet=line.strip()[:100],
+                            suggestion="Remove interactive controls from BottomStrip centerSlot."
                         ))
 
         # 3. FloatingDetailsPanel Invariants Check:
@@ -176,31 +166,33 @@ def validate_layout_shell(root_dir: Path) -> ChecklistResult:
                             suggestion="Implement collapsible section headers (CollapsibleSectionHeader) defaulting to collapsed state, allowing clean default flow and on-demand expansion."
                         ))
 
-    duration_ms = (time.time() - start_time) * 1000
-    errors = sum(1 for v in violations if v.severity == "error")
-    score = max(0.0, 100.0 - (errors * 15.0) - (len(violations) - errors) * 5.0)
+    bs_ctx = root_dir / "packages/ui/src/components/bottom-strip/BottomStripContext.tsx"
+    if bs_ctx.exists():
+        c = read_text_safe(bs_ctx)
+        if "isDKeyPressed" not in c or "inspectionDescription" not in c:
+            violations.append(Violation(
+                rule_id="bottom-strip-missing-d-hover-mode", severity="error",
+                message="BottomStripContext missing D+Hover description mode (Law L19).",
+                file_path=str(bs_ctx.relative_to(root_dir)),
+                suggestion="Add isDKeyPressed and inspectionDescription to BottomStripContext."
+            ))
 
+    errors = sum(1 for v in violations if v.severity == "error")
     return ChecklistResult(
-        aspect_id=ASPECT_ID,
-        aspect_title=ASPECT_TITLE,
-        passed=errors == 0,
-        violations=violations,
-        files_scanned=files_scanned,
-        duration_ms=duration_ms,
-        score=score
+        aspect_id=ASPECT_ID, aspect_title=ASPECT_TITLE, passed=errors == 0,
+        violations=violations, files_scanned=files_scanned,
+        duration_ms=(time.time() - start_time) * 1000,
+        score=max(0.0, 100.0 - (errors * 15.0) - (len(violations) - errors) * 5.0)
     )
 
 def main():
     args = parse_standard_args("Aspect 03: Layout Shell Invariants & User Experience Invariants Validator")
-    root_path = Path(args.path).resolve()
-    result = validate_layout_shell(root_path)
-
+    result = validate_layout_shell(Path(args.path).resolve())
     if args.json:
         import json
         print(json.dumps(result.to_dict(), indent=2))
     else:
         print_checklist_report(result, verbose=args.verbose)
-
     sys.exit(0 if result.passed else 1)
 
 if __name__ == "__main__":

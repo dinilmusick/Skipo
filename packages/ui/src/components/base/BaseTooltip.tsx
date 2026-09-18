@@ -4,6 +4,7 @@ import { useBottomStrip } from '../bottom-strip/BottomStripContext.js';
 
 export interface BaseTooltipProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'content'> {
   content: React.ReactNode;
+  description?: string;
   position?: 'top' | 'bottom' | 'left' | 'right';
   children: React.ReactNode;
 }
@@ -14,6 +15,7 @@ export interface BaseTooltipProps extends Omit<React.HTMLAttributes<HTMLDivEleme
  */
 export const BaseTooltip = forwardRef<HTMLDivElement, BaseTooltipProps>(({
   content,
+  description,
   children,
   className = '',
   ...props
@@ -24,22 +26,22 @@ export const BaseTooltip = forwardRef<HTMLDivElement, BaseTooltipProps>(({
     : (React.Children.toArray(content).filter(c => typeof c === 'string').join(' ') || String(content ?? ''));
 
   const handleMouseEnter = (e: React.MouseEvent) => {
-    setInspectionText(textContent);
+    setInspectionText(textContent, description);
     if (props.onMouseEnter) props.onMouseEnter(e as any);
   };
 
   const handleMouseLeave = (e: React.MouseEvent) => {
-    setInspectionText(null);
+    setInspectionText(null, null);
     if (props.onMouseLeave) props.onMouseLeave(e as any);
   };
 
   const handleFocus = (e: React.FocusEvent) => {
-    setInspectionText(textContent);
+    setInspectionText(textContent, description);
     if (props.onFocus) props.onFocus(e as any);
   };
 
   const handleBlur = (e: React.FocusEvent) => {
-    setInspectionText(null);
+    setInspectionText(null, null);
     if (props.onBlur) props.onBlur(e as any);
   };
 

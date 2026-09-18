@@ -283,6 +283,46 @@ var uiInvariantsRule = {
         });
       }
     });
+    const bottomStrips = sourceFile.getDescendantsOfKind(SyntaxKind2.JsxOpeningElement).concat(sourceFile.getDescendantsOfKind(SyntaxKind2.JsxSelfClosingElement)).filter((elem) => elem.getTagNameNode().getText() === "BottomStrip");
+    bottomStrips.forEach((elem) => {
+      const centerAttr = elem.getAttribute("centerSlot");
+      if (centerAttr) {
+        const text = centerAttr.getText();
+        if (text.includes("Button") || text.includes("button") || text.includes("onClick") || text.includes("input")) {
+          violations.push({
+            ruleId: "ui-invariants",
+            severity: "error",
+            message: "BottomStrip centerSlot must not contain interactive buttons or controls. The middle area is reserved exclusively for cursor hover inspection labels.",
+            filePath,
+            line: centerAttr.getStartLineNumber(),
+            suggestion: "Remove interactive buttons or actions from centerSlot. Use BottomStripContext.setInspectionText for dynamic hover feedback."
+          });
+        }
+      }
+    });
+    const actionElements = sourceFile.getDescendantsOfKind(SyntaxKind2.JsxElement).filter((elem) => {
+      const tagName = elem.getOpeningElement().getTagNameNode().getText();
+      return ["BaseButton", "BrutalistButton", "BaseBadge", "button"].includes(tagName);
+    });
+    actionElements.forEach((elem) => {
+      const textNodes = elem.getJsxChildren().filter((c) => c.getKind() === SyntaxKind2.JsxText);
+      textNodes.forEach((tNode) => {
+        const raw = tNode.getText().trim();
+        if (raw) {
+          const words = raw.split(/\s+/).filter((w) => /[a-zA-Z0-9]/.test(w));
+          if (words.length > 4) {
+            violations.push({
+              ruleId: "ui-invariants",
+              severity: "error",
+              message: `UI action/badge label "${words.slice(0, 5).join(" ")}..." exceeds 4-word maximum limit (${words.length} words).`,
+              filePath,
+              line: tNode.getStartLineNumber(),
+              suggestion: "Cap visible UI label to <=4 words. Move detailed guidance to element description (D+Hover mode)."
+            });
+          }
+        }
+      });
+    });
     return violations;
   }
 };
@@ -435,10 +475,102 @@ var featureTestCoverageRule = {
   }
 };
 
+// src/validator/rules/serverless-deployment-budget.ts
+import * as path4 from "path";
+var serverlessDeploymentBudgetRule = {
+  id: "serverless-deployment-budget",
+  description: "Enforces Vercel serverless functions code size limits (50MB Hobby / 250MB Pro), standalone tracing, tree-shaking, and external CDN storage",
+  severity: "error",
+  validate(filePath, sourceCode) {
+    const violations = [];
+    const normalized = filePath.replace(/\\/g, "/");
+    const baseName = path4.basename(normalized);
+    if (baseName.startsWith("next.config.")) {
+      if (!sourceCode.includes("standalone")) {
+        violations.push({
+          ruleId: this.id,
+          severity: "error",
+          message: "next.config is missing `output: 'standalone'`. Output file tracing is required to prevent serverless function bundles from exceeding 50MB.",
+          filePath,
+          suggestion: "Add `output: 'standalone'` to your next.config to automatically trace and bundle only necessary dependencies."
+        });
+      }
+    }
+    if (baseName === "package.json") {
+      try {
+        const pkg = JSON.parse(sourceCode);
+        const deps = pkg.dependencies || {};
+        const devTools = ["eslint", "jest", "vitest", "cypress", "playwright", "prettier", "typescript", "webpack", "vite"];
+        for (const tool of devTools) {
+          if (deps[tool]) {
+            violations.push({
+              ruleId: this.id,
+              severity: "error",
+              message: `Development tool '${tool}' found in production dependencies. Vercel bundles production dependencies into serverless functions.`,
+              filePath,
+              suggestion: `Move '${tool}' to devDependencies to prevent exceeding the 50MB deployment limit.`
+            });
+          }
+        }
+        if (deps["moment"]) {
+          violations.push({
+            ruleId: this.id,
+            severity: "error",
+            message: "Heavy library 'moment' detected in dependencies. Moment adds excessive bundle weight.",
+            filePath,
+            suggestion: "Replace 'moment' with modular alternatives like 'date-fns' or 'dayjs'."
+          });
+        }
+      } catch {
+      }
+    }
+    if (normalized.endsWith(".ts") || normalized.endsWith(".tsx") || normalized.endsWith(".js") || normalized.endsWith(".jsx")) {
+      const lines = sourceCode.split("\n");
+      lines.forEach((line, idx) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("import ") && !trimmed.startsWith("import type")) {
+          if (/import\s+([A-Za-z0-9_$]+|\*\s+as\s+[A-Za-z0-9_$]+)\s+from\s+['"]lodash['"]/.test(trimmed)) {
+            violations.push({
+              ruleId: this.id,
+              severity: "error",
+              message: "Monolithic import from 'lodash' prevents bundler tree-shaking.",
+              filePath,
+              line: idx + 1,
+              suggestion: "Import specific methods directly, e.g. import debounce from 'lodash/debounce'."
+            });
+          }
+          if (/import\s+.*\s+from\s+['"]moment['"]/.test(trimmed)) {
+            violations.push({
+              ruleId: this.id,
+              severity: "error",
+              message: "Monolithic import of heavy 'moment' library.",
+              filePath,
+              line: idx + 1,
+              suggestion: "Use 'date-fns' or 'dayjs' instead."
+            });
+          }
+        }
+      });
+      if ((normalized.includes("/api/") || normalized.includes("/server/")) && sourceCode.includes("new PrismaClient(")) {
+        if (!sourceCode.includes("@prisma/client/edge") && !sourceCode.toLowerCase().includes("accelerate")) {
+          violations.push({
+            ruleId: this.id,
+            severity: "warning",
+            message: "Standard PrismaClient initialized in serverless route without Prisma Accelerate or Edge runtime. Bundled Prisma engine binaries can exhaust function limits.",
+            filePath,
+            suggestion: "Use '@prisma/client/edge' or Prisma Accelerate to avoid bundling heavy query engine binaries."
+          });
+        }
+      }
+    }
+    return violations;
+  }
+};
+
 // src/validator/SkipoValidator.ts
 import { Project } from "ts-morph";
 import * as fs2 from "fs";
-import * as path4 from "path";
+import * as path5 from "path";
 var SkipoValidator = class {
   config;
   rules = [
@@ -455,7 +587,8 @@ var SkipoValidator = class {
     gitIgnoreAnchoringRule,
     serverlessCompatibilityRule,
     noPlaceholderDataRule,
-    featureTestCoverageRule
+    featureTestCoverageRule,
+    serverlessDeploymentBudgetRule
   ];
   project;
   constructor(config) {
@@ -464,7 +597,7 @@ var SkipoValidator = class {
   scanDir(dir, files = []) {
     const entries = fs2.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
-      const fullPath = path4.join(dir, entry.name);
+      const fullPath = path5.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (!entry.name.includes("node_modules") && !entry.name.includes("dist")) {
           this.scanDir(fullPath, files);
@@ -530,5 +663,6 @@ export {
   serverlessCompatibilityRule,
   noPlaceholderDataRule,
   featureTestCoverageRule,
+  serverlessDeploymentBudgetRule,
   SkipoValidator
 };

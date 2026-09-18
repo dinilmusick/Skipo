@@ -50,6 +50,7 @@ declare const BaseToggle: React__default.ForwardRefExoticComponent<BaseTogglePro
 
 interface BaseTooltipProps extends Omit<React__default.HTMLAttributes<HTMLDivElement>, 'content'> {
     content: React__default.ReactNode;
+    description?: string;
     position?: 'top' | 'bottom' | 'left' | 'right';
     children: React__default.ReactNode;
 }
@@ -315,7 +316,9 @@ interface SystemMessage {
 type AutoSaveStatus = 'idle' | 'saving' | 'saved' | 'dirty';
 interface BottomStripContextValue {
     inspectionText: string | null;
-    setInspectionText: (text: string | null) => void;
+    inspectionDescription: string | null;
+    isDKeyPressed: boolean;
+    setInspectionText: (text: string | null, description?: string | null) => void;
     autoSave: {
         enabled: boolean;
         status: AutoSaveStatus;

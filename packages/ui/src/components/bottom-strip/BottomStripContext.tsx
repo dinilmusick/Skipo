@@ -1,5 +1,5 @@
 'use client';
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 
 export type SystemMessageType = 'success' | 'error' | 'warning' | 'info';
 
@@ -14,7 +14,9 @@ export type AutoSaveStatus = 'idle' | 'saving' | 'saved' | 'dirty';
 
 export interface BottomStripContextValue {
   inspectionText: string | null;
-  setInspectionText: (text: string | null) => void;
+  inspectionDescription: string | null;
+  isDKeyPressed: boolean;
+  setInspectionText: (text: string | null, description?: string | null) => void;
   autoSave: {
     enabled: boolean;
     status: AutoSaveStatus;
@@ -91,20 +93,57 @@ export function BottomStripProvider({
   children,
   initialAutoSave = true
 }: BottomStripProviderProps) {
-  const [inspectionText, setInspectionText] = useState<string | null>(null);
+  const [inspectionText, setInspectionTextState] = useState<string | null>(null);
+  const [inspectionDescription, setInspectionDescription] = useState<string | null>(null);
+  const [isDKeyPressed, setIsDKeyPressed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const isEditable = (el: EventTarget | null) => {
+      const tag = (el as HTMLElement)?.tagName?.toLowerCase();
+      return tag === 'input' || tag === 'textarea' || (el as HTMLElement)?.isContentEditable;
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.key === 'd' || e.key === 'D') && !isEditable(e.target)) {
+        setIsDKeyPressed(true);
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'd' || e.key === 'D') {
+        setIsDKeyPressed(false);
+      }
+    };
+    const handleBlur = () => setIsDKeyPressed(false);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, []);
+
+  const setInspectionText = useCallback((text: string | null, description?: string | null) => {
+    setInspectionTextState(text);
+    setInspectionDescription(description || null);
+  }, []);
+
   const autoSave = useAutoSaveController(initialAutoSave);
   const apiActivity = useApiActivityController();
   const { systemMessages, showSystemMessage, clearSystemMessage } = useSystemMessageController();
 
   const value = useMemo<BottomStripContextValue>(() => ({
     inspectionText,
+    inspectionDescription,
+    isDKeyPressed,
     setInspectionText,
     autoSave,
     apiActivity,
     systemMessages,
     showSystemMessage,
     clearSystemMessage,
-  }), [inspectionText, autoSave, apiActivity, systemMessages, showSystemMessage, clearSystemMessage]);
+  }), [inspectionText, inspectionDescription, isDKeyPressed, setInspectionText, autoSave, apiActivity, systemMessages, showSystemMessage, clearSystemMessage]);
 
   return (
     <BottomStripContext.Provider value={value}>
@@ -119,6 +158,8 @@ export function useBottomStrip(): BottomStripContextValue {
     // Return a safe fallback mock if outside provider
     return {
       inspectionText: null,
+      inspectionDescription: null,
+      isDKeyPressed: false,
       setInspectionText: () => {},
       autoSave: {
         enabled: true,
