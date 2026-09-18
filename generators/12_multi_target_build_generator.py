@@ -93,7 +93,7 @@ export default {{
     files.append(GeneratedFile(
         relative_path="src/backend/adapters/httpsAdapter.ts",
         content=adapter_code,
-        purpose="Protocol Adapter exposing Backend Facade via Web Standard Fetch API."
+        description="Protocol Adapter exposing Backend Facade via Web Standard Fetch API."
     ))
 
     # 2. Build manifests
@@ -119,12 +119,12 @@ export default {{
     files.append(GeneratedFile(
         relative_path="config/build/manifests/fullstack.json",
         content=json.dumps(fullstack_manifest, indent=2) + "\n",
-        purpose="Build manifest defining includes/excludes for FULLSTACK target."
+        description="Build manifest defining includes/excludes for FULLSTACK target."
     ))
     files.append(GeneratedFile(
         relative_path="config/build/manifests/api.json",
         content=json.dumps(api_manifest, indent=2) + "\n",
-        purpose="Build manifest defining includes/excludes for API target."
+        description="Build manifest defining includes/excludes for API target."
     ))
 
     # 3. wrangler.toml
@@ -143,7 +143,68 @@ BUILD_TARGET = "api"
     files.append(GeneratedFile(
         relative_path="wrangler.toml",
         content=wrangler_content,
-        purpose="Cloudflare Worker deployment manifest."
+        description="Cloudflare Worker deployment manifest."
+    ))
+
+    project_manifest = {
+        "kind": "skipo-application",
+        "schemaVersion": 1,
+        "deploymentTargets": {
+            "fullstack": {"platform": "vercel", "command": "npm run build:fullstack"},
+            "api": {"platform": "cloudflare-workers", "command": "npm run build:api"}
+        },
+        "requiredEnvironment": {
+            "serverOnly": ["SKIPO_DATABASE_URL", "SKIPO_SESSION_SECRET"],
+            "workerBindings": ["API_ENV", "BUILD_TARGET"]
+        }
+    }
+    files.append(GeneratedFile(
+        relative_path=".skipo/project.json",
+        content=json.dumps(project_manifest, indent=2) + "\n",
+        description="Mandatory Vercel full-stack and Cloudflare Workers API deployment contract."
+    ))
+    env_example = """# Server-only: configure in Vercel; never expose to client bundles.\nSKIPO_DATABASE_URL=\nSKIPO_SESSION_SECRET=\n# Worker bindings: configure with Wrangler secrets/vars, never commit production values.\nAPI_ENV=production\nBUILD_TARGET=api\n"""
+    files.append(GeneratedFile(
+        relative_path=".env.example",
+        content=env_example,
+        description="Portable secret and Worker-binding contract for cloud coding environments."
+    ))
+    tsconfig_api = {
+        "extends": "./tsconfig.json",
+        "compilerOptions": {"noEmit": False, "outDir": "./dist/api"},
+        "include": ["src/backend/**/*.ts", "src/libraries/**/*.ts"],
+        "exclude": ["src/frontend", "src/frontend-state", "**/client/**", "**/*.test.ts"]
+    }
+    files.append(GeneratedFile(
+        relative_path="tsconfig.api.json",
+        content=json.dumps(tsconfig_api, indent=2) + "\n",
+        description="Cloudflare API TypeScript target excluding browser-only code."
+    ))
+    vercel_config = {"buildCommand": "npm run build:fullstack", "framework": "nextjs"}
+    files.append(GeneratedFile(
+        relative_path="vercel.json",
+        content=json.dumps(vercel_config, indent=2) + "\n",
+        description="Vercel full-stack deployment command contract."
+    ))
+    required_scripts = {
+        "build:fullstack": "next build",
+        "build:api": "tsc -p tsconfig.api.json",
+        "build:all": "npm run build:fullstack && npm run build:api",
+        "validate:api": "python3 checklists/full_system_validator.py . --aspect multi-target"
+    }
+    package_path = target_dir / "package.json"
+    existing_package: Dict[str, Any] = {}
+    if package_path.exists():
+        try:
+            existing_package = json.loads(package_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as error:
+            raise ValueError(f"Cannot merge build scripts into invalid package.json: {error}") from error
+    package_content = existing_package or {"name": app_name.lower(), "private": True}
+    package_content["scripts"] = {**package_content.get("scripts", {}), **required_scripts}
+    files.append(GeneratedFile(
+        relative_path="package.json",
+        content=json.dumps(package_content, indent=2) + "\n",
+        description="Dual Vercel full-stack and Cloudflare API build commands."
     ))
 
     result = emit_directory(
@@ -155,6 +216,9 @@ BUILD_TARGET = "api"
     result.generator_id = GENERATOR_ID
     result.generator_title = GENERATOR_TITLE
     result.duration_ms = (time.time() - start_time) * 1000
+    if existing_package and not params.get("dry_run", False):
+        package_path.write_text(json.dumps(package_content, indent=2) + "\n", encoding="utf-8")
+        result.messages.append("Merged required dual-target build scripts into package.json")
     return result
 
 if __name__ == "__main__":

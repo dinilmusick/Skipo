@@ -16,3 +16,24 @@
 | [`database/`](./database/SKILL.md) & [`data/`](./data/SKILL.md) | One-table-per-functionality rule, automatic migrations, and schema validation. |
 | [`features/`](./features/SKILL.md) | Feature authoring and atomic functionality encapsulation rules. |
 | [`docs/`](./docs/SKILL.md) | Project history tracking, in-code docblocks with flowcharts, bold section demarcations, long naming conventions, and folder explanation rules. |
+
+## 3. Cloud-Agent Harness Contract
+
+Skipo is designed to run without non-standard Python dependencies in browser-hosted
+coding environments, including Google AI Studio build workspaces and Cloud Shell.
+Use `python3 assistant.py` as the entrypoint. Machine consumers must pass `--json`;
+that mode writes exactly one JSON document to stdout.
+
+All generated applications have two required deployment targets:
+
+- `build:fullstack` deploys the full-stack application to Vercel-compatible hosting.
+- `build:api` emits the API target for Cloudflare Workers through `httpsAdapter.ts`.
+
+`python3 assistant.py generate multi-target <app-root> --name <AppName>` creates
+the target manifests, Vercel and Wrangler configuration, API tsconfig, build scripts,
+and a non-secret `.env.example`. Real environment values are configured only in the
+hosting platform's secret store.
+
+For arbitrary edits, cloud agents use `python3 assistant.py edit operations.json`.
+The operation document is path-contained and each successful edit is recorded in
+`.skipo/actions/`, giving subsequent agents an explicit return message and audit trail.

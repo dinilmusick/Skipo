@@ -66,11 +66,19 @@ ASPECT_RUNNERS = [
     ("aspect_12", "Serverless Deployment Size Limits", mod_12.validate_serverless_code_size)
 ]
 
-def run_full_system_validation(root_dir: Path, target_aspect: str = None) -> Dict[str, Any]:
+def detect_validation_profile(root_dir: Path, requested: str) -> str:
+    if requested != "auto":
+        return requested
+    return "harness" if (root_dir / "skipo.harness.json").exists() else "application"
+
+
+def run_full_system_validation(root_dir: Path, target_aspect: str = None, profile: str = "auto") -> Dict[str, Any]:
     start_time = time.time()
     results: List[ChecklistResult] = []
 
-    for aspect_id, aspect_title, runner_fn in ASPECT_RUNNERS:
+    active_profile = detect_validation_profile(root_dir, profile)
+    runners = [] if active_profile == "harness" else ASPECT_RUNNERS
+    for aspect_id, aspect_title, runner_fn in runners:
         if target_aspect and target_aspect.lower() not in aspect_id and target_aspect.lower() not in aspect_title.lower():
             continue
         res = runner_fn(root_dir)
@@ -90,12 +98,13 @@ def run_full_system_validation(root_dir: Path, target_aspect: str = None) -> Dic
         "total_warnings": total_warnings,
         "max_files_scanned": total_files,
         "duration_ms": round(total_duration_ms, 2),
+        "profile": active_profile,
         "aspects": [r.to_dict() for r in results]
     }
 
 def print_executive_scorecard(summary: Dict[str, Any]) -> None:
     print("\n" + bold("=" * 84))
-    print(f"  {bold('SKIPO & KRNLTS FULL-SYSTEM ARCHITECTURAL COMPLIANCE SCORECARD')}")
+    print(f"  {bold('SKIPO & KRNLTS FULL-SYSTEM ARCHITECTURAL COMPLIANCE SCORECARD')} [{summary['profile']}]")
     print(bold("=" * 84))
 
     for aspect in summary["aspects"]:
@@ -141,10 +150,12 @@ def main():
     parser.add_argument("--aspect", "-a", type=str, default=None, help="Run only a specific aspect by ID or keyword")
     parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
     parser.add_argument("--verbose", "-v", action="store_true", help="Print detailed violations")
+    parser.add_argument("--profile", choices=["auto", "application", "harness"], default="auto",
+                        help="Harness skips generated-application deployment checks; applications always enforce both targets")
     args = parser.parse_args()
 
     root_path = Path(args.path).resolve()
-    summary = run_full_system_validation(root_path, target_aspect=args.aspect)
+    summary = run_full_system_validation(root_path, target_aspect=args.aspect, profile=args.profile)
 
     if args.json:
         print(json.dumps(summary, indent=2))

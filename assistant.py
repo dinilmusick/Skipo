@@ -234,7 +234,7 @@ def handle_generate(args: argparse.Namespace) -> None:
 
     exit_code = run_command(cmd, HERE)
 
-    if exit_code == 0 and not args.list:
+    if exit_code == 0 and not args.list and not args.json:
         print(bold("\n" + "=" * 84))
         print(f"  {green('✨ GENERATION SUCCEEDED')} - Next Agent Directives:")
         print(dim("-" * 84))
@@ -282,7 +282,7 @@ def handle_mutate(args: argparse.Namespace) -> None:
 
     exit_code = run_command(cmd, HERE)
 
-    if exit_code == 0 and not args.list:
+    if exit_code == 0 and not args.list and not args.json:
         print(bold("\n" + "=" * 84))
         print(f"  {green('✨ MUTATIONS APPLIED')} - Next Agent Directives:")
         print(dim("-" * 84))
@@ -321,7 +321,7 @@ def handle_validate(args: argparse.Namespace) -> None:
 
     exit_code = run_command(cmd, HERE)
 
-    if exit_code != 0:
+    if exit_code != 0 and not args.json:
         print(bold("\n" + "=" * 84))
         print(f"  {red('🚨 VALIDATION FAILURES DETECTED')} - Automated Remediation Options:")
         print(dim("-" * 84))
@@ -340,7 +340,7 @@ def handle_audit(args: argparse.Namespace) -> None:
     if args.violations_only: cmd.append("--violations-only")
     if args.inspect: cmd.extend(["--inspect", args.inspect])
     exit_code = run_command(cmd, HERE)
-    if exit_code != 0:
+    if exit_code != 0 and not args.json:
         print(bold("\n" + "=" * 84))
         print(f"  {red('🚨 PURITY AUDIT FAILURES')} - Grade or DAG violations detected:")
         print(dim("-" * 84))
@@ -349,6 +349,17 @@ def handle_audit(args: argparse.Namespace) -> None:
         print(f"  📖 Read: [{bold('File Purity')}](file://{SKILL_MAP['purity'][1]})")
         print(bold("=" * 84) + "\n")
     sys.exit(exit_code)
+
+def handle_edit(args: argparse.Namespace) -> None:
+    """Route all declarative cloud-agent edits through the journaled writer."""
+    cmd = ["python3", str(HERE / "scripts/apply_operations.py"), args.operations]
+    if args.target:
+        cmd.extend(["--target", args.target])
+    if args.dry_run:
+        cmd.append("--dry-run")
+    if args.json:
+        cmd.append("--json")
+    sys.exit(run_command(cmd, HERE))
 
 def handle_status(root: Path) -> None:
     info = detect_environment(root)
@@ -405,7 +416,7 @@ def main():
     mut_p.add_argument("--verbose", "-v", action="store_true", help="Show full diffs")
 
     # validate
-    val_p = subparsers.add_parser("validate", help="Validate compliance against 10 Architectural Pillars")
+    val_p = subparsers.add_parser("validate", help="Validate compliance against 12 Architectural Pillars")
     val_p.add_argument("target", nargs="?", default=".", help="Target directory to scan")
     val_p.add_argument("--aspect", "-a", type=str, default=None, help="Run specific aspect checklist")
     val_p.add_argument("--json", action="store_true", help="Output JSON summary")
@@ -424,6 +435,13 @@ def main():
     aud_p.add_argument("--json", action="store_true", help="Machine-readable JSON output")
     aud_p.add_argument("--violations-only", action="store_true", help="Show only violations")
     aud_p.add_argument("--inspect", type=str, default=None, help="Deep-inspect a single file's purity grade")
+
+    # edit: the only generic file writer exposed to cloud coding agents
+    edit_p = subparsers.add_parser("edit", help="Apply journaled declarative create/update/move/delete operations")
+    edit_p.add_argument("operations", help="Path to an operation JSON document")
+    edit_p.add_argument("--target", default=".", help="Target repository root")
+    edit_p.add_argument("--dry-run", action="store_true", help="Validate operations without writing")
+    edit_p.add_argument("--json", action="store_true", help="Emit a strict JSON action result")
 
     # sync-libraries
     sync_p = subparsers.add_parser("sync-libraries", help="Synchronize Skipo base assets into src/libraries/skipo")
@@ -449,6 +467,8 @@ def main():
         advise_agent(query_str, HERE)
     elif args.subcommand == "audit":
         handle_audit(args)
+    elif args.subcommand == "edit":
+        handle_edit(args)
 
 if __name__ == "__main__":
     main()
