@@ -269,9 +269,9 @@ def validate_app_architecture_spec(root_dir: Path) -> ChecklistResult:
                         suggestion="Orchestrations must coordinate via service facades."
                     ))
 
-            # Libraries checks
+            # Libraries checks (must not import from other planes)
             if is_library:
-                if "frontend/" in trimmed or "backend/" in trimmed:
+                if re.search(r"['\"](?:\.{2}/|@/|\.\./)backend/", trimmed) or re.search(r"['\"](?:\.{2}/|@/|\.\./)frontend/", trimmed):
                     violations.append(Violation(
                         rule_id="library-environment-dependency-forbidden",
                         severity="error",

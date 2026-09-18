@@ -58,7 +58,7 @@ ALLOWED_ROOT_CODE_CONFIGS = {
 }
 ALLOWED_TOP_CODE_DIRS = {
     "src", "packages", "scripts", "backend", "components", "hooks", "lib",
-    "api", "standalone", "features", "data", "database", "krnlts",
+    "api", "standalone", "features", "data", "database",
     "skipo-audio-midi-engine", "checklists", "generators", "mutators"
 }
 VALID_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_\-\.\[\]@]+$")

@@ -21,12 +21,10 @@ def turn_start(workspace="."):
     write_json(state_file, state)
 
     # Step 1: Detect Mode & Load Root Router
-    if exists("krnl.json") or has_dep("@dinilmusick/krnlts"):
-        load_skill("./krnlts/SKILL.md")       # Mode A: KrnlTS Engine
-    elif has_dep("@skipo/core") or exists("pnpm-workspace.yaml"):
-        load_skill("./standalone/SKILL.md")   # Mode B: Standalone Skipo Monorepo
+    if has_dep("@skipo/core") or exists("pnpm-workspace.yaml"):
+        load_skill("./standalone/SKILL.md")   # Mode A: Standalone Skipo Monorepo
     else:
-        load_skill("./architecture/SKILL.md") # Mode C: Baseline Architecture
+        load_skill("./architecture/SKILL.md") # Mode B: Baseline Architecture
 ```
 
 ## 2. DETERMINISTIC AGENT ASSISTANT COMMANDS

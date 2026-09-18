@@ -23,13 +23,18 @@ $$\begin{array}{ll}
 \mathbf{L_{16}} \text{ (Root Code & Enclave Purity)} & \forall f \in \text{CodeFiles}: \text{Dir}(f) \neq \text{Root} \wedge \text{TopDir}(f) \in \text{AllowedPlanes} \\
 \mathbf{L_{17}} \text{ (Storage Deep-Link Transparency)} & \forall w \in \text{Workspaces}: \text{StorageOption}(w) \xrightarrow{\text{click}} (\text{RevealLocalFolder}(w) \vee \text{OpenCloudBucketConsole}(w)) \\
 \mathbf{L_{18}} \text{ (4-Word UI Text Label Cap)} & \forall t \in \text{UITextLabels}: \text{WordCount}(t) \le 4 \wedge (\text{Desc}(el) > 4 \implies \text{D+HoverOnly}) \\
-\mathbf{L_{19}} \text{ (D+Hover Description Mode)} & \text{Hover}(el) \implies (\neg \text{Key}('D') \implies \text{BottomStrip}(\text{Label}(el)) \wedge \text{Key}('D') \implies \text{BottomStrip}(\text{Desc}(el))_{\text{thin,small}})
+\mathbf{L_{19}} \text{ (D+Hover Description Mode)} & \text{Hover}(el) \implies (\neg \text{Key}('D') \implies \text{BottomStrip}(\text{Label}(el)) \wedge \text{Key}('D') \implies \text{BottomStrip}(\text{Desc}(el))_{\text{thin,small}}) \\
+\mathbf{L_{20}} \text{ (Skipo Isolation & Library Hydration)} & \forall f \in \text{AppCode}: \text{Imports}(f) \cap \{\text{Skipo/}, \text{@/Skipo}, \text{../Skipo}\} = \emptyset \wedge \text{BaseAssets}(f) \subset \text{src/libraries/}
 \end{array}$$
 
 ## 2. DETERMINISTIC AGENT EXECUTION ALGORITHM
 
 ```
 TurnStart(task):
+  0. Library Hydration & Root Isolation:
+       If Skipo/ exists at workspace root -> python3 assistant.py sync-libraries .
+       (Copies base assets to src/libraries/skipo/ and bans direct imports from root Skipo/).
+
   1. Route & Advise:
        python3 assistant.py advise "<task description>"
        -> Inspect suggested commands and open linked architectural skill files.
@@ -38,21 +43,28 @@ TurnStart(task):
        Flat monoliths    -> python3 assistant.py mutate planes <dir>
        Hardcoded colors  -> python3 assistant.py mutate tokens <dir>
        Missing banners   -> python3 assistant.py mutate sections <dir>
+       Naming standards  -> python3 assistant.py mutate naming <dir>
        Files > 200 lines -> python3 assistant.py mutate split <file>
        Full auto-remedy  -> python3 assistant.py mutate all <dir>
 
   2.5 Audit (Purity & Line Limits):
        python3 code-purity-audit.py <target>
 
-  3. Generate (if scaffolding new assets / features / apps):
+  3. Generate (AGGRESSIVE VALIDATION & AUTO-DELETE LOOP):
        Scaffold complete multi-file directory suites (zero manual boilerplate):
+       Service Suite     -> python3 assistant.py generate service <name> (Auto-registers in facade)
+       4-Plane Structure -> python3 assistant.py generate app-structure <path> --name <Name>
+       Orchestration     -> python3 assistant.py generate orchestration <name>
+       8-Gate Route      -> python3 assistant.py generate route <name>
        Component suite   -> python3 assistant.py generate component <path> --name <Name>
        Quad-Unit Entity  -> python3 assistant.py generate entity <path> --name <Name>
        Layout Shell      -> python3 assistant.py generate shell <path>
        Node Graph Suite  -> python3 assistant.py generate nodegraph <path> --name <Name>
-       Service Driver    -> python3 assistant.py generate driver <path> --name <Name>
-       8-Gate Route      -> python3 assistant.py generate route <path> --name <Name>
        Full Sub-App Tree -> python3 assistant.py generate subapp <path> --name <Name>
+
+       * CRITICAL ENFORCEMENT LOOP: Each generation command immediately executes relevant validators.
+       * If ANY validator fails, the assistant IMMEDIATELY DELETES the non-compliant generated files/folders
+         and returns the failure report, forcing clean generation rather than accumulating stale edits.
 
   4. Specialize & Implement:
        Inject bespoke business logic into the deterministic slots.

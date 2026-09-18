@@ -59,6 +59,7 @@ SKILL_MAP = {
     "app-arch":     ("APP_ARCHITECTURE_SPEC Canonical Architecture", HERE / "architecture/app-architecture-spec/SKILL.md", "Canonical 40-section specification: runtime model, backend facade, plug-and-play service suites, and import boundaries."),
     "multi-target": ("MULTI_TARGET_BUILD_SPEC & Protocol Adapters", HERE / "architecture/multi-target-build-spec/SKILL.md", "Protocol Adapters (src/backend/adapters/httpsAdapter.ts), Cloudflare Workers, and dual build pipelines."),
     "purity":       ("File Purity Classification & Import DAG", HERE / "architecture/code-limits/SKILL.md", "Enforces P0-P3 purity grades, naming suffixes (_Pure, _Impure, _Orchestrator, _Facade), and acyclic import DAG."),
+    "libraries":    ("Skipo Isolation & Library Hydration", HERE / "architecture/SKILL.md", "Enforces Law L20: zero direct Skipo imports; base assets hydrated into src/libraries/skipo via sync-libraries."),
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -183,6 +184,31 @@ def run_command(cmd: List[str], cwd: Path) -> int:
     return proc.wait()
 
 def handle_generate(args: argparse.Namespace) -> None:
+    t = (args.type or "").lower()
+
+    # Check for dedicated aggressive scaffolding scripts
+    if t == "service" and args.name:
+        cmd = ["python3", str(HERE / "scripts/create_service.py"), args.name]
+        if args.target: cmd.extend(["--target", args.target])
+        exit_code = run_command(cmd, HERE)
+        sys.exit(exit_code)
+    elif t in ("app-structure", "scaffold"):
+        cmd = ["python3", str(HERE / "scripts/scaffold_app_structure.py")]
+        if args.target: cmd.append(args.target)
+        if args.name: cmd.extend(["--name", args.name])
+        exit_code = run_command(cmd, HERE)
+        sys.exit(exit_code)
+    elif t == "orchestration" and args.name:
+        cmd = ["python3", str(HERE / "scripts/create_orchestration.py"), args.name]
+        if args.target: cmd.extend(["--target", args.target])
+        exit_code = run_command(cmd, HERE)
+        sys.exit(exit_code)
+    elif t == "route" and args.name:
+        cmd = ["python3", str(HERE / "scripts/create_secure_route.py"), args.name]
+        if args.target: cmd.extend(["--target", args.target])
+        exit_code = run_command(cmd, HERE)
+        sys.exit(exit_code)
+
     gen_script = HERE / "generators/generate.py"
     cmd = ["python3", str(gen_script)]
     if args.type:
@@ -217,7 +243,6 @@ def handle_generate(args: argparse.Namespace) -> None:
         print(f"  3. Run {green('python3 assistant.py validate')} to gate compliance.")
         
         # Point to skill based on type
-        t = (args.type or "").lower()
         if "comp" in t or "ui" in t:
             print(f"  📖 Read Skill: [{bold('UI Styling')}](file://{SKILL_MAP['ui'][1]})")
         elif "shell" in t:
@@ -231,6 +256,13 @@ def handle_generate(args: argparse.Namespace) -> None:
     sys.exit(exit_code)
 
 def handle_mutate(args: argparse.Namespace) -> None:
+    if (args.action or "").lower() == "naming":
+        cmd = ["python3", str(HERE / "scripts/enforce_naming_conventions.py")]
+        if args.target: cmd.append(args.target)
+        cmd.append("--fix")
+        exit_code = run_command(cmd, HERE)
+        sys.exit(exit_code)
+
     mut_script = HERE / "mutators/mutate.py"
     cmd = ["python3", str(mut_script)]
     if args.action:
@@ -258,6 +290,20 @@ def handle_mutate(args: argparse.Namespace) -> None:
         print(f"  2. Run {green('python3 assistant.py validate')} to verify architectural pass.")
         print(bold("=" * 84) + "\n")
 
+    sys.exit(exit_code)
+
+def handle_sync_libraries(args: argparse.Namespace) -> None:
+    sync_script = HERE / "scripts/sync_to_libraries.py"
+    cmd = ["python3", str(sync_script)]
+    if args.target:
+        cmd.append(args.target)
+    if args.dry_run:
+        cmd.append("--dry-run")
+    if args.auto_fix:
+        cmd.append("--auto-fix")
+    if args.strict:
+        cmd.append("--strict")
+    exit_code = run_command(cmd, HERE)
     sys.exit(exit_code)
 
 def handle_validate(args: argparse.Namespace) -> None:
@@ -379,10 +425,19 @@ def main():
     aud_p.add_argument("--violations-only", action="store_true", help="Show only violations")
     aud_p.add_argument("--inspect", type=str, default=None, help="Deep-inspect a single file's purity grade")
 
+    # sync-libraries
+    sync_p = subparsers.add_parser("sync-libraries", help="Synchronize Skipo base assets into src/libraries/skipo")
+    sync_p.add_argument("target", nargs="?", default="", help="Target project root directory")
+    sync_p.add_argument("--dry-run", action="store_true", help="Preview sync operations without writing")
+    sync_p.add_argument("--auto-fix", action="store_true", help="Automatically rewrite direct Skipo imports to @/libraries/skipo")
+    sync_p.add_argument("--strict", action="store_true", help="Exit with code 1 if direct Skipo imports are detected")
+
     args = parser.parse_args()
 
     if not args.subcommand or args.subcommand == "status":
         handle_status(HERE)
+    elif args.subcommand == "sync-libraries":
+        handle_sync_libraries(args)
     elif args.subcommand == "generate":
         handle_generate(args)
     elif args.subcommand == "mutate":

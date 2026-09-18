@@ -14,6 +14,5 @@
 | [`ui/`](./ui/SKILL.md) | Central style authority design tokens, reactive state listeners, docks, force graphs, and React Flow nodes. |
 | [`api/`](./api/SKILL.md) | Single-port unified ingress protocol adapters (REST, WebSocket, MCP, ACP). |
 | [`database/`](./database/SKILL.md) & [`data/`](./data/SKILL.md) | One-table-per-functionality rule, automatic migrations, and schema validation. |
-| [`krnlts/`](./krnlts/SKILL.md) | Magnetic Loader auto-mounting, network ingress, and validation CLI tooling. |
 | [`features/`](./features/SKILL.md) | Feature authoring and atomic functionality encapsulation rules. |
 | [`docs/`](./docs/SKILL.md) | Project history tracking, in-code docblocks with flowcharts, bold section demarcations, long naming conventions, and folder explanation rules. |

@@ -5,16 +5,24 @@ CRITICAL INVARIANT: Preserve all genuine business logic and capabilities ($\Delt
 
 ---
 
-## 0. INGESTION & AUDIT PROTOCOL (MANDATORY FIRST STEP)
+## 0. INGESTION, LIBRARY HYDRATION & ISOLATION PROTOCOL (MANDATORY FIRST STEP)
 
-When this prompt is activated, a fresh `Skipo/` folder has been copied or updated inside the codebase repository. You MUST NOT refactor blindly. Execute this ingestion protocol:
+When this prompt is activated, a fresh `Skipo/` folder has been copied or updated inside the root of the workspace repository. You MUST NOT refactor blindly or import from `Skipo/` directly. Execute this ingestion protocol:
 
-1. **Read Canonical Standards**:
+1. **Hydrate Base Assets into `src/libraries/skipo/` (Law L20)**:
+   ```bash
+   python3 Skipo/scripts/sync_to_libraries.py . --auto-fix
+   ```
+   - Synchronizes base UI primitives, backend drivers, storage adapters, and tokens from `Skipo/packages/` into `src/libraries/skipo/`.
+   - Re-exports them cleanly through `src/libraries/index.ts`.
+   - **STRICT PROHIBITION**: Application code inside `src/` MUST NEVER import directly from the root `Skipo/` directory (`import ... from "@/Skipo/..."` or `from "../../Skipo/..."`). Always import from `@/libraries/skipo` or `@/libraries`.
+2. **Read Canonical Standards**:
    - Read `Skipo/standalone/SKILL.md` (The 12 Core Architectural Laws).
    - Read `Skipo/standalone/component-authoring/SKILL.md` (Component inheritance blueprints).
-   - Inspect `Skipo/packages/ui`, `Skipo/packages/systems`, `Skipo/packages/backend`, and `Skipo/packages/validate` to understand the available exports and types.
-2. **Perform Codebase Scan & Deviation Tally**:
+   - Inspect `src/libraries/skipo/ui` and `src/libraries/skipo/backend` to understand available synchronized exports and types.
+3. **Perform Codebase Scan & Deviation Tally**:
    Scan the target application codebase (`src/`, `components/`, `pages/`, `app/`) and identify:
+   - Direct imports from root `Skipo/` that must be migrated to `@/libraries/skipo`.
    - Bespoke raw HTML controls (`<button>`, `<input>`, `<select>`, `<textarea>`, clickable `<div>`s).
    - Nested tabs or multi-tiered tab rows within panels, drawers, or views.
    - Floating text bubbles, floating tooltips, balloon popups, or hover popovers.
