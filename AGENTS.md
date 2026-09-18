@@ -18,7 +18,9 @@ $$\begin{array}{ll}
 \mathbf{L_{11}} \text{ (Serverless Budget & Standalone Tracing)} & \text{NextConfig} \implies \text{output: 'standalone'} \wedge \text{Size}(\text{ServerlessFn}) \le 50\text{MB} \wedge \text{Media}(\text{api/}) = \emptyset \\
 \mathbf{L_{12}} \text{ (Overlay Event Trapping & Themed Controls)} & \text{Overlay} \xrightarrow{\text{trap}} \{\text{Wheel}, \text{Pointer}, \text{Key}\} \wedge \neg\text{Leak}(\text{Canvas}) \wedge \text{Controls} \implies \{\text{CustomScrollbar}, \text{ThemedDropdown}\} \\
 \mathbf{L_{13}} \text{ (Progressive Disclosure & Collapsible Dialogs)} & \forall d \in \text{Dialogs}: \text{PrimaryInputs}(d) \subset \text{Visible} \wedge \text{SecondaryCustomizations}(d) \subset \text{CompressedByDefault} \\
-\mathbf{L_{14}} \text{ (Icon Purity & Zero Double-Icons)} & \forall b \in \text{Buttons}: \text{Count}(\text{Icons}(b)) \le 1 \wedge \neg(\text{HasIcon}(b) \wedge \text{SymbolGlyph}(\text{Label}(b)))
+\mathbf{L_{14}} \text{ (Icon Purity \& Zero Double-Icons)} & \forall b \in \text{Buttons}: \text{Count}(\text{Icons}(b)) \le 1 \wedge \neg(\text{HasIcon}(b) \wedge \text{SymbolGlyph}(\text{Label}(b))) \\
+\mathbf{L_{15}} \text{ (File Purity DAG)} & \forall f \in \text{Files}: \text{Grade}(f) \in \{P_0, P_1, P_2, P_3\} \wedge \text{ImportDAG}(f) \text{ acyclic} \wedge \text{NameSuffix}(f) \equiv \text{Grade}(f) \\
+\mathbf{L_{16}} \text{ (Root Code & Enclave Purity)} & \forall f \in \text{CodeFiles}: \text{Dir}(f) \neq \text{Root} \wedge \text{TopDir}(f) \in \text{AllowedPlanes}
 \end{array}$$
 
 ## 2. DETERMINISTIC AGENT EXECUTION ALGORITHM
@@ -35,6 +37,9 @@ TurnStart(task):
        Missing banners   -> python3 assistant.py mutate sections <dir>
        Files > 200 lines -> python3 assistant.py mutate split <file>
        Full auto-remedy  -> python3 assistant.py mutate all <dir>
+
+  2.5 Audit (Purity & Line Limits):
+       python3 code-purity-audit.py <target>
 
   3. Generate (if scaffolding new assets / features / apps):
        Scaffold complete multi-file directory suites (zero manual boilerplate):

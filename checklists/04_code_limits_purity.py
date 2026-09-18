@@ -40,6 +40,25 @@ COMPONENT_DECLARATION_REGEX = re.compile(
 
 UNICODE_BORDER_PATTERN = "// ══"
 
+# Import parsing for purity classification
+IMPORT_PATH_REGEX = re.compile(
+    r'''(?:^|\n)\s*import\s+(?:type\s+)?(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]''', re.MULTILINE
+)
+TYPE_IMPORT_REGEX = re.compile(
+    r'''(?:^|\n)\s*import\s+type\s+(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]''', re.MULTILINE
+)
+PURITY_SUFFIX_REGEX = re.compile(r'_(Pure|Impure|Orchestrator|Facade)\.[tj]sx?$')
+
+INLINE_OP_PATTERNS = [
+    re.compile(r'\b(?:if|for|while|switch|try)\s*\('),
+    re.compile(r'\b(?:const|let|var)\s+\w+\s*=\s*(?!import)'),
+    re.compile(r'(?:=>|function)\s*\{'),
+    re.compile(r'\.\s*(?:map|filter|reduce|forEach|find)\s*\('),
+    re.compile(r'(?:await|async)\s+'),
+    re.compile(r'new\s+[A-Z]'),
+]
+GRADE_NAMES = {0: "P0 Pure", 1: "P1 Impure", 2: "P2 Orchestrator", 3: "P3 Facade"}
+
 def validate_code_limits_and_purity(root_dir: Path) -> ChecklistResult:
     start_time = time.time()
     violations = []
@@ -51,8 +70,8 @@ def validate_code_limits_and_purity(root_dir: Path) -> ChecklistResult:
         rel_path = file_path.relative_to(root_dir)
         fname = file_path.name
 
-        # Skip test and definition files
-        if fname.endswith(".d.ts") or ".test." in fname or ".spec." in fname or "node_modules" in str(rel_path):
+        # Skip only type definition files and node_modules
+        if fname.endswith(".d.ts") or "node_modules" in str(rel_path):
             continue
 
         content = read_text_safe(file_path)
@@ -124,6 +143,71 @@ def validate_code_limits_and_purity(root_dir: Path) -> ChecklistResult:
                     file_path=str(rel_path),
                     suggestion="Use long, expressive, self-documenting naming (e.g. 'temporaryWorkspace' instead of 'tmp')."
                 ))
+
+        # 6. Purity Classification: Parse imports and detect grade violations
+        all_imports = set(IMPORT_PATH_REGEX.findall(content))
+        type_imports = set(TYPE_IMPORT_REGEX.findall(content))
+        local_imp = {i for i in all_imports if i not in type_imports and (i.startswith('.') or i.startswith('@/') or i.startswith('~/'))}
+        ext_imp = {i for i in all_imports if i not in type_imports and not (i.startswith('.') or i.startswith('@/') or i.startswith('~/'))}
+
+        # Count inline operations
+        op_count = 0
+        for ln in lines:
+            s = ln.strip()
+            if not s or s.startswith('//') or s.startswith('/*') or s.startswith('*'):
+                continue
+            if s.startswith('import ') or s.startswith('export {') or s.startswith('export default'):
+                continue
+            if s.startswith('export type ') or s.startswith('type ') or s.startswith('interface '):
+                continue
+            for pat in INLINE_OP_PATTERNS:
+                if pat.search(s):
+                    op_count += 1
+                    break
+
+        # Classify detected grade
+        has_local, has_ext = len(local_imp) > 0, len(ext_imp) > 0
+        if not has_local and not has_ext:
+            det_grade = 0
+        elif has_local and op_count <= 3 and not has_ext and len(local_imp) >= 3:
+            det_grade = 3
+        elif has_local and op_count <= 8:
+            det_grade = 2
+        else:
+            det_grade = 1
+
+        # Check naming suffix vs detected grade
+        suffix_match = PURITY_SUFFIX_REGEX.search(fname)
+        if suffix_match:
+            named = {"Pure": 0, "Impure": 1, "Orchestrator": 2, "Facade": 3}[suffix_match.group(1)]
+            if named != det_grade:
+                violations.append(Violation(
+                    rule_id="purity-grade-mismatch",
+                    severity="error",
+                    message=f"Named {GRADE_NAMES[named]} but detected {GRADE_NAMES[det_grade]} ({len(local_imp)} local, {len(ext_imp)} ext, {op_count} ops).",
+                    file_path=str(rel_path),
+                    suggestion="Rename file or refactor imports to match purity grade."
+                ))
+
+        # Facade with excessive inline logic
+        if det_grade == 3 and op_count > 3:
+            violations.append(Violation(
+                rule_id="facade-has-logic",
+                severity="error",
+                message=f"Facade (P3) has {op_count} inline operations. Facades must only re-export.",
+                file_path=str(rel_path),
+                suggestion="Move logic to _Orchestrator or _Impure files."
+            ))
+
+        # Orchestrator with excessive logic
+        if det_grade == 2 and op_count > 15:
+            violations.append(Violation(
+                rule_id="orchestrator-excessive-logic",
+                severity="error",
+                message=f"Orchestrator (P2) has {op_count} inline ops (max 15). Too much direct logic.",
+                file_path=str(rel_path),
+                suggestion="Extract logic into _Pure or _Impure files."
+            ))
 
     duration_ms = (time.time() - start_time) * 1000
     errors = sum(1 for v in violations if v.severity == "error")

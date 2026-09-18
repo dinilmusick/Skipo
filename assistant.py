@@ -45,71 +45,20 @@ def dim(text: str) -> str: return _c("\033[2m", text)
 # SKILL MAPPING DIRECTORY
 # ══════════════════════════════════════════════════════════════════════════════
 SKILL_MAP = {
-    "structure": (
-        "Plane Isolation & Architecture",
-        HERE / "architecture/SKILL.md",
-        "Enforces plane segregation (src/frontend vs src/backend, packages/*) and anti-monolith structure."
-    ),
-    "ui": (
-        "UI Component Styling & Design Tokens",
-        HERE / "ui/styling/SKILL.md",
-        "Mandates @skipo/ui base primitives and 100% theme tokens (var(--skipo-*)). Zero raw HTML."
-    ),
-    "layout": (
-        "Layout Shell, TopToolbar & Dock",
-        HERE / "ui/dock-toolbar/SKILL.md",
-        "Invariants for TopToolbar (strictly 44px), BottomStrip (strictly 30px), and FloatingDetailsPanel."
-    ),
-    "nodegraph": (
-        "Canonical Node Graph & Rules Governance",
-        HERE / "ui/react-flow/SKILL.md",
-        "Authoritative ConnectionRuleStore, icon-only SolidifyWidget, handle-drag CompatibleNodePicker, and canonical controls."
-    ),
-    "code-limits": (
-        "Code Limits, 1 Component & Line Purity",
-        HERE / "architecture/code-limits/SKILL.md",
-        "Enforces <= 200 lines/file, one component/file, pure App.tsx, and ASCII flowchart docblocks."
-    ),
-    "layers": (
-        "Hierarchical Function Layers (L0-L3)",
-        HERE / "architecture/function-layers/SKILL.md",
-        "Hierarchical layering rules preventing circular dependencies and side-effect leakage."
-    ),
-    "entity": (
-        "Quad-Unit Entity Atom & Real Data",
-        HERE / "architecture/entity-functionality/SKILL.md",
-        "4-unit entity structure (schema, types, store, EmptyState) with zero placeholder/mock arrays."
-    ),
-    "anti-stub": (
-        "Anti-Stub & Genuine Driver Implementation",
-        HERE / "features/SKILL.md",
-        "Strict ban on empty/TODO function bodies, minimum 2 statements, and real SDK connectivity."
-    ),
-    "storage": (
-        "Workspace Storage & Decoupled Presigned Transfers",
-        HERE / "backend/workspace-storage/SKILL.md",
-        "Direct presigned B2/S3 transfers, credential field protection, zero ephemeral /tmp proxying."
-    ),
-    "auth": (
-        "Control Plane Multi-Session Auth & Tokens",
-        HERE / "backend/control-plane/SKILL.md",
-        "Multi-session isolation, refresh token rotation, progressive trust tiers (T0-T4)."
-    ),
-    "api": (
-        "API Security Governance & 8-Gate Pipeline",
-        HERE / "api/SKILL.md",
-        "Canonical 8-gate request lifecycle (rate limiting, auth, validation, security headers, anti-polling)."
-    ),
-    "app-arch": (
-        "APP_ARCHITECTURE_SPEC Canonical Architecture",
-        HERE / "architecture/app-architecture-spec/SKILL.md",
-        "Canonical 40-section specification: runtime model, backend facade, plug-and-play service suites, and import boundaries."
-    ),
-    "multi-target": (
-        "MULTI_TARGET_BUILD_SPEC & Protocol Adapters",
-        HERE / "architecture/multi-target-build-spec/SKILL.md",
-        "Protocol Adapters (src/backend/adapters/httpsAdapter.ts), Cloudflare Workers, and dual build pipelines."
-    )
+    "structure":    ("Plane Isolation & Architecture", HERE / "architecture/SKILL.md", "Enforces plane segregation (src/frontend vs src/backend, packages/*) and anti-monolith structure."),
+    "ui":           ("UI Component Styling & Design Tokens", HERE / "ui/styling/SKILL.md", "Mandates @skipo/ui base primitives and 100% theme tokens (var(--skipo-*)). Zero raw HTML."),
+    "layout":       ("Layout Shell, TopToolbar & Dock", HERE / "ui/dock-toolbar/SKILL.md", "Invariants for TopToolbar (strictly 44px), BottomStrip (strictly 30px), and FloatingDetailsPanel."),
+    "nodegraph":    ("Canonical Node Graph & Rules Governance", HERE / "ui/react-flow/SKILL.md", "Authoritative ConnectionRuleStore, icon-only SolidifyWidget, handle-drag CompatibleNodePicker, and canonical controls."),
+    "code-limits":  ("Code Limits, 1 Component & Line Purity", HERE / "architecture/code-limits/SKILL.md", "Enforces <= 200 lines/file, one component/file, pure App.tsx, and ASCII flowchart docblocks."),
+    "layers":       ("Hierarchical Function Layers (L0-L3)", HERE / "architecture/function-layers/SKILL.md", "Hierarchical layering rules preventing circular dependencies and side-effect leakage."),
+    "entity":       ("Quad-Unit Entity Atom & Real Data", HERE / "architecture/entity-functionality/SKILL.md", "4-unit entity structure (schema, types, store, EmptyState) with zero placeholder/mock arrays."),
+    "anti-stub":    ("Anti-Stub & Genuine Driver Implementation", HERE / "features/SKILL.md", "Strict ban on empty/TODO function bodies, minimum 2 statements, and real SDK connectivity."),
+    "storage":      ("Workspace Storage & Decoupled Presigned Transfers", HERE / "backend/workspace-storage/SKILL.md", "Direct presigned B2/S3 transfers, credential field protection, zero ephemeral /tmp proxying."),
+    "auth":         ("Control Plane Multi-Session Auth & Tokens", HERE / "backend/control-plane/SKILL.md", "Multi-session isolation, refresh token rotation, progressive trust tiers (T0-T4)."),
+    "api":          ("API Security Governance & 8-Gate Pipeline", HERE / "api/SKILL.md", "Canonical 8-gate request lifecycle (rate limiting, auth, validation, security headers, anti-polling)."),
+    "app-arch":     ("APP_ARCHITECTURE_SPEC Canonical Architecture", HERE / "architecture/app-architecture-spec/SKILL.md", "Canonical 40-section specification: runtime model, backend facade, plug-and-play service suites, and import boundaries."),
+    "multi-target": ("MULTI_TARGET_BUILD_SPEC & Protocol Adapters", HERE / "architecture/multi-target-build-spec/SKILL.md", "Protocol Adapters (src/backend/adapters/httpsAdapter.ts), Cloudflare Workers, and dual build pipelines."),
+    "purity":       ("File Purity Classification & Import DAG", HERE / "architecture/code-limits/SKILL.md", "Enforces P0-P3 purity grades, naming suffixes (_Pure, _Impure, _Orchestrator, _Facade), and acyclic import DAG."),
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -203,6 +152,10 @@ def advise_agent(query: str, root: Path) -> None:
     if any(k in q for k in ["subapp", "app", "project", "scaffold", "new"]):
         matched_skills.append(SKILL_MAP["structure"])
         recommended_commands.append("python3 assistant.py generate subapp subapps/[AppName] --name [AppName]")
+
+    if any(k in q for k in ["purity", "pure", "impure", "facade", "orchestrator", "dag", "import grade", "p0", "p1", "p2", "p3"]):
+        matched_skills.append(SKILL_MAP["purity"])
+        recommended_commands.append("python3 assistant.py audit [TargetDir]")
 
     if not matched_skills:
         matched_skills.append(SKILL_MAP["structure"])
@@ -335,6 +288,22 @@ def handle_validate(args: argparse.Namespace) -> None:
 
     sys.exit(exit_code)
 
+def handle_audit(args: argparse.Namespace) -> None:
+    cmd = ["python3", str(HERE / "code-purity-audit.py"), args.target or "."]
+    if args.json: cmd.append("--json")
+    if args.violations_only: cmd.append("--violations-only")
+    if args.inspect: cmd.extend(["--inspect", args.inspect])
+    exit_code = run_command(cmd, HERE)
+    if exit_code != 0:
+        print(bold("\n" + "=" * 84))
+        print(f"  {red('🚨 PURITY AUDIT FAILURES')} - Grade or DAG violations detected:")
+        print(dim("-" * 84))
+        print(f"  ➜ Naming suffixes: _Pure, _Impure, _Orchestrator, _Facade")
+        print(f"  ➜ Import DAG order: P3 → P2 → P1 → P0 (no cycles)")
+        print(f"  📖 Read: [{bold('File Purity')}](file://{SKILL_MAP['purity'][1]})")
+        print(bold("=" * 84) + "\n")
+    sys.exit(exit_code)
+
 def handle_status(root: Path) -> None:
     info = detect_environment(root)
     state_file = root / ".skipo/agent-state.json"
@@ -403,6 +372,13 @@ def main():
     # status
     subparsers.add_parser("status", help="Display environment, turn counter, and health")
 
+    # audit
+    aud_p = subparsers.add_parser("audit", help="Run purity classification audit on target")
+    aud_p.add_argument("target", nargs="?", default=".", help="Target directory to audit")
+    aud_p.add_argument("--json", action="store_true", help="Machine-readable JSON output")
+    aud_p.add_argument("--violations-only", action="store_true", help="Show only violations")
+    aud_p.add_argument("--inspect", type=str, default=None, help="Deep-inspect a single file's purity grade")
+
     args = parser.parse_args()
 
     if not args.subcommand or args.subcommand == "status":
@@ -416,6 +392,8 @@ def main():
     elif args.subcommand == "advise":
         query_str = " ".join(args.query) if isinstance(args.query, list) else str(args.query)
         advise_agent(query_str, HERE)
+    elif args.subcommand == "audit":
+        handle_audit(args)
 
 if __name__ == "__main__":
     main()
