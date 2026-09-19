@@ -23,6 +23,7 @@ SKIPO_ROOT = HERE.parent
 def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
     """Generates the full 4-plane directory tree with READMEs and barrels."""
     pascal = app_name[:1].upper() + app_name[1:]
+    camel = app_name[:1].lower() + app_name[1:]
     created: List[Path] = []
 
     planes = [
@@ -55,12 +56,20 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
     if not backend_file.exists():
         backend_content = f"""/**
  * @file {pascal}Backend.ts
- * @description Single Frontend-Backend Entrypoint Facade (APP_ARCHITECTURE_SPEC Section 4).
+ * @description Single Frontend-Backend Entrypoint Facade with WorkerExecutionBoundary.
+ * Conforms to APP_ARCHITECTURE_SPEC and SKIPO::STATE_EXECUTION_ARCHITECTURE.
  */
+
+import {{ ExecutableBackendFacade, WorkerExecutionBoundary }} from '@skipo/backend';
+
+export const {camel}BackendFacade = new ExecutableBackendFacade('{pascal}Backend');
+export const {camel}Worker = new WorkerExecutionBoundary('{pascal}Worker', {camel}BackendFacade);
 
 export const {pascal}Backend = {{
   services: {{}},
-  orchestrations: {{}}
+  orchestrations: {{}},
+  worker: {camel}Worker,
+  WorkerExecutionBoundary: {camel}Worker,
 }};
 """
         backend_file.write_text(backend_content, encoding="utf-8")
@@ -87,11 +96,21 @@ export * from './skipo/index';
             created.append(barrel)
 
     # 4. Frontend state barrels
-    for sub in ("stores", "events"):
-        barrel = target_root / "src" / "frontend-state" / sub / "index.ts"
-        if not barrel.exists():
-            barrel.write_text("// Frontend state exports\nexport {};\n", encoding="utf-8")
-            created.append(barrel)
+    stores_barrel = target_root / "src" / "frontend-state" / "stores" / "index.ts"
+    if not stores_barrel.exists():
+        stores_barrel.write_text("import { SKIPO_STATE, useSkipoState } from '@skipo/systems/state';\nexport { SKIPO_STATE, useSkipoState };\n", encoding="utf-8")
+        created.append(stores_barrel)
+
+    exec_barrel = target_root / "src" / "frontend-state" / "execution" / "index.ts"
+    exec_barrel.parent.mkdir(parents=True, exist_ok=True)
+    if not exec_barrel.exists():
+        exec_barrel.write_text("import { SKIPO_EXECUTION, useCommand } from '@skipo/systems/execution';\nexport { SKIPO_EXECUTION, useCommand };\n", encoding="utf-8")
+        created.append(exec_barrel)
+
+    events_barrel = target_root / "src" / "frontend-state" / "events" / "index.ts"
+    if not events_barrel.exists():
+        events_barrel.write_text("// Frontend state events\nexport {};\n", encoding="utf-8")
+        created.append(events_barrel)
 
     return created
 

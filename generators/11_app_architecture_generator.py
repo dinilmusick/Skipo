@@ -171,18 +171,26 @@ export const {camel}Repository = new {pascal}Repository();
 
 def _generate_full_app_files(app_name: str) -> List[GeneratedFile]:
     pascal = app_name[:1].upper() + app_name[1:]
+    camel = app_name[:1].lower() + app_name[1:]
     files = []
 
     # 1. Backend Facade: src/backend/<AppName>Backend.ts
     backend_content = f"""/**
  * @file {pascal}Backend.ts
- * @description Single Frontend-Backend Entrypoint Facade.
- * Conforms to APP_ARCHITECTURE_SPEC Sections 4, 9, 10, 28.
+ * @description Single Frontend-Backend Entrypoint Facade with WorkerExecutionBoundary.
+ * Conforms to APP_ARCHITECTURE_SPEC and SKIPO::STATE_EXECUTION_ARCHITECTURE.
  */
+
+import {{ ExecutableBackendFacade, WorkerExecutionBoundary }} from '@skipo/backend';
+
+export const {camel}BackendFacade = new ExecutableBackendFacade('{pascal}Backend');
+export const {camel}Worker = new WorkerExecutionBoundary('{pascal}Worker', {camel}BackendFacade);
 
 export const {pascal}Backend = {{
   services: {{}},
   orchestrations: {{}},
+  worker: {camel}Worker,
+  WorkerExecutionBoundary: {camel}Worker,
 }};
 """
     files.append(GeneratedFile(
@@ -210,11 +218,16 @@ export const {pascal}Backend = {{
         description="Pure functions library"
     ))
 
-    # 4. Frontend State
+    # 4. Frontend State & Execution
     files.append(GeneratedFile(
         relative_path="src/frontend-state/stores/index.ts",
-        content="// Zustand UI state stores\nexport {};\n",
-        description="Frontend state stores"
+        content="import { SKIPO_STATE, useSkipoState } from '@skipo/systems/state';\nexport { SKIPO_STATE, useSkipoState };\n",
+        description="SKIPO_STATE Zustand stores"
+    ))
+    files.append(GeneratedFile(
+        relative_path="src/frontend-state/execution/index.ts",
+        content="import { SKIPO_EXECUTION, useCommand } from '@skipo/systems/execution';\nexport { SKIPO_EXECUTION, useCommand };\n",
+        description="SKIPO_EXECUTION BullMQ command bus"
     ))
     files.append(GeneratedFile(
         relative_path="src/frontend-state/events/index.ts",

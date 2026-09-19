@@ -22,14 +22,12 @@ import {
   ConcurrencyConflictError,
   ConcurrencyManager,
   HealthMonitor,
-  IdempotencyManager,
   InProcessExecutor,
-  JobScheduler,
   LoadBalancer,
   LockManager,
   RemoteExecutor,
   createEmptyContract
-} from "./chunk-5E6JRFUH.js";
+} from "./chunk-S742FOFL.js";
 import {
   BackendClient,
   BackendResolver,
@@ -41,6 +39,18 @@ import {
   WebSocketTransport,
   createBackendClient
 } from "./chunk-NIP22V2G.js";
+import {
+  ExecutableBackendFacade,
+  JobDependencyGraph,
+  ResultFlowBridge,
+  ServiceDispatcher,
+  WorkerExecutionBoundary,
+  createOperationComponent
+} from "./chunk-PUANKFWI.js";
+import {
+  IdempotencyManager,
+  JobScheduler
+} from "./chunk-XI5PEFAO.js";
 import {
   SrklClient,
   createSrklClient,
@@ -335,12 +345,14 @@ export {
   ControlPlaneManager,
   DatabaseClusterManager,
   EventBus,
+  ExecutableBackendFacade,
   FrontendSession,
   FunctionalityTable,
   HTTPTransport,
   HealthMonitor,
   IdempotencyManager,
   InProcessExecutor,
+  JobDependencyGraph,
   JobScheduler,
   LoadBalancer,
   LocalAccountProvider,
@@ -349,17 +361,21 @@ export {
   PasswordHasher,
   RateLimiter,
   RemoteExecutor,
+  ResultFlowBridge,
   S3Adapter,
   SequenceTracker,
+  ServiceDispatcher,
   SessionManager,
   SrklClient,
   StorageAdapterFactory,
   SupabaseStorageAdapter,
   SyncEngine,
   WebSocketTransport,
+  WorkerExecutionBoundary,
   WorkspaceFS,
   createBackendClient,
   createEmptyContract,
+  createOperationComponent,
   createSSEResponse,
   createSrklClient,
   ensureS3DirectoryMarker,

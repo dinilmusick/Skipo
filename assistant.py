@@ -60,6 +60,7 @@ SKILL_MAP = {
     "multi-target": ("MULTI_TARGET_BUILD_SPEC & Protocol Adapters", HERE / "architecture/multi-target-build-spec/SKILL.md", "Protocol Adapters (src/backend/adapters/httpsAdapter.ts), Cloudflare Workers, and dual build pipelines."),
     "purity":       ("File Purity Classification & Import DAG", HERE / "architecture/code-limits/SKILL.md", "Enforces P0-P3 purity grades, naming suffixes (_Pure, _Impure, _Orchestrator, _Facade), and acyclic import DAG."),
     "libraries":    ("Skipo Isolation & Library Hydration", HERE / "architecture/SKILL.md", "Enforces Law L20: zero direct Skipo imports; base assets hydrated into src/libraries/skipo via sync-libraries."),
+    "state-exec":   ("State & Execution Architecture (Zustand + BullMQ)", HERE / "architecture/state-execution-spec/SKILL.md", "Enforces SKIPO_STATE (Zustand) with explicit lifecycles, and SKIPO_EXECUTION (BullMQ) with worker-only backend facade boundary."),
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -157,6 +158,11 @@ def advise_agent(query: str, root: Path) -> None:
     if any(k in q for k in ["purity", "pure", "impure", "facade", "orchestrator", "dag", "import grade", "p0", "p1", "p2", "p3"]):
         matched_skills.append(SKILL_MAP["purity"])
         recommended_commands.append("python3 assistant.py audit [TargetDir]")
+
+    if any(k in q for k in ["state", "execution", "zustand", "bullmq", "lifecycle", "command", "queue"]):
+        matched_skills.append(SKILL_MAP["state-exec"])
+        recommended_commands.append("python3 assistant.py validate . --aspect aspect_13")
+        recommended_commands.append("python3 assistant.py generate state-exec src/frontend-state --name [Name]")
 
     if not matched_skills:
         matched_skills.append(SKILL_MAP["structure"])

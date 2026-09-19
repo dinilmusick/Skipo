@@ -8,3 +8,4 @@ export * from './connectivity/index.js';
 export * from './client/index.js';
 export * from './srkl/index.js';
 export * from './architecture/types.js';
+export * from './execution/index.js';

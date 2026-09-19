@@ -24,13 +24,14 @@ Each validator enforces exactly one architectural pillar. Run them individually 
 | `aspect_10` | `checklists/10_app_architecture_spec_validator.py` | 4-plane structure (`src/{frontend,backend,libraries,frontend-state}`), single facade, root preservation |
 | `aspect_11` | `checklists/11_multi_target_build_spec_validator.py` | `fullstack.json`, `api.json`, `httpsAdapter.ts`, environment-agnostic orchestrations |
 | `aspect_12` | `checklists/12_serverless_deployment_limits.py` | `output: 'standalone'`, ≤50MB serverless functions, devDeps isolation, zero media in API routes |
-| **MASTER** | `checklists/full_system_validator.py` | All 12 aspects in sequence → executive scorecard → exit code |
+| `aspect_13` | `checklists/13_state_execution_governance.py` | SKIPO_STATE (Zustand) explicit lifecycles, BullMQ command boundary, Worker-only facade |
+| **MASTER** | `checklists/full_system_validator.py` | All 13 aspects in sequence → executive scorecard → exit code |
 
 ---
 
 ## 2. Spam Prompt Matrix — Full Coverage
 
-Each row below is one prompt file that can be blindly copy-pasted to a coding agent. Together they cover **all 12 validator aspects with no gaps or overlaps**. The recommended spam order runs from most structural to most specific.
+Each row below is one prompt file that can be blindly copy-pasted to a coding agent. Together they cover **all 13 validator aspects with no gaps or overlaps**. The recommended spam order runs from most structural to most specific.
 
 | Spam Order | Prompt File | Aspects Covered | Exclusive Scope |
 | :---: | :--- | :---: | :--- |
@@ -43,6 +44,7 @@ Each row below is one prompt file that can be blindly copy-pasted to a coding ag
 | **6** | [`TASK_DATA_TESTS_AND_BUILD.md`](./TASK_DATA_TESTS_AND_BUILD.md) | 05, 09, 10, 11, 12 | Real data / anti-mock, companion test authoring, 4-plane app architecture spec, multi-target build (`fullstack.json`, `api.json`, `httpsAdapter.ts`), serverless size limits. |
 | **7** | [`TASK_NODE_GRAPH_IMPLEMENTATION.md`](./TASK_NODE_GRAPH_IMPLEMENTATION.md) | Node graph | Content-driven node body (no clipping), all mouse controls (pan/zoom/drag/box-select/wire/context menu), keyboard shortcuts, socket system, bezier wire rendering, node spawning, selection, smooth pan, file decomposition. |
 | **8** | [`TASK_ROUTINE_CLEANUP_AND_DEDUPLICATION.md`](./TASK_ROUTINE_CLEANUP_AND_DEDUPLICATION.md) | Dead Code & Clones | Routine cleanup: unimported orphaned file purge, zero-usage export elimination, multi-dimensional similarity analysis ($S \ge 0.80$), canonical asset consolidation, and global reference substitution. |
+| **9** | [`TASK_STATE_EXECUTION_ARCHITECTURE.md`](./TASK_STATE_EXECUTION_ARCHITECTURE.md) | 13 | State & Execution governance: `SKIPO_STATE` (Zustand), explicit lifecycle DAG, `SKIPO_COMMAND` BullMQ boundary, Worker-only Backend Facade, and Operation Components. |
 
 
 ### How to Spam

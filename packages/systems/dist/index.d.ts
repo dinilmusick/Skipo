@@ -4,4 +4,7 @@ export { DockBar, DockItem, DockItemConfig, DockPosition, useDock } from './dock
 export { CanvasItem, CanvasViewport, InfiniteCanvas, MiniMap, Transform, useCanvas } from './canvas/index.js';
 export { EditorConfig, MonacoEditor, skipoDarkTheme, useMonaco } from './editor/index.js';
 export { AudioBusConfig, AudioDeviceDescriptor, AudioHardwareState, AudioInputManager, AudioStateListener, MidiCommandType, MidiEventListener, MidiEventPayload, MidiManager, MidiPortDescriptor, MidiStateListener, MidiSubsystemState } from './audio-midi/index.js';
+export { LifecycleCycleError, LifecycleDescriptor, LifecycleGraph, LifecycleGraphNode, LifecycleScopeType, SKIPO_STATE, SkipoStateApi, SkipoStateEngine, StateDeclaration, StateEntry, StateUpdater, useLifecycleScope, useSkipoBind, useSkipoState } from './state/index.js';
+export { BullMQAdapter, BullMQAdapterOptions, CommandBus, CommandExecutionState, EnqueueOptions, ExecutionJob, ExecutionQueueAdapter, ExecutionResult, JobPriority, JobStatus, RetryPolicy, SKIPO_EXECUTION, SkipoCommand, SkipoExecutionEngine, useCommand } from './execution/index.js';
 import 'react';
+import 'zustand/vanilla';

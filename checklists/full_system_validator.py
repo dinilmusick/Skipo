@@ -50,6 +50,7 @@ mod_09 = _load_aspect_module("mod_09", "09_test_coverage_integrity.py")
 mod_10 = _load_aspect_module("mod_10", "10_app_architecture_spec_validator.py")
 mod_11 = _load_aspect_module("mod_11", "11_multi_target_build_spec_validator.py")
 mod_12 = _load_aspect_module("mod_12", "12_serverless_deployment_limits.py")
+mod_13 = _load_aspect_module("mod_13", "13_state_execution_governance.py")
 
 ASPECT_RUNNERS = [
     ("aspect_01", "Structure & Governance", mod_01.validate_structure),
@@ -63,7 +64,8 @@ ASPECT_RUNNERS = [
     ("aspect_09", "Test Coverage Integrity", mod_09.validate_test_integrity),
     ("aspect_10", "App Architecture Spec", mod_10.validate_app_architecture_spec),
     ("aspect_11", "Multi-Target Build Spec", mod_11.validate_multi_target_build_spec),
-    ("aspect_12", "Serverless Deployment Size Limits", mod_12.validate_serverless_code_size)
+    ("aspect_12", "Serverless Deployment Size Limits", mod_12.validate_serverless_code_size),
+    ("aspect_13", "State & Execution Architecture", mod_13.validate_state_execution)
 ]
 
 def detect_validation_profile(root_dir: Path, requested: str) -> str:

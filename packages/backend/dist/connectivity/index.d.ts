@@ -1,5 +1,8 @@
-import { t as ResourceVersion, J as Job, c as BackendInstance, u as RoutingStrategy, b as BackendExecutor, k as EventBus, g as CallbackRegistry, M as Message, C as CallbackFn, f as CallbackHandle, D as Delegation, I as ITransport } from '../WebSocketTransport-CHmkJ0tj.js';
-export { A as AuthContext, B as BackendClient, a as BackendClientOptions, d as BackendResolver, e as BackendResolverOptions, h as CapabilityContext, i as DistributedLock, j as DomainProxy, E as ErrorHandler, l as EventHandler, F as FrontendSession, m as FrontendSessionOptions, G as GapHandler, H as HTTPTransport, n as HTTPTransportOptions, o as IdempotentRequest, p as JobPriority, q as JobState, r as MessageHandler, s as MessageType, R as ResolutionStrategy, S as SequenceCheckResult, v as SequenceTracker, W as WebSocketTransport, w as WebSocketTransportOptions, x as createBackendClient } from '../WebSocketTransport-CHmkJ0tj.js';
+import { g as ResourceVersion, J as Job, a as BackendInstance, h as RoutingStrategy, B as BackendExecutor, M as Message, C as CallbackHandle, D as Delegation } from '../types-BERZJ93O.js';
+export { A as AuthContext, b as CapabilityContext, c as DistributedLock, I as IdempotentRequest, d as JobPriority, e as JobState, f as MessageType, R as ResolutionStrategy } from '../types-BERZJ93O.js';
+import { e as EventBus, d as CallbackRegistry, C as CallbackFn, I as ITransport } from '../WebSocketTransport-CxUzUfwl.js';
+export { B as BackendClient, a as BackendClientOptions, b as BackendResolver, c as BackendResolverOptions, D as DomainProxy, E as ErrorHandler, f as EventHandler, F as FrontendSession, g as FrontendSessionOptions, G as GapHandler, H as HTTPTransport, h as HTTPTransportOptions, M as MessageHandler, S as SequenceCheckResult, i as SequenceTracker, W as WebSocketTransport, j as WebSocketTransportOptions, k as createBackendClient } from '../WebSocketTransport-CxUzUfwl.js';
+export { I as IdempotencyManager } from '../IdempotencyManager-B5MjK871.js';
 
 /**
  * @file BackendContract.ts
@@ -108,21 +111,6 @@ declare class LockManager {
     release(key: string, leaseId?: string): void;
     withLock<T>(key: string, operation: () => Promise<T> | T, timeoutMs?: number): Promise<T>;
     isLocked(key: string): boolean;
-    clear(): void;
-}
-
-/**
- * @file IdempotencyManager.ts
- * @description In-flight mutation deduplication, concurrent attachment, and completed result caching.
- */
-declare class IdempotencyManager {
-    private inFlight;
-    private completedCache;
-    private ttlMs;
-    constructor(ttlMs?: number);
-    executeIdempotent<T>(idempotencyKey: string, operation: () => Promise<T>): Promise<T>;
-    has(idempotencyKey: string): boolean;
-    prune(): void;
     clear(): void;
 }
 
@@ -246,4 +234,4 @@ declare class RemoteExecutor implements BackendExecutor {
     getTransport(): ITransport;
 }
 
-export { type BackendContract, BackendExecutor, BackendInstance, BackendRegistry, type CallbackDefinition, CallbackFn, CallbackHandle, CallbackRegistry, ConcurrencyConflictError, ConcurrencyManager, Delegation, type DomainContract, EventBus, type EventDefinition, HealthMonitor, ITransport, IdempotencyManager, InProcessExecutor, Job, type JobDefinition, type JobHandler, JobScheduler, LoadBalancer, LockManager, Message, type OperationDefinition, RemoteExecutor, type RemoteExecutorOptions, ResourceVersion, RoutingStrategy, createEmptyContract };
+export { type BackendContract, BackendExecutor, BackendInstance, BackendRegistry, type CallbackDefinition, CallbackFn, CallbackHandle, CallbackRegistry, ConcurrencyConflictError, ConcurrencyManager, Delegation, type DomainContract, EventBus, type EventDefinition, HealthMonitor, ITransport, InProcessExecutor, Job, type JobDefinition, type JobHandler, JobScheduler, LoadBalancer, LockManager, Message, type OperationDefinition, RemoteExecutor, type RemoteExecutorOptions, ResourceVersion, RoutingStrategy, createEmptyContract };

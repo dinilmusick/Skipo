@@ -123,3 +123,13 @@ export const service: ServiceDefinition = { ... };
 For universal deployment to Google AI Studio, Project IDX, and Vercel:
 - In **Vite** apps: `index.html` **MUST** remain directly in the project root pointing to `/src/main.tsx`.
 - In **Next.js** apps: `package.json` and `next.config.ts` **MUST** remain directly in the project root.
+
+---
+
+## 6. STATE & EXECUTION ARCHITECTURE (SKIPO_STATE & SKIPO_EXECUTION)
+
+- **Frontend State**: Backed by `SKIPO_STATE` (Zustand). All components bind to explicit lifecycles (`COMPONENT`, `PAGE`, `APP`, `DEPENDENCY`). Zero React `useState` for application data; zero prop drilling.
+- **Frontend Execution**: Every backend-bound operation dispatched as a `SKIPO_COMMAND` into `BullMQ`.
+- **Backend Boundary**: `DIRECT_COMPONENT -> BACKEND_FACADE` is strictly **FORBIDDEN**. Only `WORKER -> BACKEND_FACADE` is permitted. Facade delegates to `SERVICES` and deterministic `OPERATION_COMPONENTS`.
+- **Result Flow**: `operation -> service -> facade -> worker -> job_result -> frontend_state_update -> Zustand`.
+- For full specification, see [`state-execution-spec/SKILL.md`](../state-execution-spec/SKILL.md).

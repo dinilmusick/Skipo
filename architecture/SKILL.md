@@ -16,6 +16,7 @@ $$\text{Route}(\tau) = \arg\max_{s \in \mathcal{S}_{\text{arch}}} |\text{Keyword
 | [`skeleton-components/SKILL.md`](./skeleton-components/SKILL.md) | Inheritance (Skeleton) vs Composition (Component) |
 | [`code-limits/SKILL.md`](./code-limits/SKILL.md) | $\le 200$L/file, $\le 30$L helpers, $\le 20$L orchestrators |
 | [`sub-app-engine/SKILL.md`](./sub-app-engine/SKILL.md) | Drag-and-drop zero-server engine (`subapp.json`, `register.ts`) |
+| [`state-execution-spec/SKILL.md`](./state-execution-spec/SKILL.md) | State & Execution: Zustand + Lifecycle Graph, BullMQ Queue, Worker Boundary, Facade |
 | [`app-architecture-spec/SKILL.md`](./app-architecture-spec/SKILL.md) | 40-section canonical spec: runtime model, facade, service layers, import purity |
 | [`multi-target-build-spec/SKILL.md`](./multi-target-build-spec/SKILL.md) | Multi-Target build specification: Protocol Adapters (`httpsAdapter.ts`), Cloudflare Workers & Vercel |
 | [`../api/SKILL.md`](../api/SKILL.md) | Canonical 8-Gate Pipeline (`createSecureRoute`), rate limit |
@@ -23,6 +24,9 @@ $$\text{Route}(\tau) = \arg\max_{s \in \mathcal{S}_{\text{arch}}} |\text{Keyword
 ```python
 def route_arch(intent: str) -> str:
     routes = {
+        "state": "state-execution-spec/SKILL.md", "bullmq": "state-execution-spec/SKILL.md",
+        "lifecycle": "state-execution-spec/SKILL.md", "execution": "state-execution-spec/SKILL.md",
+        "zustand": "state-execution-spec/SKILL.md", "command": "state-execution-spec/SKILL.md",
         "multi-target": "multi-target-build-spec/SKILL.md", "adapter": "multi-target-build-spec/SKILL.md",
         "worker": "multi-target-build-spec/SKILL.md", "target": "multi-target-build-spec/SKILL.md",
         "app-arch": "app-architecture-spec/SKILL.md", "runtime": "app-architecture-spec/SKILL.md",
