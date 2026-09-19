@@ -648,18 +648,33 @@ export function NodeCard({{
   onSocketMouseUp,
   onSocketNudgeChange
 }}: NodeCardProps) {{
-  const width = node.width ?? 130;
-  const height = node.height ?? 130;
+  const cardRef = React.useRef<HTMLDivElement>(null);
+  const [measuredHeight, setMeasuredHeight] = React.useState<number>(node.height ?? 130);
+
+  React.useLayoutEffect(() => {{
+    if (cardRef.current) {{
+      const rect = cardRef.current.getBoundingClientRect();
+      if (rect.height && Math.abs(rect.height - measuredHeight) > 1) {{
+        setMeasuredHeight(rect.height);
+      }}
+    }}
+  }});
+
+  const minWidth = node.width ?? 130;
+  const minHeight = node.height ?? 130;
   const isLong = (node.label || '').length > 11;
 
   return (
     <div
+      ref={{cardRef}}
       style={{{{
         position: 'absolute',
         left: node.position.x,
         top: node.position.y,
-        width,
-        height,
+        minWidth,
+        width: node.width ? `${{node.width}}px` : 'max-content',
+        minHeight,
+        height: 'auto',
         userSelect: 'none'
       }}}}
       onMouseDown={{(e) => onMouseDown?.(e, node.id)}}
@@ -672,49 +687,50 @@ export function NodeCard({{
         }}
       `}}</style>
 
-      {{/* Bounded Node Body: Anti-spill with overflow:hidden and edge border */}}
+      {{/* Perimeter Bounded Node Body: Natural Content-Driven Expansion */}}
       <div
         style={{{{
           width: '100%',
+          minHeight,
           height: '100%',
+          position: 'relative',
           display: 'flex',
           flexDirection: 'column',
           backgroundColor: 'var(--skipo-surface, rgba(25, 25, 25, 0.92))',
           border: `2px solid ${{selected ? 'var(--skipo-accent, #d4af37)' : 'var(--skipo-border, #333)'}}`,
           borderRadius: '8px',
-          overflow: 'hidden',
+          overflow: 'visible',
           boxSizing: 'border-box'
         }}}}
       >
-        {{/* Top 2/3rd Portion: Emblem */}}
+        {{/* Top Portion: Emblem */}}
         <div
           style={{{{
-            flex: '2 1 66.7%',
-            height: '66.7%',
+            flex: '1 0 auto',
+            minHeight: '84px',
             width: '100%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             background: 'radial-gradient(circle at center, rgba(255,255,255,0.06) 0%, transparent 72%)',
-            overflow: 'hidden'
+            padding: '12px'
           }}}}
         >
           {{renderEmblem(node.type)}}
         </div>
 
-        {{/* Bottom 1/3rd Portion: Small Text Area with RTL Auto-Scroll */}}
+        {{/* Bottom Content Area: Natural Height Text & Child Info */}}
         <div
           style={{{{
-            flex: '1 1 33.3%',
-            height: '33.3%',
+            flex: '0 0 auto',
+            minHeight: '38px',
             width: '100%',
             borderTop: '1px solid var(--skipo-border, #333)',
             backgroundColor: 'rgba(0,0,0,0.35)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '0 4px',
-            overflow: 'hidden',
+            padding: '6px 8px',
             boxSizing: 'border-box'
           }}}}
         >
@@ -738,12 +754,12 @@ export function NodeCard({{
       </div>
 
       {{node.inputs?.map((socket, idx) => (
-        <div key={{socket.id}} style={{{{ position: 'absolute', left: 0, top: `${{(idx + 1) * height / ((node.inputs?.length ?? 1) + 1)}}px`, transform: 'translate(-50%, -50%)', zIndex: 10 }}}}>
+        <div key={{socket.id}} style={{{{ position: 'absolute', left: 0, top: `${{((idx + 1) * measuredHeight) / ((node.inputs?.length ?? 1) + 1)}}px`, transform: 'translate(-50%, -50%)', zIndex: 10 }}}}>
           <MovableSocketHandle socket={{socket}} nodeId={{node.id}} isOutput={{false}} onSocketMouseDown={{onSocketMouseDown}} onSocketMouseUp={{onSocketMouseUp}} onSocketNudgeChange={{onSocketNudgeChange}} />
         </div>
       ))}}
       {{node.outputs?.map((socket, idx) => (
-        <div key={{socket.id}} style={{{{ position: 'absolute', left: '100%', top: `${{(idx + 1) * height / ((node.outputs?.length ?? 1) + 1)}}px`, transform: 'translate(-50%, -50%)', zIndex: 10 }}}}>
+        <div key={{socket.id}} style={{{{ position: 'absolute', left: '100%', top: `${{((idx + 1) * measuredHeight) / ((node.outputs?.length ?? 1) + 1)}}px`, transform: 'translate(-50%, -50%)', zIndex: 10 }}}}>
           <MovableSocketHandle socket={{socket}} nodeId={{node.id}} isOutput={{true}} onSocketMouseDown={{onSocketMouseDown}} onSocketMouseUp={{onSocketMouseUp}} onSocketNudgeChange={{onSocketNudgeChange}} />
         </div>
       ))}}

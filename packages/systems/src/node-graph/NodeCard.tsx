@@ -1,5 +1,5 @@
 'use client';
-import type React from 'react';
+import React, { useRef, useState, useLayoutEffect } from 'react';
 import type { GraphNode } from './types.js';
 import { MovableSocketView } from './MovableSocketView.js';
 
@@ -18,9 +18,7 @@ function renderNodeEmblem(type: string) {
   if (t.includes('entity') || t.includes('system')) {
     return (
       <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="var(--skipo-accent, #d4af37)" strokeWidth="1.8">
-        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-        <line x1="12" y1="22.08" x2="12" y2="12" />
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" />
       </svg>
     );
   }
@@ -34,127 +32,97 @@ function renderNodeEmblem(type: string) {
   if (t.includes('data') || t.includes('state') || t.includes('db')) {
     return (
       <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#98c379" strokeWidth="1.8">
-        <ellipse cx="12" cy="5" rx="9" ry="3" />
-        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+        <ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
       </svg>
     );
   }
   return (
     <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="var(--skipo-accent, #61afef)" strokeWidth="1.8">
-      <rect x="3" y="3" width="18" height="18" rx="3" />
-      <circle cx="12" cy="12" r="4" />
+      <rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="12" cy="12" r="4" />
     </svg>
   );
 }
 
 export function NodeCard({
-  node,
-  selected,
-  onMouseDown,
-  onDoubleClick,
-  onSocketMouseDown,
-  onSocketMouseUp,
-  onSocketNudgeChange
+  node, selected, onMouseDown, onDoubleClick,
+  onSocketMouseDown, onSocketMouseUp, onSocketNudgeChange
 }: NodeCardProps) {
-  const width = node.width ?? 130;
-  const height = node.height ?? 130;
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [measuredHeight, setMeasuredHeight] = useState<number>(node.height ?? 130);
+
+  useLayoutEffect(() => {
+    if (cardRef.current) {
+      const rect = cardRef.current.getBoundingClientRect();
+      if (rect.height && Math.abs(rect.height - measuredHeight) > 1) {
+        setMeasuredHeight(rect.height);
+      }
+    }
+  });
+
+  const minWidth = node.width ?? 130;
+  const minHeight = node.height ?? 130;
   const isLongText = (node.label || '').length > 11;
 
   return (
     <div
+      ref={cardRef}
       style={{
-        position: 'absolute',
-        left: node.position.x,
-        top: node.position.y,
-        width,
-        height,
-        userSelect: 'none'
+        position: 'absolute', left: node.position.x, top: node.position.y,
+        minWidth, width: node.width ? `${node.width}px` : 'max-content',
+        minHeight, height: 'auto', userSelect: 'none'
       }}
       onMouseDown={(e) => onMouseDown?.(e, node.id)}
       onDoubleClick={() => onDoubleClick?.(node.id)}
     >
       <style>{`
-        @keyframes skipo-marquee-rtl {
-          0% { transform: translateX(0%); }
-          100% { transform: translateX(-50%); }
-        }
+        @keyframes skipo-marquee-rtl { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
       `}</style>
 
-      {/* Perimeter Bounded Node Body: Anti-spill with overflow:hidden and border */}
+      {/* Perimeter Bounded Node Body: Natural Content-Driven Expansion */}
       <div
         style={{
-          width: '100%',
-          height: '100%',
-          position: 'relative',
-          display: 'flex',
-          flexDirection: 'column',
+          width: '100%', minHeight, height: '100%', position: 'relative',
+          display: 'flex', flexDirection: 'column',
           backgroundColor: 'var(--skipo-surface, rgba(25, 25, 25, 0.92))',
           backdropFilter: 'blur(10px)',
           border: `2px solid ${selected ? 'var(--skipo-accent, #d4af37)' : 'var(--skipo-border, #333)'}`,
           borderRadius: '8px',
           boxShadow: selected ? '0 0 16px rgba(212, 175, 55, 0.45)' : '0 4px 10px rgba(0,0,0,0.4)',
-          overflow: 'hidden',
-          boxSizing: 'border-box'
+          overflow: 'visible', boxSizing: 'border-box'
         }}
       >
-        {/* Top 2/3rd Portion: Scaled Icon Emblem */}
+        {/* Top Portion: Scaled Icon Emblem */}
         <div
           style={{
-            flex: '2 1 66.7%',
-            height: '66.7%',
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative',
+            flex: '1 0 auto', minHeight: '84px', width: '100%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
             background: 'radial-gradient(circle at center, rgba(255,255,255,0.06) 0%, transparent 72%)',
-            overflow: 'hidden'
+            padding: '12px'
           }}
         >
           {renderNodeEmblem(node.type)}
         </div>
 
-        {/* Bottom 1/3rd Portion: Small Text Area with RTL Auto-Scroll */}
+        {/* Bottom Content Area: Natural Height Text & Child Info */}
         <div
           style={{
-            flex: '1 1 33.3%',
-            height: '33.3%',
-            width: '100%',
+            flex: '0 0 auto', minHeight: '38px', width: '100%',
             borderTop: '1px solid var(--skipo-border, #333)',
             backgroundColor: 'rgba(0, 0, 0, 0.35)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '0 4px',
-            overflow: 'hidden',
-            boxSizing: 'border-box'
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '6px 8px', boxSizing: 'border-box'
           }}
         >
-          <div
-            style={{
-              width: '100%',
-              overflow: 'hidden',
-              display: 'flex',
-              justifyContent: isLongText ? 'flex-start' : 'center'
-            }}
-          >
+          <div style={{ width: '100%', overflow: 'hidden', display: 'flex', justifyContent: isLongText ? 'flex-start' : 'center' }}>
             <div
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                whiteSpace: 'nowrap',
-                fontSize: '11px',
-                fontWeight: 600,
-                color: 'var(--skipo-text, #fff)',
-                letterSpacing: '0.02em',
-                animation: isLongText ? 'skipo-marquee-rtl 6s linear infinite' : 'none'
+                display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap',
+                fontSize: '11px', fontWeight: 600, color: 'var(--skipo-text, #fff)',
+                letterSpacing: '0.02em', animation: isLongText ? 'skipo-marquee-rtl 6s linear infinite' : 'none'
               }}
             >
               <span>{node.label}</span>
-              {isLongText && (
-                <span style={{ paddingLeft: '16px', opacity: 0.8 }}>• {node.label}</span>
-              )}
+              {isLongText && <span style={{ paddingLeft: '16px', opacity: 0.8 }}>• {node.label}</span>}
             </div>
           </div>
         </div>
@@ -163,16 +131,11 @@ export function NodeCard({
       {/* Input Sockets along Left Outer Border */}
       {node.inputs?.map((socket, idx) => {
         const total = node.inputs?.length ?? 1;
-        const topOffset = total === 1 ? height * 0.45 : (height * 0.25) + idx * 24;
+        const topOffset = total === 1 ? measuredHeight * 0.5 : (measuredHeight * 0.25) + idx * 24;
         return (
           <MovableSocketView
-            key={socket.id}
-            nodeId={node.id}
-            socket={socket}
-            topOffset={topOffset}
-            onMouseDown={onSocketMouseDown}
-            onMouseUp={onSocketMouseUp}
-            onSocketNudgeChange={onSocketNudgeChange}
+            key={socket.id} nodeId={node.id} socket={socket} topOffset={topOffset}
+            onMouseDown={onSocketMouseDown} onMouseUp={onSocketMouseUp} onSocketNudgeChange={onSocketNudgeChange}
           />
         );
       })}
@@ -180,17 +143,11 @@ export function NodeCard({
       {/* Output Sockets along Right Outer Border */}
       {node.outputs?.map((socket, idx) => {
         const total = node.outputs?.length ?? 1;
-        const topOffset = total === 1 ? height * 0.45 : (height * 0.25) + idx * 24;
+        const topOffset = total === 1 ? measuredHeight * 0.5 : (measuredHeight * 0.25) + idx * 24;
         return (
           <MovableSocketView
-            key={socket.id}
-            nodeId={node.id}
-            socket={socket}
-            isRight
-            topOffset={topOffset}
-            onMouseDown={onSocketMouseDown}
-            onMouseUp={onSocketMouseUp}
-            onSocketNudgeChange={onSocketNudgeChange}
+            key={socket.id} nodeId={node.id} socket={socket} isRight topOffset={topOffset}
+            onMouseDown={onSocketMouseDown} onMouseUp={onSocketMouseUp} onSocketNudgeChange={onSocketNudgeChange}
           />
         );
       })}

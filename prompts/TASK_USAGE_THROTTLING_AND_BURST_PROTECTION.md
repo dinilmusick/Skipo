@@ -3,7 +3,12 @@
 $$\text{INVARIANT}: \text{ANTI\_BURST} \equiv \text{CircuitBreaker}_{4xx} \wedge \text{BackoffJitter}_{\ge 5s \dots 120s} \wedge \text{EventSourceClose}_{\text{native}} \wedge \text{DebouncedMutations}_{\ge 1000\text{ms}} \wedge \text{VisibilityPause}$$
 $$\text{PRIORITY}: \text{Resource Throttling \& Self-DoS Prevention} \succ \text{New Features} \succ \text{Cosmetics}$$
 
+> **EXCLUSIVE SCOPE**: This prompt owns **client-side polling controls, stream reconnection circuit-breakers, debounce invariants, and burst pattern elimination**. The 8-gate `createSecureRoute` wrapper belongs to `TASK_SECURITY_AND_SESSION_INFRASTRUCTURE.md` — do NOT re-implement it here. Run the security prompt first, this prompt second.
+>
+> **Validator**: `python3 assistant.py validate . --aspect aspect_08`
+
 ---
+
 
 ## 0. PURPOSE & ACTIVATION CONTEXT
 

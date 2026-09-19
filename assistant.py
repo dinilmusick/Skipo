@@ -361,6 +361,18 @@ def handle_edit(args: argparse.Namespace) -> None:
         cmd.append("--json")
     sys.exit(run_command(cmd, HERE))
 
+def handle_cleanup(args: argparse.Namespace) -> None:
+    cmd = ["python3", str(HERE / "scripts/routine_cleanup_engine.py"), args.target or "."]
+    if args.threshold != 0.80:
+        cmd.extend(["--threshold", str(args.threshold)])
+    if args.scan_unused:
+        cmd.append("--scan-unused")
+    if args.scan_similar:
+        cmd.append("--scan-similar")
+    if args.json:
+        cmd.append("--json")
+    sys.exit(run_command(cmd, HERE))
+
 def handle_status(root: Path) -> None:
     info = detect_environment(root)
     state_file = root / ".skipo/agent-state.json"
@@ -448,7 +460,13 @@ def main():
     sync_p.add_argument("target", nargs="?", default="", help="Target project root directory")
     sync_p.add_argument("--dry-run", action="store_true", help="Preview sync operations without writing")
     sync_p.add_argument("--auto-fix", action="store_true", help="Automatically rewrite direct Skipo imports to @/libraries/skipo")
-    sync_p.add_argument("--strict", action="store_true", help="Exit with code 1 if direct Skipo imports are detected")
+    # cleanup: routine codebase cleanup and asset similarity scanner
+    clean_p = subparsers.add_parser("cleanup", help="Run routine dead code & asset similarity cleanup scan")
+    clean_p.add_argument("target", nargs="?", default=".", help="Target directory to audit")
+    clean_p.add_argument("--threshold", "-t", type=float, default=0.80, help="Similarity threshold (0.0 to 1.0, default: 0.80)")
+    clean_p.add_argument("--scan-unused", action="store_true", help="Scan only for unused/orphaned files & exports")
+    clean_p.add_argument("--scan-similar", action="store_true", help="Scan only for similar/redundant candidate code clones")
+    clean_p.add_argument("--json", action="store_true", help="Machine-readable JSON output")
 
     args = parser.parse_args()
 
@@ -469,6 +487,9 @@ def main():
         handle_audit(args)
     elif args.subcommand == "edit":
         handle_edit(args)
+    elif args.subcommand == "cleanup":
+        handle_cleanup(args)
+
 
 if __name__ == "__main__":
     main()

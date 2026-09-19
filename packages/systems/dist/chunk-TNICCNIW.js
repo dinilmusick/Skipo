@@ -153,6 +153,9 @@ function WireRenderer({ edges, nodesData, config: _config, onDeleteEdge, connect
   ] });
 }
 
+// src/node-graph/NodeCard.tsx
+import { useRef as useRef2, useState as useState2, useLayoutEffect } from "react";
+
 // src/node-graph/MovableSocketView.tsx
 import { useState, useRef } from "react";
 
@@ -354,34 +357,45 @@ function NodeCard({
   onSocketMouseUp,
   onSocketNudgeChange
 }) {
-  const width = node.width ?? 130;
-  const height = node.height ?? 130;
+  const cardRef = useRef2(null);
+  const [measuredHeight, setMeasuredHeight] = useState2(node.height ?? 130);
+  useLayoutEffect(() => {
+    if (cardRef.current) {
+      const rect = cardRef.current.getBoundingClientRect();
+      if (rect.height && Math.abs(rect.height - measuredHeight) > 1) {
+        setMeasuredHeight(rect.height);
+      }
+    }
+  });
+  const minWidth = node.width ?? 130;
+  const minHeight = node.height ?? 130;
   const isLongText = (node.label || "").length > 11;
   return /* @__PURE__ */ jsxs3(
     "div",
     {
+      ref: cardRef,
       style: {
         position: "absolute",
         left: node.position.x,
         top: node.position.y,
-        width,
-        height,
+        minWidth,
+        width: node.width ? `${node.width}px` : "max-content",
+        minHeight,
+        height: "auto",
         userSelect: "none"
       },
       onMouseDown: (e) => onMouseDown?.(e, node.id),
       onDoubleClick: () => onDoubleClick?.(node.id),
       children: [
         /* @__PURE__ */ jsx3("style", { children: `
-        @keyframes skipo-marquee-rtl {
-          0% { transform: translateX(0%); }
-          100% { transform: translateX(-50%); }
-        }
+        @keyframes skipo-marquee-rtl { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
       ` }),
         /* @__PURE__ */ jsxs3(
           "div",
           {
             style: {
               width: "100%",
+              minHeight,
               height: "100%",
               position: "relative",
               display: "flex",
@@ -391,7 +405,7 @@ function NodeCard({
               border: `2px solid ${selected ? "var(--skipo-accent, #d4af37)" : "var(--skipo-border, #333)"}`,
               borderRadius: "8px",
               boxShadow: selected ? "0 0 16px rgba(212, 175, 55, 0.45)" : "0 4px 10px rgba(0,0,0,0.4)",
-              overflow: "hidden",
+              overflow: "visible",
               boxSizing: "border-box"
             },
             children: [
@@ -399,15 +413,15 @@ function NodeCard({
                 "div",
                 {
                   style: {
-                    flex: "2 1 66.7%",
-                    height: "66.7%",
+                    flex: "1 0 auto",
+                    minHeight: "84px",
                     width: "100%",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     position: "relative",
                     background: "radial-gradient(circle at center, rgba(255,255,255,0.06) 0%, transparent 72%)",
-                    overflow: "hidden"
+                    padding: "12px"
                   },
                   children: renderNodeEmblem(node.type)
                 }
@@ -416,51 +430,39 @@ function NodeCard({
                 "div",
                 {
                   style: {
-                    flex: "1 1 33.3%",
-                    height: "33.3%",
+                    flex: "0 0 auto",
+                    minHeight: "38px",
                     width: "100%",
                     borderTop: "1px solid var(--skipo-border, #333)",
                     backgroundColor: "rgba(0, 0, 0, 0.35)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    padding: "0 4px",
-                    overflow: "hidden",
+                    padding: "6px 8px",
                     boxSizing: "border-box"
                   },
-                  children: /* @__PURE__ */ jsx3(
+                  children: /* @__PURE__ */ jsx3("div", { style: { width: "100%", overflow: "hidden", display: "flex", justifyContent: isLongText ? "flex-start" : "center" }, children: /* @__PURE__ */ jsxs3(
                     "div",
                     {
                       style: {
-                        width: "100%",
-                        overflow: "hidden",
-                        display: "flex",
-                        justifyContent: isLongText ? "flex-start" : "center"
+                        display: "inline-flex",
+                        alignItems: "center",
+                        whiteSpace: "nowrap",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        color: "var(--skipo-text, #fff)",
+                        letterSpacing: "0.02em",
+                        animation: isLongText ? "skipo-marquee-rtl 6s linear infinite" : "none"
                       },
-                      children: /* @__PURE__ */ jsxs3(
-                        "div",
-                        {
-                          style: {
-                            display: "inline-flex",
-                            alignItems: "center",
-                            whiteSpace: "nowrap",
-                            fontSize: "11px",
-                            fontWeight: 600,
-                            color: "var(--skipo-text, #fff)",
-                            letterSpacing: "0.02em",
-                            animation: isLongText ? "skipo-marquee-rtl 6s linear infinite" : "none"
-                          },
-                          children: [
-                            /* @__PURE__ */ jsx3("span", { children: node.label }),
-                            isLongText && /* @__PURE__ */ jsxs3("span", { style: { paddingLeft: "16px", opacity: 0.8 }, children: [
-                              "\u2022 ",
-                              node.label
-                            ] })
-                          ]
-                        }
-                      )
+                      children: [
+                        /* @__PURE__ */ jsx3("span", { children: node.label }),
+                        isLongText && /* @__PURE__ */ jsxs3("span", { style: { paddingLeft: "16px", opacity: 0.8 }, children: [
+                          "\u2022 ",
+                          node.label
+                        ] })
+                      ]
                     }
-                  )
+                  ) })
                 }
               )
             ]
@@ -468,7 +470,7 @@ function NodeCard({
         ),
         node.inputs?.map((socket, idx) => {
           const total = node.inputs?.length ?? 1;
-          const topOffset = total === 1 ? height * 0.45 : height * 0.25 + idx * 24;
+          const topOffset = total === 1 ? measuredHeight * 0.5 : measuredHeight * 0.25 + idx * 24;
           return /* @__PURE__ */ jsx3(
             MovableSocketView,
             {
@@ -484,7 +486,7 @@ function NodeCard({
         }),
         node.outputs?.map((socket, idx) => {
           const total = node.outputs?.length ?? 1;
-          const topOffset = total === 1 ? height * 0.45 : height * 0.25 + idx * 24;
+          const topOffset = total === 1 ? measuredHeight * 0.5 : measuredHeight * 0.25 + idx * 24;
           return /* @__PURE__ */ jsx3(
             MovableSocketView,
             {
@@ -524,12 +526,12 @@ function getNodesInSelection(startX, startY, endX, endY, nodes, viewport) {
 }
 
 // src/node-graph/useNodeGraph.ts
-import { useState as useState2, useCallback } from "react";
+import { useState as useState3, useCallback } from "react";
 function useNodeGraph(initialNodes = [], initialEdges = []) {
-  const [nodes, setNodes] = useState2(initialNodes);
-  const [edges, setEdges] = useState2(initialEdges);
-  const [viewport, setViewport] = useState2({ panX: 0, panY: 0, zoom: 1 });
-  const [selectedNodeIds, setSelectedNodeIds] = useState2(/* @__PURE__ */ new Set());
+  const [nodes, setNodes] = useState3(initialNodes);
+  const [edges, setEdges] = useState3(initialEdges);
+  const [viewport, setViewport] = useState3({ panX: 0, panY: 0, zoom: 1 });
+  const [selectedNodeIds, setSelectedNodeIds] = useState3(/* @__PURE__ */ new Set());
   const addNode = useCallback((node) => {
     setNodes((prev) => [...prev, node]);
   }, []);
@@ -567,9 +569,9 @@ function useNodeGraph(initialNodes = [], initialEdges = []) {
     setViewport(data.viewport || { panX: 0, panY: 0, zoom: 1 });
     setSelectedNodeIds(/* @__PURE__ */ new Set());
   }, []);
-  const [focusedNodeId, setFocusedNodeId] = useState2(null);
-  const [isDetailsOpen, setIsDetailsOpen] = useState2(false);
-  const [isDetailsPinned, setIsDetailsPinned] = useState2(false);
+  const [focusedNodeId, setFocusedNodeId] = useState3(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState3(false);
+  const [isDetailsPinned, setIsDetailsPinned] = useState3(false);
   const openDetails = useCallback((nodeId) => {
     setFocusedNodeId(nodeId);
     setIsDetailsOpen(true);
@@ -615,10 +617,10 @@ function useNodeGraph(initialNodes = [], initialEdges = []) {
 }
 
 // src/node-graph/NodeGraphCanvas.tsx
-import { useRef as useRef2, useState as useState5, useEffect, useCallback as useCallback2 } from "react";
+import { useRef as useRef3, useState as useState6, useEffect, useCallback as useCallback2 } from "react";
 
 // src/node-graph/ui/widgets/CompatibleNodePicker.tsx
-import { useState as useState3, useMemo } from "react";
+import { useState as useState4, useMemo } from "react";
 
 // src/node-graph/rules/CompatibilityMatrix.ts
 var CompatibilityMatrix = class {
@@ -907,8 +909,8 @@ function CompatibleNodePicker({
   onSelect,
   onClose
 }) {
-  const [selectedTypes, setSelectedTypes] = useState3(/* @__PURE__ */ new Set());
-  const [searchTerm, setSearchTerm] = useState3("");
+  const [selectedTypes, setSelectedTypes] = useState4(/* @__PURE__ */ new Set());
+  const [searchTerm, setSearchTerm] = useState4("");
   const compatibleNodes = useMemo(() => {
     const isOut = sourceHandle.direction === "output";
     return ConnectionRuleStore.getCompatibleNodeTypes(
@@ -1032,7 +1034,7 @@ function CompatibleNodePicker({
 }
 
 // src/node-graph/ui/widgets/NodeSearchPalette.tsx
-import { useState as useState4, useMemo as useMemo2 } from "react";
+import { useState as useState5, useMemo as useMemo2 } from "react";
 import { useSearchKeyboardNavigation as useSearchKeyboardNavigation2, BaseButton as BaseButton2, BaseInput as BaseInput2 } from "@skipo/ui";
 import { jsx as jsx5, jsxs as jsxs5 } from "react/jsx-runtime";
 function NodeSearchPalette({
@@ -1042,7 +1044,7 @@ function NodeSearchPalette({
   onSpawnNode,
   onClose
 }) {
-  const [query, setQuery] = useState4("");
+  const [query, setQuery] = useState5("");
   const filteredNodes = useMemo2(() => {
     if (!availableNodeTypes || availableNodeTypes.length === 0) {
       return [{ type: "default", label: "Default Node", description: "Standard dual-port node" }];
@@ -1346,12 +1348,12 @@ function NodeGraphCanvas({
   onViewportChange,
   onSelectionChange
 }) {
-  const containerRef = useRef2(null);
-  const [isPanning, setIsPanning] = useState5(false);
-  const [dragNodeId, setDragNodeId] = useState5(null);
-  const nodeMouseDownPos = useRef2(null);
-  const hasDraggedNode = useRef2(false);
-  const animFrameRef = useRef2(null);
+  const containerRef = useRef3(null);
+  const [isPanning, setIsPanning] = useState6(false);
+  const [dragNodeId, setDragNodeId] = useState6(null);
+  const nodeMouseDownPos = useRef3(null);
+  const hasDraggedNode = useRef3(false);
+  const animFrameRef = useRef3(null);
   const smoothPanTo = useCallback2((targetX, targetY) => {
     if (!onViewportChange) return;
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
@@ -1381,12 +1383,12 @@ function NodeGraphCanvas({
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
   }, []);
-  const [boxSelection, setBoxSelection] = useState5(null);
-  const [connecting, setConnecting] = useState5(null);
-  const [pickerState, setPickerState] = useState5(null);
-  const [contextMenu, setContextMenu] = useState5(null);
-  const [spawnMenuState, setSpawnMenuState] = useState5(null);
-  const lastMousePos = useRef2({ screenX: 0, screenY: 0 });
+  const [boxSelection, setBoxSelection] = useState6(null);
+  const [connecting, setConnecting] = useState6(null);
+  const [pickerState, setPickerState] = useState6(null);
+  const [contextMenu, setContextMenu] = useState6(null);
+  const [spawnMenuState, setSpawnMenuState] = useState6(null);
+  const lastMousePos = useRef3({ screenX: 0, screenY: 0 });
   useEffect(() => {
     if (!ConnectionRuleStore.isInitialized()) ConnectionRuleStore.initializeDefaults();
   }, []);
@@ -2949,7 +2951,7 @@ var ReactFlowAdapter = class {
 };
 
 // src/node-graph/Viewer2DNodes.tsx
-import { useState as useState6, useRef as useRef3 } from "react";
+import { useState as useState7, useRef as useRef4 } from "react";
 import { jsx as jsx12, jsxs as jsxs11 } from "react/jsx-runtime";
 function Viewer2DNodes({
   node,
@@ -3063,12 +3065,12 @@ function MovableSocketHandle({
   onSocketMouseDown,
   onSocketNudgeChange
 }) {
-  const [isHovered, setIsHovered] = useState6(false);
-  const [localNudge, setLocalNudge] = useState6(
+  const [isHovered, setIsHovered] = useState7(false);
+  const [localNudge, setLocalNudge] = useState7(
     socket.offset ?? { x: 0, y: 0 }
   );
-  const isDraggingGizmoRef = useRef3(false);
-  const dragStartPosRef = useRef3({
+  const isDraggingGizmoRef = useRef4(false);
+  const dragStartPosRef = useRef4({
     clientX: 0,
     clientY: 0,
     origX: 0,

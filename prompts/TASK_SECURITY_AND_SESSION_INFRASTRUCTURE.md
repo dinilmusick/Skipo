@@ -3,7 +3,12 @@
 $$\text{INVARIANT}: \text{APP\_SECURITY} \equiv \text{GatePipeline}_8 \wedge \text{MultiSessionStorage} \wedge \text{TokenRotation}_{\text{theft-safe}} \wedge \text{ProgressiveTrust}_{T_0 \to T_4}$$
 $$\text{PRIORITY}: \text{Security \& Session Infrastructure} \succ \text{New Feature Logic} \succ \text{UI Layout}$$
 
+> **EXCLUSIVE SCOPE**: This prompt owns **auth session infrastructure, token rotation, trust tiers, and the 8-gate `createSecureRoute` wrapper structure**. For burst-protection and client-side polling limits, use `TASK_USAGE_THROTTLING_AND_BURST_PROTECTION.md` instead. Do NOT apply both simultaneously — they are sequential: run this prompt first, then the throttling prompt.
+>
+> **Validator**: `python3 assistant.py validate . --aspect aspect_08`
+
 ---
+
 
 ## 0. PURPOSE & ACTIVATION CONTEXT
 

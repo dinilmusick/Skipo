@@ -1,8 +1,11 @@
 # TASK: BACKEND_AND_STORAGE_PROTOCOL (PURE_FILESYSTEM_WORKSPACE_STORAGE)
-$ARCH := \text{ControlPlane (Auth Only)} \otimes \text{WorkspaceStorage (Filesystem Only)} \otimes \text{AppLogic}
-ASSERT(\text{WorkspaceData} \equiv \text{FilesystemHierarchy}) \quad \land \quad ASSERT(\text{WorkspaceData} \cap \text{SQL/NoSQL Database} = \emptyset)
+$ARCH := \text{ControlPlane (Auth Only)} \otimes \text{WorkspaceStorage (Filesystem Only)} \otimes \text{AppLogic}$
+$ASSERT(\text{WorkspaceData} \equiv \text{FilesystemHierarchy}) \quad \land \quad ASSERT(\text{WorkspaceData} \cap \text{SQL/NoSQL Database} = \emptyset)$
 
-## 0. MANDATORY ARCHITECTURAL PRINCIPLES (MUST READ FIRST)
+> **EXCLUSIVE SCOPE**: This prompt owns **workspace filesystem storage, multi-cloud adapters (Local FS, B2, R2, S3), `WorkspaceFS`, `SyncEngine`, and Control Plane database separation**. Auth token sessions belong to `TASK_SECURITY_AND_SESSION_INFRASTRUCTURE.md`.
+>
+> **Validator**: `python3 assistant.py validate . --aspect aspect_07`
+
 1. **NO DATABASES FOR USER WORKSPACES**:
    - User workspace data (documents, projects, settings, notes, tracks, media) MUST NEVER use database engines (No SQLite, No PostgreSQL, No MongoDB, No Turso, No DynamoDB).
    - User workspace data is **STRICTLY FILE-BASED**, organized in directories and files (`.json`, `.md`, binary files) mimicking a local filesystem.

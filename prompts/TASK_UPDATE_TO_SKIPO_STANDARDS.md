@@ -1,9 +1,24 @@
 # TASK: UPDATE_CODEBASE_TO_SKIPO_STANDARDS_PROTOCOL
 $$\mathcal{A}_{\text{refactored}} = \text{AlignToStandards}(\mathcal{A}_{\text{target}}, \text{Standards}(\text{Skipo/})) \quad \text{s.t.} \quad \forall \text{Law}_i \in \text{Skipo/standalone/SKILL.md}: \mathcal{A}_{\text{refactored}} \models \text{Law}_i \wedge \Delta(\text{BusinessLogic}) = 0$$
 
+> **⚡ FIRST-RUN / ONBOARDING ONLY** — Use this prompt exactly **once** when a codebase is first being brought into Skipo compliance. For ongoing iterative enforcement (spamming the agent), use the focused domain prompts instead:
+>
+> | Domain | Spam Prompt |
+> |:-------|:-----------|
+> | Codebase structure, planes, file limits | `TASK_CODEBASE_STRUCTURE_ENFORCEMENT.md` |
+> | UI components, tokens, layout shell | `TASK_UI_COMPONENT_FRONTEND.md` |
+> | Backend storage | `TASK_BACKEND_STORAGE.md` |
+> | API security & session auth | `TASK_SECURITY_AND_SESSION_INFRASTRUCTURE.md` |
+> | Burst / polling protection | `TASK_USAGE_THROTTLING_AND_BURST_PROTECTION.md` |
+> | Real data, tests, build targets | `TASK_DATA_TESTS_AND_BUILD.md` |
+> | Node graph controls & layout | `TASK_NODE_GRAPH_IMPLEMENTATION.md` |
+>
+> This prompt runs all 7 phases in sequence and is intentionally broad. Domain prompts are more surgical and safe to repeat.
+
 CRITICAL INVARIANT: Preserve all genuine business logic and capabilities ($\Delta\text{Logic} = 0$). Modernize and align architecture, UI primitives, theme tokens, layout shell, and test coverage to the newly copied `Skipo/` standards.
 
 ---
+
 
 ## 0. INGESTION, LIBRARY HYDRATION & ISOLATION PROTOCOL (MANDATORY FIRST STEP)
 
