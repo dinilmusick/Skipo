@@ -5,6 +5,9 @@ $ASSERT(\text{WorkspaceData} \equiv \text{FilesystemHierarchy}) \quad \land \qua
 > **EXCLUSIVE SCOPE**: This prompt owns **workspace filesystem storage, multi-cloud adapters (Local FS, B2, R2, S3), `WorkspaceFS`, `SyncEngine`, and Control Plane database separation**. Auth token sessions belong to `TASK_SECURITY_AND_SESSION_INFRASTRUCTURE.md`.
 >
 > **Validator**: `python3 assistant.py validate . --aspect aspect_07`
+>
+> **INVIOLABLE MANDATE: ZERO-TRACE LEGACY STORAGE PURGE ($\mathbf{L_{21}}$)**:
+> Completely purge any competing legacy storage systems found in the codebase (e.g. SQLite databases storing user docs, local mock JSON databases, bespoke S3 wrappers, or legacy file persistence modules). Leave zero trace behind. Workspace storage must strictly and exclusively run on Skipo's canonical `WorkspaceFS` and multi-cloud adapters.
 
 1. **NO DATABASES FOR USER WORKSPACES**:
    - User workspace data (documents, projects, settings, notes, tracks, media) MUST NEVER use database engines (No SQLite, No PostgreSQL, No MongoDB, No Turso, No DynamoDB).

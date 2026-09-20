@@ -1,7 +1,10 @@
 # TASK: UI_COMPONENT_AND_FRONTEND_PROTOCOL
 
-$$\text{INVARIANT}: \text{UI\_SYSTEM} \equiv \text{SkipoPrimitives} \wedge \text{ThemeTokens}_{\text{var(--skipo-*)}} \wedge \text{BottomStripInspection} \wedge \text{FloatingDetailsPanel}$$
-$$\text{LAWS}: \mathbf{L_1}, \mathbf{L_2}, \mathbf{L_9}, \mathbf{L_{12}}, \mathbf{L_{14}}, \mathbf{L_{18}}, \mathbf{L_{19}} \in \text{AGENTS.md}$$
+$$\text{INVARIANT}: \text{UI\_SYSTEM} \equiv \text{SkipoPrimitives} \wedge \text{ThemeTokens}_{\text{var(--skipo-*)}} \wedge \text{BottomStripInspection} \wedge \text{FloatingDetailsPanel} \wedge \text{ZeroLegacy}(\mathcal{P})$$
+$$\text{LAWS}: \mathbf{L_1}, \mathbf{L_2}, \mathbf{L_9}, \mathbf{L_{12}}, \mathbf{L_{14}}, \mathbf{L_{18}}, \mathbf{L_{19}}, \mathbf{L_{21}} \in \text{AGENTS.md}$$
+
+> **INVIOLABLE MANDATE: ZERO-TRACE LEGACY UI & THEME PURGE ($\mathbf{L_{21}}$)**:
+> Completely purge any competing legacy UI systems found in the codebase: bespoke raw buttons/inputs, ad-hoc dialogs, custom tab bars, floating tooltips/popovers, and custom color presets/pickers. Leave zero trace or commented-out remnants. The app must exclusively use `@skipo/ui` primitives and the canonical Theme Engine.
 
 ---
 

@@ -24,7 +24,8 @@ $$\begin{array}{ll}
 \mathbf{L_{17}} \text{ (Storage Deep-Link Transparency)} & \forall w \in \text{Workspaces}: \text{StorageOption}(w) \xrightarrow{\text{click}} (\text{RevealLocalFolder}(w) \vee \text{OpenCloudBucketConsole}(w)) \\
 \mathbf{L_{18}} \text{ (4-Word UI Text Label Cap)} & \forall t \in \text{UITextLabels}: \text{WordCount}(t) \le 4 \wedge (\text{Desc}(el) > 4 \implies \text{D+HoverOnly}) \\
 \mathbf{L_{19}} \text{ (D+Hover Description Mode)} & \text{Hover}(el) \implies (\neg \text{Key}('D') \implies \text{BottomStrip}(\text{Label}(el)) \wedge \text{Key}('D') \implies \text{BottomStrip}(\text{Desc}(el))_{\text{thin,small}}) \\
-\mathbf{L_{20}} \text{ (Skipo Isolation & Library Hydration)} & \forall f \in \text{AppCode}: \text{Imports}(f) \cap \{\text{Skipo/}, \text{@/Skipo}, \text{../Skipo}\} = \emptyset \wedge \text{BaseAssets}(f) \subset \text{src/libraries/}
+\mathbf{L_{20}} \text{ (Skipo Isolation & Library Hydration)} & \forall f \in \text{AppCode}: \text{Imports}(f) \cap \{\text{Skipo/}, \text{@/Skipo}, \text{../Skipo}\} = \emptyset \wedge \text{BaseAssets}(f) \subset \text{src/libraries/} \\
+\mathbf{L_{21}} \text{ (Zero-Trace Legacy Purge)} & \forall s_{\text{legacy}} \in \text{LegacySystems}: \text{CompetesWith}(\text{Skipo}, s_{\text{legacy}}) \implies \text{PurgeEntirely}(s_{\text{legacy}}) \wedge \text{Trace}(s_{\text{legacy}}) = \emptyset
 \end{array}$$
 
 ## 2. DETERMINISTIC AGENT EXECUTION ALGORITHM

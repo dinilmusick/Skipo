@@ -4,6 +4,9 @@ $$\text{Valid}(\mathcal{G}) \iff \text{Controls}(\mathcal{G}) \wedge \text{Layou
 
 You are a coding agent operating inside the **Skipo** codebase. Your sole job on this turn is to audit the node graph subsystem — located at `packages/systems/src/node-graph/` — against every specification below and implement every missing or incomplete behaviour. Do not stop until all controls work, no clipping occurs, and `python3 assistant.py validate .` exits with code 0.
 
+> **INVIOLABLE MANDATE: ZERO-TRACE LEGACY GRAPH PURGE ($\mathbf{L_{21}}$)**:
+> Completely purge any competing legacy node-graph implementations, unvetted SVG canvas wrappers, canvas-leaking event listeners, or deprecated wire drawing routines. Leave zero trace behind. The app must exclusively use the canonical Skipo node graph subsystem.
+
 ---
 
 ## 0. MANDATORY FIRST STEP — READ THE SPECIFICATION

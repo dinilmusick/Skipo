@@ -17,6 +17,12 @@ $$\mathcal{A}_{\text{refactored}} = \text{AlignToStandards}(\mathcal{A}_{\text{t
 
 CRITICAL INVARIANT: Preserve all genuine business logic and capabilities ($\Delta\text{Logic} = 0$). Modernize and align architecture, UI primitives, theme tokens, layout shell, and test coverage to the newly copied `Skipo/` standards.
 
+### INVIOLABLE LAW: ZERO-TRACE LEGACY SYSTEM PURGE ($\mathbf{L_{21}}$)
+Any legacy system, legacy pattern, or duplicate subsystem found in the target codebase that competes with Skipo systems (e.g. ad-hoc theming, manual color pickers, custom tabs, tooltip popovers, custom inputs/buttons, local SQLite/JSON credential caches, mock data generators, legacy state managers) **MUST BE COMPLETELY AND UNCONDITIONALLY PURGED WITH ZERO TRACE LEFT BEHIND**. 
+- Delete orphaned legacy files, obsolete types, and dead configs.
+- Never leave commented-out legacy code or deprecated duplicate abstractions.
+- Ensure the app relies 100% and solely on Skipo canonical mechanisms.
+
 ---
 
 

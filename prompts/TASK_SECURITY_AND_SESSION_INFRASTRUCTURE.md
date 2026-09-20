@@ -6,6 +6,9 @@ $$\text{PRIORITY}: \text{Security \& Session Infrastructure} \succ \text{New Fea
 > **EXCLUSIVE SCOPE**: This prompt owns **auth session infrastructure, token rotation, trust tiers, and the 8-gate `createSecureRoute` wrapper structure**. For burst-protection and client-side polling limits, use `TASK_USAGE_THROTTLING_AND_BURST_PROTECTION.md` instead. Do NOT apply both simultaneously — they are sequential: run this prompt first, then the throttling prompt.
 >
 > **Validator**: `python3 assistant.py validate . --aspect aspect_08`
+>
+> **INVIOLABLE MANDATE: ZERO-TRACE LEGACY AUTH & SECURITY PURGE ($\mathbf{L_{21}}$)**:
+> Completely purge any competing legacy authentication or route security systems found in the codebase (e.g. ad-hoc JWT helpers, local cookie auth schemes, unauthenticated API handler skeletons, or custom middleware wrappers). Zero traces or dual-running security adapters may remain. All routes must exclusively use the canonical 8-gate `createSecureRoute` pipeline and Skipo auth sessions.
 
 ---
 

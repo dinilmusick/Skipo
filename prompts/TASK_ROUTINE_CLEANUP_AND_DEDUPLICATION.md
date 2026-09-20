@@ -20,7 +20,8 @@ Activate this prompt whenever you need to perform routine hygiene on a codebase 
 1. **Purge Unused Assets**: Detect orphaned `.ts/.tsx` files that are never imported anywhere, and remove dead exported symbols with 0 call sites.
 2. **Detect Redundant Assets**: Identify duplicate or nearly identical functions, interfaces, types, and logic structures created across multiple files during fast feature iteration.
 3. **Consolidate Redundancies**: Choose or create a single canonical representation, replace all consumer call-sites across the codebase with the canonical reference, and delete the deprecated duplicate.
-4. **Preserve Invariants**: Ensure line limits ($\le 200\text{L}$), zero regressions in tests (`pnpm test`), and 100% compliance with Skipo validators (`python3 assistant.py validate .`).
+4. **Purge Competing Legacy Systems ($\mathbf{L_{21}}$)**: Completely eradicate any legacy, bespoke, or competing subsystems discovered during cleanup. Zero trace, zero commented-out code, and zero dead config files may remain.
+5. **Preserve Invariants**: Ensure line limits ($\le 200\text{L}$), zero regressions in tests (`pnpm test`), and 100% compliance with Skipo validators (`python3 assistant.py validate .`).
 
 ---
 

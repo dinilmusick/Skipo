@@ -6,6 +6,9 @@ $$\text{PRIORITY}: \text{Resource Throttling \& Self-DoS Prevention} \succ \text
 > **EXCLUSIVE SCOPE**: This prompt owns **client-side polling controls, stream reconnection circuit-breakers, debounce invariants, and burst pattern elimination**. The 8-gate `createSecureRoute` wrapper belongs to `TASK_SECURITY_AND_SESSION_INFRASTRUCTURE.md` — do NOT re-implement it here. Run the security prompt first, this prompt second.
 >
 > **Validator**: `python3 assistant.py validate . --aspect aspect_08`
+>
+> **INVIOLABLE MANDATE: ZERO-TRACE LEGACY THROTTLING & POLLING PURGE ($\mathbf{L_{21}}$)**:
+> Completely purge any competing legacy polling timers, raw unthrottled `setInterval` fetch loops, non-standard retry loops, or bespoke circuit breaker implementations. Leave zero trace behind. The codebase must exclusively use canonical Skipo backoff, jitter, and visibility-aware throttling mechanisms.
 
 ---
 

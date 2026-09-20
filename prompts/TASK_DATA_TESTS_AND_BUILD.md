@@ -12,6 +12,9 @@ $$\text{Valid}(\mathcal{P}) \iff \text{ZeroMock}(\mathcal{P}) \wedge \text{TestP
 > python3 assistant.py validate . --aspect aspect_11   # Multi-target build
 > python3 assistant.py validate . --aspect aspect_12   # Serverless limits
 > ```
+>
+> **INVIOLABLE MANDATE: ZERO-TRACE LEGACY PURGE ($\mathbf{L_{21}}$)**:
+> Completely purge any competing legacy build scripts, mock data generators/fixtures (`fixtures/mockData.ts`), ad-hoc test helpers that produce fake data, or legacy packaging pipelines. Leave zero trace behind. Applications must exclusively consume real data/empty states, canonical test suites, and Skipo multi-target build specifications.
 
 ---
 

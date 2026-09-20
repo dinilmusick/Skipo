@@ -8,6 +8,9 @@ $$\text{Valid}(\mathcal{P}) \iff \text{SkipoState}(\mathcal{P}) \wedge \text{Zus
 > ```bash
 > python3 assistant.py validate . --aspect aspect_13
 > ```
+>
+> **INVIOLABLE MANDATE: ZERO-TRACE LEGACY STATE & EXECUTION PURGE ($\mathbf{L_{21}}$)**:
+> Completely purge any competing legacy state managers (e.g. Redux, MobX, scattered unmanaged React Contexts, ad-hoc event emitters) and competing execution pipelines (e.g. in-process unthrottled queues, ad-hoc cron loops). Leave zero trace behind. The app must exclusively use `SKIPO_STATE` (Zustand) and `SKIPO_COMMAND` (BullMQ) execution boundaries.
 
 ---
 

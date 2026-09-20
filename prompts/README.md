@@ -2,6 +2,9 @@
 
 This directory contains **copy-paste-ready prompt files** for AI coding agents. Each prompt targets a specific constraint domain. Spamming the agent with these prompts repeatedly pushes the codebase progressively into full Skipo compliance.
 
+> **INVIOLABLE MANDATE: ZERO-TRACE LEGACY SYSTEM PURGE ($\mathbf{L_{21}}$)**:
+> In every task prompt and execution phase, any legacy, bespoke, or obsolete systems found in the target codebase that compete with, duplicate, or bypass Skipo systems (e.g. ad-hoc theming/color pickers, custom tabs/tooltips, local SQLite/JSON credentials, mock data generators, custom unstyled buttons/inputs, or old state managers) **MUST BE COMPLETELY AND UNCONDITIONALLY PURGED WITH ZERO TRACE LEFT BEHIND**. No commented-out legacy code, no deprecated adapters, and no dual-running systems are tolerated. The Skipo canonical implementation must be the sole mechanism.
+
 All code generation and refactoring operations are verified by executable Python 3 validators in `checklists/` and run via `assistant.py validate .`.
 
 ---
@@ -45,6 +48,7 @@ Each row below is one prompt file that can be blindly copy-pasted to a coding ag
 | **7** | [`TASK_NODE_GRAPH_IMPLEMENTATION.md`](./TASK_NODE_GRAPH_IMPLEMENTATION.md) | Node graph | Content-driven node body (no clipping), all mouse controls (pan/zoom/drag/box-select/wire/context menu), keyboard shortcuts, socket system, bezier wire rendering, node spawning, selection, smooth pan, file decomposition. |
 | **8** | [`TASK_ROUTINE_CLEANUP_AND_DEDUPLICATION.md`](./TASK_ROUTINE_CLEANUP_AND_DEDUPLICATION.md) | Dead Code & Clones | Routine cleanup: unimported orphaned file purge, zero-usage export elimination, multi-dimensional similarity analysis ($S \ge 0.80$), canonical asset consolidation, and global reference substitution. |
 | **9** | [`TASK_STATE_EXECUTION_ARCHITECTURE.md`](./TASK_STATE_EXECUTION_ARCHITECTURE.md) | 13 | State & Execution governance: `SKIPO_STATE` (Zustand), explicit lifecycle DAG, `SKIPO_COMMAND` BullMQ boundary, Worker-only Backend Facade, and Operation Components. |
+| **10** | [`TASK_THEME_SYSTEM_AND_THEME_BROWSER.md`](./TASK_THEME_SYSTEM_AND_THEME_BROWSER.md) | 02, Theme System | Plug & Socket Theme Architecture: System bucket theme packs, ThemeEngine runtime, AppThemeSocket, per-element overrides, Theme Browser UI & legacy purge. |
 
 
 ### How to Spam
