@@ -194,8 +194,12 @@ let cachedApp: any = null;
 export default async function handler(req: Request, res: Response) {{
   try {{
     if (!cachedApp) {{
-      const {{ createDepmApp }} = await import('./appFactory');
-      cachedApp = await createDepmApp();
+      const mod = await import('./appFactory');
+      const factoryFn = mod.createApp || mod.createDepmApp || (mod as any).default;
+      if (typeof factoryFn !== 'function') {{
+        throw new Error('No valid createApp / createDepmApp factory function exported from appFactory');
+      }}
+      cachedApp = await factoryFn();
     }}
     return cachedApp(req, res);
   }} catch (err: unknown) {{
@@ -221,7 +225,7 @@ export default async function handler(req: Request, res: Response) {{
         "outputDirectory": "dist",
         "functions": {
             "api/index.js": {
-                "includeFiles": "node_modules/sql.js/dist/sql-wasm.wasm"
+                "includeFiles": "{node_modules/sql.js/dist/sql-wasm.wasm,data/**}"
             }
         },
         "rewrites": [

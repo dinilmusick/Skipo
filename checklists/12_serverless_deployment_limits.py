@@ -214,6 +214,26 @@ def validate_serverless_code_size(root_dir: Path) -> ChecklistResult:
                         suggestion="Remove this variable. Rely on SYSTEM_DATABASE_URL_1..3 and fetch credentials dynamically from the database."
                     ))
 
+    # 6. Read-Only Serverless Filesystem & Seed Bundling Audit
+    vercel_json = root_dir / "vercel.json"
+    data_dir = root_dir / "data"
+    if vercel_json.exists() and data_dir.exists():
+        files_scanned += 1
+        try:
+            v_data = json.loads(read_text_safe(vercel_json) or "{}")
+            fn_cfg = v_data.get("functions", {}).get("api/index.js", {})
+            include_files = fn_cfg.get("includeFiles", "")
+            if "data/**" not in include_files:
+                violations.append(Violation(
+                    rule_id="missing-data-in-serverless-bundle",
+                    severity="warning",
+                    message="Project has a 'data/' directory but 'vercel.json' does not include 'data/**' in functions.api/index.js.includeFiles.",
+                    file_path=str(vercel_json.relative_to(root_dir)),
+                    suggestion="Add 'data/**' to includeFiles in vercel.json: '{node_modules/sql.js/dist/sql-wasm.wasm,data/**}'."
+                ))
+        except Exception:
+            pass
+
     duration_ms = (time.time() - start_time) * 1000
     errors = sum(1 for v in violations if v.severity == "error")
     score = max(0.0, 100.0 - (errors * 15.0) - (len(violations) - errors) * 5.0)

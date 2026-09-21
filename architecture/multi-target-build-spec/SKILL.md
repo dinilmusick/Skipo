@@ -83,7 +83,7 @@ Fullstack deployments on Vercel combine the client-side SPA with a serverless No
      "buildCommand": "npm run build",
      "outputDirectory": "dist",
      "functions": {
-       "api/index.js": { "includeFiles": "node_modules/sql.js/dist/sql-wasm.wasm" }
+       "api/index.js": { "includeFiles": "{node_modules/sql.js/dist/sql-wasm.wasm,data/**}" }
      },
      "rewrites": [
        { "source": "/api/(.*)", "destination": "/api" },
@@ -92,6 +92,8 @@ Fullstack deployments on Vercel combine the client-side SPA with a serverless No
    }
    ```
 5. **Dashboard Override Prevention**: In the Vercel Project Settings (under **General > Build & Development Settings**), Framework Preset must be set to **Vite** (or **Other**), with **Build Command** set to `npm run build` and **Output Directory** set to `dist`. When pre-set to "Next.js", Vercel halts before building if `next` is missing from `package.json`.
+6. **Serverless Read-Only Filesystem & `/tmp` Fallback**: Vercel functions execute in `/var/task` which is read-only. Backend modules must NEVER execute unconditional `fs.mkdirSync` or `fs.writeFileSync` at top-level module load. Writable runtime storage must route to `/tmp`, falling back to `path.join(process.cwd(), 'data')` only for reading bundled seed assets.
+7. **Defensive Router Mounting**: In `appFactory.ts` and sub-routers, all middleware and child routers mounted via `app.use(router)` MUST be guarded with `typeof router === 'function'` to prevent unhandled `app.use() requires a middleware function` crashes caused by failed or circular module initialization.
 
 
 ## 4. LOCKFILE PURITY & PACKAGE MANAGER EXCLUSIVITY

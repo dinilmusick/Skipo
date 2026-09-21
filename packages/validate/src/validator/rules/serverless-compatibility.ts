@@ -42,6 +42,32 @@ export const serverlessCompatibilityRule: ValidationRule = {
           });
         }
       }
+
+      // 2. Check for unguarded top-level fs.mkdirSync outside functions or try blocks
+      if (
+        (trimmed.startsWith('fs.mkdirSync') || trimmed.startsWith('mkdirSync')) &&
+        !trimmed.includes('/tmp') &&
+        !trimmed.includes('os.tmpdir()')
+      ) {
+        let inTryOrFunc = false;
+        for (let i = Math.max(0, index - 8); i < index; i++) {
+          const prev = lines[i].trim();
+          if (prev.includes('try {') || prev.includes('function ') || prev.includes('=>') || prev.includes('if (')) {
+            inTryOrFunc = true;
+            break;
+          }
+        }
+        if (!inTryOrFunc) {
+          violations.push({
+            ruleId: this.id,
+            severity: this.severity,
+            message: 'Unconditional top-level fs.mkdirSync detected in server module. Will crash with EROFS in read-only serverless runtimes.',
+            filePath,
+            line: index + 1,
+            suggestion: 'Wrap filesystem initialization in try/catch and route writable paths to /tmp in serverless environments.',
+          });
+        }
+      }
     });
 
     return violations;
