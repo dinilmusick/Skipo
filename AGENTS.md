@@ -25,7 +25,8 @@ $$\begin{array}{ll}
 \mathbf{L_{18}} \text{ (4-Word UI Text Label Cap)} & \forall t \in \text{UITextLabels}: \text{WordCount}(t) \le 4 \wedge (\text{Desc}(el) > 4 \implies \text{D+HoverOnly}) \\
 \mathbf{L_{19}} \text{ (D+Hover Description Mode)} & \text{Hover}(el) \implies (\neg \text{Key}('D') \implies \text{BottomStrip}(\text{Label}(el)) \wedge \text{Key}('D') \implies \text{BottomStrip}(\text{Desc}(el))_{\text{thin,small}}) \\
 \mathbf{L_{20}} \text{ (Skipo Isolation & Library Hydration)} & \forall f \in \text{AppCode}: \text{Imports}(f) \cap \{\text{Skipo/}, \text{@/Skipo}, \text{../Skipo}\} = \emptyset \wedge \text{BaseAssets}(f) \subset \text{src/libraries/} \\
-\mathbf{L_{21}} \text{ (Zero-Trace Legacy Purge)} & \forall s_{\text{legacy}} \in \text{LegacySystems}: \text{CompetesWith}(\text{Skipo}, s_{\text{legacy}}) \implies \text{PurgeEntirely}(s_{\text{legacy}}) \wedge \text{Trace}(s_{\text{legacy}}) = \emptyset
+\mathbf{L_{21}} \text{ (Zero-Trace Legacy Purge)} & \forall s_{\text{legacy}} \in \text{LegacySystems}: \text{CompetesWith}(\text{Skipo}, s_{\text{legacy}}) \implies \text{PurgeEntirely}(s_{\text{legacy}}) \wedge \text{Trace}(s_{\text{legacy}}) = \emptyset \\
+\mathbf{L_{22}} \text{ (Target Purity & Lockfile Exclusivity)} & \text{Lockfiles}(a) \equiv 1 \wedge (\text{ViteApp}(a) \implies \text{Next}(a) = \emptyset) \wedge \text{Targets}(a) \implies (\text{VercelFullstack}(\text{dist}, \text{api/index.js}) \wedge \text{CloudflareApi}(\text{httpsAdapter.ts}))
 \end{array}$$
 
 ## 2. DETERMINISTIC AGENT EXECUTION ALGORITHM

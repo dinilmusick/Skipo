@@ -178,6 +178,7 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
 
     # 8. Dual Build Scripts in package.json
     pkg_file = root_dir / "package.json"
+    is_vite = False
     if pkg_file.exists():
         files_scanned += 1
         try:
@@ -193,6 +194,18 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
                         file_path="package.json",
                         suggestion=f"Add script '{req}' to package.json."
                     ))
+
+            # 9. Framework Anti-Hallucination (Ban 'next' in Vite-based apps)
+            deps = {**pkg_data.get("dependencies", {}), **pkg_data.get("devDependencies", {})}
+            is_vite = "vite" in deps or (root_dir / "vite.config.ts").exists() or (root_dir / "vite.config.js").exists()
+            if is_vite and "next" in deps:
+                violations.append(Violation(
+                    rule_id="vite-app-forbidden-next-dependency",
+                    severity="error",
+                    message="Vite app declares 'next' in package.json, causing Vercel to misdetect framework as Next.js and fail on missing '.next'.",
+                    file_path="package.json",
+                    suggestion="Remove 'next' from dependencies and devDependencies in package.json."
+                ))
         except Exception as e:
             violations.append(Violation(
                 rule_id="invalid-package-json",
@@ -200,6 +213,42 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
                 message=f"Failed to parse package.json: {e}",
                 file_path="package.json"
             ))
+
+    # 10. Lockfile Purity (Ban conflicting multiple lockfiles)
+    has_npm = (root_dir / "package-lock.json").exists()
+    has_bun = (root_dir / "bun.lock").exists() or (root_dir / "bun.lockb").exists()
+    has_pnpm = (root_dir / "pnpm-lock.yaml").exists()
+    has_yarn = (root_dir / "yarn.lock").exists()
+    lockfiles_found = sum([has_npm, has_bun, has_pnpm, has_yarn])
+    if lockfiles_found > 1:
+        conflicts = [n for n, exists in [("package-lock.json", has_npm), ("bun.lock", has_bun), ("pnpm-lock.yaml", has_pnpm), ("yarn.lock", has_yarn)] if exists]
+        violations.append(Violation(
+            rule_id="conflicting-lockfiles-detected",
+            severity="error",
+            message=f"Multiple conflicting lockfiles detected ({', '.join(conflicts)}). Causes Cloudflare/CI frozen-lockfile version failures.",
+            file_path="bun.lock" if has_bun else conflicts[0],
+            suggestion="Delete secondary lockfiles and standardize on a single lockfile matching your primary package manager."
+        ))
+
+    # 11. Vercel Fullstack Routing Contract
+    vercel_file = root_dir / "vercel.json"
+    if vercel_file.exists():
+        files_scanned += 1
+        try:
+            v_data = json.loads(read_text_safe(vercel_file))
+            rewrites = v_data.get("rewrites", [])
+            has_api_rewrite = any("/api" in r.get("source", "") for r in rewrites)
+            if not has_api_rewrite and is_vite:
+                violations.append(Violation(
+                    rule_id="vercel-missing-api-rewrite",
+                    severity="warning",
+                    message="vercel.json in fullstack Vite app should declare an /api/(.*) rewrite to /api.",
+                    file_path="vercel.json",
+                    suggestion="Add { 'source': '/api/(.*)', 'destination': '/api' } to vercel.json rewrites."
+                ))
+        except Exception:
+            pass
+
 
     errors = [v for v in violations if v.severity == "error"]
     passed = len(errors) == 0

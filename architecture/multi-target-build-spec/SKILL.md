@@ -19,6 +19,9 @@ src/
 │   ├── <AppName>Backend.ts       # UNIVERSAL BACKEND FACADE (Business logic, orchestrations, services)
 │   │                               - Consumed directly by Frontend in-process
 │   │                               - Consumed internally by Protocol Adapters
+│   ├── server/                   # Server runtime factories & handlers
+│   │   ├── appFactory.ts         # Pure Express app factory (routers, CORS, table bootstrap)
+│   │   └── serverless.ts         # Vercel Serverless Function entry point
 │   ├── adapters/                 # PROTOCOL ADAPTERS
 │   │   └── httpsAdapter.ts       # Standalone HTTPS / Cloudflare Worker Fetch handler (API_TARGET)
 │   ├── orchestrations/           # Context-neutral composition graphs (FLAT)
@@ -37,15 +40,17 @@ src/
 
 | Dimension | FULLSTACK_TARGET (`build:fullstack`) | API_TARGET (`build:api`) |
 | :--- | :--- | :--- |
-| **Primary Platform** | Vercel (Next.js / Node / Vite) | Cloudflare Workers / Edge Runtime |
-| **Frontend Assets** | Included (`src/frontend/`, `src/frontend-state/`) | Excluded (zero UI code) |
+| **Primary Platform** | Vercel (Vite SPA + Serverless API / Node) | Cloudflare Workers / Edge Runtime |
+| **Primary Purpose** | Fullstack User Experience | Headless Programmatic API Access |
+| **Frontend Assets** | Included (`dist/` static files, index.html) | Excluded (zero UI code) |
 | **Client Services** | Included (`src/backend/services/*/client/`) | Excluded (tree-shaken out) |
 | **Server Services** | Included (`src/backend/services/*/server/`) | Included |
 | **Orchestrations** | Included (flat context-neutral) | Included (flat context-neutral) |
-| **Entrypoint** | `src/frontend/app.tsx` or `app/` | `src/backend/adapters/httpsAdapter.ts` |
-| **Output Path** | `dist/` or `.next/` | `dist/api/worker/index.js` |
+| **Entrypoint** | Frontend: `src/main.tsx` / API: `serverless.ts` | `src/backend/adapters/httpsAdapter.ts` |
+| **Output Path** | `dist/` (SPA) + `api/index.js` (Serverless Function) | `dist/api/worker/index.js` |
+| **Deploy Config** | `vercel.json` | `wrangler.toml` |
 
-## 2. PROTOCOL ADAPTER INVARIANT
+## 2. PROTOCOL ADAPTER INVARIANT (CLOUDFLARE WORKERS API)
 
 Every API build target entry MUST reside under `src/backend/adapters/httpsAdapter.ts`.
 It must export a standard Fetch API handler:
@@ -56,3 +61,45 @@ export default {
   }
 };
 ```
+- Bundled via: `esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=neutral --format=esm --outfile=dist/api/worker/index.js`
+- Deployed via `wrangler.toml` pointing `main = "dist/api/worker/index.js"`.
+
+## 3. VERCEL FULLSTACK ARCHITECTURE CONTRACT
+
+Fullstack deployments on Vercel combine the client-side SPA with a serverless Node function:
+1. **App Factory Isolation**: `src/backend/server/appFactory.ts` exports `createApp()` mounting all Express routes, CORS headers, and system DB bootstrap routines.
+2. **Serverless Handler**: `src/backend/server/serverless.ts` wraps the factory for Vercel's execution lifecycle.
+3. **Bundled Serverless Output**: `npm run build:fullstack` bundles `serverless.ts` to `api/index.js` via esbuild:
+   ```bash
+   vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && esbuild src/backend/server/serverless.ts --bundle --platform=node --format=esm --packages=external --minify --banner:js="// @generated" --outfile=api/index.js
+   ```
+4. **`vercel.json` Routing Contract**:
+   ```json
+   {
+     "version": 2,
+     "functions": {
+       "api/index.js": { "includeFiles": "node_modules/sql.js/dist/sql-wasm.wasm" }
+     },
+     "rewrites": [
+       { "source": "/api/(.*)", "destination": "/api" },
+       { "source": "/(.*)", "destination": "/index.html" }
+     ]
+   }
+   ```
+
+## 4. LOCKFILE PURITY & PACKAGE MANAGER EXCLUSIVITY
+
+$$\text{LockfileCount}(repo) \equiv 1 \wedge (\text{UsesNpm} \implies \text{NoBunLock}(repo))$$
+
+1. **Cloudflare Frozen Lockfile Conflict Hazard**: Cloudflare Pages/Workers detects `bun.lock` in the repository root and forces `bun install --frozen-lockfile`. When Cloudflare's installed Bun version (`v1.2.15`) encounters a lockfile with `"lockfileVersion": 2`, it fails with `UnknownLockfileVersion: failed to parse lockfile: 'bun.lock'`.
+2. **Mandatory Single Lockfile Rule**:
+   - If a project uses `npm`, only `package-lock.json` may be committed.
+   - `bun.lock`, `bun.lockb`, and `pnpm-lock.yaml` are STRICTLY FORBIDDEN.
+   - Zero-byte placeholder lockfiles are prohibited.
+
+## 5. FRAMEWORK DETECTION & ANTI-HALLUCINATION INVARIANT
+
+$$\text{ViteApp}(repo) \implies \text{package.json}.\text{devDependencies} \cap \{\text{'next'}\} = \emptyset$$
+
+1. **Vercel Framework Misdetection Hazard**: Vercel scans `package.json` for framework names. If `"next"` is present in dependencies or devDependencies of a Vite SPA, Vercel falsely identifies the framework as `Next.js` and crashes when the Next.js output directory `.next` is not found.
+2. **Clean Dependency Separation**: In Vite-based applications, Next.js dependencies must never be declared in `package.json`. Vercel automatically selects Vite and deploys `dist/` and `api/index.js`.

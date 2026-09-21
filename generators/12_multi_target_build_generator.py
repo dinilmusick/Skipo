@@ -180,17 +180,63 @@ BUILD_TARGET = "api"
         content=json.dumps(tsconfig_api, indent=2) + "\n",
         description="Cloudflare API TypeScript target excluding browser-only code."
     ))
-    vercel_config = {"buildCommand": "npm run build:fullstack", "framework": "nextjs"}
+    # 4. Serverless Handler (Vercel Serverless Function entry point)
+    serverless_code = f"""/**
+ * @file serverless.ts
+ * @description Vercel Serverless Function entry point for {app_name}.
+ * Strictly adheres to Skipo governance (< 200 lines).
+ */
+
+import {{ Request, Response }} from 'express';
+
+let cachedApp: any = null;
+
+export default async function handler(req: Request, res: Response) {{
+  try {{
+    if (!cachedApp) {{
+      const {{ createDepmApp }} = await import('./appFactory');
+      cachedApp = await createDepmApp();
+    }}
+    return cachedApp(req, res);
+  }} catch (err: unknown) {{
+    console.error('[Serverless] Handler Error:', err);
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!res.headersSent) {{
+      res.status(500).json({{ error: `Serverless Initialization Error: ${{msg}}` }});
+    }}
+  }}
+}}
+"""
+    files.append(GeneratedFile(
+        relative_path="src/backend/server/serverless.ts",
+        content=serverless_code,
+        description="Vercel Serverless Function entry point wrapping Express app factory."
+    ))
+
+    # 5. vercel.json Contract
+    vercel_config = {
+        "version": 2,
+        "functions": {
+            "api/index.js": {
+                "includeFiles": "node_modules/sql.js/dist/sql-wasm.wasm"
+            }
+        },
+        "rewrites": [
+            {"source": "/api/(.*)", "destination": "/api"},
+            {"source": "/(.*)", "destination": "/index.html"}
+        ]
+    }
     files.append(GeneratedFile(
         relative_path="vercel.json",
         content=json.dumps(vercel_config, indent=2) + "\n",
-        description="Vercel full-stack deployment command contract."
+        description="Vercel full-stack deployment contract supporting SPA rewrites and Serverless Function."
     ))
+
     required_scripts = {
-        "build:fullstack": "next build",
-        "build:api": "tsc -p tsconfig.api.json",
+        "build:fullstack": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && esbuild src/backend/server/serverless.ts --bundle --platform=node --format=esm --packages=external --minify --banner:js=\"// @generated\" --outfile=api/index.js",
+        "build:api": "esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=neutral --format=esm --outfile=dist/api/worker/index.js",
         "build:all": "npm run build:fullstack && npm run build:api",
-        "validate:api": "python3 checklists/full_system_validator.py . --aspect multi-target"
+        "validate:api": "tsc -p tsconfig.api.json --noEmit"
     }
     package_path = target_dir / "package.json"
     existing_package: Dict[str, Any] = {}
