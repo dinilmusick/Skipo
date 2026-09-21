@@ -1,13 +1,12 @@
 /**
  * @file useSrklServices.ts
  * @description React Hook for discovering and consuming services from SRKL Vaults.
- * Used by client apps to reactively load credentials matching declared requirements.
  * Strictly adheres to Skipo governance (< 200 lines).
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { SrklClient } from './SrklClient.js';
-import { SrklServiceAccount } from './types.js';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { SrklClient, CANONICAL_SRKL_URL } from './SrklClient';
+import { SrklServiceAccount } from './types';
 
 export interface UseSrklServicesOptions {
   srklUrl?: string;
@@ -24,34 +23,17 @@ export interface UseSrklServicesResult {
   error: string | null;
   isConnected: boolean;
   latencyMs: number | null;
-  refetch: () => Promise<void>;
+  refetch: (force?: boolean) => Promise<void>;
   srklUrl: string;
   setSrklUrl: (url: string) => void;
   client: SrklClient;
 }
 
-function getStoredSrklUrl(fallback: string): string {
-  try {
-    const storage = (globalThis as any)?.localStorage;
-    if (storage && typeof storage.getItem === 'function') {
-      return storage.getItem('srkl_endpoint_url') || fallback;
-    }
-  } catch {}
-  return fallback;
-}
-
-function persistSrklUrl(url: string): void {
-  try {
-    const storage = (globalThis as any)?.localStorage;
-    if (storage && typeof storage.setItem === 'function') {
-      storage.setItem('srkl_endpoint_url', url);
-    }
-  } catch {}
-}
-
 export function useSrklServices(options: UseSrklServicesOptions): UseSrklServicesResult {
   const { declaredTypes, userId, token, workspaceId, autoFetch = true } = options;
-  const initialUrl = options.srklUrl || getStoredSrklUrl('http://localhost:3001');
+  const initialUrl = options.srklUrl || (typeof window !== 'undefined'
+    ? localStorage.getItem('srkl_endpoint_url') || CANONICAL_SRKL_URL
+    : CANONICAL_SRKL_URL);
 
   const [srklUrl, setSrklUrlState] = useState<string>(initialUrl);
   const [services, setServices] = useState<SrklServiceAccount[]>([]);
@@ -59,6 +41,7 @@ export function useSrklServices(options: UseSrklServicesOptions): UseSrklService
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  const hasFetchedRef = useRef(false);
 
   const client = useMemo(
     () => new SrklClient({ srklUrl, userId, token, workspaceId }),
@@ -68,11 +51,15 @@ export function useSrklServices(options: UseSrklServicesOptions): UseSrklService
   const setSrklUrl = useCallback((url: string) => {
     const clean = url.trim().replace(/\/+$/, '');
     setSrklUrlState(clean);
-    persistSrklUrl(clean);
+    if (typeof window !== 'undefined') {
+      try { localStorage.setItem('srkl_endpoint_url', clean); } catch {}
+    }
   }, []);
 
-  const refetch = useCallback(async () => {
+  const refetch = useCallback(async (force = false) => {
     if (!declaredTypes || declaredTypes.length === 0) return;
+    if (hasFetchedRef.current && !force) return;
+    hasFetchedRef.current = true;
     setLoading(true);
     setError(null);
 
@@ -88,7 +75,8 @@ export function useSrklServices(options: UseSrklServicesOptions): UseSrklService
 
     try {
       const data = await client.getServices(declaredTypes);
-      setServices(data);
+      const filtered = SrklClient.filterRelevantServices(data, declaredTypes);
+      setServices(filtered);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch services from SRKL');
       setServices([]);

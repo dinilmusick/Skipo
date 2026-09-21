@@ -94,3 +94,14 @@ export function DepmServicePanel({ userSessionToken }: { userSessionToken: strin
 2. **Bucket-to-Browser Direct Transfer**: The encrypted `.srkl/workspace.db.enc` payload is fetched directly from the cloud bucket (Backblaze B2, Cloudflare R2, or S3) into browser memory.
 3. **No Persistent Client Storage**: Plaintext credentials are kept in volatile JavaScript memory (`Map`), never persisted into `localStorage`, `IndexedDB`, or cookies.
 4. **Strict Scope Intersection**: Only services explicitly listed in `supportedServices` are populated in the in-memory registry. Unsupported services are inaccessible.
+5. **System Database Deployment Discovery**: Apps query `ultrst-srkl-deployments` (via `GET /api/system/srkl-deployments/primary`) to resolve active SRKL node URLs.
+6. **Strict User-Scoped Account Isolation**: When consumer apps query SRKL for service accounts (e.g. Backblaze, GitHub, Vercel), requests are strictly scoped to the active authenticated user (`x-user-id` and Bearer token). Users never gain access to credentials configured by other ecosystem users.
+7. **Canonical System Tables Architecture**:
+   - `ultrst-users`: Universal ecosystem user identities and roles.
+   - `ultrst-apps`: Ecosystem app registry.
+   - `ultrst-srkl-deployments`: Central registry of SRKL deployment endpoints.
+   - `ultrst-system-buckets`: Primary and optional fallback object storage buckets (replaces legacy `system_buckets`).
+   - `ultrst-credentials`: System administrator email and password (replaces legacy `ultrst_credentials`).
+8. **Request Minimization & Zero Passive Polling**: Consumer apps MUST NEVER passively poll SRKL or system database endpoints on window/tab focus changes or route changes. Calls must be on-demand or cached with in-memory TTL.
+9. **Single-Fetch Dialogs & Manual Refresh**: Workspace creation, editing, and account tabs must fetch credentials exactly once on appearance (`hasFetchedRef` guard). Refreshing is strictly user-initiated via an icon-only button (`<RefreshCw />`). Manual SRKL deployment URL input fields are prohibited; resolution is fully automatic.
+

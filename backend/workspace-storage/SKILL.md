@@ -53,5 +53,18 @@ Client Write -> Primary Storage (Synchronous Commit)
    Status: SYNCED          Status: OUT_OF_SYNC -> Queue exponential retry (3s -> 60s)
 ```
 
-## 4. CHECKLIST GATE
+## 4. SRKL-BROKERED CLOUD STORAGE & SYSTEM BUCKET ISOLATION
+
+1. **System Buckets vs User Workspace Buckets**:
+   - `ultrst-system-buckets` is reserved exclusively for global system-level assets (theme packs, font caches, shared system manifests). It MUST NEVER be used or presented as a workspace storage option for end-users.
+   - User workspace cloud storage must be selected from the user's private service accounts (e.g. Backblaze B2, Cloudflare R2, AWS S3) registered under their authenticated account in SRKL.
+2. **SRKL Brokering & User-Isolation**:
+   - Consumer apps query SRKL directly via the canonical endpoint `https://srkl-engine.vercel.app` (or resolved from `ultrst-srkl-deployments`).
+   - All queries pass the user's active session token / user ID so users only see their own storage accounts and buckets.
+3. **Zero Passive Polling & Request Minimization**:
+   - Storage option dialogs fetch available accounts/buckets once on open (`hasFetchedRef`).
+   - Subsequent synchronization is strictly user-triggered via an icon-only `<RefreshCw />` button. No polling on tab or window switches.
+
+## 5. CHECKLIST GATE
 `python3 checklists/07_backend_storage_isolation.py .`
+

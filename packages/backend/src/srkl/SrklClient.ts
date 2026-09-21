@@ -1,7 +1,7 @@
 /**
  * @file SrklClient.ts
  * @description Universal HTTP Client for querying SRKL Service Account Vaults.
- * Used across the ecosystem by client apps and gateway routers (e.g. Depm).
+ * Used across the ecosystem by client apps and gateway routers (e.g. Depm, DocuStack).
  * Strictly adheres to Skipo governance (< 200 lines).
  */
 
@@ -11,7 +11,9 @@ import {
   SrklEcosystemQueryOptions,
   SrklEcosystemResponse,
   AdaptedStorageConnection,
-} from './types.js';
+} from './types';
+
+export const CANONICAL_SRKL_URL = 'https://srkl-engine.vercel.app';
 
 export class SrklClient {
   private baseUrl: string;
@@ -21,7 +23,7 @@ export class SrklClient {
   private getAuthHeadersCustom?: () => Record<string, string>;
 
   constructor(options: SrklClientOptions = {}) {
-    this.baseUrl = (options.srklUrl || 'http://localhost:3001').replace(/\/+$/, '');
+    this.baseUrl = (options.srklUrl || CANONICAL_SRKL_URL).replace(/\/+$/, '');
     this.userId = options.userId || 'usr-anon';
     this.token = options.token;
     this.workspaceId = options.workspaceId;
@@ -57,8 +59,8 @@ export class SrklClient {
       });
       const latencyMs = Date.now() - start;
       if (!res.ok) return { ok: false, latencyMs };
-      const data = (await res.json()) as any;
-      return { ok: true, latencyMs, status: data?.status };
+      const data = await res.json();
+      return { ok: true, latencyMs, status: data.status };
     } catch {
       return { ok: false, latencyMs: Date.now() - start };
     }
@@ -84,25 +86,40 @@ export class SrklClient {
       throw new Error(`SRKL service query failed (${res.status}): ${errText}`);
     }
 
-    const data = (await res.json()) as SrklEcosystemResponse;
+    const data: SrklEcosystemResponse = await res.json();
     return data.services || [];
   }
 
-  public async getServiceById(id: string, options: SrklEcosystemQueryOptions = {}): Promise<SrklServiceAccount | null> {
-    const wsId = options.workspaceId || this.workspaceId;
-    const url = new URL(`${this.baseUrl}/api/ecosystem/services/${encodeURIComponent(id)}`);
-    if (wsId) url.searchParams.set('workspaceId', wsId);
+  public async getStorageConnections(userIdOverride?: string): Promise<any[]> {
+    const headers = this.buildHeaders();
+    if (userIdOverride) headers['x-user-id'] = userIdOverride;
 
-    const res = await fetch(url.toString(), {
+    const res = await fetch(`${this.baseUrl}/api/workspaces/storage/connections`, {
       method: 'GET',
-      headers: this.buildHeaders(),
+      headers,
     });
+    if (!res.ok) throw new Error(`SRKL storage connections query failed (${res.status})`);
+    const data = await res.json();
+    return Array.isArray(data.connections) ? data.connections : [];
+  }
 
-    if (res.status === 404) return null;
-    if (!res.ok) throw new Error(`SRKL service lookup failed (${res.status})`);
+  public async getBackblazeBuckets(keyId: string, applicationKey: string): Promise<any[]> {
+    const res = await fetch(`${this.baseUrl}/api/backblaze/buckets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keyId, applicationKey }),
+    });
+    if (!res.ok) throw new Error(`SRKL bucket listing failed (${res.status})`);
+    const data = await res.json();
+    return data.buckets || [];
+  }
 
-    const data = (await res.json()) as any;
-    return data?.service || null;
+  public static filterRelevantServices(
+    services: SrklServiceAccount[],
+    allowedTypes: string[]
+  ): SrklServiceAccount[] {
+    const normalized = allowedTypes.map((t) => t.toLowerCase());
+    return services.filter((s) => normalized.includes((s.serviceId || '').toLowerCase()));
   }
 
   public static adaptToStorageConnection(account: SrklServiceAccount): AdaptedStorageConnection {
