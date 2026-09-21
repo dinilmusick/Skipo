@@ -162,6 +162,15 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
         ))
     else:
         files_scanned += 1
+        w_text = read_text_safe(wrangler_file)
+        if "[build]" not in w_text or "build:api" not in w_text:
+            violations.append(Violation(
+                rule_id="wrangler-missing-build-command",
+                severity="error",
+                message="wrangler.toml is missing [build] command = 'npm run build:api'. Direct wrangler deploy will fail if dist/api/worker/index.js is not yet built.",
+                file_path="wrangler.toml",
+                suggestion="Add '[build]\\ncommand = \"npm run build:api\"' to wrangler.toml."
+            ))
 
     # 7. tsconfig.api.json
     tsconfig_api = root_dir / "tsconfig.api.json"
@@ -184,7 +193,7 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
         try:
             pkg_data = json.loads(read_text_safe(pkg_file))
             scripts = pkg_data.get("scripts", {})
-            required_scripts = ["build:fullstack", "build:api", "build:all", "validate:api"]
+            required_scripts = ["build", "build:fullstack", "build:api", "build:all", "validate:api"]
             for req in required_scripts:
                 if req not in scripts:
                     violations.append(Violation(
@@ -194,6 +203,15 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
                         file_path="package.json",
                         suggestion=f"Add script '{req}' to package.json."
                     ))
+
+            if scripts.get("build") != "npm run build:all":
+                violations.append(Violation(
+                    rule_id="build-script-not-build-all",
+                    severity="error",
+                    message="package.json 'build' script must be 'npm run build:all' to ensure all deployment targets (Vercel fullstack + Cloudflare worker) are built.",
+                    file_path="package.json",
+                    suggestion="Set '\"build\": \"npm run build:all\"' in package.json."
+                ))
 
             # 9. Framework Anti-Hallucination (Ban 'next' in Vite-based apps)
             deps = {**pkg_data.get("dependencies", {}), **pkg_data.get("devDependencies", {})}

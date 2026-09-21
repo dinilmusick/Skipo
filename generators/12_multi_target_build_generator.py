@@ -236,6 +236,7 @@ export default async function handler(req: Request, res: Response) {{
     ))
 
     required_scripts = {
+        "build": "npm run build:all",
         "build:fullstack": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && esbuild src/backend/server/serverless.ts --bundle --platform=node --format=esm --packages=external --minify --banner:js=\"// @generated\" --outfile=api/index.js",
         "build:api": "esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=neutral --format=esm --outfile=dist/api/worker/index.js",
         "build:all": "npm run build:fullstack && npm run build:api",

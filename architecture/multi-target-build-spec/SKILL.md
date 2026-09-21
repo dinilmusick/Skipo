@@ -63,6 +63,8 @@ export default {
 ```
 - Bundled via: `esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=neutral --format=esm --outfile=dist/api/worker/index.js`
 - Deployed via `wrangler.toml` pointing `main = "dist/api/worker/index.js"`.
+- **Wrangler Build Directive Invariant**: `wrangler.toml` MUST declare `[build] command = "npm run build:api"`. This ensures that any direct `wrangler deploy` invocation triggers compilation of `dist/api/worker/index.js` automatically.
+- **Universal Build Alias Contract**: `package.json`'s `"build"` script MUST point to `"npm run build:all"`. Headless platforms (like Cloudflare Pages/Workers) run the project's `"build"` command before deploying; running `build:all` guarantees both the fullstack SPA and the Cloudflare worker bundle exist.
 
 ## 3. VERCEL FULLSTACK ARCHITECTURE CONTRACT
 
