@@ -215,7 +215,10 @@ export default async function handler(req: Request, res: Response) {{
 
     # 5. vercel.json Contract
     vercel_config = {
-        "version": 2,
+        "$schema": "https://openapi.vercel.sh/vercel.json",
+        "framework": "vite",
+        "buildCommand": "npm run build",
+        "outputDirectory": "dist",
         "functions": {
             "api/index.js": {
                 "includeFiles": "node_modules/sql.js/dist/sql-wasm.wasm"

@@ -76,7 +76,10 @@ Fullstack deployments on Vercel combine the client-side SPA with a serverless No
 4. **`vercel.json` Routing Contract**:
    ```json
    {
-     "version": 2,
+     "$schema": "https://openapi.vercel.sh/vercel.json",
+     "framework": "vite",
+     "buildCommand": "npm run build",
+     "outputDirectory": "dist",
      "functions": {
        "api/index.js": { "includeFiles": "node_modules/sql.js/dist/sql-wasm.wasm" }
      },
@@ -86,6 +89,8 @@ Fullstack deployments on Vercel combine the client-side SPA with a serverless No
      ]
    }
    ```
+5. **Dashboard Override Prevention**: In the Vercel Project Settings (under **General > Build & Development Settings**), Framework Preset must be set to **Vite** (or **Other**), with **Build Command** set to `npm run build` and **Output Directory** set to `dist`. When pre-set to "Next.js", Vercel halts before building if `next` is missing from `package.json`.
+
 
 ## 4. LOCKFILE PURITY & PACKAGE MANAGER EXCLUSIVITY
 
