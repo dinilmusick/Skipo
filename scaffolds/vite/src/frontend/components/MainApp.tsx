@@ -1,27 +1,26 @@
-/**
- * @file MainApp.tsx
- * @description Main application shell for MyApp.
- * Pre-wired with workspace selector, theme switching, and user session.
- * Compliant with Skipo Governance (< 200 lines).
- */
+// ══════════════════════════════════════════════════════════════════════════════
+// SKIPO CANONICAL MAIN APP SHELL (Aspect 03, 10 & Laws L7, L9, L18, L19)
+// Features: Tabs (Overview, Node Graph, BullMQ Queue), BottomStrip, Hover Inspection
+// ══════════════════════════════════════════════════════════════════════════════
 
 import React, { useEffect, useState } from 'react';
-import { Layers, Database, HardDrive, LogOut, CheckCircle, RefreshCw } from 'lucide-react';
+import { Database, HardDrive, LogOut, Network, Cpu, Layout } from 'lucide-react';
 import { useAppStore } from '../../frontend-state/appStore';
-import { BaseButton } from '../../libraries/skipo/ui/components/base/BaseButton';
-import { BaseBadge } from '../../libraries/skipo/ui/components/base/BaseBadge';
-import { BaseCard } from '../../libraries/skipo/ui/components/base/BaseCard';
-import { BottomStrip } from '../../libraries/skipo/ui/components/bottom-strip/BottomStrip';
-
+import { BaseButton, BaseBadge, BaseCard } from './ui';
+import { BottomStrip } from './bottom-strip/BottomStrip';
+import { NodeGraphView } from './nodegraph/NodeGraphView';
+import { QueueView } from './queue/QueueView';
+import { useGlobalHoverInspection } from '../hooks/useGlobalHoverInspection';
 import { apiClient } from '../../libraries/client/apiClient';
 
 export const MainApp: React.FC = () => {
-  const { user, activeWorkspace, workspaces, logout, setWorkspaces } = useAppStore();
-  const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
+  const { user, activeWorkspace, logout, setWorkspaces } = useAppStore();
+  const [activeTab, setActiveTab] = useState<'overview' | 'graph' | 'queue'>('graph');
+
+  useGlobalHoverInspection();
 
   useEffect(() => {
     async function loadData() {
-      setLoadingWorkspaces(true);
       try {
         const data = await apiClient.getWorkspaces();
         if (data.success && Array.isArray(data.workspaces)) {
@@ -29,108 +28,139 @@ export const MainApp: React.FC = () => {
         }
       } catch (err) {
         console.error('Failed to load workspaces:', err);
-      } finally {
-        setLoadingWorkspaces(false);
       }
     }
     loadData();
   }, [setWorkspaces]);
 
   return (
-    <div className="min-h-screen w-full bg-[var(--skipo-bg)] text-[var(--skipo-text)] flex flex-col font-mono select-none">
-      {/* Top Navigation Bar */}
-      <header className="h-12 border-b border-[var(--skipo-border-color)] bg-[var(--skipo-surface)] px-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-7 h-7 bg-[var(--skipo-accent)] text-black font-black flex items-center justify-center border border-[var(--skipo-border-color)] text-xs">
-            ▲
+    <div className="h-screen w-screen bg-[var(--skipo-bg)] text-[var(--skipo-text)] flex flex-col font-mono select-none overflow-hidden pb-8">
+      {/* Top Header */}
+      <header className="h-12 border-b border-[var(--skipo-border-color)] bg-[var(--skipo-surface)] px-4 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 bg-[var(--skipo-accent)] text-black font-black flex items-center justify-center text-xs">
+              ▲
+            </div>
+            <span className="font-black text-sm tracking-wider uppercase">MyApp</span>
           </div>
-          <span className="font-black text-sm tracking-wider uppercase">MyApp</span>
-          <BaseBadge variant="default" size="sm">VITE + SKIPO</BaseBadge>
+
+          {/* Navigation Tabs */}
+          <nav className="flex items-center gap-1">
+            <BaseButton
+              variant={activeTab === 'graph' ? 'primary' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveTab('graph')}
+              data-skipo-label="Node Graph"
+              data-skipo-desc="Open visual canvas with mouse navigation and hotkeys"
+              className="flex items-center gap-1.5"
+            >
+              <Network size={13} />
+              <span>Node Graph</span>
+            </BaseButton>
+
+            <BaseButton
+              variant={activeTab === 'queue' ? 'primary' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveTab('queue')}
+              data-skipo-label="BullMQ Queue"
+              data-skipo-desc="Manage and dispatch background queue execution jobs"
+              className="flex items-center gap-1.5"
+            >
+              <Cpu size={13} />
+              <span>BullMQ Queue</span>
+            </BaseButton>
+
+            <BaseButton
+              variant={activeTab === 'overview' ? 'primary' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveTab('overview')}
+              data-skipo-label="Overview"
+              data-skipo-desc="View app architecture and core system connections"
+              className="flex items-center gap-1.5"
+            >
+              <Layout size={13} />
+              <span>Overview</span>
+            </BaseButton>
+          </nav>
         </div>
 
         <div className="flex items-center gap-3 text-xs">
           {activeWorkspace && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 border border-[var(--skipo-border-color)] bg-[var(--skipo-bg)]">
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1 border border-[var(--skipo-border-color)] bg-[var(--skipo-bg)]"
+              data-skipo-label="Active Workspace"
+              data-skipo-desc={`Currently active workspace context: ${activeWorkspace.name}`}
+            >
               <HardDrive size={13} className="text-[var(--skipo-accent)]" />
-              <span className="text-[var(--skipo-text-muted)]">Workspace:</span>
               <span className="font-bold text-[var(--skipo-text)]">{activeWorkspace.name}</span>
             </div>
           )}
 
-          <div className="text-[var(--skipo-text-muted)]">
-            User: <span className="font-bold text-[var(--skipo-text)]">{user?.username || user?.email || 'Authenticated'}</span>
-          </div>
+          <span className="text-[var(--skipo-text-muted)] text-[11px]">
+            {user?.email || 'Authenticated'}
+          </span>
 
-          <BaseButton variant="ghost" size="sm" onClick={logout} className="flex items-center gap-1 text-[var(--skipo-danger)]">
+          <BaseButton
+            variant="ghost"
+            size="sm"
+            onClick={logout}
+            data-skipo-label="Sign Out"
+            data-skipo-desc="Terminate authenticated user session"
+            className="text-[var(--skipo-danger)]"
+          >
             <LogOut size={13} />
-            <span>Sign Out</span>
           </BaseButton>
         </div>
       </header>
 
-      {/* Main Workspace Canvas */}
-      <main className="flex-1 p-6 flex flex-col gap-6 max-w-5xl mx-auto w-full">
-        <BaseCard className="p-6 border-2 border-[var(--skipo-border-color)] bg-[var(--skipo-surface)]">
-          <div className="flex items-center justify-between mb-4 border-b border-[var(--skipo-border-color)] pb-3">
-            <div>
-              <h2 className="text-lg font-black uppercase tracking-wider text-[var(--skipo-text)]">
-                MyApp Scaffold Ready
-              </h2>
-              <p className="text-xs text-[var(--skipo-text-muted)] mt-1">
-                All common systems (Authentication, Isomorphic Neon DB, Cloud Storage, Theming, Adapters) are pre-wired.
-              </p>
-            </div>
-            <BaseBadge variant="success" size="md" className="flex items-center gap-1">
-              <CheckCircle size={13} />
-              <span>Plug & Play</span>
-            </BaseBadge>
+      {/* Main View Area */}
+      <main className="flex-1 overflow-hidden relative">
+        {activeTab === 'graph' && (
+          <div className="w-full h-full">
+            <NodeGraphView />
           </div>
+        )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <div className="p-3 border border-[var(--skipo-border-color)] bg-[var(--skipo-bg)]">
-              <div className="flex items-center gap-2 font-bold mb-1 text-[var(--skipo-accent)]">
-                <Database size={14} />
-                <span>Unified Neon DB</span>
-              </div>
-              <p className="text-[var(--skipo-text-muted)]">
-                Zero-drift HTTP client running identically in Node.js and Cloudflare Workers.
-              </p>
-            </div>
-
-            <div className="p-3 border border-[var(--skipo-border-color)] bg-[var(--skipo-bg)]">
-              <div className="flex items-center gap-2 font-bold mb-1 text-[var(--skipo-accent)]">
-                <HardDrive size={14} />
-                <span>Cloud Storage</span>
-              </div>
-              <p className="text-[var(--skipo-text-muted)]">
-                Pre-wired Backblaze B2 & Supabase connections via <code>storageCore.ts</code>.
-              </p>
-            </div>
-
-            <div className="p-3 border border-[var(--skipo-border-color)] bg-[var(--skipo-bg)]">
-              <div className="flex items-center gap-2 font-bold mb-1 text-[var(--skipo-accent)]">
-                <Layers size={14} />
-                <span>Multi-Target Build</span>
-              </div>
-              <p className="text-[var(--skipo-text-muted)]">
-                Dual builds for Vercel/Node (<code>build:fullstack</code>) and Cloudflare Workers (<code>build:api</code>).
-              </p>
-            </div>
+        {activeTab === 'queue' && (
+          <div className="p-6 max-w-4xl mx-auto h-full overflow-y-auto">
+            <QueueView />
           </div>
-        </BaseCard>
+        )}
 
-        {/* Feature Development Placeholder */}
-        <section className="p-6 border border-dashed border-[var(--skipo-border-color)] text-center">
-          <p className="text-sm font-bold text-[var(--skipo-text)] mb-1">
-            Build Custom Feature Logic Here
-          </p>
-          <p className="text-xs text-[var(--skipo-text-muted)]">
-            Run <code>python3 Skipo/scripts/rename_app.py "YourAppName"</code> to rename this application.
-          </p>
-        </section>
+        {activeTab === 'overview' && (
+          <div className="p-6 max-w-4xl mx-auto h-full overflow-y-auto flex flex-col gap-6">
+            <BaseCard className="p-6 border border-[var(--skipo-border-color)] bg-[var(--skipo-surface)]">
+              <div className="flex items-center justify-between mb-4 border-b border-[var(--skipo-border-color)] pb-3">
+                <h2 className="text-base font-black uppercase tracking-wider text-[var(--skipo-text)]">
+                  MyApp Architecture Overview
+                </h2>
+                <BaseBadge variant="success" size="sm">Fully Configured</BaseBadge>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div className="p-3 border border-[var(--skipo-border-color)] bg-[var(--skipo-bg)]">
+                  <div className="flex items-center gap-2 font-bold mb-1 text-[var(--skipo-accent)]">
+                    <Database size={14} />
+                    <span>Neon Serverless Database</span>
+                  </div>
+                  <p className="text-[var(--skipo-text-muted)]">Isomorphic zero-drift driver across Node and Cloudflare.</p>
+                </div>
+
+                <div className="p-3 border border-[var(--skipo-border-color)] bg-[var(--skipo-bg)]">
+                  <div className="flex items-center gap-2 font-bold mb-1 text-[var(--skipo-accent)]">
+                    <HardDrive size={14} />
+                    <span>Unified Cloud Storage</span>
+                  </div>
+                  <p className="text-[var(--skipo-text-muted)]">S3, Backblaze B2 & Supabase connections via unified core.</p>
+                </div>
+              </div>
+            </BaseCard>
+          </div>
+        )}
       </main>
 
-      {/* Global Bottom Status Strip */}
+      {/* Global Canonical Bottom Strip */}
       <BottomStrip />
     </div>
   );

@@ -12,6 +12,7 @@ import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { appBackend } from './src/backend/AppBackend';
+import { dispatchCommand, getCommandStatus } from './src/backend/queue/commandQueue';
 
 dotenv.config();
 
@@ -99,6 +100,28 @@ async function startServer() {
   app.post('/api/auth/storage/test', async (req, res) => {
     try {
       const result = await appBackend.services.storage.testStorageConnection(req.body);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // BullMQ Command Queue Endpoints
+  app.post('/api/commands/dispatch', async (req, res) => {
+    try {
+      const result = await dispatchCommand(req.body);
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get('/api/commands/:id/status', async (req, res) => {
+    try {
+      const result = await getCommandStatus(req.params.id);
       res.json(result);
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
