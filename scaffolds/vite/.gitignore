@@ -1,0 +1,12 @@
+node_modules/
+/dist/
+.env
+.env.local
+*.cjs
+*.js.map
+public/assets/aistudio/*
+!public/assets/aistudio/.gitignore
+.DS_Store
+__pycache__/
+*.pyc
+.turbo/

@@ -1,0 +1,17 @@
+name = "my-app-worker"
+main = "dist/api/worker/index.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "production"
+APP_NAME = "MY_APP"
+
+[build]
+command = "npm run build:api"
+
+[assets]
+directory = "./dist/client"
+binding = "ASSETS"
+
+# SYSTEM DATABASE — bind secrets via: wrangler secret put SYSTEM_DATABASE_URL_1

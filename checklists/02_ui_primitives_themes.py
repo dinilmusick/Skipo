@@ -68,7 +68,7 @@ def validate_ui_and_themes(root_dir: Path) -> ChecklistResult:
         # Skip UI primitive definitions and test suites
         if fname in EXCLUDED_PRIMITIVE_FILES or ".test." in fname or ".spec." in fname:
             continue
-        if "packages/ui/src/components/base" in str(rel_path) or "packages/systems" in str(rel_path):
+        if "packages/ui/src/components/base" in str(rel_path) or "packages/systems" in str(rel_path) or "libraries/skipo" in str(rel_path):
             continue
 
         content = read_text_safe(file_path)

@@ -41,7 +41,7 @@ def validate_layout_shell(root_dir: Path) -> ChecklistResult:
         # Skip primitive definition files
         if fname in {"TabContainer.tsx", "BaseTooltip.tsx", "BottomStrip.tsx", "FloatingDetailsPanel.tsx"}:
             continue
-        if ".test." in fname or ".spec." in fname:
+        if ".test." in fname or ".spec." in fname or "libraries/skipo" in str(rel_path):
             continue
 
         content = read_text_safe(file_path)

@@ -37,12 +37,13 @@ ALLOWED_ROOT_CODE_CONFIGS = {
     "next.config.js", "next.config.mjs", "next.config.ts",
     "vite.config.js", "vite.config.ts", "electron.vite.config.ts",
     "tailwind.config.js", "tailwind.config.ts", "postcss.config.js",
-    "postcss.config.mjs", "turbo.json", "tsup.config.ts"
+    "postcss.config.mjs", "turbo.json", "tsup.config.ts", "server.ts"
 }
 ALLOWED_TOP_CODE_DIRS = {
     "src", "packages", "scripts", "backend", "components", "hooks", "lib",
     "api", "standalone", "features", "data", "database",
-    "skipo-audio-midi-engine", "checklists", "generators", "mutators"
+    "skipo-audio-midi-engine", "checklists", "generators", "mutators",
+    "scaffolds", "scaffold", "app"
 }
 VALID_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_\-\.\[\]@]+$")
 

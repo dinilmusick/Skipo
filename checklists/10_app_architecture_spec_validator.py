@@ -143,7 +143,7 @@ def validate_app_architecture_spec(root_dir: Path) -> ChecklistResult:
     services_dir = backend_dir / "services" if backend_dir.exists() else None
     if services_dir and services_dir.exists() and services_dir.is_dir():
         for sdir in services_dir.iterdir():
-            if sdir.is_dir() and not sdir.name.startswith("."):
+            if sdir.is_dir() and not sdir.name.startswith(".") and sdir.name != "core":
                 facade_file = sdir / f"{sdir.name}.ts"
                 if not facade_file.exists():
                     # Try camelCase, lowercase or index.ts

@@ -78,8 +78,8 @@ def validate_code_limits_and_purity(root_dir: Path) -> ChecklistResult:
         if not content:
             continue
 
-        # Skip generated bundles/files
-        if "// @generated" in content[:300] or "/* @generated" in content[:300]:
+        # Skip generated bundles/files and vendored libraries
+        if "// @generated" in content[:300] or "/* @generated" in content[:300] or "libraries/skipo" in str(rel_path):
             continue
 
         lines = content.splitlines()

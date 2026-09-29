@@ -1,0 +1,33 @@
+/**
+ * ASCII Architecture Flowchart: index
+ *
+ *   ┌──────────────────────────────────────┐
+ *   │           Initialize index           │
+ *   └──────────────────────────────────────┘
+ *                      │
+ *                      ▼
+ *   ┌──────────────────────────────────────┐
+ *   │  Execute Component / Pipeline Logic  │
+ *   └──────────────────────────────────────┘
+ *                      │
+ *                      ▼
+ *   ┌──────────────────────────────────────┐
+ *   │    Return State / Result Payload     │
+ *   └──────────────────────────────────────┘
+ */
+
+// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+
+export * from './PageContainer.js';
+export * from './SectionContainer.js';
+export * from './SidebarContainer.js';
+export * from './DrawerContainer.js';
+export * from './ModalContainer.js';
+export * from './PanelContainer.js';
+export * from './SplitContainer.js';
+export * from './TabContainer.js';
+export * from './FloatingDetailsPanel.js';
+export * from './usePanelGeometry.js';
+export * from './ResizeHandles.js';
+export * from './usePanelInteraction.js';
