@@ -46,6 +46,7 @@ def generate_multi_target_suite(target_dir: Path, params: Dict[str, Any]) -> Gen
 import {{ {backend_import} }} from '../{backend_import}';
 
 export interface Env {{
+  ASSETS?: {{ fetch: (request: Request) => Promise<Response> }};
   [key: string]: unknown;
 }}
 
@@ -73,6 +74,11 @@ export default {{
           'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
         }},
       }});
+    }}
+
+    // Non-API UI Asset Fallback (Cloudflare Workers with Assets)
+    if (env.ASSETS && typeof (env.ASSETS as any).fetch === 'function' && !pathname.startsWith('/api/')) {{
+      return (env.ASSETS as any).fetch(request);
     }}
 
     // Dynamic Orchestration / Service Dispatch Example
@@ -130,8 +136,13 @@ export default {{
     # 3. wrangler.toml
     wrangler_content = f"""name = "{app_name.lower()}-api"
 main = "dist/api/worker/index.js"
-compatibility_date = "2024-09-01"
+compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "dist/client"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
 
 [build]
 command = "npm run build:api"
@@ -239,10 +250,103 @@ export default async function handler(req: Request, res: Response) {{
         description="Vercel full-stack deployment contract supporting SPA rewrites and Serverless Function."
     ))
 
+    skipo_build_script = """#!/usr/bin/env node
+
+/**
+ * @file skipo-build.cjs
+ * @description Universal build router for Skipo framework applications.
+ * Dynamically executes either fullstack or api-only builds based on DEPLOY_TARGET
+ * or package.json "skipo.deploy" configuration.
+ */
+
+const { execSync } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+
+const rootDir = path.resolve(__dirname, '..');
+const pkgPath = path.join(rootDir, 'package.json');
+const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+
+const target = (process.argv[2] || process.env.DEPLOY_TARGET || pkg.skipo?.deploy || 'fullstack').toLowerCase().trim();
+const framework = pkg.dependencies?.next ? 'nextjs' : 'vite';
+
+console.log(`[skipo-build] Framework detected: ${framework}`);
+console.log(`[skipo-build] Selected target:   ${target}`);
+
+function assembleNextClientAssets(root) {
+  const clientDir = path.join(root, 'dist/client');
+  const nextStatic = path.join(root, '.next/static');
+  const nextApp = path.join(root, '.next/server/app');
+  const publicDir = path.join(root, 'public');
+
+  if (!fs.existsSync(nextApp)) return;
+
+  fs.mkdirSync(path.join(clientDir, '_next'), { recursive: true });
+
+  if (fs.existsSync(nextStatic)) {
+    fs.cpSync(nextStatic, path.join(clientDir, '_next/static'), { recursive: true });
+  }
+
+  const pages = ['index.html', 'login.html', 'admin.html', '_not-found.html'];
+  for (const page of pages) {
+    const src = path.join(nextApp, page);
+    if (fs.existsSync(src)) {
+      fs.copyFileSync(src, path.join(clientDir, page));
+    }
+  }
+
+  if (fs.existsSync(publicDir)) {
+    fs.cpSync(publicDir, clientDir, { recursive: true });
+  }
+  console.log(`[skipo-build] Assembled Next.js static assets into dist/client (${fs.readdirSync(clientDir).length} entries).`);
+}
+
+const serverlessEntry = fs.existsSync(path.join(rootDir, 'src/backend/server/serverless.ts'))
+  ? 'src/backend/server/serverless.ts'
+  : 'src/server/serverless.ts';
+
+const commands = {
+  nextjs: {
+    fullstack: 'npx next build',
+    api: "BUILD_TARGET=api npx esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=browser --format=esm --target=es2022 --minify '--external:node:*' --external:fs --external:path --external:crypto --external:stream --external:buffer --external:util --external:events --external:os --external:net --external:tls --external:http --external:https --external:zlib --outfile=dist/api/worker/index.js",
+  },
+  vite: {
+    fullstack: `npx vite build && npx esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && npx esbuild ${serverlessEntry} --bundle --platform=node --format=esm --packages=external --minify --banner:js="// @generated" --outfile=api/index.js`,
+    api: 'npx esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=neutral --alias:crypto=node:crypto --external:node:crypto --format=esm --outfile=dist/api/worker/index.js',
+  },
+};
+
+const cmd = commands[framework]?.[target];
+
+if (!cmd) {
+  console.error(`[skipo-build] Error: Unknown target "${target}" for framework "${framework}".`);
+  console.error(`[skipo-build] Supported targets: "fullstack", "api"`);
+  process.exit(1);
+}
+
+console.log(`[skipo-build] Executing command: ${cmd}\\n`);
+
+try {
+  execSync(cmd, { cwd: rootDir, stdio: 'inherit' });
+  if (framework === 'nextjs') {
+    assembleNextClientAssets(rootDir);
+  }
+  console.log(`\\n[skipo-build] Build completed successfully for target "${target}".`);
+} catch (error) {
+  console.error(`\\n[skipo-build] Build failed for target "${target}".`);
+  process.exit(error.status || 1);
+}
+"""
+    files.append(GeneratedFile(
+        relative_path="scripts/skipo-build.cjs",
+        content=skipo_build_script,
+        description="Universal build router script supporting Next.js, Vite, fullstack, and Cloudflare Worker targets."
+    ))
+
     required_scripts = {
         "build": "npm run build:all",
-        "build:fullstack": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && esbuild src/backend/server/serverless.ts --bundle --platform=node --format=esm --packages=external --minify --banner:js=\"// @generated\" --outfile=api/index.js",
-        "build:api": "esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=neutral --format=esm --outfile=dist/api/worker/index.js",
+        "build:fullstack": "node scripts/skipo-build.cjs fullstack",
+        "build:api": "node scripts/skipo-build.cjs api",
         "build:all": "npm run build:fullstack && npm run build:api",
         "validate:api": "tsc -p tsconfig.api.json --noEmit"
     }

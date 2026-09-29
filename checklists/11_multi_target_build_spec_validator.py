@@ -171,6 +171,14 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
                 file_path="wrangler.toml",
                 suggestion="Add '[build]\\ncommand = \"npm run build:api\"' to wrangler.toml."
             ))
+        if "[assets]" not in w_text:
+            violations.append(Violation(
+                rule_id="wrangler-missing-assets-configuration",
+                severity="warning",
+                message="wrangler.toml is missing '[assets]' configuration. Without assets, Cloudflare Workers will only serve API JSON and will not serve the frontend UI.",
+                file_path="wrangler.toml",
+                suggestion="Add '[assets]\\ndirectory = \"dist/client\"\\nbinding = \"ASSETS\"\\nnot_found_handling = \"single-page-application\"' to wrangler.toml."
+            ))
 
     # 7. tsconfig.api.json
     tsconfig_api = root_dir / "tsconfig.api.json"

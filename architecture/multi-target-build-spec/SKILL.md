@@ -61,12 +61,27 @@ export default {
   }
 };
 ```
-- Bundled via: `esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=neutral --format=esm --outfile=dist/api/worker/index.js`
+- Bundled via: `scripts/skipo-build.cjs api` -> generates `dist/api/worker/index.js`
 - Deployed via `wrangler.toml` pointing `main = "dist/api/worker/index.js"`.
 - **Wrangler Build Directive Invariant**: `wrangler.toml` MUST declare `[build] command = "npm run build:api"`. This ensures that any direct `wrangler deploy` invocation triggers compilation of `dist/api/worker/index.js` automatically.
-- **Universal Build Alias Contract**: `package.json`'s `"build"` script MUST point to `"npm run build:all"`. Headless platforms (like Cloudflare Pages/Workers) run the project's `"build"` command before deploying; running `build:all` guarantees both the fullstack SPA and the Cloudflare worker bundle exist.
+- **Workers with Static Assets Invariant (`[assets]`)**: `wrangler.toml` MUST configure `[assets]` with `binding = "ASSETS"` and `not_found_handling = "single-page-application"`. For Next.js applications, assets are harvested from `.next` into `dist/client/`. For Vite applications, assets are served directly from `dist/`.
+- **Non-API UI Delegation**: `httpsAdapter.ts` must delegate any non-`/api/*` request to `env.ASSETS.fetch(request)` so that navigating to `/` or client-side routes renders the complete application UI on the `.workers.dev` domain.
+- **Universal Build Alias Contract**: `package.json`'s `"build"` script MUST point to `"npm run build:all"`. Both Vercel and Cloudflare CI execute `npm run build` upon GitHub push; running `build:all` builds both the fullstack UI assets and the Cloudflare worker bundle with zero manual configuration.
 
-## 3. VERCEL FULLSTACK ARCHITECTURE CONTRACT
+## 3. ZERO-TOUCH GITHUB CI/CD UNIFICATION
+
+Connecting a Skipo repository to GitHub provides simultaneous, zero-configuration deployments to both platforms:
+1. **Push to `main`**: Triggers webhook builds on both Vercel and Cloudflare automatically.
+2. **On Vercel**:
+   - Executes `npm run build` (`build:all`).
+   - Picks up `.next` (Next.js) or `dist/` + `api/index.js` (Vite) and deploys the fullstack app.
+3. **On Cloudflare Workers**:
+   - Executes `npm run build` (`build:all`), generating static UI assets and the Worker bundle.
+   - Executes `npx wrangler deploy`, which reads `wrangler.toml`, uploads the `[assets]` directory, and binds the Worker script.
+   - Serves the frontend UI at `https://<app>.workers.dev/` and executes APIs at `https://<app>.workers.dev/api/*`.
+
+
+## 4. VERCEL FULLSTACK ARCHITECTURE CONTRACT
 
 Fullstack deployments on Vercel combine the client-side SPA with a serverless Node function:
 1. **App Factory Isolation**: `src/backend/server/appFactory.ts` exports `createApp()` mounting all Express routes, CORS headers, and system DB bootstrap routines.
@@ -96,7 +111,7 @@ Fullstack deployments on Vercel combine the client-side SPA with a serverless No
 7. **Defensive Router Mounting**: In `appFactory.ts` and sub-routers, all middleware and child routers mounted via `app.use(router)` MUST be guarded with `typeof router === 'function'` to prevent unhandled `app.use() requires a middleware function` crashes caused by failed or circular module initialization.
 
 
-## 4. LOCKFILE PURITY & PACKAGE MANAGER EXCLUSIVITY
+## 5. LOCKFILE PURITY & PACKAGE MANAGER EXCLUSIVITY
 
 $$\text{LockfileCount}(repo) \equiv 1 \wedge (\text{UsesNpm} \implies \text{NoBunLock}(repo))$$
 
@@ -106,7 +121,7 @@ $$\text{LockfileCount}(repo) \equiv 1 \wedge (\text{UsesNpm} \implies \text{NoBu
    - `bun.lock`, `bun.lockb`, and `pnpm-lock.yaml` are STRICTLY FORBIDDEN.
    - Zero-byte placeholder lockfiles are prohibited.
 
-## 5. FRAMEWORK DETECTION & ANTI-HALLUCINATION INVARIANT
+## 6. FRAMEWORK DETECTION & ANTI-HALLUCINATION INVARIANT
 
 $$\text{ViteApp}(repo) \implies \text{package.json}.\text{devDependencies} \cap \{\text{'next'}\} = \emptyset$$
 
