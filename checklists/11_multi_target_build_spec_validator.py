@@ -95,6 +95,39 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
                 file_path=str(adapter_file.relative_to(root_dir)),
                 suggestion="Export an object with 'async fetch(request: Request): Promise<Response>'."
             ))
+        if "ASSETS" not in content:
+            violations.append(Violation(
+                rule_id="adapter-missing-assets-fallback",
+                severity="warning",
+                message="'httpsAdapter.ts' does not delegate non-API requests to 'env.ASSETS.fetch(request)'. Navigation to non-API routes on Cloudflare will not render the frontend UI.",
+                file_path=str(adapter_file.relative_to(root_dir)),
+                suggestion="Add 'if (env.ASSETS && !pathname.startsWith(\"/api/\")) return env.ASSETS.fetch(request);' to httpsAdapter.ts."
+            ))
+
+    # 2.1 Ban on Divergent Worker Adapter Directory (Law L23: Codebase Splitting Anti-Pattern)
+    worker_adapter_dir = backend_dir / "adapters" / "worker"
+    if worker_adapter_dir.exists() and worker_adapter_dir.is_dir():
+        violations.append(Violation(
+            rule_id="divergent-worker-adapters-forbidden",
+            severity="error",
+            message="Divergent worker adapter directory 'src/backend/adapters/worker/' detected. Split worker adapters violate Zero-Drift Law L23.",
+            file_path="src/backend/adapters/worker/",
+            suggestion="Consolidate all database/auth/storage logic into 'src/backend/services/core/' and delegate directly from httpsAdapter.ts."
+        ))
+
+    # 2.2 Zero-Drift Universal Database Client Check (Law L23)
+    core_services_dir = backend_dir / "services" / "core"
+    unified_db_file = core_services_dir / "unifiedDb.ts"
+    all_ts_files = list(backend_dir.rglob("*.ts"))
+    uses_db = any("neon" in read_text_safe(f) or "queryUnifiedDb" in read_text_safe(f) for f in all_ts_files if f.is_file())
+    if uses_db and not unified_db_file.exists():
+        violations.append(Violation(
+            rule_id="missing-unified-db-core",
+            severity="error",
+            message="App queries databases but is missing isomorphic client 'src/backend/services/core/unifiedDb.ts'. Violates Zero-Drift Law L23.",
+            file_path="src/backend/services/core/",
+            suggestion="Create 'src/backend/services/core/unifiedDb.ts' using @neondatabase/serverless for identical execution on Vercel and Cloudflare."
+        ))
 
     # 3. Context-Neutral Flat Orchestrations
     orch_dir = backend_dir / "orchestrations"
@@ -113,7 +146,7 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
     services_dir = backend_dir / "services"
     if services_dir.exists() and services_dir.is_dir():
         for s_dir in services_dir.iterdir():
-            if s_dir.is_dir() and not s_dir.name.startswith("."):
+            if s_dir.is_dir() and not s_dir.name.startswith(".") and s_dir.name != "core":
                 has_client = (s_dir / "client").exists()
                 has_server = (s_dir / "server").exists()
                 if not has_client or not has_server:

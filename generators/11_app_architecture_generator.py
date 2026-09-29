@@ -177,17 +177,20 @@ def _generate_full_app_files(app_name: str) -> List[GeneratedFile]:
     # 1. Backend Facade: src/backend/<AppName>Backend.ts
     backend_content = f"""/**
  * @file {pascal}Backend.ts
- * @description Single Frontend-Backend Entrypoint Facade with WorkerExecutionBoundary.
- * Conforms to APP_ARCHITECTURE_SPEC and SKIPO::STATE_EXECUTION_ARCHITECTURE.
+ * @description Single Frontend-Backend Entrypoint Facade with WorkerExecutionBoundary & Core Services.
+ * Conforms to APP_ARCHITECTURE_SPEC and SKIPO::STATE_EXECUTION_ARCHITECTURE (Laws L7, L23).
  */
 
 import {{ ExecutableBackendFacade, WorkerExecutionBoundary }} from '@skipo/backend';
+import {{ queryUnifiedDb }} from './services/core/unifiedDb';
 
 export const {camel}BackendFacade = new ExecutableBackendFacade('{pascal}Backend');
 export const {camel}Worker = new WorkerExecutionBoundary('{pascal}Worker', {camel}BackendFacade);
 
 export const {pascal}Backend = {{
-  services: {{}},
+  services: {{
+    coreDb: {{ query: queryUnifiedDb }},
+  }},
   orchestrations: {{}},
   worker: {camel}Worker,
   WorkerExecutionBoundary: {camel}Worker,
@@ -197,6 +200,78 @@ export const {pascal}Backend = {{
         relative_path=f"src/backend/{pascal}Backend.ts",
         content=backend_content,
         description="Single backend facade entrypoint"
+    ))
+
+    # 1.1. Universal Core Database Client (Law L23)
+    unified_db_content = """/**
+ * @file unifiedDb.ts
+ * @description Isomorphic Database Client using Neon Serverless HTTP driver.
+ * Operates identically across Node.js, Vercel Serverless, and Cloudflare Workers (Law L23).
+ * Conforms to Skipo Governance (< 200 lines).
+ */
+
+import { neon } from '@neondatabase/serverless';
+
+declare const process: any;
+
+export interface UnifiedQueryResult<T = any> {
+  rows: T[];
+  rowCount: number;
+}
+
+export function cleanDbUrl(url?: unknown): string {
+  if (!url || typeof url !== 'string') return '';
+  return url.trim().replace(/^["']|["']$/g, '');
+}
+
+export function getUnifiedDbUrl(env?: Record<string, unknown>): string {
+  const fromEnv =
+    cleanDbUrl(env?.SYSTEM_DATABASE_URL_1) ||
+    cleanDbUrl(env?.DATABASE_URL) ||
+    cleanDbUrl(env?.SYSTEM_DATABASE_URL_2);
+
+  if (fromEnv) return fromEnv;
+
+  if (typeof process !== 'undefined' && process.env) {
+    return (
+      cleanDbUrl(process.env.SYSTEM_DATABASE_URL_1) ||
+      cleanDbUrl(process.env.DATABASE_URL) ||
+      cleanDbUrl(process.env.SYSTEM_DATABASE_URL_2) ||
+      cleanDbUrl(process.env.SYSTEM_DATABASE_URL_3) ||
+      ''
+    );
+  }
+
+  return '';
+}
+
+export async function queryUnifiedDb<T = any>(
+  sqlText: string,
+  params: any[] = [],
+  env?: Record<string, unknown>
+): Promise<UnifiedQueryResult<T>> {
+  const dbUrl = getUnifiedDbUrl(env);
+  if (!dbUrl) {
+    throw new Error('[UnifiedDB] No database URL configured in environment.');
+  }
+
+  const sql = neon(dbUrl);
+  try {
+    const rows = (await sql.query(sqlText, params)) as T[];
+    return {
+      rows: Array.isArray(rows) ? rows : [],
+      rowCount: Array.isArray(rows) ? rows.length : 0,
+    };
+  } catch (err: any) {
+    console.error('[UnifiedDB] Query execution error:', err.message);
+    throw err;
+  }
+}
+"""
+    files.append(GeneratedFile(
+        relative_path="src/backend/services/core/unifiedDb.ts",
+        content=unified_db_content,
+        description="Zero-Drift universal Neon database client for Vercel and Cloudflare (Law L23)."
     ))
 
     # 2. Frontend index

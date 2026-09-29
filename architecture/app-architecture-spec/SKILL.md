@@ -14,8 +14,14 @@ src/
 ├── frontend/                     # Pure client presentation, components, shell, views
 ├── backend/                      # Backend plane
 │   ├── <AppName>Backend.ts       # SINGLE FRONTEND-BACKEND ENTRYPOINT FACADE
+│   ├── adapters/                 # Protocol adapters
+│   │   └── httpsAdapter.ts       # Universal Fetch / Cloudflare Worker adapter (Law L8)
 │   ├── orchestrations/           # Thin client-side coordinators sequencing services
 │   ├── services/                 # Encapsulated modular services
+│   │   ├── core/                 # ZERO-DRIFT ISOMORPHIC CORE SERVICES (Law L23)
+│   │   │   ├── unifiedDb.ts      # Universal Neon HTTP query driver
+│   │   │   ├── authCore.ts       # Universal auth & session management
+│   │   │   └── storageCore.ts    # Universal storage connections & testing
 │   │   ├── <service-a>/
 │   │   │   ├── <service-a>.ts    # SERVICE FACADE (runtime, deployment, service)
 │   │   │   ├── client/           # Client implementation (runtime == CLIENT)

@@ -113,6 +113,7 @@ export default {{
         "entry": "src/backend/adapters/httpsAdapter.ts",
         "include": [
             "backend/adapters",
+            "backend/services/core",
             "backend/services/*/server",
             "backend/services/*/remote",
             "backend/services/*/repositories",
@@ -136,7 +137,7 @@ export default {{
     # 3. wrangler.toml
     wrangler_content = f"""name = "{app_name.lower()}-api"
 main = "dist/api/worker/index.js"
-compatibility_date = "2024-09-23"
+compatibility_date = "2024-10-01"
 compatibility_flags = ["nodejs_compat"]
 
 [assets]
@@ -150,11 +151,84 @@ command = "npm run build:api"
 [vars]
 API_ENV = "cloudflare"
 BUILD_TARGET = "api"
+SYSTEM_DATABASE_URL_1 = ""
 """
     files.append(GeneratedFile(
         relative_path="wrangler.toml",
         content=wrangler_content,
         description="Cloudflare Worker deployment manifest."
+    ))
+
+    # 3.1. Zero-Drift Universal Database Client (Law L23)
+    unified_db_code = f"""/**
+ * @file unifiedDb.ts
+ * @description Isomorphic Database Client using Neon Serverless HTTP driver.
+ * Operates identically across Node.js, Vercel Serverless, and Cloudflare Workers (Law L23).
+ * Conforms to Skipo Governance (< 200 lines).
+ */
+
+import {{ neon }} from '@neondatabase/serverless';
+
+declare const process: any;
+
+export interface UnifiedQueryResult<T = any> {{
+  rows: T[];
+  rowCount: number;
+}}
+
+export function cleanDbUrl(url?: unknown): string {{
+  if (!url || typeof url !== 'string') return '';
+  return url.trim().replace(/^["']|["']$/g, '');
+}}
+
+export function getUnifiedDbUrl(env?: Record<string, unknown>): string {{
+  const fromEnv =
+    cleanDbUrl(env?.SYSTEM_DATABASE_URL_1) ||
+    cleanDbUrl(env?.DATABASE_URL) ||
+    cleanDbUrl(env?.SYSTEM_DATABASE_URL_2);
+
+  if (fromEnv) return fromEnv;
+
+  if (typeof process !== 'undefined' && process.env) {{
+    return (
+      cleanDbUrl(process.env.SYSTEM_DATABASE_URL_1) ||
+      cleanDbUrl(process.env.DATABASE_URL) ||
+      cleanDbUrl(process.env.SYSTEM_DATABASE_URL_2) ||
+      cleanDbUrl(process.env.SYSTEM_DATABASE_URL_3) ||
+      ''
+    );
+  }}
+
+  return '';
+}}
+
+export async function queryUnifiedDb<T = any>(
+  sqlText: string,
+  params: any[] = [],
+  env?: Record<string, unknown>
+): Promise<UnifiedQueryResult<T>> {{
+  const dbUrl = getUnifiedDbUrl(env);
+  if (!dbUrl) {{
+    throw new Error('[UnifiedDB] No database URL configured in environment.');
+  }}
+
+  const sql = neon(dbUrl);
+  try {{
+    const rows = (await sql.query(sqlText, params)) as T[];
+    return {{
+      rows: Array.isArray(rows) ? rows : [],
+      rowCount: Array.isArray(rows) ? rows.length : 0,
+    }};
+  }} catch (err: any) {{
+    console.error('[UnifiedDB] Query execution error:', err.message);
+    throw err;
+  }}
+}}
+"""
+    files.append(GeneratedFile(
+        relative_path="src/backend/services/core/unifiedDb.ts",
+        content=unified_db_code,
+        description="Zero-Drift universal Neon database client for Vercel and Cloudflare (Law L23)."
     ))
 
     project_manifest = {
@@ -305,6 +379,9 @@ const serverlessEntry = fs.existsSync(path.join(rootDir, 'src/backend/server/ser
   ? 'src/backend/server/serverless.ts'
   : 'src/server/serverless.ts';
 
+const isFullstackMode = (process.env.DEPLOY_TARGET || pkg.skipo?.deploy || 'fullstack').toLowerCase().trim() === 'fullstack';
+const viteAssetPrefix = (isFullstackMode || !fs.existsSync(path.join(rootDir, 'dist/index.html'))) ? 'npx vite build && ' : '';
+
 const commands = {
   nextjs: {
     fullstack: 'npx next build',
@@ -312,7 +389,7 @@ const commands = {
   },
   vite: {
     fullstack: `npx vite build && npx esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && npx esbuild ${serverlessEntry} --bundle --platform=node --format=esm --packages=external --minify --banner:js="// @generated" --outfile=api/index.js`,
-    api: 'npx esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=neutral --alias:crypto=node:crypto --external:node:crypto --format=esm --outfile=dist/api/worker/index.js',
+    api: `${viteAssetPrefix}npx esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=neutral --alias:crypto=node:crypto --external:node:crypto --format=esm --outfile=dist/api/worker/index.js`,
   },
 };
 

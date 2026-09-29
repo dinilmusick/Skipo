@@ -127,3 +127,26 @@ $$\text{ViteApp}(repo) \implies \text{package.json}.\text{devDependencies} \cap 
 
 1. **Vercel Framework Misdetection Hazard**: Vercel scans `package.json` for framework names. If `"next"` is present in dependencies or devDependencies of a Vite SPA, Vercel falsely identifies the framework as `Next.js` and crashes when the Next.js output directory `.next` is not found.
 2. **Clean Dependency Separation**: In Vite-based applications, Next.js dependencies must never be declared in `package.json`. Vercel automatically selects Vite and deploys `dist/` and `api/index.js`.
+
+## 7. ZERO-DRIFT UNIFIED CORE SERVICES ARCHITECTURE (`src/backend/services/core/`)
+
+$$\text{ZeroDrift}(\mathcal{A}) \iff \forall r \in \text{Routes}: \text{Exec}(r, \text{Vercel}) \equiv \text{Exec}(r, \text{Cloudflare}) \wedge \neg\text{SplitWorkerAdapters}(\mathcal{A})$$
+
+1. **The Codebase Splitting Hazard**:
+   Creating parallel or divergent backend implementations (such as `src/backend/adapters/worker/` or inline mock route arrays in `httpsAdapter.ts`) causes feature and bug drift between deployment environments. Workspaces, storage connections, and database queries work on Vercel Node runtimes but break on Cloudflare Workers edge runtimes.
+2. **Unified Core Services Layer (`src/backend/services/core/`)**:
+   All database access, authentication logic, storage connection management, and ecosystem queries MUST be centralized into isomorphic, runtime-agnostic modules under `src/backend/services/core/`:
+   - `unifiedDb.ts`: Universal `@neondatabase/serverless` query client with automatic environment detection (`SYSTEM_DATABASE_URL_1`, `DATABASE_URL`, `SYSTEM_DATABASE_URL_2`). Operates identically in Node.js and Cloudflare Workers edge environments without TCP connection pool limits.
+   - `authCore.ts`: Universal authentication, system administrator credentials resolution, user directory lookup, and session creation.
+   - `storageCore.ts` (or `backblazeCore.ts`): Multi-cloud storage connections CRUD (Backblaze B2, S3, Cloudflare R2) and credential testing via `@aws-sdk/client-s3`.
+   - `workspaceCore.ts`: Workspaces CRUD, canonical folder naming (`ultrst_<app>_<user>_<name>`), and active workspace state.
+3. **Single Facade Master Registration (Law L7)**:
+   The master backend facade `src/backend/<AppName>Backend.ts` MUST expose these core services under `<AppName>Backend.services.*`.
+4. **Dual-Ingress Delegation Invariant**:
+   Both platform ingress handlers:
+   - Platform Ingress 1: Vercel Express AppFactory / Next.js API route handlers
+   - Platform Ingress 2: Cloudflare Workers `httpsAdapter.ts` fetch handler
+   MUST delegate directly to the same core services via the facade. Neither ingress may maintain its own independent database pool or mock state.
+5. **Static UI Asset Bundling Invariant**:
+   `scripts/skipo-build.cjs` MUST ensure frontend UI assets (`dist/` or `dist/client/`) are built before or during the `api` target so that Cloudflare Workers with Assets (`[assets]`) always serves the complete application UI at `https://<app>.workers.dev/`.
+
