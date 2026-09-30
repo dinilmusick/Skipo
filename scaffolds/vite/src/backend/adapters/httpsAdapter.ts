@@ -159,12 +159,10 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
   }
 
   // 7. Assets fallback for Frontend SPA
+  // Pass request as-is — CF Assets uses not_found_handling=single-page-application
+  // to serve index.html for any non-file path. Manual /index.html rewrites cause
+  // infinite redirect loops (CF Assets normalizes /index.html → / automatically).
   if (env.ASSETS && typeof env.ASSETS.fetch === 'function' && !pathname.startsWith('/api/')) {
-    const assetUrl = new URL(request.url);
-    if (assetUrl.pathname === '/' || !assetUrl.pathname.includes('.')) {
-      assetUrl.pathname = '/index.html';
-      return await env.ASSETS.fetch(new Request(assetUrl.toString(), request));
-    }
     return await env.ASSETS.fetch(request);
   }
 
