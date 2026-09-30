@@ -2,9 +2,13 @@
 
 /**
  * @file skipo-build.cjs
- * @description Universal build router for Skipo framework applications.
- * Dynamically executes fullstack or api builds and assembles static client assets.
- * Conforms to Skipo Governance (< 200 lines).
+ * @description Single Universal Build Pipeline for Next.js Skipo framework applications.
+ * Conforms to Law L22 (Single Build Pipeline).
+ *
+ * Compiles all targets in one unified pass:
+ * 1. Next.js Fullstack build -> .next/
+ * 2. Static asset harvesting -> dist/client/ (for Cloudflare Assets CDN)
+ * 3. Universal Polyglot Backend (esbuild) -> api/index.js (for Cloudflare Workers / Node)
  */
 
 const { execSync } = require('child_process');
@@ -12,14 +16,18 @@ const path = require('path');
 const fs = require('fs');
 
 const rootDir = path.resolve(__dirname, '..');
-const pkgPath = path.join(rootDir, 'package.json');
-const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
 
-const target = (process.argv[2] || process.env.DEPLOY_TARGET || pkg.skipo?.deploy || 'fullstack').toLowerCase().trim();
-const framework = pkg.dependencies?.next ? 'nextjs' : 'vite';
+console.log('[skipo-build] Starting Next.js Universal Single-Pass Build...');
+const startTime = Date.now();
 
-console.log(`[skipo-build] Framework detected: ${framework}`);
-console.log(`[skipo-build] Selected target:   ${target}`);
+// Ensure output directories exist
+fs.mkdirSync(path.join(rootDir, 'api'), { recursive: true });
+fs.mkdirSync(path.join(rootDir, 'dist/client'), { recursive: true });
+
+function run(cmd, desc) {
+  console.log(`[skipo-build] ${desc}...`);
+  execSync(cmd, { cwd: rootDir, stdio: 'inherit' });
+}
 
 function assembleNextClientAssets(root) {
   const clientDir = path.join(root, 'dist/client');
@@ -46,36 +54,25 @@ function assembleNextClientAssets(root) {
   if (fs.existsSync(publicDir)) {
     fs.cpSync(publicDir, clientDir, { recursive: true });
   }
-  console.log(`[skipo-build] Assembled Next.js static assets into dist/client.`);
+  console.log('[skipo-build] Assembled Next.js static assets into dist/client.');
 }
-
-const commands = {
-  nextjs: {
-    fullstack: 'npx next build',
-    api: "BUILD_TARGET=api npx esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=browser --format=esm --target=es2022 --minify '--external:node:*' --external:fs --external:path --external:crypto --external:stream --external:buffer --external:util --external:events --external:os --external:net --external:tls --external:http --external:https --external:zlib --outfile=dist/api/worker/index.js",
-  },
-  vite: {
-    fullstack: 'npx vite build && npx esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs',
-    api: 'npx esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=neutral --format=esm --outfile=dist/api/worker/index.js',
-  },
-};
-
-const cmd = commands[framework]?.[target];
-
-if (!cmd) {
-  console.error(`[skipo-build] Error: Unknown target "${target}" for framework "${framework}".`);
-  process.exit(1);
-}
-
-console.log(`[skipo-build] Executing command: ${cmd}\n`);
 
 try {
-  execSync(cmd, { cwd: rootDir, stdio: 'inherit' });
-  if (framework === 'nextjs') {
-    assembleNextClientAssets(rootDir);
-  }
-  console.log(`\n[skipo-build] Build completed successfully for target "${target}".`);
+  // 1. Next.js Fullstack build
+  run('npx next build', 'Building Next.js application');
+
+  // 2. Harvest static client assets for Cloudflare Assets CDN
+  assembleNextClientAssets(rootDir);
+
+  // 3. Single Universal Polyglot Backend bundle
+  run(
+    "npx esbuild src/backend/adapters/universalEntry.ts --bundle --platform=neutral --format=esm --alias:crypto=node:crypto '--external:node:*' --outfile=api/index.js",
+    'Bundling Single Universal Polyglot Backend (api/index.js)'
+  );
+
+  const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+  console.log(`\n✨ [skipo-build] Next.js universal build completed successfully in ${duration}s.`);
 } catch (error) {
-  console.error(`\n[skipo-build] Build failed for target "${target}".`);
+  console.error('\n❌ [skipo-build] Build failed:', error.message);
   process.exit(error.status || 1);
 }

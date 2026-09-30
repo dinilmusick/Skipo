@@ -104,6 +104,53 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
                 suggestion="Add 'if (env.ASSETS && !pathname.startsWith(\"/api/\")) return env.ASSETS.fetch(request);' to httpsAdapter.ts."
             ))
 
+        # Check 2.0a: Ban on /index.html rewrites in ASSETS fallback (Law L24: Prevents ERR_TOO_MANY_REDIRECTS)
+        if "env.ASSETS" in content and ("/index.html" in content or "'/index.html'" in content or '"/index.html"' in content):
+            if "pathname = '/index.html'" in content or 'pathname = "/index.html"' in content:
+                violations.append(Violation(
+                    rule_id="cf-assets-infinite-redirect-loop",
+                    severity="error",
+                    message="Manual rewrite to '/index.html' before env.ASSETS.fetch() detected. Cloudflare Assets normalizes /index.html -> /, causing an infinite redirect loop (ERR_TOO_MANY_REDIRECTS).",
+                    file_path=str(adapter_file.relative_to(root_dir)),
+                    suggestion="Pass the original request to env.ASSETS.fetch(request) as-is; not_found_handling='single-page-application' handles SPA fallback natively."
+                ))
+
+    # 2.0b Polyglot Universal Entry & ExportedHandler Plain Object Invariant (Law L8 & L24)
+    universal_entry_file = backend_dir / "adapters" / "universalEntry.ts"
+    if universal_entry_file.exists():
+        files_scanned += 1
+        ue_content = read_text_safe(universal_entry_file)
+        if "export default universalHandler" in ue_content:
+            violations.append(Violation(
+                rule_id="cf-invalid-function-export",
+                severity="error",
+                message="universalEntry.ts exports a function as default export. Cloudflare Workers runtime rejects function exports, silently failing isolate startup and returning HTML 404 ('There is nothing here yet').",
+                file_path=str(universal_entry_file.relative_to(root_dir)),
+                suggestion="Use 'export default { async fetch(request, env, ctx) { return fetchHandler(request, env); } };' as a plain object literal."
+            ))
+        elif "export default {" not in ue_content and "export default cfHandler" not in ue_content and "export default {" not in ue_content:
+            violations.append(Violation(
+                rule_id="cf-missing-object-default-export",
+                severity="warning",
+                message="universalEntry.ts must provide an ExportedHandler plain object literal as default export ('export default { async fetch(...) }').",
+                file_path=str(universal_entry_file.relative_to(root_dir)),
+                suggestion="Add 'export default { async fetch(request, env, ctx) { return fetchHandler(request, env); } };'."
+            ))
+
+    # 2.0c Strict Ban on new Function() and eval() in Backend (Law L22: Cloudflare V8 Isolate Strict Security)
+    all_backend_files = list(backend_dir.rglob("*.ts"))
+    for bf in all_backend_files:
+        if bf.is_file():
+            b_text = read_text_safe(bf)
+            if "new Function(" in b_text or "eval(" in b_text:
+                violations.append(Violation(
+                    rule_id="cf-v8-isolate-eval-forbidden",
+                    severity="error",
+                    message=f"Banned code generation string evaluation ('new Function' or 'eval') found in '{bf.relative_to(root_dir)}'. Fails Cloudflare Workers V8 isolate deployment with EvalError 10021.",
+                    file_path=str(bf.relative_to(root_dir)),
+                    suggestion="Replace dynamic string evaluation with native 'await import(module)' and mark as external in esbuild."
+                ))
+
     # 2.1 Ban on Divergent Worker Adapter Directory (Law L23: Codebase Splitting Anti-Pattern)
     worker_adapter_dir = backend_dir / "adapters" / "worker"
     if worker_adapter_dir.exists() and worker_adapter_dir.is_dir():
@@ -128,6 +175,44 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
             file_path="src/backend/services/core/",
             suggestion="Create 'src/backend/services/core/unifiedDb.ts' using @neondatabase/serverless for identical execution on Vercel and Cloudflare."
         ))
+
+    # 2.3 Ban on Express Serverless Layer (Law L8: Universal Protocol Adapter & Express Ban)
+    forbidden_serverless_entries = [
+        backend_dir / "server" / "serverless.ts",
+        backend_dir / "server" / "appFactory.ts",
+        src_dir / "server" / "serverless.ts",
+    ]
+    for bad_entry in forbidden_serverless_entries:
+        if bad_entry.exists():
+            violations.append(Violation(
+                rule_id="forbidden-express-serverless-entry",
+                severity="error",
+                message=f"Forbidden Express serverless entry '{bad_entry.relative_to(root_dir)}' detected. Dual-backend Express layers violate Law L8.",
+                file_path=str(bad_entry.relative_to(root_dir)),
+                suggestion="Delete Express serverless layer and route Vercel api/index.js through universal 'src/backend/adapters/httpsAdapter.ts' via nodeBridge."
+            ))
+
+    # 2.4 Require nodeBridge.ts for Universal Node HTTP / Fetch bridging (Law L8)
+    node_bridge_file = backend_dir / "adapters" / "nodeBridge.ts"
+    if not node_bridge_file.exists():
+        violations.append(Violation(
+            rule_id="missing-node-bridge-adapter",
+            severity="error",
+            message="Node.js HTTP bridge 'src/backend/adapters/nodeBridge.ts' is missing.",
+            file_path="src/backend/adapters/",
+            suggestion="Create 'src/backend/adapters/nodeBridge.ts' to adapt Node HTTP requests to Web Standard fetch for Vercel/server.ts execution."
+        ))
+    else:
+        files_scanned += 1
+        nb_content = read_text_safe(node_bridge_file)
+        if "adaptNodeRequest" not in nb_content:
+            violations.append(Violation(
+                rule_id="node-bridge-missing-export",
+                severity="error",
+                message="'src/backend/adapters/nodeBridge.ts' must export 'adaptNodeRequest'.",
+                file_path=str(node_bridge_file.relative_to(root_dir)),
+                suggestion="Export 'adaptNodeRequest(req, res, fetchHandler, env)'."
+            ))
 
     # 3. Context-Neutral Flat Orchestrations
     orch_dir = backend_dir / "orchestrations"
@@ -196,13 +281,13 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
     else:
         files_scanned += 1
         w_text = read_text_safe(wrangler_file)
-        if "[build]" not in w_text or "build:api" not in w_text:
+        if "[build]" not in w_text or "command" not in w_text:
             violations.append(Violation(
                 rule_id="wrangler-missing-build-command",
                 severity="error",
-                message="wrangler.toml is missing [build] command = 'npm run build:api'. Direct wrangler deploy will fail if dist/api/worker/index.js is not yet built.",
+                message="wrangler.toml is missing [build] command = 'npm run build'. Direct wrangler deploy will fail if worker bundle is not yet built.",
                 file_path="wrangler.toml",
-                suggestion="Add '[build]\\ncommand = \"npm run build:api\"' to wrangler.toml."
+                suggestion="Add '[build]\\ncommand = \"npm run build\"' to wrangler.toml."
             ))
         if "[assets]" not in w_text:
             violations.append(Violation(
@@ -210,23 +295,59 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
                 severity="warning",
                 message="wrangler.toml is missing '[assets]' configuration. Without assets, Cloudflare Workers will only serve API JSON and will not serve the frontend UI.",
                 file_path="wrangler.toml",
-                suggestion="Add '[assets]\\ndirectory = \"dist/client\"\\nbinding = \"ASSETS\"\\nnot_found_handling = \"single-page-application\"' to wrangler.toml."
+                suggestion="Add '[assets]\\ndirectory = \"dist\"\\nbinding = \"ASSETS\"\\nnot_found_handling = \"single-page-application\"' to wrangler.toml."
+            ))
+        else:
+            is_vite_project = (root_dir / "vite.config.ts").exists() or (root_dir / "vite.config.js").exists()
+            if is_vite_project and 'directory = "dist/client"' in w_text:
+                violations.append(Violation(
+                    rule_id="wrangler-assets-directory-mismatch",
+                    severity="error",
+                    message="wrangler.toml specifies directory = 'dist/client' for a Vite app, but Vite outputs to 'dist'. This causes Cloudflare to fail serving frontend assets.",
+                    file_path="wrangler.toml",
+                    suggestion="Change [assets] directory to 'dist' (or './dist') in wrangler.toml."
+                ))
+
+            # Check 6.0a: Mandatory run_worker_first = true (Law L24: Prevents API routing 404 bypass)
+            if "run_worker_first" not in w_text:
+                violations.append(Violation(
+                    rule_id="wrangler-missing-run-worker-first",
+                    severity="error",
+                    message="wrangler.toml is missing 'run_worker_first = true' in [assets]. Without this, Cloudflare edge may route API requests to static storage and return 404.",
+                    file_path="wrangler.toml",
+                    suggestion="Add 'run_worker_first = true' under [assets] in wrangler.toml."
+                ))
+            elif "run_worker_first = [" in w_text:
+                violations.append(Violation(
+                    rule_id="wrangler-array-run-worker-first-forbidden",
+                    severity="error",
+                    message="wrangler.toml uses array syntax for 'run_worker_first'. Glob patterns fail on edge routing; must be boolean 'run_worker_first = true'.",
+                    file_path="wrangler.toml",
+                    suggestion="Change 'run_worker_first = [...]' to 'run_worker_first = true' under [assets] in wrangler.toml."
+                ))
+
+    # 6.1 Single Universal Build Pipeline Script Check (Law L22)
+    skipo_build_file = root_dir / "scripts" / "skipo-build.cjs"
+    if skipo_build_file.exists():
+        files_scanned += 1
+        build_text = read_text_safe(skipo_build_file)
+        has_adapter = "httpsAdapter" in build_text or "universalEntry" in build_text
+        has_frontend_build = "vite build" in build_text or "next build" in build_text
+        if not has_frontend_build or not has_adapter:
+            violations.append(Violation(
+                rule_id="skipo-build-incomplete-pipeline",
+                severity="warning",
+                message="scripts/skipo-build.cjs should compile both frontend (vite build or next build) and universal backend adapter (universalEntry.ts or httpsAdapter.ts) in a single pass (Law L22).",
+                file_path="scripts/skipo-build.cjs",
+                suggestion="Ensure skipo-build.cjs builds frontend (Vite or Next.js) and bundles universalEntry.ts for multi-cloud deployments."
             ))
 
     # 7. tsconfig.api.json
     tsconfig_api = root_dir / "tsconfig.api.json"
-    if not tsconfig_api.exists():
-        violations.append(Violation(
-            rule_id="missing-tsconfig-api",
-            severity="error",
-            message="API Target TypeScript config 'tsconfig.api.json' is missing.",
-            file_path="tsconfig.api.json",
-            suggestion="Create 'tsconfig.api.json' excluding frontend and client implementations."
-        ))
-    else:
+    if tsconfig_api.exists():
         files_scanned += 1
 
-    # 8. Dual Build Scripts in package.json
+    # 8. Single Universal Build Script in package.json (Law L22)
     pkg_file = root_dir / "package.json"
     is_vite = False
     if pkg_file.exists():
@@ -234,24 +355,21 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
         try:
             pkg_data = json.loads(read_text_safe(pkg_file))
             scripts = pkg_data.get("scripts", {})
-            required_scripts = ["build", "build:fullstack", "build:api", "build:all", "validate:api"]
-            for req in required_scripts:
-                if req not in scripts:
-                    violations.append(Violation(
-                        rule_id=f"missing-script-{req}",
-                        severity="error",
-                        message=f"package.json missing required multi-target script '{req}'.",
-                        file_path="package.json",
-                        suggestion=f"Add script '{req}' to package.json."
-                    ))
-
-            if scripts.get("build") != "npm run build:all":
+            if "build" not in scripts:
                 violations.append(Violation(
-                    rule_id="build-script-not-build-all",
+                    rule_id="missing-script-build",
                     severity="error",
-                    message="package.json 'build' script must be 'npm run build:all' to ensure all deployment targets (Vercel fullstack + Cloudflare worker) are built.",
+                    message="package.json missing required build script 'build'.",
                     file_path="package.json",
-                    suggestion="Set '\"build\": \"npm run build:all\"' in package.json."
+                    suggestion="Add '\"build\": \"node scripts/skipo-build.cjs\"' to package.json."
+                ))
+            if "dev" not in scripts:
+                violations.append(Violation(
+                    rule_id="missing-script-dev",
+                    severity="error",
+                    message="package.json missing required dev script 'dev'.",
+                    file_path="package.json",
+                    suggestion="Add '\"dev\": \"tsx server.ts\"' to package.json."
                 ))
 
             # 9. Framework Anti-Hallucination (Ban 'next' in Vite-based apps)

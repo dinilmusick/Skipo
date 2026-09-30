@@ -2,9 +2,11 @@
 """
 Aspect 12: Multi-Target Build & Protocol Adapters Generator
 Generates:
-- Protocol Adapters suite (src/backend/adapters/httpsAdapter.ts)
-- Build manifests (config/build/manifests/fullstack.json, api.json)
-- Cloudflare Worker configuration (wrangler.toml)
+- Single Universal Polyglot Entrypoint (src/backend/adapters/universalEntry.ts)
+- Universal Fetch Protocol Adapter (src/backend/adapters/httpsAdapter.ts)
+- Node HTTP to Web Standard Bridge (src/backend/adapters/nodeBridge.ts)
+- Cloudflare Worker configuration (wrangler.toml) with run_worker_first = true
+- Single Universal Build Pipeline (scripts/skipo-build.cjs)
 - API target TypeScript configuration (tsconfig.api.json)
 """
 
@@ -17,12 +19,12 @@ import time
 try:
     from .common import (
         GeneratedFile, GeneratorResult, emit_directory,
-        print_generator_report
+        print_generator_report, parse_generator_args
     )
 except ImportError:
     from common import (
         GeneratedFile, GeneratorResult, emit_directory,
-        print_generator_report
+        print_generator_report, parse_generator_args
     )
 
 GENERATOR_ID = "12_multi_target_build_generator"
@@ -35,71 +37,226 @@ def generate_multi_target_suite(target_dir: Path, params: Dict[str, Any]) -> Gen
     app_name = params.get("name") or "SkipoApp"
     backend_import = params.get("backend_facade") or f"{app_name}Backend"
     
-    # 1. httpsAdapter.ts (Fetch API / Cloudflare Worker Entry)
+    # 1. nodeBridge.ts (Node.js HTTP to Web Standard fetch bridge)
+    node_bridge_code = """/**
+ * @file nodeBridge.ts
+ * @description Bridges Node.js IncomingMessage / ServerResponse to Web Standard fetch.
+ * Enables identical execution in Node.js (Vercel Serverless / local dev) and Cloudflare Workers.
+ * Conforms to Skipo Governance (< 100 lines). Zero Express dependency.
+ */
+
+export async function adaptNodeRequest(
+  req: any,
+  res: any,
+  fetchHandler: (req: Request, env?: any) => Promise<Response>,
+  env?: any
+) {
+  if (req instanceof Request) {
+    return fetchHandler(req, env);
+  }
+
+  const protocol = req.headers['x-forwarded-proto'] || (req.socket?.encrypted ? 'https' : 'http');
+  const host = req.headers.host || 'localhost:3000';
+  const url = new URL(req.url || '/', `${protocol}://${host}`);
+
+  let body: any = null;
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    if (req.body && typeof req.body === 'object') {
+      body = JSON.stringify(req.body);
+    } else if (typeof req.body === 'string') {
+      body = req.body;
+    } else {
+      const chunks: any[] = [];
+      for await (const chunk of req) chunks.push(chunk);
+      body = Buffer.concat(chunks).toString();
+    }
+  }
+
+  const webReq = new Request(url.toString(), {
+    method: req.method,
+    headers: req.headers,
+    body: body && body.length > 0 ? body : undefined,
+  });
+
+  const webRes = await fetchHandler(webReq, env || process.env);
+
+  res.statusCode = webRes.status;
+  webRes.headers.forEach((val: string, key: string) => {
+    res.setHeader(key, val);
+  });
+  const text = await webRes.text();
+  res.end(text);
+}
+"""
+    files.append(GeneratedFile(
+        relative_path="src/backend/adapters/nodeBridge.ts",
+        content=node_bridge_code,
+        description="Node HTTP to Web Standard fetch bridge for Vercel Serverless and Node server."
+    ))
+
+    # 1.1 httpsAdapter.ts (Universal Fetch API / Routing / Asset Fallback)
     adapter_code = f"""/**
  * @file httpsAdapter.ts
- * @description Protocol Adapter converting Universal {backend_import} into a Web Standard Fetch HTTP Server asset.
- * Deployed to Cloudflare Workers / Headless Serverless API targets.
- * Conforms to MULTI_TARGET_BUILD_SPEC Section 2 & Inviolable Law L8.
+ * @description Universal Protocol Adapter converting {backend_import} into a Web Standard Fetch HTTP Server.
+ * Conforms to MULTI_TARGET_BUILD_SPEC & Inviolable Laws L8, L24 (< 200 lines).
  */
 
 import {{ {backend_import} }} from '../{backend_import}';
+import {{ adaptNodeRequest }} from './nodeBridge';
 
 export interface Env {{
+  ENVIRONMENT?: string;
+  APP_NAME?: string;
+  SYSTEM_DATABASE_URL_1?: string;
+  DATABASE_URL?: string;
   ASSETS?: {{ fetch: (request: Request) => Promise<Response> }};
   [key: string]: unknown;
 }}
 
+const CORS_HEADERS = {{
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Id, X-Workspace-Id, X-Vault-Key',
+}};
+
+function jsonRes(data: unknown, status = 200): Response {{
+  return new Response(JSON.stringify(data), {{ status, headers: {{ 'Content-Type': 'application/json', ...CORS_HEADERS }} }});
+}}
+
+export async function fetchHandler(request: Request, env: Env = {{}}): Promise<Response> {{
+  const url = new URL(request.url);
+  const {{ pathname, method }} = url;
+
+  // CORS Preflight
+  if (method === 'OPTIONS') {{
+    return new Response(null, {{ status: 204, headers: CORS_HEADERS }});
+  }}
+
+  // Standard Health Probe Gate
+  if (pathname === '/api/health' || pathname === '/health') {{
+    return jsonRes({{
+      status: 'ok',
+      service: '{app_name.lower()}-engine',
+      timestamp: new Date().toISOString(),
+    }});
+  }}
+
+  // Non-API UI Asset Fallback (Cloudflare Workers with Assets)
+  // Law L24: Pass request as-is. not_found_handling='single-page-application' serves index.html natively.
+  // Manual /index.html rewrites are banned to prevent infinite redirect loops.
+  if (env.ASSETS && typeof env.ASSETS.fetch === 'function' && !pathname.startsWith('/api/')) {{
+    return await env.ASSETS.fetch(request);
+  }}
+
+  try {{
+    return jsonRes({{
+      success: true,
+      message: `${backend_import} ready for protocol execution`,
+      path: pathname,
+    }});
+  }} catch (err: unknown) {{
+    const message = err instanceof Error ? err.message : String(err);
+    return jsonRes({{ success: false, error: message }}, 500);
+  }}
+}}
+
 export default {{
-  async fetch(request: Request, env: Env = {{}}): Promise<Response> {{
-    const url = new URL(request.url);
-    const {{ pathname, method }} = url;
-
-    // Standard Health Probe Gate
-    if (pathname === '/api/health' || pathname === '/health') {{
-      return Response.json({{
-        status: 'ok',
-        runtime: 'cloudflare-worker',
-        timestamp: new Date().toISOString(),
-      }});
-    }}
-
-    // CORS Preflight
-    if (method === 'OPTIONS') {{
-      return new Response(null, {{
-        status: 204,
-        headers: {{
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
-        }},
-      }});
-    }}
-
-    // Non-API UI Asset Fallback (Cloudflare Workers with Assets)
-    if (env.ASSETS && typeof (env.ASSETS as any).fetch === 'function' && !pathname.startsWith('/api/')) {{
-      return (env.ASSETS as any).fetch(request);
-    }}
-
-    // Dynamic Orchestration / Service Dispatch Example
-    try {{
-      // Service execution can be mapped to {backend_import}
-      return Response.json({{
-        success: true,
-        message: `${backend_import} ready for protocol execution`,
-        path: pathname,
-      }});
-    }} catch (err: unknown) {{
-      const message = err instanceof Error ? err.message : String(err);
-      return Response.json({{ success: false, error: message }}, {{ status: 500 }});
-    }}
+  async fetch(request: Request, env: Env = {{}}, ctx?: any): Promise<Response> {{
+    return fetchHandler(request, env);
   }},
 }};
+
+export {{ adaptNodeRequest }};
 """
     files.append(GeneratedFile(
         relative_path="src/backend/adapters/httpsAdapter.ts",
         content=adapter_code,
-        description="Protocol Adapter exposing Backend Facade via Web Standard Fetch API."
+        description="Universal Protocol Adapter exposing Backend Facade via Web Standard Fetch API."
+    ))
+
+    # 1.2 universalEntry.ts (Single Universal Polyglot Entrypoint: CF Workers, Vercel, Node)
+    universal_entry_code = f"""/**
+ * @file universalEntry.ts
+ * @description Single Universal Polyglot Backend Entrypoint for {app_name}.
+ * Runs identically on Cloudflare Workers, Vercel Serverless, and Local Node.js (Law L8, L22, L24).
+ */
+
+import {{ fetchHandler, Env }} from './httpsAdapter';
+import {{ adaptNodeRequest }} from './nodeBridge';
+
+// Polyglot Universal Handler (Node / Vercel Serverless)
+const universalHandler = async function (req: any, res?: any, env?: any): Promise<any> {{
+  if (req && res && typeof res.writeHead === 'function') {{
+    return adaptNodeRequest(req, res, (webReq) => fetchHandler(webReq, (process.env as unknown as Env) || {{}}));
+  }}
+  return fetchHandler(req, env || res);
+}};
+
+// Standalone Node.js server launcher (for `node api/index.js` / Docker)
+if (
+  typeof process !== 'undefined' &&
+  process.argv &&
+  (process.argv[1]?.endsWith('index.js') || process.argv[1]?.endsWith('server.js'))
+) {{
+  (async () => {{
+    try {{
+      const http = await import('node:http');
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+
+      const port = Number(process.env.PORT) || 3000;
+      const distPath = path.resolve(process.cwd(), 'dist');
+
+      const server = http.createServer(async (req, res) => {{
+        const url = req.url || '/';
+        if (url.startsWith('/api/') || url === '/api' || url.startsWith('/health')) {{
+          return adaptNodeRequest(req, res, (webReq) => fetchHandler(webReq, (process.env as unknown as Env) || {{}}));
+        }}
+
+        const filePath = path.join(distPath, url.split('?')[0]);
+        if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {{
+          const ext = path.extname(filePath).toLowerCase();
+          const mimeTypes: Record<string, string> = {{
+            '.html': 'text/html', '.js': 'application/javascript',
+            '.css': 'text/css', '.json': 'application/json',
+            '.png': 'image/png', '.svg': 'image/svg+xml',
+          }};
+          res.writeHead(200, {{ 'Content-Type': mimeTypes[ext] || 'application/octet-stream' }});
+          return fs.createReadStream(filePath).pipe(res);
+        }}
+
+        const indexPath = path.join(distPath, 'index.html');
+        if (fs.existsSync(indexPath)) {{
+          res.writeHead(200, {{ 'Content-Type': 'text/html' }});
+          return fs.createReadStream(indexPath).pipe(res);
+        }}
+
+        res.writeHead(404, {{ 'Content-Type': 'text/plain' }});
+        res.end('Not Found');
+      }});
+
+      server.listen(port, () => {{
+        console.log(`[{app_name} Universal Server] Listening on http://localhost:${{port}}`);
+      }});
+    }} catch (e) {{
+      // In non-node environments, ignore
+    }}
+  }})();
+}}
+
+// Cloudflare Workers ExportedHandler — Law L24: MUST be plain object literal {{ fetch }}
+export default {{
+  async fetch(request: Request, env: Env = {{}}, ctx?: any): Promise<Response> {{
+    return fetchHandler(request, env);
+  }},
+}};
+
+export {{ fetchHandler, adaptNodeRequest, universalHandler }};
+"""
+    files.append(GeneratedFile(
+        relative_path="src/backend/adapters/universalEntry.ts",
+        content=universal_entry_code,
+        description="Single Universal Polyglot Entrypoint for Node, Vercel, and Cloudflare Workers."
     ))
 
     # 2. Build manifests
@@ -110,13 +267,10 @@ export default {{
     }
     api_manifest = {
         "target": "api",
-        "entry": "src/backend/adapters/httpsAdapter.ts",
+        "entry": "src/backend/adapters/universalEntry.ts",
         "include": [
             "backend/adapters",
             "backend/services/core",
-            "backend/services/*/server",
-            "backend/services/*/remote",
-            "backend/services/*/repositories",
             "backend/orchestrations",
             "backend/gateway",
             "libraries"
@@ -134,19 +288,20 @@ export default {{
         description="Build manifest defining includes/excludes for API target."
     ))
 
-    # 3. wrangler.toml
-    wrangler_content = f"""name = "{app_name.lower()}-api"
-main = "dist/api/worker/index.js"
+    # 3. wrangler.toml (Law L22, L24: main = api/index.js, run_worker_first = true)
+    wrangler_content = f"""name = "{app_name.lower()}-engine"
+main = "api/index.js"
 compatibility_date = "2024-10-01"
 compatibility_flags = ["nodejs_compat"]
 
 [assets]
-directory = "dist/client"
+directory = "./dist"
 binding = "ASSETS"
+run_worker_first = true
 not_found_handling = "single-page-application"
 
 [build]
-command = "npm run build:api"
+command = "npm run build"
 
 [vars]
 API_ENV = "cloudflare"
@@ -156,7 +311,7 @@ SYSTEM_DATABASE_URL_1 = ""
     files.append(GeneratedFile(
         relative_path="wrangler.toml",
         content=wrangler_content,
-        description="Cloudflare Worker deployment manifest."
+        description="Cloudflare Worker deployment manifest configured for universal single artifact."
     ))
 
     # 3.1. Zero-Drift Universal Database Client (Law L23)
@@ -235,11 +390,11 @@ export async function queryUnifiedDb<T = any>(
         "kind": "skipo-application",
         "schemaVersion": 1,
         "deploymentTargets": {
-            "fullstack": {"platform": "vercel", "command": "npm run build:fullstack"},
-            "api": {"platform": "cloudflare-workers", "command": "npm run build:api"}
+            "fullstack": {"platform": "vercel", "command": "npm run build"},
+            "api": {"platform": "cloudflare-workers", "command": "npm run build"}
         },
         "requiredEnvironment": {
-            "serverOnly": ["SKIPO_DATABASE_URL", "SKIPO_SESSION_SECRET"],
+            "serverOnly": ["SYSTEM_DATABASE_URL_1"],
             "workerBindings": ["API_ENV", "BUILD_TARGET"]
         }
     }
@@ -248,12 +403,7 @@ export async function queryUnifiedDb<T = any>(
         content=json.dumps(project_manifest, indent=2) + "\n",
         description="Mandatory Vercel full-stack and Cloudflare Workers API deployment contract."
     ))
-    env_example = """# Server-only: configure in Vercel; never expose to client bundles.\nSKIPO_DATABASE_URL=\nSKIPO_SESSION_SECRET=\n# Worker bindings: configure with Wrangler secrets/vars, never commit production values.\nAPI_ENV=production\nBUILD_TARGET=api\n"""
-    files.append(GeneratedFile(
-        relative_path=".env.example",
-        content=env_example,
-        description="Portable secret and Worker-binding contract for cloud coding environments."
-    ))
+
     tsconfig_api = {
         "extends": "./tsconfig.json",
         "compilerOptions": {"noEmit": False, "outDir": "./dist/api"},
@@ -265,54 +415,13 @@ export async function queryUnifiedDb<T = any>(
         content=json.dumps(tsconfig_api, indent=2) + "\n",
         description="Cloudflare API TypeScript target excluding browser-only code."
     ))
-    # 4. Serverless Handler (Vercel Serverless Function entry point)
-    serverless_code = f"""/**
- * @file serverless.ts
- * @description Vercel Serverless Function entry point for {app_name}.
- * Strictly adheres to Skipo governance (< 200 lines).
- */
 
-import {{ Request, Response }} from 'express';
-
-let cachedApp: any = null;
-
-export default async function handler(req: Request, res: Response) {{
-  try {{
-    if (!cachedApp) {{
-      const mod = await import('./appFactory');
-      const factoryFn = mod.createApp || mod.createDepmApp || (mod as any).default;
-      if (typeof factoryFn !== 'function') {{
-        throw new Error('No valid createApp / createDepmApp factory function exported from appFactory');
-      }}
-      cachedApp = await factoryFn();
-    }}
-    return cachedApp(req, res);
-  }} catch (err: unknown) {{
-    console.error('[Serverless] Handler Error:', err);
-    const msg = err instanceof Error ? err.message : String(err);
-    if (!res.headersSent) {{
-      res.status(500).json({{ error: `Serverless Initialization Error: ${{msg}}` }});
-    }}
-  }}
-}}
-"""
-    files.append(GeneratedFile(
-        relative_path="src/backend/server/serverless.ts",
-        content=serverless_code,
-        description="Vercel Serverless Function entry point wrapping Express app factory."
-    ))
-
-    # 5. vercel.json Contract
+    # 4. vercel.json Contract
     vercel_config = {
         "$schema": "https://openapi.vercel.sh/vercel.json",
         "framework": "vite",
         "buildCommand": "npm run build",
         "outputDirectory": "dist",
-        "functions": {
-            "api/index.js": {
-                "includeFiles": "{node_modules/sql.js/dist/sql-wasm.wasm,data/**}"
-            }
-        },
         "rewrites": [
             {"source": "/api/(.*)", "destination": "/api"},
             {"source": "/(.*)", "destination": "/index.html"}
@@ -324,13 +433,18 @@ export default async function handler(req: Request, res: Response) {{
         description="Vercel full-stack deployment contract supporting SPA rewrites and Serverless Function."
     ))
 
+    # 5. scripts/skipo-build.cjs (Single Universal Artifact Pipeline: Law L22)
     skipo_build_script = """#!/usr/bin/env node
 
 /**
  * @file skipo-build.cjs
- * @description Universal build router for Skipo framework applications.
- * Dynamically executes either fullstack or api-only builds based on DEPLOY_TARGET
- * or package.json "skipo.deploy" configuration.
+ * @description Single Universal Build Pipeline for Skipo framework applications.
+ * Conforms to Law L22 (Single Build Pipeline).
+ *
+ * Compiles all targets into ONE universal artifact set:
+ * 1. Frontend SPA (Vite) -> dist/
+ * 2. Universal Polyglot Backend (esbuild) -> api/index.js
+ *    (Serves Local Node, Vercel Serverless, and Cloudflare Workers identically)
  */
 
 const { execSync } = require('child_process');
@@ -338,94 +452,45 @@ const path = require('path');
 const fs = require('fs');
 
 const rootDir = path.resolve(__dirname, '..');
-const pkgPath = path.join(rootDir, 'package.json');
-const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
 
-const target = (process.argv[2] || process.env.DEPLOY_TARGET || pkg.skipo?.deploy || 'fullstack').toLowerCase().trim();
-const framework = pkg.dependencies?.next ? 'nextjs' : 'vite';
+console.log('[skipo-build] Starting Universal Single-Pass Build...');
+const startTime = Date.now();
 
-console.log(`[skipo-build] Framework detected: ${framework}`);
-console.log(`[skipo-build] Selected target:   ${target}`);
+// Ensure output directories exist
+fs.mkdirSync(path.join(rootDir, 'api'), { recursive: true });
 
-function assembleNextClientAssets(root) {
-  const clientDir = path.join(root, 'dist/client');
-  const nextStatic = path.join(root, '.next/static');
-  const nextApp = path.join(root, '.next/server/app');
-  const publicDir = path.join(root, 'public');
-
-  if (!fs.existsSync(nextApp)) return;
-
-  fs.mkdirSync(path.join(clientDir, '_next'), { recursive: true });
-
-  if (fs.existsSync(nextStatic)) {
-    fs.cpSync(nextStatic, path.join(clientDir, '_next/static'), { recursive: true });
-  }
-
-  const pages = ['index.html', 'login.html', 'admin.html', '_not-found.html'];
-  for (const page of pages) {
-    const src = path.join(nextApp, page);
-    if (fs.existsSync(src)) {
-      fs.copyFileSync(src, path.join(clientDir, page));
-    }
-  }
-
-  if (fs.existsSync(publicDir)) {
-    fs.cpSync(publicDir, clientDir, { recursive: true });
-  }
-  console.log(`[skipo-build] Assembled Next.js static assets into dist/client (${fs.readdirSync(clientDir).length} entries).`);
+function run(cmd, desc) {
+  console.log(`[skipo-build] ${desc}...`);
+  execSync(cmd, { cwd: rootDir, stdio: 'inherit' });
 }
-
-const serverlessEntry = fs.existsSync(path.join(rootDir, 'src/backend/server/serverless.ts'))
-  ? 'src/backend/server/serverless.ts'
-  : 'src/server/serverless.ts';
-
-const isFullstackMode = (process.env.DEPLOY_TARGET || pkg.skipo?.deploy || 'fullstack').toLowerCase().trim() === 'fullstack';
-const viteAssetPrefix = (isFullstackMode || !fs.existsSync(path.join(rootDir, 'dist/index.html'))) ? 'npx vite build && ' : '';
-
-const commands = {
-  nextjs: {
-    fullstack: 'npx next build',
-    api: "BUILD_TARGET=api npx esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=browser --format=esm --target=es2022 --minify '--external:node:*' --external:fs --external:path --external:crypto --external:stream --external:buffer --external:util --external:events --external:os --external:net --external:tls --external:http --external:https --external:zlib --outfile=dist/api/worker/index.js",
-  },
-  vite: {
-    fullstack: `npx vite build && npx esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && npx esbuild ${serverlessEntry} --bundle --platform=node --format=esm --packages=external --minify --banner:js="// @generated" --outfile=api/index.js`,
-    api: `${viteAssetPrefix}npx esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=neutral --alias:crypto=node:crypto --external:node:crypto --format=esm --outfile=dist/api/worker/index.js`,
-  },
-};
-
-const cmd = commands[framework]?.[target];
-
-if (!cmd) {
-  console.error(`[skipo-build] Error: Unknown target "${target}" for framework "${framework}".`);
-  console.error(`[skipo-build] Supported targets: "fullstack", "api"`);
-  process.exit(1);
-}
-
-console.log(`[skipo-build] Executing command: ${cmd}\\n`);
 
 try {
-  execSync(cmd, { cwd: rootDir, stdio: 'inherit' });
-  if (framework === 'nextjs') {
-    assembleNextClientAssets(rootDir);
-  }
-  console.log(`\\n[skipo-build] Build completed successfully for target "${target}".`);
+  // 1. Frontend SPA build
+  run('npx vite build', 'Building Vite frontend assets');
+
+  // 2. Single Universal Polyglot Backend bundle
+  run(
+    "npx esbuild src/backend/adapters/universalEntry.ts --bundle --platform=neutral --format=esm --alias:crypto=node:crypto '--external:node:*' --outfile=api/index.js",
+    'Bundling Single Universal Polyglot Backend (api/index.js)'
+  );
+
+  const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+  console.log(`\\n✨ [skipo-build] Universal single-artifact build completed in ${duration}s.`);
 } catch (error) {
-  console.error(`\\n[skipo-build] Build failed for target "${target}".`);
+  console.error('\\n❌ [skipo-build] Build failed:', error.message);
   process.exit(error.status || 1);
 }
 """
     files.append(GeneratedFile(
         relative_path="scripts/skipo-build.cjs",
         content=skipo_build_script,
-        description="Universal build router script supporting Next.js, Vite, fullstack, and Cloudflare Worker targets."
+        description="Single Universal Build Pipeline script compiling frontend and universal polyglot backend."
     ))
 
     required_scripts = {
-        "build": "npm run build:all",
-        "build:fullstack": "node scripts/skipo-build.cjs fullstack",
-        "build:api": "node scripts/skipo-build.cjs api",
-        "build:all": "npm run build:fullstack && npm run build:api",
-        "validate:api": "tsc -p tsconfig.api.json --noEmit"
+        "build": "node scripts/skipo-build.cjs",
+        "dev": "tsx server.ts",
+        "start": "node api/index.js"
     }
     package_path = target_dir / "package.json"
     existing_package: Dict[str, Any] = {}
@@ -439,7 +504,7 @@ try {
     files.append(GeneratedFile(
         relative_path="package.json",
         content=json.dumps(package_content, indent=2) + "\n",
-        description="Dual Vercel full-stack and Cloudflare API build commands."
+        description="Unified build commands for Vercel, Cloudflare, and Node."
     ))
 
     result = emit_directory(
@@ -453,11 +518,18 @@ try {
     result.duration_ms = (time.time() - start_time) * 1000
     if existing_package and not params.get("dry_run", False):
         package_path.write_text(json.dumps(package_content, indent=2) + "\n", encoding="utf-8")
-        result.messages.append("Merged required dual-target build scripts into package.json")
+        result.messages.append("Merged required universal build scripts into package.json")
     return result
 
+def main():
+    args = parse_generator_args("MULTI_TARGET_BUILD_SPEC Canonical Generator")
+    target_path = Path(args.get("target_path") or ".").resolve()
+    res = generate_multi_target_suite(target_path, args)
+    if args.get("json"):
+        print(json.dumps(res.to_dict(), indent=2))
+    else:
+        print_generator_report(res)
+    sys.exit(0 if res.success else 1)
+
 if __name__ == "__main__":
-    from common import parse_generator_args
-    args = parse_generator_args("Generate Multi-Target Build suite")
-    res = generate_multi_target_suite(Path(args.target_dir), vars(args))
-    print_generator_report(res)
+    main()

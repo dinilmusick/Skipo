@@ -7,14 +7,10 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "npm run build:all",
-    "build:fullstack": "node scripts/skipo-build.cjs fullstack",
-    "build:api": "node scripts/skipo-build.cjs api",
-    "build:all": "npm run build:fullstack && npm run build:api",
-    "validate:api": "tsc -p tsconfig.api.json --noEmit",
+    "build": "node scripts/skipo-build.cjs",
     "start": "next start",
     "lint": "next lint",
-    "clean": "rm -rf .next dist",
+    "clean": "rm -rf .next dist api",
     "validate": "python3 Skipo/checklists/full_system_validator.py .",
     "validate:strict": "python3 Skipo/checklists/full_system_validator.py . --verbose"
   },

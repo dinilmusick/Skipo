@@ -7,6 +7,9 @@ import * as authCore from './services/core/authCore';
 import * as storageCore from './services/core/storageCore';
 import * as workspaceCore from './services/core/workspaceCore';
 import * as unifiedDb from './services/core/unifiedDb';
+import * as credentialVaultCore from './services/core/credentialVaultCore';
+import * as workspaceFileCore from './services/core/workspaceFileCore';
+import * as srklCore from './services/core/srklCore';
 import { ExecutableBackendFacade } from '../libraries/skipo/backend/execution/BackendFacade';
 import { WorkerExecutionBoundary } from '../libraries/skipo/backend/execution/WorkerExecutionBoundary';
 
@@ -15,6 +18,9 @@ export const services = {
   storage: storageCore,
   workspace: workspaceCore,
   db: unifiedDb,
+  vault: credentialVaultCore,
+  workspaceFile: workspaceFileCore,
+  srkl: srklCore,
 };
 
 export const orchestrations = {};

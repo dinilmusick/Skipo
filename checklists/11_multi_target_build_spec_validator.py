@@ -332,13 +332,14 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
         files_scanned += 1
         build_text = read_text_safe(skipo_build_file)
         has_adapter = "httpsAdapter" in build_text or "universalEntry" in build_text
-        if "vite build" not in build_text or not has_adapter:
+        has_frontend_build = "vite build" in build_text or "next build" in build_text
+        if not has_frontend_build or not has_adapter:
             violations.append(Violation(
                 rule_id="skipo-build-incomplete-pipeline",
                 severity="warning",
-                message="scripts/skipo-build.cjs should compile both frontend (vite build) and universal backend adapter (universalEntry.ts or httpsAdapter.ts) in a single pass (Law L22).",
+                message="scripts/skipo-build.cjs should compile both frontend (vite build or next build) and universal backend adapter (universalEntry.ts or httpsAdapter.ts) in a single pass (Law L22).",
                 file_path="scripts/skipo-build.cjs",
-                suggestion="Ensure skipo-build.cjs builds Vite frontend and bundles universalEntry.ts for multi-cloud deployments."
+                suggestion="Ensure skipo-build.cjs builds frontend (Vite or Next.js) and bundles universalEntry.ts for multi-cloud deployments."
             ))
 
     # 7. tsconfig.api.json
