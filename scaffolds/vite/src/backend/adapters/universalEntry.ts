@@ -7,26 +7,19 @@
 import { fetchHandler, Env } from './httpsAdapter';
 import { adaptNodeRequest } from './nodeBridge';
 
-// Polyglot Universal Handler
+// Polyglot Universal Handler (Node / Vercel)
 const universalHandler = async function (req: any, res?: any, env?: any): Promise<any> {
-  // If invoked in Node.js (Vercel Serverless / Node HTTP)
   if (req && res && typeof res.writeHead === 'function') {
     return adaptNodeRequest(req, res, (webReq) => fetchHandler(webReq, (process.env as unknown as Env) || {}));
   }
-  // If invoked as standard Fetch
   return fetchHandler(req, env || res);
-};
-
-// Cloudflare Workers ExportedHandler format
-universalHandler.fetch = async function (request: Request, env: Env = {}, ctx?: any): Promise<Response> {
-  return fetchHandler(request, env);
 };
 
 // Standalone Node.js server launcher (for `node api/index.js` / Docker)
 if (
   typeof process !== 'undefined' &&
   process.argv &&
-  (process.argv[1]?.endsWith('index.js') || process.argv[1]?.endsWith('server.js') || process.argv[1]?.endsWith('dist/server.js'))
+  (process.argv[1]?.endsWith('index.js') || process.argv[1]?.endsWith('server.js'))
 ) {
   (async () => {
     try {
@@ -43,23 +36,18 @@ if (
           return adaptNodeRequest(req, res, (webReq) => fetchHandler(webReq, (process.env as unknown as Env) || {}));
         }
 
-        // Serve static files from dist/
         const filePath = path.join(distPath, url.split('?')[0]);
         if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
           const ext = path.extname(filePath).toLowerCase();
           const mimeTypes: Record<string, string> = {
-            '.html': 'text/html',
-            '.js': 'application/javascript',
-            '.css': 'text/css',
-            '.json': 'application/json',
-            '.png': 'image/png',
-            '.svg': 'image/svg+xml',
+            '.html': 'text/html', '.js': 'application/javascript',
+            '.css': 'text/css', '.json': 'application/json',
+            '.png': 'image/png', '.svg': 'image/svg+xml',
           };
           res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
           return fs.createReadStream(filePath).pipe(res);
         }
 
-        // SPA fallback to dist/index.html
         const indexPath = path.join(distPath, 'index.html');
         if (fs.existsSync(indexPath)) {
           res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -79,5 +67,12 @@ if (
   })();
 }
 
-export default universalHandler;
-export { fetchHandler, adaptNodeRequest };
+// Cloudflare Workers ExportedHandler — MUST be `export default { fetch }` object shape.
+// Exporting a function (even with .fetch property) is not recognized by the CF runtime.
+export default {
+  async fetch(request: Request, env: Env = {}, ctx?: any): Promise<Response> {
+    return fetchHandler(request, env);
+  },
+};
+
+export { fetchHandler, adaptNodeRequest, universalHandler };
