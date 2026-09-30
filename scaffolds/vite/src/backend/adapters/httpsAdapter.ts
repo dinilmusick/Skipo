@@ -107,8 +107,10 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
   }
 }
 
-// Vercel Serverless / local Node.js bridge — identical route logic, Node HTTP interface
-const universalHandler = (req: any, res: any) => adaptNodeRequest(req, res, fetchHandler);
-universalHandler.fetch = fetchHandler;
+export default {
+  async fetch(request: Request, env: Env = {}, ctx?: any): Promise<Response> {
+    return fetchHandler(request, env);
+  },
+};
 
-export default universalHandler;
+export { adaptNodeRequest };

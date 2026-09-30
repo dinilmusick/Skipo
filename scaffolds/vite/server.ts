@@ -10,7 +10,8 @@ import http from 'http';
 import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
-import httpsAdapter from './src/backend/adapters/httpsAdapter';
+import { fetchHandler, Env } from './src/backend/adapters/httpsAdapter';
+import { adaptNodeRequest } from './src/backend/adapters/nodeBridge';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
@@ -28,9 +29,11 @@ async function startServer() {
   const server = http.createServer(async (req, res) => {
     const url = req.url || '/';
 
-    // API routes → universal httpsAdapter (identical on Vercel & Cloudflare)
+    // API routes → universal fetchHandler via adaptNodeRequest
     if (url.startsWith('/api/') || url === '/api' || url.startsWith('/health')) {
-      return httpsAdapter(req, res);
+      return adaptNodeRequest(req, res, (request: Request) =>
+        fetchHandler(request, process.env as unknown as Env)
+      );
     }
 
     // Vite dev middleware for HMR and SSR transform

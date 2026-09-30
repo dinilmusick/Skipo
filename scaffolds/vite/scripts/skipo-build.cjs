@@ -23,7 +23,7 @@ const startTime = Date.now();
 
 // Ensure output directories exist
 fs.mkdirSync(path.join(rootDir, 'api'), { recursive: true });
-fs.mkdirSync(path.join(rootDir, 'dist/api/worker'), { recursive: true });
+fs.mkdirSync(path.join(rootDir, '.worker'), { recursive: true });
 
 function run(cmd, desc) {
   console.log(`[skipo-build] ${desc}...`);
@@ -40,16 +40,16 @@ try {
     'Bundling local Node server (dist/server.cjs)'
   );
 
-  // 3. Vercel Serverless Function entrypoint
+  // 3. Vercel Serverless Function entrypoint (Node req/res -> fetchHandler)
   run(
-    'npx esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=node --format=esm --packages=external --minify --banner:js="// @generated" --outfile=api/index.js',
+    'npx esbuild src/backend/adapters/vercelEntry.ts --bundle --platform=node --format=esm --packages=external --minify --banner:js="// @generated" --outfile=api/index.js',
     'Bundling Vercel Serverless entrypoint (api/index.js)'
   );
 
-  // 4. Cloudflare Worker entrypoint
+  // 4. Cloudflare Worker entrypoint (ExportedHandler { fetch })
   run(
-    'npx esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=neutral --alias:crypto=node:crypto --external:node:crypto --format=esm --outfile=dist/api/worker/index.js',
-    'Bundling Cloudflare Worker entrypoint (dist/api/worker/index.js)'
+    'npx esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=neutral --alias:crypto=node:crypto --external:node:crypto --format=esm --outfile=.worker/index.js',
+    'Bundling Cloudflare Worker entrypoint (.worker/index.js)'
   );
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(2);
