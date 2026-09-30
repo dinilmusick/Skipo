@@ -1,16 +1,17 @@
 // ══════════════════════════════════════════════════════════════════════════════
 // PROTOCOL ADAPTER: UNIVERSAL HTTPS / FETCH ADAPTER (CLOUDFLARE & VERCEL)
-// Spec: MULTI_TARGET_BUILD_SPEC §2 Protocol Adapter Invariant & Law L8, Law L23
-// Zero divergence across Cloudflare Workers, Vercel Serverless, and Local Dev (<200 lines).
+// Spec: MULTI_TARGET_BUILD_SPEC §2 Protocol Adapter Invariant & Law L8
+// Zero Divergence across Cloudflare Workers, Vercel Serverless, and Local Dev (< 200 lines).
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { appBackend } from '../AppBackend';
+import { DepmBackend } from '../DepmBackend';
 import { adaptNodeRequest } from './nodeBridge';
 import { handleVaultRoutes } from './vaultRoutes';
 
 export interface Env {
   ENVIRONMENT?: string;
   APP_NAME?: string;
+  DEPM_GATEWAY_DOMAIN?: string;
   SYSTEM_DATABASE_URL_1?: string;
   DATABASE_URL?: string;
   ASSETS?: { fetch: (request: Request) => Promise<Response> };
@@ -45,75 +46,129 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
   const { pathname } = url;
   const { method } = request;
 
-  if (method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  if (method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
+
+  const ingress = DepmBackend.services.routes.matchGatewayIngress(pathname);
+  if (ingress) return Response.redirect(ingress.destinationUrl, 302);
+
+  if (pathname === '/api/health' || pathname === '/health') {
+    return jsonRes({ status: 'ok', service: 'depm-unified-engine', timestamp: new Date().toISOString() });
   }
 
-  try {
-    if (pathname === '/api/health' || pathname === '/health') {
-      return jsonRes({ status: 'ok', service: env.APP_NAME || 'skipo-app', timestamp: new Date().toISOString() });
-    }
-
-    // 1. Auth routes
-    if (pathname === '/api/auth/login' && method === 'POST') {
-      const b = await parseBody(request);
-      const res = await appBackend.services.auth.loginUser(b.email || b.identifier, b.password, false, env);
-      return jsonRes(res, res.status);
-    }
-    if (pathname === '/api/auth/admin/login' && method === 'POST') {
-      const b = await parseBody(request);
-      const res = await appBackend.services.auth.loginUser(b.email || b.identifier, b.password, true, env);
-      return jsonRes(res, res.status);
-    }
-    if (pathname === '/api/auth/users' && method === 'GET') {
-      return jsonRes(await appBackend.services.auth.getUsers(env));
-    }
-
-    // 2. Workspace & Cloud Storage routes
-    if (pathname === '/api/workspaces' || pathname === '/api/auth/workspaces') {
-      const uId = getUserId(request, url);
-      if (method === 'GET') return jsonRes(await appBackend.services.workspace.getWorkspaces(uId, env));
-      if (method === 'POST') {
-        const b = await parseBody(request);
-        return jsonRes(await appBackend.services.workspace.createWorkspace(uId || b.userId, b.workspace || b, env));
-      }
-      if (method === 'PUT') {
-        const b = await parseBody(request);
-        return jsonRes(await appBackend.services.workspace.updateWorkspace(uId || b.userId, b, env));
-      }
-      if (method === 'DELETE') {
-        const wsId = url.searchParams.get('workspaceId') || url.searchParams.get('id') || '';
-        return jsonRes(await appBackend.services.workspace.deleteWorkspace(uId, wsId, env));
-      }
-    }
-
-    // 3. Storage connections
-    if (pathname === '/api/storage/connections') {
-      const uId = getUserId(request, url);
-      if (method === 'GET') return jsonRes(await appBackend.services.storage.getStorageConnections(uId, env));
-      if (method === 'POST') {
-        const b = await parseBody(request);
-        return jsonRes(await appBackend.services.storage.saveStorageConnection(uId || b.userId, b.connection || b, env), 201);
-      }
-    }
-    if (pathname === '/api/storage/test' && method === 'POST') {
-      const b = await parseBody(request);
-      return jsonRes(await appBackend.services.storage.testStorageConnection(b.connection || b));
-    }
-
-    // 4. Workspace Vault & SRKL Ecosystem routes
-    const vaultRes = await handleVaultRoutes(request, url, getUserId(request, url), env, jsonRes, parseBody);
-    if (vaultRes) return vaultRes;
-
-    // Non-API routes: delegate to Cloudflare Worker Static Assets (env.ASSETS) or 404
-    if (env.ASSETS && typeof env.ASSETS.fetch === 'function' && !pathname.startsWith('/api/')) {
-      return await env.ASSETS.fetch(request);
-    }
-
-    return jsonRes({ error: 'Not Found', path: pathname }, 404);
-  } catch (err: any) {
-    return jsonRes({ error: err.message || 'Internal Server Error' }, 500);
+  // 1. Auth routes
+  if (pathname === '/api/auth/login' && method === 'POST') {
+    const b = await parseBody(request);
+    const res = await DepmBackend.services.auth.loginUser(b.email || b.identifier, b.password, false, env);
+    return jsonRes(res, res.status);
   }
+  if (pathname === '/api/auth/admin/login' && method === 'POST') {
+    const b = await parseBody(request);
+    const res = await DepmBackend.services.auth.loginUser(b.email || b.identifier, b.password, true, env);
+    return jsonRes(res, res.status);
+  }
+  if (pathname === '/api/auth/users' && method === 'GET') {
+    return jsonRes(await DepmBackend.services.auth.getUsers(env));
+  }
+
+  // 2. Workspace & Cloud Storage routes
+  if (pathname === '/api/workspace/storage-details' && method === 'GET') {
+    const wsId = url.searchParams.get('workspaceId') || url.searchParams.get('id') || '';
+    return jsonRes(await DepmBackend.services.workspace.getWorkspaceStorageDetails(wsId, env));
+  }
+  if (pathname === '/api/db/workspace') {
+    const uId = getUserId(request, url);
+    const wsId = url.searchParams.get('workspaceId') || url.searchParams.get('id') || '';
+    if (method === 'GET') return jsonRes(await DepmBackend.services.workspace.loadWorkspaceData(uId, wsId, env));
+    if (method === 'POST') {
+      const b = await parseBody(request);
+      return jsonRes(await DepmBackend.services.workspace.saveWorkspaceData(uId, b.workspaceId || wsId || b.workspace?.id, b.workspace || b, env));
+    }
+  }
+  if (pathname === '/api/db/workspace/rename-app' && method === 'POST') {
+    const b = await parseBody(request);
+    return jsonRes(await DepmBackend.services.workspace.renameAppInWorkspaceData(getUserId(request, url), b.workspaceId, b.appId, b.newName, env));
+  }
+  if (pathname === '/api/workspaces' || pathname === '/api/auth/workspaces') {
+    const uId = getUserId(request, url);
+    if (method === 'GET') return jsonRes(await DepmBackend.services.workspace.getWorkspaces(uId, env));
+    if (method === 'POST') {
+      const b = await parseBody(request);
+      return jsonRes(await DepmBackend.services.workspace.createWorkspace(uId || b.userId, b.workspace || b, env));
+    }
+    if (method === 'PUT') {
+      const b = await parseBody(request);
+      return jsonRes(await DepmBackend.services.workspace.updateWorkspace(uId || b.userId, b, env));
+    }
+    if (method === 'DELETE') {
+      return jsonRes(await DepmBackend.services.workspace.deleteWorkspace(uId, url.searchParams.get('workspaceId') || url.searchParams.get('id') || '', env));
+    }
+  }
+
+  // 3. Storage Connections & Testing
+  if (pathname === '/api/storage/connections') {
+    const uId = getUserId(request, url);
+    if (method === 'GET') return jsonRes(await DepmBackend.services.storage.getStorageConnections(uId, env));
+    if (method === 'POST') {
+      const b = await parseBody(request);
+      return jsonRes(await DepmBackend.services.storage.saveStorageConnection(uId || b.userId, b.connection || b, env), 201);
+    }
+  }
+  const connDelMatch = pathname.match(/^\/api\/storage\/connections\/([^/]+)$/);
+  if (connDelMatch && method === 'DELETE') {
+    return jsonRes(await DepmBackend.services.storage.deleteStorageConnection(getUserId(request, url), connDelMatch[1], env));
+  }
+  if (pathname === '/api/storage/test' && method === 'POST') {
+    return jsonRes(await DepmBackend.services.storage.testStorageConnection((await parseBody(request)).connection || await parseBody(request)));
+  }
+
+  // 4. System Buckets
+  if (pathname === '/api/system/buckets') {
+    if (method === 'GET') return jsonRes(await DepmBackend.services.storage.getSystemBuckets(env));
+    if (method === 'POST') return jsonRes(await DepmBackend.services.storage.saveSystemBucket(await parseBody(request), env), 201);
+  }
+  if (pathname === '/api/system/buckets/primary' && method === 'GET') {
+    return jsonRes(await DepmBackend.services.storage.getPrimarySystemBucket(env));
+  }
+
+  // 5. Workspace Vault & SRKL Ecosystem routes
+  const vaultRes = await handleVaultRoutes(request, url, getUserId(request, url), env, jsonRes, parseBody);
+  if (vaultRes) return vaultRes;
+
+  if (pathname === '/api/srkl/accounts' && method === 'GET') {
+    return jsonRes(await DepmBackend.services.srkl.getSrklAccounts(getUserId(request, url), url.searchParams.get('service') || '', env));
+  }
+  if (pathname === '/api/srkl/status' && method === 'GET') {
+    return jsonRes(await DepmBackend.services.srkl.getSrklStatus(env));
+  }
+
+  // 6. Public Routes & Gateway Config
+  if (pathname === '/api/public/routes' && method === 'GET') return jsonRes(DepmBackend.services.routes.getPublicRoutes());
+  if (pathname.startsWith('/api/public/routes/')) {
+    const res = DepmBackend.services.routes.getPublicRouteByPath(pathname.replace('/api/public/routes/', ''));
+    return jsonRes(res, res.status);
+  }
+  if (pathname === '/api/gateway/config' && method === 'GET') return jsonRes(DepmBackend.services.routes.getGatewayConfig(env));
+  if (pathname === '/api/routes') {
+    if (method === 'GET') return jsonRes(DepmBackend.services.routes.getAllRoutes());
+    if (method === 'POST') return jsonRes(DepmBackend.services.routes.upsertRoute(await parseBody(request)));
+  }
+  const execMatch = pathname.match(/^\/api\/apps\/([^/]+)\/executions$/);
+  if (execMatch) {
+    if (method === 'GET') return jsonRes(DepmBackend.services.routes.getExecutions(execMatch[1]));
+    if (method === 'POST') return jsonRes(DepmBackend.services.routes.recordExecution(execMatch[1], await parseBody(request)));
+  }
+
+  // 7. Assets fallback for Frontend SPA
+  if (env.ASSETS && typeof env.ASSETS.fetch === 'function' && !pathname.startsWith('/api/')) {
+    const assetUrl = new URL(request.url);
+    if (assetUrl.pathname === '/' || !assetUrl.pathname.includes('.')) {
+      assetUrl.pathname = '/index.html';
+      return await env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+    }
+    return await env.ASSETS.fetch(request);
+  }
+
+  return jsonRes({ error: 'Not Found', path: pathname }, 404);
 }
 
 export default {
