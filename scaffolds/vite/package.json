@@ -16,7 +16,9 @@
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "validate": "python3 Skipo/checklists/full_system_validator.py .",
+    "validate:strict": "python3 Skipo/checklists/full_system_validator.py . --verbose"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1136.0",
