@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "node scripts/skipo-build.cjs",
-    "start": "node dist/server.cjs",
+    "start": "node api/index.js",
     "preview": "vite preview",
     "clean": "rm -rf dist api",
     "lint": "tsc --noEmit",
