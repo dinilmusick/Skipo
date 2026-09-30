@@ -104,6 +104,53 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
                 suggestion="Add 'if (env.ASSETS && !pathname.startsWith(\"/api/\")) return env.ASSETS.fetch(request);' to httpsAdapter.ts."
             ))
 
+        # Check 2.0a: Ban on /index.html rewrites in ASSETS fallback (Law L24: Prevents ERR_TOO_MANY_REDIRECTS)
+        if "env.ASSETS" in content and ("/index.html" in content or "'/index.html'" in content or '"/index.html"' in content):
+            if "pathname = '/index.html'" in content or 'pathname = "/index.html"' in content:
+                violations.append(Violation(
+                    rule_id="cf-assets-infinite-redirect-loop",
+                    severity="error",
+                    message="Manual rewrite to '/index.html' before env.ASSETS.fetch() detected. Cloudflare Assets normalizes /index.html -> /, causing an infinite redirect loop (ERR_TOO_MANY_REDIRECTS).",
+                    file_path=str(adapter_file.relative_to(root_dir)),
+                    suggestion="Pass the original request to env.ASSETS.fetch(request) as-is; not_found_handling='single-page-application' handles SPA fallback natively."
+                ))
+
+    # 2.0b Polyglot Universal Entry & ExportedHandler Plain Object Invariant (Law L8 & L24)
+    universal_entry_file = backend_dir / "adapters" / "universalEntry.ts"
+    if universal_entry_file.exists():
+        files_scanned += 1
+        ue_content = read_text_safe(universal_entry_file)
+        if "export default universalHandler" in ue_content:
+            violations.append(Violation(
+                rule_id="cf-invalid-function-export",
+                severity="error",
+                message="universalEntry.ts exports a function as default export. Cloudflare Workers runtime rejects function exports, silently failing isolate startup and returning HTML 404 ('There is nothing here yet').",
+                file_path=str(universal_entry_file.relative_to(root_dir)),
+                suggestion="Use 'export default { async fetch(request, env, ctx) { return fetchHandler(request, env); } };' as a plain object literal."
+            ))
+        elif "export default {" not in ue_content and "export default cfHandler" not in ue_content and "export default {" not in ue_content:
+            violations.append(Violation(
+                rule_id="cf-missing-object-default-export",
+                severity="warning",
+                message="universalEntry.ts must provide an ExportedHandler plain object literal as default export ('export default { async fetch(...) }').",
+                file_path=str(universal_entry_file.relative_to(root_dir)),
+                suggestion="Add 'export default { async fetch(request, env, ctx) { return fetchHandler(request, env); } };'."
+            ))
+
+    # 2.0c Strict Ban on new Function() and eval() in Backend (Law L22: Cloudflare V8 Isolate Strict Security)
+    all_backend_files = list(backend_dir.rglob("*.ts"))
+    for bf in all_backend_files:
+        if bf.is_file():
+            b_text = read_text_safe(bf)
+            if "new Function(" in b_text or "eval(" in b_text:
+                violations.append(Violation(
+                    rule_id="cf-v8-isolate-eval-forbidden",
+                    severity="error",
+                    message=f"Banned code generation string evaluation ('new Function' or 'eval') found in '{bf.relative_to(root_dir)}'. Fails Cloudflare Workers V8 isolate deployment with EvalError 10021.",
+                    file_path=str(bf.relative_to(root_dir)),
+                    suggestion="Replace dynamic string evaluation with native 'await import(module)' and mark as external in esbuild."
+                ))
+
     # 2.1 Ban on Divergent Worker Adapter Directory (Law L23: Codebase Splitting Anti-Pattern)
     worker_adapter_dir = backend_dir / "adapters" / "worker"
     if worker_adapter_dir.exists() and worker_adapter_dir.is_dir():
@@ -261,18 +308,37 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
                     suggestion="Change [assets] directory to 'dist' (or './dist') in wrangler.toml."
                 ))
 
+            # Check 6.0a: Mandatory run_worker_first = true (Law L24: Prevents API routing 404 bypass)
+            if "run_worker_first" not in w_text:
+                violations.append(Violation(
+                    rule_id="wrangler-missing-run-worker-first",
+                    severity="error",
+                    message="wrangler.toml is missing 'run_worker_first = true' in [assets]. Without this, Cloudflare edge may route API requests to static storage and return 404.",
+                    file_path="wrangler.toml",
+                    suggestion="Add 'run_worker_first = true' under [assets] in wrangler.toml."
+                ))
+            elif "run_worker_first = [" in w_text:
+                violations.append(Violation(
+                    rule_id="wrangler-array-run-worker-first-forbidden",
+                    severity="error",
+                    message="wrangler.toml uses array syntax for 'run_worker_first'. Glob patterns fail on edge routing; must be boolean 'run_worker_first = true'.",
+                    file_path="wrangler.toml",
+                    suggestion="Change 'run_worker_first = [...]' to 'run_worker_first = true' under [assets] in wrangler.toml."
+                ))
+
     # 6.1 Single Universal Build Pipeline Script Check (Law L22)
     skipo_build_file = root_dir / "scripts" / "skipo-build.cjs"
     if skipo_build_file.exists():
         files_scanned += 1
         build_text = read_text_safe(skipo_build_file)
-        if "vite build" not in build_text or "httpsAdapter" not in build_text:
+        has_adapter = "httpsAdapter" in build_text or "universalEntry" in build_text
+        if "vite build" not in build_text or not has_adapter:
             violations.append(Violation(
                 rule_id="skipo-build-incomplete-pipeline",
                 severity="warning",
-                message="scripts/skipo-build.cjs should compile both frontend (vite build) and universal backend adapter (httpsAdapter.ts) in a single pass (Law L22).",
+                message="scripts/skipo-build.cjs should compile both frontend (vite build) and universal backend adapter (universalEntry.ts or httpsAdapter.ts) in a single pass (Law L22).",
                 file_path="scripts/skipo-build.cjs",
-                suggestion="Ensure skipo-build.cjs builds Vite frontend and bundles httpsAdapter.ts for multi-cloud deployments."
+                suggestion="Ensure skipo-build.cjs builds Vite frontend and bundles universalEntry.ts for multi-cloud deployments."
             ))
 
     # 7. tsconfig.api.json

@@ -12,7 +12,7 @@ $$\begin{array}{ll}
 \mathbf{L_5} \text{ (Deterministic Tooling)} & \forall a \in \text{NewArtifacts}: a \in \text{Generators}(\text{generators/}) \vee a \in \text{Mutators}(\text{mutators/}) \\
 \mathbf{L_6} \text{ (Workspace Isolation Gate)} & \forall a \in \text{Apps}: (\neg \text{ActiveWorkspace}) \implies \text{Gate}(\text{WorkspaceTilesMenu}) \wedge \neg \text{Render}(\text{AppCanvas}) \\
 \mathbf{L_7} \text{ (App Architecture Spec)} & \forall a \in \text{Apps}: \text{src} \implies \{\text{frontend}, \text{backend}, \text{libraries}, \text{frontend-state}\} \wedge \text{SingleFacade}(a) \wedge \text{PreserveRoot}(a) \\
-\mathbf{L_8} \text{ (Universal Adapter & Express Ban)} & \forall a \in \text{Apps}: \text{Entry}(a) \equiv \text{src/backend/adapters/httpsAdapter.ts} \wedge \text{Exports}(\text{fetch}, \text{nodeBridge}) \wedge \text{ExpressLayers}(a) = \emptyset \wedge \text{IdenticalRoutes}(\text{Vercel}, \text{Cloudflare}) \\
+\mathbf{L_8} \text{ (Universal Adapter & Polyglot Entry)} & \forall a \in \text{Apps}: \text{UniversalEntry}(a) \equiv \text{src/backend/adapters/universalEntry.ts} \wedge \text{ExportsObject}(\text{fetch}) \wedge \text{ExpressLayers}(a) = \emptyset \wedge \text{IdenticalRoutes}(\text{Vercel}, \text{Cloudflare}, \text{Node}) \\
 \mathbf{L_9} \text{ (Bottom Bar Exclusivity & Line Limits)} & \text{BottomStripCenter} \equiv \text{DynamicHoverInspectionOnly} \wedge \forall f \in \text{SourceFiles}: \text{Lines}(f) \le 200 \\
 \mathbf{L_{10}} \text{ (Responsive Grids & Magnetic Auto-Spawn)} & \Delta(\text{TileContainer}) \implies \Delta(\text{Cols}, \text{Rows}, \text{Sizes}) \wedge \text{WireDragDrop}(\text{Canvas}) \implies \text{Picker} \xrightarrow{\text{select}} \text{Spawn} \wedge \text{Connect} \\
 \mathbf{L_{11}} \text{ (Serverless Budget & Runtime Safety)} & \text{Size}(\text{ServerlessFn}) \le 50\text{MB} \wedge \text{ServerlessWrites} \subseteq /tmp \wedge \text{Routers} \implies \text{typeof}(r) \equiv \text{'function'} \\
@@ -26,8 +26,9 @@ $$\begin{array}{ll}
 \mathbf{L_{19}} \text{ (D+Hover Description Mode)} & \text{Hover}(el) \implies (\neg \text{Key}('D') \implies \text{BottomStrip}(\text{Label}(el)) \wedge \text{Key}('D') \implies \text{BottomStrip}(\text{Desc}(el))_{\text{thin,small}}) \\
 \mathbf{L_{20}} \text{ (Skipo Isolation & Library Hydration)} & \forall f \in \text{AppCode}: \text{Imports}(f) \cap \{\text{Skipo/}, \text{@/Skipo}, \text{../Skipo}\} = \emptyset \wedge \text{BaseAssets}(f) \subset \text{src/libraries/} \\
 \mathbf{L_{21}} \text{ (Zero-Trace Legacy Purge)} & \forall s_{\text{legacy}} \in \text{LegacySystems}: \text{CompetesWith}(\text{Skipo}, s_{\text{legacy}}) \implies \text{PurgeEntirely}(s_{\text{legacy}}) \wedge \text{Trace}(s_{\text{legacy}}) = \emptyset \\
-\mathbf{L_{22}} \text{ (Single Build Pipeline)} & \text{Lockfiles}(a) \equiv 1 \wedge \text{BuildCommand}(a) \equiv \text{"npm run build"} \wedge \text{WranglerName}(a) \equiv \text{AppName}(a) \wedge \text{RollupWarnings}(a) = \emptyset \\
-\mathbf{L_{23}} \text{ (Zero-Drift State & Storage Immutability)} & \forall a \in \text{Apps}: \text{WorkspaceData}(a) \subset \text{"ultrst-users"}.\text{app\_profiles} \wedge \text{StorageConfig}(w) \text{ immutable} \wedge \text{LocalFSMissing}(w) \implies \text{DesaturateTile}(w)
+\mathbf{L_{22}} \text{ (Single Universal Build Pipeline)} & \text{Artifacts}(a) \equiv \{\text{dist/}, \text{api/index.js}\} \wedge \text{WranglerMain} \equiv \text{"api/index.js"} \wedge \text{EvalBanned}(a) \wedge \text{Lockfiles}(a) \equiv 1 \\
+\mathbf{L_{23}} \text{ (Zero-Drift State & Storage Immutability)} & \forall a \in \text{Apps}: \text{WorkspaceData}(a) \subset \text{"ultrst-users"}.\text{app\_profiles} \wedge \text{StorageConfig}(w) \text{ immutable} \wedge \text{LocalFSMissing}(w) \implies \text{DesaturateTile}(w) \\
+\mathbf{L_{24}} \text{ (Cloudflare Runtime & Asset Routing)} & \text{AssetsRunWorkerFirst} \equiv \text{true} \wedge \text{AssetPassthrough}(req) \wedge \neg\text{PathRewrite}(\text{"/index.html"}) \wedge \text{DefaultExport} \equiv \{\text{fetch}\}
 \end{array}$$
 
 ## 2. DETERMINISTIC AGENT EXECUTION ALGORITHM
