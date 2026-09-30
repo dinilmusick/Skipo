@@ -35,71 +35,137 @@ def generate_multi_target_suite(target_dir: Path, params: Dict[str, Any]) -> Gen
     app_name = params.get("name") or "SkipoApp"
     backend_import = params.get("backend_facade") or f"{app_name}Backend"
     
-    # 1. httpsAdapter.ts (Fetch API / Cloudflare Worker Entry)
+    # 1. nodeBridge.ts (Node.js HTTP to Web Standard fetch bridge)
+    node_bridge_code = """/**
+ * @file nodeBridge.ts
+ * @description Bridges Node.js IncomingMessage / ServerResponse to Web Standard fetch.
+ * Enables identical execution in Node.js (Vercel Serverless / local dev) and Cloudflare Workers.
+ * Conforms to Skipo Governance (< 100 lines). Zero Express dependency.
+ */
+
+export async function adaptNodeRequest(
+  req: any,
+  res: any,
+  fetchHandler: (req: Request, env?: any) => Promise<Response>,
+  env?: any
+) {
+  if (req instanceof Request) {
+    return fetchHandler(req, env);
+  }
+
+  const protocol = req.headers['x-forwarded-proto'] || (req.socket?.encrypted ? 'https' : 'http');
+  const host = req.headers.host || 'localhost:3000';
+  const url = new URL(req.url || '/', `${protocol}://${host}`);
+
+  let body: any = null;
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    if (req.body && typeof req.body === 'object') {
+      body = JSON.stringify(req.body);
+    } else if (typeof req.body === 'string') {
+      body = req.body;
+    } else {
+      const chunks: any[] = [];
+      for await (const chunk of req) chunks.push(chunk);
+      body = Buffer.concat(chunks).toString();
+    }
+  }
+
+  const webReq = new Request(url.toString(), {
+    method: req.method,
+    headers: req.headers,
+    body: body && body.length > 0 ? body : undefined,
+  });
+
+  const webRes = await fetchHandler(webReq, env || process.env);
+
+  res.statusCode = webRes.status;
+  webRes.headers.forEach((val: string, key: string) => {
+    res.setHeader(key, val);
+  });
+  const text = await webRes.text();
+  res.end(text);
+}
+"""
+    files.append(GeneratedFile(
+        relative_path="src/backend/adapters/nodeBridge.ts",
+        content=node_bridge_code,
+        description="Node HTTP to Web Standard fetch bridge for Vercel Serverless and Node server."
+    ))
+
+    # 1.1 httpsAdapter.ts (Universal Fetch API / Cloudflare Worker / Vercel Entry)
     adapter_code = f"""/**
  * @file httpsAdapter.ts
- * @description Protocol Adapter converting Universal {backend_import} into a Web Standard Fetch HTTP Server asset.
- * Deployed to Cloudflare Workers / Headless Serverless API targets.
- * Conforms to MULTI_TARGET_BUILD_SPEC Section 2 & Inviolable Law L8.
+ * @description Universal Protocol Adapter converting {backend_import} into a Web Standard Fetch HTTP Server.
+ * Deployed to Cloudflare Workers and Vercel Serverless via nodeBridge.
+ * Conforms to MULTI_TARGET_BUILD_SPEC Section 2 & Inviolable Laws L8, L23.
  */
 
 import {{ {backend_import} }} from '../{backend_import}';
+import {{ adaptNodeRequest }} from './nodeBridge';
 
 export interface Env {{
+  ENVIRONMENT?: string;
+  APP_NAME?: string;
+  SYSTEM_DATABASE_URL_1?: string;
+  DATABASE_URL?: string;
   ASSETS?: {{ fetch: (request: Request) => Promise<Response> }};
   [key: string]: unknown;
 }}
 
-export default {{
-  async fetch(request: Request, env: Env = {{}}): Promise<Response> {{
-    const url = new URL(request.url);
-    const {{ pathname, method }} = url;
-
-    // Standard Health Probe Gate
-    if (pathname === '/api/health' || pathname === '/health') {{
-      return Response.json({{
-        status: 'ok',
-        runtime: 'cloudflare-worker',
-        timestamp: new Date().toISOString(),
-      }});
-    }}
-
-    // CORS Preflight
-    if (method === 'OPTIONS') {{
-      return new Response(null, {{
-        status: 204,
-        headers: {{
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
-        }},
-      }});
-    }}
-
-    // Non-API UI Asset Fallback (Cloudflare Workers with Assets)
-    if (env.ASSETS && typeof (env.ASSETS as any).fetch === 'function' && !pathname.startsWith('/api/')) {{
-      return (env.ASSETS as any).fetch(request);
-    }}
-
-    // Dynamic Orchestration / Service Dispatch Example
-    try {{
-      // Service execution can be mapped to {backend_import}
-      return Response.json({{
-        success: true,
-        message: `${backend_import} ready for protocol execution`,
-        path: pathname,
-      }});
-    }} catch (err: unknown) {{
-      const message = err instanceof Error ? err.message : String(err);
-      return Response.json({{ success: false, error: message }}, {{ status: 500 }});
-    }}
-  }},
+const CORS_HEADERS = {{
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Id, X-Workspace-Id',
 }};
+
+function jsonRes(data: unknown, status = 200): Response {{
+  return new Response(JSON.stringify(data), {{ status, headers: {{ 'Content-Type': 'application/json', ...CORS_HEADERS }} }});
+}}
+
+export async function fetchHandler(request: Request, env: Env = {{}}): Promise<Response> {{
+  const url = new URL(request.url);
+  const {{ pathname, method }} = url;
+
+  // Standard Health Probe Gate
+  if (pathname === '/api/health' || pathname === '/health') {{
+    return jsonRes({{
+      status: 'ok',
+      service: '{app_name.lower()}-engine',
+      timestamp: new Date().toISOString(),
+    }});
+  }}
+
+  // CORS Preflight
+  if (method === 'OPTIONS') {{
+    return new Response(null, {{ status: 204, headers: CORS_HEADERS }});
+  }}
+
+  // Non-API UI Asset Fallback (Cloudflare Workers with Assets)
+  if (env.ASSETS && typeof env.ASSETS.fetch === 'function' && !pathname.startsWith('/api/')) {{
+    return await env.ASSETS.fetch(request);
+  }}
+
+  try {{
+    return jsonRes({{
+      success: true,
+      message: `${backend_import} ready for protocol execution`,
+      path: pathname,
+    }});
+  }} catch (err: unknown) {{
+    const message = err instanceof Error ? err.message : String(err);
+    return jsonRes({{ success: false, error: message }}, 500);
+  }}
+}}
+
+const universalHandler = (req: any, res: any) => adaptNodeRequest(req, res, fetchHandler);
+universalHandler.fetch = fetchHandler;
+
+export default universalHandler;
 """
     files.append(GeneratedFile(
         relative_path="src/backend/adapters/httpsAdapter.ts",
         content=adapter_code,
-        description="Protocol Adapter exposing Backend Facade via Web Standard Fetch API."
+        description="Universal Protocol Adapter exposing Backend Facade via Web Standard Fetch API and nodeBridge."
     ))
 
     # 2. Build manifests
@@ -135,18 +201,18 @@ export default {{
     ))
 
     # 3. wrangler.toml
-    wrangler_content = f"""name = "{app_name.lower()}-api"
+    wrangler_content = f"""name = "{app_name.lower()}"
 main = "dist/api/worker/index.js"
 compatibility_date = "2024-10-01"
 compatibility_flags = ["nodejs_compat"]
 
 [assets]
-directory = "dist/client"
+directory = "dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 
 [build]
-command = "npm run build:api"
+command = "npm run build"
 
 [vars]
 API_ENV = "cloudflare"
@@ -265,54 +331,12 @@ export async function queryUnifiedDb<T = any>(
         content=json.dumps(tsconfig_api, indent=2) + "\n",
         description="Cloudflare API TypeScript target excluding browser-only code."
     ))
-    # 4. Serverless Handler (Vercel Serverless Function entry point)
-    serverless_code = f"""/**
- * @file serverless.ts
- * @description Vercel Serverless Function entry point for {app_name}.
- * Strictly adheres to Skipo governance (< 200 lines).
- */
-
-import {{ Request, Response }} from 'express';
-
-let cachedApp: any = null;
-
-export default async function handler(req: Request, res: Response) {{
-  try {{
-    if (!cachedApp) {{
-      const mod = await import('./appFactory');
-      const factoryFn = mod.createApp || mod.createDepmApp || (mod as any).default;
-      if (typeof factoryFn !== 'function') {{
-        throw new Error('No valid createApp / createDepmApp factory function exported from appFactory');
-      }}
-      cachedApp = await factoryFn();
-    }}
-    return cachedApp(req, res);
-  }} catch (err: unknown) {{
-    console.error('[Serverless] Handler Error:', err);
-    const msg = err instanceof Error ? err.message : String(err);
-    if (!res.headersSent) {{
-      res.status(500).json({{ error: `Serverless Initialization Error: ${{msg}}` }});
-    }}
-  }}
-}}
-"""
-    files.append(GeneratedFile(
-        relative_path="src/backend/server/serverless.ts",
-        content=serverless_code,
-        description="Vercel Serverless Function entry point wrapping Express app factory."
-    ))
-
-    # 5. vercel.json Contract
+    # 4. vercel.json Contract (Zero functions includeFiles, pure Vite SPA + API rewrites)
     vercel_config = {
         "$schema": "https://openapi.vercel.sh/vercel.json",
         "framework": "vite",
         "buildCommand": "npm run build",
         "outputDirectory": "dist",
-        "functions": {
-            "api/index.js": {
-                "includeFiles": "{node_modules/sql.js/dist/sql-wasm.wasm,data/**}"
-            }
-        },
         "rewrites": [
             {"source": "/api/(.*)", "destination": "/api"},
             {"source": "/(.*)", "destination": "/index.html"}
@@ -331,6 +355,10 @@ export default async function handler(req: Request, res: Response) {{
  * @description Universal build router for Skipo framework applications.
  * Dynamically executes either fullstack or api-only builds based on DEPLOY_TARGET
  * or package.json "skipo.deploy" configuration.
+ *
+ * OPTIMIZATION: build:api skips Vite frontend build if dist/index.html already exists.
+ * This eliminates the redundant ~90s double-compile when running npm run build:all.
+ * Pass --force-client or set FORCE_CLIENT_BUILD=true to override.
  */
 
 const { execSync } = require('child_process');
@@ -339,93 +367,77 @@ const fs = require('fs');
 
 const rootDir = path.resolve(__dirname, '..');
 const pkgPath = path.join(rootDir, 'package.json');
-const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    skipo_build_script = """#!/usr/bin/env node
 
-const target = (process.argv[2] || process.env.DEPLOY_TARGET || pkg.skipo?.deploy || 'fullstack').toLowerCase().trim();
-const framework = pkg.dependencies?.next ? 'nextjs' : 'vite';
+/**
+ * @file skipo-build.cjs
+ * @description Single Universal Build Pipeline for Skipo framework applications.
+ * Conforms to Law L22 (Single Build Pipeline).
+ *
+ * Compiles all targets in one unified pass:
+ * 1. Frontend SPA (Vite) -> dist/
+ * 2. Node/Docker Server -> dist/server.cjs
+ * 3. Vercel Serverless Function -> api/index.js
+ * 4. Cloudflare Worker -> dist/api/worker/index.js
+ */
 
-console.log(`[skipo-build] Framework detected: ${framework}`);
-console.log(`[skipo-build] Selected target:   ${target}`);
+const { execSync } = require('child_process');
+const path = require('path');
+const fs = require('fs');
 
-function assembleNextClientAssets(root) {
-  const clientDir = path.join(root, 'dist/client');
-  const nextStatic = path.join(root, '.next/static');
-  const nextApp = path.join(root, '.next/server/app');
-  const publicDir = path.join(root, 'public');
+const rootDir = path.resolve(__dirname, '..');
 
-  if (!fs.existsSync(nextApp)) return;
+console.log('[skipo-build] Starting Universal Single-Pass Build...');
+const startTime = Date.now();
 
-  fs.mkdirSync(path.join(clientDir, '_next'), { recursive: true });
+// Ensure output directories exist
+fs.mkdirSync(path.join(rootDir, 'api'), { recursive: true });
+fs.mkdirSync(path.join(rootDir, 'dist/api/worker'), { recursive: true });
 
-  if (fs.existsSync(nextStatic)) {
-    fs.cpSync(nextStatic, path.join(clientDir, '_next/static'), { recursive: true });
-  }
-
-  const pages = ['index.html', 'login.html', 'admin.html', '_not-found.html'];
-  for (const page of pages) {
-    const src = path.join(nextApp, page);
-    if (fs.existsSync(src)) {
-      fs.copyFileSync(src, path.join(clientDir, page));
-    }
-  }
-
-  if (fs.existsSync(publicDir)) {
-    fs.cpSync(publicDir, clientDir, { recursive: true });
-  }
-  console.log(`[skipo-build] Assembled Next.js static assets into dist/client (${fs.readdirSync(clientDir).length} entries).`);
+function run(cmd, desc) {
+  console.log(`[skipo-build] ${desc}...`);
+  execSync(cmd, { cwd: rootDir, stdio: 'inherit' });
 }
-
-const serverlessEntry = fs.existsSync(path.join(rootDir, 'src/backend/server/serverless.ts'))
-  ? 'src/backend/server/serverless.ts'
-  : 'src/server/serverless.ts';
-
-const isFullstackMode = (process.env.DEPLOY_TARGET || pkg.skipo?.deploy || 'fullstack').toLowerCase().trim() === 'fullstack';
-const viteAssetPrefix = (isFullstackMode || !fs.existsSync(path.join(rootDir, 'dist/index.html'))) ? 'npx vite build && ' : '';
-
-const commands = {
-  nextjs: {
-    fullstack: 'npx next build',
-    api: "BUILD_TARGET=api npx esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=browser --format=esm --target=es2022 --minify '--external:node:*' --external:fs --external:path --external:crypto --external:stream --external:buffer --external:util --external:events --external:os --external:net --external:tls --external:http --external:https --external:zlib --outfile=dist/api/worker/index.js",
-  },
-  vite: {
-    fullstack: `npx vite build && npx esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && npx esbuild ${serverlessEntry} --bundle --platform=node --format=esm --packages=external --minify --banner:js="// @generated" --outfile=api/index.js`,
-    api: `${viteAssetPrefix}npx esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=neutral --alias:crypto=node:crypto --external:node:crypto --format=esm --outfile=dist/api/worker/index.js`,
-  },
-};
-
-const cmd = commands[framework]?.[target];
-
-if (!cmd) {
-  console.error(`[skipo-build] Error: Unknown target "${target}" for framework "${framework}".`);
-  console.error(`[skipo-build] Supported targets: "fullstack", "api"`);
-  process.exit(1);
-}
-
-console.log(`[skipo-build] Executing command: ${cmd}\\n`);
 
 try {
-  execSync(cmd, { cwd: rootDir, stdio: 'inherit' });
-  if (framework === 'nextjs') {
-    assembleNextClientAssets(rootDir);
-  }
-  console.log(`\\n[skipo-build] Build completed successfully for target "${target}".`);
+  // 1. Frontend SPA build
+  run('npx vite build', 'Building Vite frontend assets');
+
+  // 2. Local / Docker Node Server build
+  run(
+    'npx esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs',
+    'Bundling local Node server (dist/server.cjs)'
+  );
+
+  // 3. Vercel Serverless Function entrypoint
+  run(
+    'npx esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=node --format=esm --packages=external --minify --banner:js="// @generated" --outfile=api/index.js',
+    'Bundling Vercel Serverless entrypoint (api/index.js)'
+  );
+
+  // 4. Cloudflare Worker entrypoint
+  run(
+    'npx esbuild src/backend/adapters/httpsAdapter.ts --bundle --platform=neutral --alias:crypto=node:crypto --external:node:crypto --format=esm --outfile=dist/api/worker/index.js',
+    'Bundling Cloudflare Worker entrypoint (dist/api/worker/index.js)'
+  );
+
+  const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+  console.log(`\\n✨ [skipo-build] Universal build completed successfully in ${duration}s.`);
 } catch (error) {
-  console.error(`\\n[skipo-build] Build failed for target "${target}".`);
+  console.error('\\n❌ [skipo-build] Build failed:', error.message);
   process.exit(error.status || 1);
 }
 """
     files.append(GeneratedFile(
         relative_path="scripts/skipo-build.cjs",
         content=skipo_build_script,
-        description="Universal build router script supporting Next.js, Vite, fullstack, and Cloudflare Worker targets."
+        description="Single Universal Build Pipeline script compiling frontend, server, and multi-cloud adapters."
     ))
 
     required_scripts = {
-        "build": "npm run build:all",
-        "build:fullstack": "node scripts/skipo-build.cjs fullstack",
-        "build:api": "node scripts/skipo-build.cjs api",
-        "build:all": "npm run build:fullstack && npm run build:api",
-        "validate:api": "tsc -p tsconfig.api.json --noEmit"
+        "build": "node scripts/skipo-build.cjs",
+        "dev": "tsx server.ts",
+        "start": "node dist/server.cjs"
     }
     package_path = target_dir / "package.json"
     existing_package: Dict[str, Any] = {}
@@ -439,7 +451,7 @@ try {
     files.append(GeneratedFile(
         relative_path="package.json",
         content=json.dumps(package_content, indent=2) + "\n",
-        description="Dual Vercel full-stack and Cloudflare API build commands."
+        description="Unified build commands for Vercel, Cloudflare, and Node."
     ))
 
     result = emit_directory(

@@ -3,6 +3,7 @@ node_modules/
 .env
 .env.local
 *.cjs
+!scripts/skipo-build.cjs
 *.js.map
 public/assets/aistudio/*
 !public/assets/aistudio/.gitignore

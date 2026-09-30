@@ -27,9 +27,23 @@ export default defineConfig(() => {
     },
     build: {
       outDir: 'dist',
+      // Raise chunk warning threshold; Monaco/heavy libs legitimately exceed 500kB
+      chunkSizeWarningLimit: 1500,
       rollupOptions: {
         output: {
           assetFileNames: 'assets/[name]-[hash][extname]',
+        },
+        onwarn(warning, defaultHandler) {
+          // Suppress harmless non-executable comment annotations from zod v4
+          // These are @__PURE__ / @__NO_SIDE_EFFECTS__ comments Rollup cannot interpret
+          if (
+            warning.code === 'INVALID_ANNOTATION' ||
+            warning.message?.includes('annotation that Rollup cannot interpret') ||
+            (warning.id && warning.id.includes('node_modules/zod'))
+          ) {
+            return;
+          }
+          defaultHandler(warning);
         },
       },
     },

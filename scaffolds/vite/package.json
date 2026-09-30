@@ -8,14 +8,10 @@
   },
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "npm run build:all",
-    "build:fullstack": "node scripts/skipo-build.cjs fullstack",
-    "build:api": "node scripts/skipo-build.cjs api",
-    "build:all": "npm run build:fullstack && npm run build:api",
-    "validate:api": "tsc --project tsconfig.api.json --noEmit",
+    "build": "node scripts/skipo-build.cjs",
     "start": "node dist/server.cjs",
     "preview": "vite preview",
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist api",
     "lint": "tsc --noEmit",
     "validate": "python3 Skipo/checklists/full_system_validator.py .",
     "validate:strict": "python3 Skipo/checklists/full_system_validator.py . --verbose"
@@ -28,7 +24,6 @@
     "bcryptjs": "^3.0.3",
     "bullmq": "^6.3.8",
     "dotenv": "^17.2.3",
-    "express": "^4.21.2",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "react": "^19.0.1",
@@ -40,7 +35,6 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
-    "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "esbuild": "^0.25.0",
     "tsx": "^4.21.0",

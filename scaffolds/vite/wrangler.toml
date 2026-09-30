@@ -8,7 +8,7 @@ ENVIRONMENT = "production"
 APP_NAME = "MY_APP"
 
 [build]
-command = "npm run build:api"
+command = "npm run build"
 
 [assets]
 directory = "./dist"

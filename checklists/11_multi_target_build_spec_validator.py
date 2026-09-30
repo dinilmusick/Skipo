@@ -129,6 +129,44 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
             suggestion="Create 'src/backend/services/core/unifiedDb.ts' using @neondatabase/serverless for identical execution on Vercel and Cloudflare."
         ))
 
+    # 2.3 Ban on Express Serverless Layer (Law L8: Universal Protocol Adapter & Express Ban)
+    forbidden_serverless_entries = [
+        backend_dir / "server" / "serverless.ts",
+        backend_dir / "server" / "appFactory.ts",
+        src_dir / "server" / "serverless.ts",
+    ]
+    for bad_entry in forbidden_serverless_entries:
+        if bad_entry.exists():
+            violations.append(Violation(
+                rule_id="forbidden-express-serverless-entry",
+                severity="error",
+                message=f"Forbidden Express serverless entry '{bad_entry.relative_to(root_dir)}' detected. Dual-backend Express layers violate Law L8.",
+                file_path=str(bad_entry.relative_to(root_dir)),
+                suggestion="Delete Express serverless layer and route Vercel api/index.js through universal 'src/backend/adapters/httpsAdapter.ts' via nodeBridge."
+            ))
+
+    # 2.4 Require nodeBridge.ts for Universal Node HTTP / Fetch bridging (Law L8)
+    node_bridge_file = backend_dir / "adapters" / "nodeBridge.ts"
+    if not node_bridge_file.exists():
+        violations.append(Violation(
+            rule_id="missing-node-bridge-adapter",
+            severity="error",
+            message="Node.js HTTP bridge 'src/backend/adapters/nodeBridge.ts' is missing.",
+            file_path="src/backend/adapters/",
+            suggestion="Create 'src/backend/adapters/nodeBridge.ts' to adapt Node HTTP requests to Web Standard fetch for Vercel/server.ts execution."
+        ))
+    else:
+        files_scanned += 1
+        nb_content = read_text_safe(node_bridge_file)
+        if "adaptNodeRequest" not in nb_content:
+            violations.append(Violation(
+                rule_id="node-bridge-missing-export",
+                severity="error",
+                message="'src/backend/adapters/nodeBridge.ts' must export 'adaptNodeRequest'.",
+                file_path=str(node_bridge_file.relative_to(root_dir)),
+                suggestion="Export 'adaptNodeRequest(req, res, fetchHandler, env)'."
+            ))
+
     # 3. Context-Neutral Flat Orchestrations
     orch_dir = backend_dir / "orchestrations"
     if orch_dir.exists() and orch_dir.is_dir():
@@ -196,13 +234,13 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
     else:
         files_scanned += 1
         w_text = read_text_safe(wrangler_file)
-        if "[build]" not in w_text or "build:api" not in w_text:
+        if "[build]" not in w_text or "command" not in w_text:
             violations.append(Violation(
                 rule_id="wrangler-missing-build-command",
                 severity="error",
-                message="wrangler.toml is missing [build] command = 'npm run build:api'. Direct wrangler deploy will fail if dist/api/worker/index.js is not yet built.",
+                message="wrangler.toml is missing [build] command = 'npm run build'. Direct wrangler deploy will fail if worker bundle is not yet built.",
                 file_path="wrangler.toml",
-                suggestion="Add '[build]\\ncommand = \"npm run build:api\"' to wrangler.toml."
+                suggestion="Add '[build]\\ncommand = \"npm run build\"' to wrangler.toml."
             ))
         if "[assets]" not in w_text:
             violations.append(Violation(
@@ -210,23 +248,39 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
                 severity="warning",
                 message="wrangler.toml is missing '[assets]' configuration. Without assets, Cloudflare Workers will only serve API JSON and will not serve the frontend UI.",
                 file_path="wrangler.toml",
-                suggestion="Add '[assets]\\ndirectory = \"dist/client\"\\nbinding = \"ASSETS\"\\nnot_found_handling = \"single-page-application\"' to wrangler.toml."
+                suggestion="Add '[assets]\\ndirectory = \"dist\"\\nbinding = \"ASSETS\"\\nnot_found_handling = \"single-page-application\"' to wrangler.toml."
+            ))
+        else:
+            is_vite_project = (root_dir / "vite.config.ts").exists() or (root_dir / "vite.config.js").exists()
+            if is_vite_project and 'directory = "dist/client"' in w_text:
+                violations.append(Violation(
+                    rule_id="wrangler-assets-directory-mismatch",
+                    severity="error",
+                    message="wrangler.toml specifies directory = 'dist/client' for a Vite app, but Vite outputs to 'dist'. This causes Cloudflare to fail serving frontend assets.",
+                    file_path="wrangler.toml",
+                    suggestion="Change [assets] directory to 'dist' (or './dist') in wrangler.toml."
+                ))
+
+    # 6.1 Single Universal Build Pipeline Script Check (Law L22)
+    skipo_build_file = root_dir / "scripts" / "skipo-build.cjs"
+    if skipo_build_file.exists():
+        files_scanned += 1
+        build_text = read_text_safe(skipo_build_file)
+        if "vite build" not in build_text or "httpsAdapter" not in build_text:
+            violations.append(Violation(
+                rule_id="skipo-build-incomplete-pipeline",
+                severity="warning",
+                message="scripts/skipo-build.cjs should compile both frontend (vite build) and universal backend adapter (httpsAdapter.ts) in a single pass (Law L22).",
+                file_path="scripts/skipo-build.cjs",
+                suggestion="Ensure skipo-build.cjs builds Vite frontend and bundles httpsAdapter.ts for multi-cloud deployments."
             ))
 
     # 7. tsconfig.api.json
     tsconfig_api = root_dir / "tsconfig.api.json"
-    if not tsconfig_api.exists():
-        violations.append(Violation(
-            rule_id="missing-tsconfig-api",
-            severity="error",
-            message="API Target TypeScript config 'tsconfig.api.json' is missing.",
-            file_path="tsconfig.api.json",
-            suggestion="Create 'tsconfig.api.json' excluding frontend and client implementations."
-        ))
-    else:
+    if tsconfig_api.exists():
         files_scanned += 1
 
-    # 8. Dual Build Scripts in package.json
+    # 8. Single Universal Build Script in package.json (Law L22)
     pkg_file = root_dir / "package.json"
     is_vite = False
     if pkg_file.exists():
@@ -234,24 +288,21 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
         try:
             pkg_data = json.loads(read_text_safe(pkg_file))
             scripts = pkg_data.get("scripts", {})
-            required_scripts = ["build", "build:fullstack", "build:api", "build:all", "validate:api"]
-            for req in required_scripts:
-                if req not in scripts:
-                    violations.append(Violation(
-                        rule_id=f"missing-script-{req}",
-                        severity="error",
-                        message=f"package.json missing required multi-target script '{req}'.",
-                        file_path="package.json",
-                        suggestion=f"Add script '{req}' to package.json."
-                    ))
-
-            if scripts.get("build") != "npm run build:all":
+            if "build" not in scripts:
                 violations.append(Violation(
-                    rule_id="build-script-not-build-all",
+                    rule_id="missing-script-build",
                     severity="error",
-                    message="package.json 'build' script must be 'npm run build:all' to ensure all deployment targets (Vercel fullstack + Cloudflare worker) are built.",
+                    message="package.json missing required build script 'build'.",
                     file_path="package.json",
-                    suggestion="Set '\"build\": \"npm run build:all\"' in package.json."
+                    suggestion="Add '\"build\": \"node scripts/skipo-build.cjs\"' to package.json."
+                ))
+            if "dev" not in scripts:
+                violations.append(Violation(
+                    rule_id="missing-script-dev",
+                    severity="error",
+                    message="package.json missing required dev script 'dev'.",
+                    file_path="package.json",
+                    suggestion="Add '\"dev\": \"tsx server.ts\"' to package.json."
                 ))
 
             # 9. Framework Anti-Hallucination (Ban 'next' in Vite-based apps)
