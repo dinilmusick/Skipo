@@ -8,19 +8,22 @@ import { b2UploadFile, b2DownloadFile, b2ListFileNames, b2DeleteFileVersion, b2D
 
 declare const process: any;
 
-const safeNodeRequire = new Function('m', 'try { return typeof require !== "undefined" ? require(m) : null; } catch { return null; }');
-
-function getFs(): any {
+async function getFs(): Promise<any> {
   if (typeof process !== 'undefined' && process.versions?.node) {
-    const mod = safeNodeRequire('fs');
-    return mod?.promises || null;
+    try {
+      const mod = await import('node:fs');
+      return mod.promises || mod.default?.promises || mod;
+    } catch {}
   }
   return null;
 }
 
-function getPath(): any {
+async function getPath(): Promise<any> {
   if (typeof process !== 'undefined' && process.versions?.node) {
-    return safeNodeRequire('path');
+    try {
+      const mod = await import('node:path');
+      return mod.default || mod;
+    } catch {}
   }
   return null;
 }
@@ -58,8 +61,8 @@ export async function writeWorkspaceFile(
   }
 
   // Local filesystem fallback
-  const fs = getFs();
-  const path = getPath();
+  const fs = await getFs();
+  const path = await getPath();
   if (!fs || !path) throw new Error('Local filesystem operations not supported in this runtime.');
   const localDir = path.resolve(process.cwd(), prefix, path.dirname(cleanRel));
   await fs.mkdir(localDir, { recursive: true });
@@ -83,8 +86,8 @@ export async function readWorkspaceFile(
   }
 
   // Local filesystem fallback
-  const fs = getFs();
-  const path = getPath();
+  const fs = await getFs();
+  const path = await getPath();
   if (!fs || !path) return null;
   const fullPath = path.resolve(process.cwd(), prefix, cleanRel);
   try {
@@ -117,8 +120,8 @@ export async function deleteWorkspaceFile(
     return false;
   }
 
-  const fs = getFs();
-  const path = getPath();
+  const fs = await getFs();
+  const path = await getPath();
   if (!fs || !path) return false;
   const fullPath = path.resolve(process.cwd(), prefix, cleanRel);
   try {
@@ -149,8 +152,8 @@ export async function listWorkspaceFiles(
     }));
   }
 
-  const fs = getFs();
-  const path = getPath();
+  const fs = await getFs();
+  const path = await getPath();
   if (!fs || !path) return [];
   const baseDir = path.resolve(process.cwd(), folderPrefix, subPrefix);
   try {
@@ -182,8 +185,8 @@ export async function deleteWorkspaceFolder(workspace: any, connection: any): Pr
     return;
   }
 
-  const fs = getFs();
-  const path = getPath();
+  const fs = await getFs();
+  const path = await getPath();
   if (!fs || !path) return;
   const localDir = path.resolve(process.cwd(), prefix);
   try {
