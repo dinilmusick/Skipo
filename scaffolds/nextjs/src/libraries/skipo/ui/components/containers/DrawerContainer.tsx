@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: DrawerContainer
- *
- *   ┌──────────────────────────────────┐
- *   │    Initialize DrawerContainer    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         DrawerContainer          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef } from 'react';
 import '../../styles/containers.css';
@@ -28,10 +7,6 @@ export interface DrawerContainerProps extends React.HTMLAttributes<HTMLDivElemen
   onClose: () => void;
   position?: 'left' | 'right' | 'bottom';
 }
-
-
-// ════ DRAWERCONTAINER IMPLEMENTATION ══════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const DrawerContainer = forwardRef<HTMLDivElement, DrawerContainerProps>(({
   open,

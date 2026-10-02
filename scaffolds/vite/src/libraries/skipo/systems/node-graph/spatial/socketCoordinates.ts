@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: socketCoordinates
- *
- *   ┌──────────────────────────────────┐
- *   │   Initialize socketCoordinates   │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │    calculateSocketCoordinates    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            clearance             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              nudge               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export interface SocketCoordOptions {
   cardWidth: number;
   isOutput: boolean;
@@ -47,10 +16,6 @@ export interface SocketCoordResult {
  * Calculates socket handle coordinates enforcing the 12px spatial clearance invariant
  * and applying custom nudge displacement offsets.
  */
-
-// ════ SOCKETCOORDINATES IMPLEMENTATION ════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export function calculateSocketCoordinates(
   baseY: number,
   options: SocketCoordOptions

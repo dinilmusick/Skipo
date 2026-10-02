@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: SectionContainer
- *
- *   ┌──────────────────────────────────┐
- *   │   Initialize SectionContainer    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         SectionContainer         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef, useState } from 'react';
 import '../../styles/containers.css';
@@ -27,10 +6,6 @@ export interface SectionContainerProps extends React.HTMLAttributes<HTMLDivEleme
   heading: React.ReactNode;
   collapsible?: boolean;
 }
-
-
-// ════ SECTIONCONTAINER IMPLEMENTATION ═════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const SectionContainer = forwardRef<HTMLDivElement, SectionContainerProps>(({
   heading,

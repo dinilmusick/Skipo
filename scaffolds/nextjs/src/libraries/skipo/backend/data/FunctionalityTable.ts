@@ -1,36 +1,5 @@
-/**
- * ASCII Architecture Flowchart: FunctionalityTable
- *
- *   ┌──────────────────────────────────┐
- *   │  Initialize FunctionalityTable   │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             existing             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             updated              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             results              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import { BaseDataProvider } from './BaseDataProvider.js';
 import { QueryFilter, SortOrder } from './types.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export class FunctionalityTable<T extends { id: string }> extends BaseDataProvider<T> {
   private data: Map<string, T> = new Map();

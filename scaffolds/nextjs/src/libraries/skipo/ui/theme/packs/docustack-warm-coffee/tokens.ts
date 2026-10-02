@@ -1,34 +1,4 @@
-/**
- * ASCII Architecture Flowchart: tokens
- *
- *   ┌──────────────────────────────────┐
- *   │        Initialize tokens         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           lightTokens            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            darkTokens            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import type { SkipoSemanticTokens } from '../../types.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
-
-// ════ TOKENS IMPLEMENTATION ═══════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const lightTokens: SkipoSemanticTokens = {
   bg: { canvas: '#F5EDE4', surface: '#E8DCC4', surfaceHover: '#DFCFB9', blur: 'blur(12px)' },
@@ -43,7 +13,7 @@ export const lightTokens: SkipoSemanticTokens = {
   font: { sans: "'Courier Prime', monospace", mono: "'JetBrains Mono', monospace" },
   status: {
     success: '#059669', successFg: '#FFFFFF', warning: '#D97706', warningFg: '#FFFFFF',
-    danger: '#DC2626', dangerFg: '#FFFFFF', info: '#C87D32', infoFg: '#FFFFFF'
+    danger: '#DC2626', dangerFg: '#FFFFFF', info: '#2563EB', infoFg: '#FFFFFF'
   },
   shell: {
     topToolbarHeight: '44px', topToolbarBg: '#DFCFB9',
@@ -55,7 +25,7 @@ export const lightTokens: SkipoSemanticTokens = {
 export const darkTokens: SkipoSemanticTokens = {
   bg: { canvas: '#1A120E', surface: '#281D17', surfaceHover: '#362720', blur: 'blur(14px)' },
   text: { primary: '#F5EDE4', muted: '#A8988B', inverse: '#1A120E' },
-  accent: { primary: '#E08A3C', fg: '#1A120E', glow: '0 0 14px rgba(224, 138, 60, 0.4)', hover: '#C87D32' },
+  accent: { primary: '#E08A3C', fg: '#000000', glow: '0 0 14px rgba(224, 138, 60, 0.4)', hover: '#C87D32' },
   border: { color: '#3D2C22', input: '#E08A3C', style: '2px solid #3D2C22' },
   radius: { base: '0px', sm: '0px', lg: '0px' },
   shadow: {
@@ -64,8 +34,8 @@ export const darkTokens: SkipoSemanticTokens = {
   },
   font: { sans: "'Courier Prime', monospace", mono: "'JetBrains Mono', monospace" },
   status: {
-    success: '#10B981', successFg: '#1A120E', warning: '#F59E0B', warningFg: '#1A120E',
-    danger: '#EF4444', dangerFg: '#FFFFFF', info: '#E08A3C', infoFg: '#1A120E'
+    success: '#10B981', successFg: '#000000', warning: '#F59E0B', warningFg: '#000000',
+    danger: '#EF4444', dangerFg: '#FFFFFF', info: '#3B82F6', infoFg: '#FFFFFF'
   },
   shell: {
     topToolbarHeight: '44px', topToolbarBg: '#1A120E',

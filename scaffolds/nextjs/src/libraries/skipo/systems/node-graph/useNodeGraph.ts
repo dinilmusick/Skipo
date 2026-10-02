@@ -1,42 +1,7 @@
-/**
- * ASCII Architecture Flowchart: useNodeGraph
- *
- *   ┌──────────────────────────────────┐
- *   │     Initialize useNodeGraph      │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             addNode              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            removeNode            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │               next               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import { useState, useCallback } from 'react';
 import type { GraphNode, GraphEdge, ViewportState, NodeGraphConfig } from './types.js';
 import { zoomAtPoint } from './Viewport.js';
-
-
-// ════ USENODEGRAPH IMPLEMENTATION ═════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function useNodeGraph(initialNodes: GraphNode[] = [], initialEdges: GraphEdge[] = []) {
   const [nodes, setNodes] = useState<GraphNode[]>(initialNodes);

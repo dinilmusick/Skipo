@@ -1,38 +1,7 @@
-/**
- * ASCII Architecture Flowchart: ReactFlowAdapter
- *
- *   ┌──────────────────────────────────┐
- *   │   Initialize ReactFlowAdapter    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              edges               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │               conn               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              trace               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import type { BaseNode } from '../../domain/BaseNode.js';
 import type { SolidConnection, ViewLink } from '../../domain/BaseConnection.js';
 import type { Trace } from '../../spatial/TraceEngine.js';
 import type { BaseViewWindow } from '../../domain/BaseViewWindow.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export interface ReactFlowNodeData {
   nodeId: string;

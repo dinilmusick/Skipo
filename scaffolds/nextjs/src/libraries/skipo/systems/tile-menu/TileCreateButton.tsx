@@ -1,29 +1,4 @@
-/**
- * ASCII Architecture Flowchart: TileCreateButton
- *
- *   ┌──────────────────────────────────┐
- *   │   Initialize TileCreateButton    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         TileCreateButton         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
-
-
-// ════ TILECREATEBUTTON IMPLEMENTATION ═════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function TileCreateButton({ onClick }: { onClick: () => void }) {
   return (
@@ -43,7 +18,7 @@ export function TileCreateButton({ onClick }: { onClick: () => void }) {
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.5)';
-        e.currentTarget.style.color = 'var(--skipo-text-primary, #ffffff)';
+        e.currentTarget.style.color = '#fff';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';

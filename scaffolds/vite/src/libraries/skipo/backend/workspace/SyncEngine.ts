@@ -1,37 +1,6 @@
-/**
- * ASCII Architecture Flowchart: SyncEngine
- *
- *   ┌──────────────────────────────────┐
- *   │      Initialize SyncEngine       │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │               data               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              backup              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              backup              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import { SkipoBase } from '@skipo/core';
 import { BaseStorageAdapter } from '../storage/BaseStorageAdapter.js';
 import { WorkspaceConfig } from './types.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export class SyncEngine extends SkipoBase {
   private primary: BaseStorageAdapter;

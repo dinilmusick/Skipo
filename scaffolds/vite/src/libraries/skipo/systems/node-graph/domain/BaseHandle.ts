@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: BaseHandle
- *
- *   ┌──────────────────────────────────────┐
- *   │        Initialize BaseHandle         │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export type HandleCategory = 'DATA' | 'VIEW';
 export type HandleDirection = 'INPUT' | 'OUTPUT';
 export type ConnectionMode = 'SINGLE' | 'MULTI';

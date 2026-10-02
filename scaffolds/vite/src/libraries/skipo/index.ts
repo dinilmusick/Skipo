@@ -5,4 +5,3 @@
 
 export * from './ui/index';
 export * from './backend/index';
-export * from './core/index';

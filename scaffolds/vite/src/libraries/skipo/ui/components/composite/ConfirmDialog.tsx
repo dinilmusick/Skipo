@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: ConfirmDialog
- *
- *   ┌──────────────────────────────────┐
- *   │     Initialize ConfirmDialog     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          ConfirmDialog           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import { forwardRef } from 'react';
 import { ModalContainer } from '../containers/ModalContainer.js';
@@ -33,10 +12,6 @@ export interface ConfirmDialogProps {
   onCancel: () => void;
   danger?: boolean;
 }
-
-
-// ════ CONFIRMDIALOG IMPLEMENTATION ════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const ConfirmDialog = forwardRef<HTMLDivElement, ConfirmDialogProps>(({
   open,

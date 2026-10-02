@@ -1,38 +1,7 @@
-/**
- * ASCII Architecture Flowchart: LocalAccountProvider
- *
- *   ┌───────────────────────────────────┐
- *   │  Initialize LocalAccountProvider  │
- *   └───────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌───────────────────────────────────┐
- *   │                data               │
- *   └───────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌───────────────────────────────────┐
- *   │               parsed              │
- *   └───────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌───────────────────────────────────┐
- *   │                data               │
- *   └───────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌───────────────────────────────────┐
- *   │   Return State / Result Payload   │
- *   └───────────────────────────────────┘
- */
-
 import { promises as fs } from 'fs';
 import path from 'path';
 import { BaseAccountProvider } from './BaseAccountProvider.js';
 import { CreateUserData, User } from './types.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export class LocalAccountProvider extends BaseAccountProvider {
   private filePath: string;

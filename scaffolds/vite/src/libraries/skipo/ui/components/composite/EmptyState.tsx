@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: EmptyState
- *
- *   ┌──────────────────────────────────┐
- *   │      Initialize EmptyState       │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            EmptyState            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef } from 'react';
 import { BaseButton } from '../base/BaseButton.js';
@@ -30,10 +9,6 @@ export interface EmptyStateProps extends React.HTMLAttributes<HTMLDivElement> {
   actionLabel?: string;
   onAction?: () => void;
 }
-
-
-// ════ EMPTYSTATE IMPLEMENTATION ═══════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const EmptyState = forwardRef<HTMLDivElement, EmptyStateProps>(({
   icon,

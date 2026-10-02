@@ -1,25 +1,4 @@
 /**
- * ASCII Architecture Flowchart: ServiceDispatcher
- *
- *   ┌──────────────────────────────────┐
- *   │   Initialize ServiceDispatcher   │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │                op                │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file ServiceDispatcher.ts
  * @description Domain-level orchestration unit coordinating OperationComponents.
  * Conforms to SKIPO::STATE_EXECUTION_ARCHITECTURE and L9 (<=200L).

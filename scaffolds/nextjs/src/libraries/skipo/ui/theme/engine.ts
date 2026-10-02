@@ -1,32 +1,9 @@
-/**
- * ASCII Architecture Flowchart: engine
- *
- *   ┌──────────────────────────────────┐
- *   │        Initialize engine         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │               pack               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │               res                │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          overridePackId          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-import type { AppThemeSocket, ModularThemePack, ThemeApplicationState, UIElementThemeValue } from './types.js';
+import type {
+  AppThemeSocket,
+  ModularThemePack,
+  ThemeApplicationState,
+  UIElementThemeValue
+} from './types.js';
 import { mapSemanticTokensToCssVars } from './tokenMapper.js';
 import { resolveTypographyCascade } from './schema/cascade.js';
 
@@ -174,7 +151,6 @@ export class ThemeEngine {
     }
     root.setAttribute('data-skipo-theme-id', this.activeBasePackId);
     root.setAttribute('data-skipo-theme-mode', this.activeMode);
-    root.setAttribute('data-skipo-theme', this.activeMode);
     root.setAttribute('data-theme', this.activeMode);
     root.setAttribute('data-skipo-overrides-count', String(this.elementOverrides.size));
     if (this.activeMode === 'dark') root.classList.add('dark');

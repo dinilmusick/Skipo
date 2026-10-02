@@ -1,25 +1,4 @@
 /**
- * ASCII Architecture Flowchart: BackendContract
- *
- *   ┌──────────────────────────────────┐
- *   │    Initialize BackendContract    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │       createEmptyContract        │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file BackendContract.ts
  * @description Canonical public surface contracts and capability schema definitions.
  */
@@ -66,10 +45,6 @@ export interface BackendContract {
   domains: Record<string, DomainContract>;
   capabilities: string[];
 }
-
-
-// ════ BACKENDCONTRACT IMPLEMENTATION ══════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function createEmptyContract(version = '1.0.0'): BackendContract {
   return {

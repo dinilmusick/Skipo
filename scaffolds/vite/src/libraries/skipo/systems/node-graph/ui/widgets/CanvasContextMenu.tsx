@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: CanvasContextMenu
- *
- *   ┌──────────────────────────────────┐
- *   │   Initialize CanvasContextMenu   │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │        CanvasContextMenu         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            itemStyle             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          shortcutStyle           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import type React from 'react';
 import type { NodeDefinition } from '../../domain/BaseNode.js';
@@ -45,10 +14,6 @@ export interface CanvasContextMenuProps {
   onClearSelection: () => void;
   onClose: () => void;
 }
-
-
-// ════ CANVASCONTEXTMENU IMPLEMENTATION ════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function CanvasContextMenu({
   x,

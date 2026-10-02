@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: NodeDetailsPanel
- *
- *   ┌──────────────────────────────────┐
- *   │   Initialize NodeDetailsPanel    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          renderSockets           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │        renderNodeContent         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         NodeDetailsPanel         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import { FloatingDetailsPanel, BaseInput, BaseBadge } from '@skipo/ui';
 import type { GraphNode, Socket } from './types.js';
@@ -88,10 +57,6 @@ function renderNodeContent(node: GraphNode, onUpdateNode?: (nodeId: string, upda
     </div>
   );
 }
-
-
-// ════ NODEDETAILSPANEL IMPLEMENTATION ═════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function NodeDetailsPanel({
   node,

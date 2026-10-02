@@ -1,35 +1,4 @@
 /**
- * ASCII Architecture Flowchart: hooks
- *
- *   ┌──────────────────────────────────┐
- *   │         Initialize hooks         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          initializedRef          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             existing             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            subscribe             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file hooks.ts
  * @description React integration hooks for SKIPO_STATE.
  * Enforces component lifecycle binding, automatic unmount cleanup, and zero local useState.
@@ -38,10 +7,6 @@
 import { useEffect, useSyncExternalStore, useRef, useCallback } from 'react';
 import { SKIPO_STATE } from './SkipoState.js';
 import { LifecycleDescriptor, LifecycleScopeType, StateUpdater } from './types.js';
-
-
-// ════ HOOKS IMPLEMENTATION ════════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function useSkipoState<T>(
   id: string,

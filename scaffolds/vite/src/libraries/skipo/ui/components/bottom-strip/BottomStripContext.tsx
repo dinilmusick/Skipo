@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: BottomStripContext
- *
- *   ┌──────────────────────────────────┐
- *   │  Initialize BottomStripContext   │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │        BottomStripContext        │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              toggle              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │        recordRequestStart        │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 
@@ -119,10 +88,6 @@ function useSystemMessageController() {
 
   return { systemMessages, showSystemMessage, clearSystemMessage };
 }
-
-
-// ════ BOTTOMSTRIPCONTEXT IMPLEMENTATION ═══════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function BottomStripProvider({
   children,

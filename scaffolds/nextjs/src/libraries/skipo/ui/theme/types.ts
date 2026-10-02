@@ -1,27 +1,6 @@
-/**
- * ASCII Architecture Flowchart: types
- *
- *   ┌──────────────────────────────────────┐
- *   │           Initialize types           │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
 import type { ThemeTypographyDefinition } from './schema/typography.schema.js';
 import type { SkipoSemanticTokens } from './schema/tokens.schema.js';
 import type { ModularThemePack, ThemeVariantDefinition } from './schema/themePack.schema.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export type {
   ThemeTypographyDefinition,

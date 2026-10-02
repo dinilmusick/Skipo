@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: TabContainer
- *
- *   ┌──────────────────────────────────┐
- *   │     Initialize TabContainer      │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           TabContainer           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef, useState } from 'react';
 import { BaseButton } from '../base/BaseButton.js';
@@ -28,10 +7,6 @@ import '../../styles/containers.css';
 export interface TabContainerProps extends React.HTMLAttributes<HTMLDivElement> {
   tabs: { id: string; label: string; content: React.ReactNode }[];
 }
-
-
-// ════ TABCONTAINER IMPLEMENTATION ═════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const TabContainer = forwardRef<HTMLDivElement, TabContainerProps>(({
   tabs,

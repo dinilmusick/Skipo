@@ -1,37 +1,6 @@
-/**
- * ASCII Architecture Flowchart: ViewEngine
- *
- *   ┌──────────────────────────────────┐
- *   │      Initialize ViewEngine       │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │                v                 │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          nodePositions           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            nodeSizes             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import type { GraphView, GraphSettings } from '../domain/BaseGraph.js';
 import type { BaseNode, NodePosition, NodeSize } from '../domain/BaseNode.js';
 import type { BaseViewWindow } from '../domain/BaseViewWindow.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export interface CaptureGraphSnapshotParams {
   id?: string;

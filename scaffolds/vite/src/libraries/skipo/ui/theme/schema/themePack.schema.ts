@@ -1,41 +1,6 @@
-/**
- * ASCII Architecture Flowchart: themePack.schema
- *
- *   ┌──────────────────────────────────┐
- *   │   Initialize themePack.schema    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │     SkipoThemeMetadataSchema     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │    UIElementThemeValueSchema     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │   ThemeVariantDefinitionSchema   │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import { z } from 'zod';
 import { SkipoSemanticTokensSchema } from './tokens.schema.js';
 import { ThemeTypographySchema } from './typography.schema.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
-
-// ════ THEMEPACK.SCHEMA IMPLEMENTATION ═════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const SkipoThemeMetadataSchema = z.object({
   id: z.string().min(1),

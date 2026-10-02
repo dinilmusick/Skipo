@@ -1,38 +1,7 @@
-/**
- * ASCII Architecture Flowchart: AuditLogger
- *
- *   ┌──────────────────────────────────┐
- *   │      Initialize AuditLogger      │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            fullEvent             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             content              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              lines               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import { promises as fs } from 'fs';
 import path from 'path';
 import { SkipoBase } from '@skipo/core';
 import { AuditEvent } from './types.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export class AuditLogger extends SkipoBase {
   private logFile: string;

@@ -11,6 +11,8 @@ import { CompatibleNodePicker } from './ui/widgets/CompatibleNodePicker.js';
 import { NodeSearchPalette } from './ui/widgets/NodeSearchPalette.js';
 import { CanvasContextMenu } from './ui/widgets/CanvasContextMenu.js';
 import { ConnectionRuleStore } from './rules/ConnectionRuleStore.js';
+import { useGhostRouting } from './useGhostRouting.js';
+import { GhostTraceLayer, GhostNodeCard, GhostSolidifyBar } from './ui/ghost/index.js';
 
 export interface NodeGraphCanvasProps {
   nodes: GraphNode[];
@@ -40,6 +42,15 @@ export function NodeGraphCanvas({
   onSelectionChange
 }: NodeGraphCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const ghost = useGhostRouting({
+    nodes,
+    edges,
+    selectedNodeIds,
+    config,
+    availableNodeTypes,
+    onNodesChange,
+    onEdgesChange
+  });
   const [isPanning, setIsPanning] = useState(false);
   const [dragNodeId, setDragNodeId] = useState<string | null>(null);
   const nodeMouseDownPos = useRef<{ x: number; y: number; nodeId: string } | null>(null);
@@ -126,16 +137,23 @@ export function NodeGraphCanvas({
           onEdgesChange?.(edges.filter(ed => !selectedNodeIds.has(ed.source) && !selectedNodeIds.has(ed.target)));
           onSelectionChange?.(new Set());
         }
+      } else if (e.key === 'Tab' && ghost.isActive) {
+        e.preventDefault();
+        ghost.cycleScenario();
+      } else if (e.key === 'Enter' && e.shiftKey && ghost.isActive) {
+        e.preventDefault();
+        ghost.solidifyAll();
       } else if (e.key === 'Escape') {
         setContextMenu(null);
         setPickerState(null);
         setSpawnMenuState(null);
         setConnecting(null);
+        ghost.dismiss();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nodes, edges, selectedNodeIds, viewport, onNodesChange, onEdgesChange, onSelectionChange]);
+  }, [nodes, edges, selectedNodeIds, viewport, ghost, onNodesChange, onEdgesChange, onSelectionChange]);
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -378,6 +396,28 @@ export function NodeGraphCanvas({
     >
       <WireRenderer edges={edges} nodesData={nodesData} connecting={connecting ? { startX: connecting.startX, startY: connecting.startY, endX: connecting.endX, endY: connecting.endY } : null} />
       <div style={{ position: 'absolute', top: 0, left: 0, transformOrigin: '0 0', transform: `translate(${viewport.panX}px, ${viewport.panY}px) scale(${viewport.zoom})` }}>
+        {ghost.isActive && (
+          <>
+            <GhostTraceLayer traces={ghost.activeGhostTraces} hoveredGhostId={ghost.hoveredGhostId} />
+            {ghost.activeGhostNodes.map(g => (
+              <GhostNodeCard
+                key={g.id}
+                ghostNode={g}
+                isHovered={ghost.hoveredGhostId === g.id}
+                onHover={ghost.setHoveredGhostId}
+                onSolidify={ghost.solidifyOne}
+              />
+            ))}
+            <GhostSolidifyBar
+              ghostNodes={ghost.activeGhostNodes}
+              scenarioIndex={ghost.scenarioIndex}
+              maxScenarios={config?.ghostScenarioCount ?? 3}
+              onCycleScenario={ghost.cycleScenario}
+              onSolidifyAll={ghost.solidifyAll}
+              onDismiss={ghost.dismiss}
+            />
+          </>
+        )}
         {nodes.map(node => (
           <NodeCard
             key={node.id}

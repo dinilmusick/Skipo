@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: CompatibleNodePicker
- *
- *   ┌───────────────────────────────────┐
- *   │  Initialize CompatibleNodePicker  │
- *   └───────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌───────────────────────────────────┐
- *   │        CompatibleNodePicker       │
- *   └───────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌───────────────────────────────────┐
- *   │          compatibleNodes          │
- *   └───────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌───────────────────────────────────┐
- *   │               isOut               │
- *   └───────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌───────────────────────────────────┐
- *   │   Return State / Result Payload   │
- *   └───────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import { useState, useMemo } from 'react';
 import type { NodeDefinition } from '../../domain/BaseNode.js';
@@ -49,10 +18,6 @@ export interface CompatibleNodePickerProps {
   onSelect: (selectedTypes: string[]) => void;
   onClose: () => void;
 }
-
-
-// ════ COMPATIBLENODEPICKER IMPLEMENTATION ═════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function CompatibleNodePicker({
   x,

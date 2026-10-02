@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: NodeSearchPalette
- *
- *   ┌──────────────────────────────────┐
- *   │   Initialize NodeSearchPalette   │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │        NodeSearchPalette         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          filteredNodes           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │                q                 │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import { useState, useMemo } from 'react';
 import type { NodeDefinition } from '../../domain/BaseNode.js';
@@ -41,10 +10,6 @@ export interface NodeSearchPaletteProps {
   onSpawnNode: (type: string) => void;
   onClose: () => void;
 }
-
-
-// ════ NODESEARCHPALETTE IMPLEMENTATION ════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function NodeSearchPalette({
   x,

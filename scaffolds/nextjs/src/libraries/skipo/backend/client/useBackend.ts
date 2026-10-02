@@ -1,35 +1,4 @@
 /**
- * ASCII Architecture Flowchart: useBackend
- *
- *   ┌──────────────────────────────────┐
- *   │      Initialize useBackend       │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          BackendContext          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         BackendProvider          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           activeClient           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file useBackend.ts
  * @description React Context Provider and hooks for accessing BackendClient declaratively.
  */
@@ -49,10 +18,6 @@ export interface BackendProviderProps {
 }
 
 const BackendContext = createContext<BackendClientInstance | null>(null);
-
-
-// ════ USEBACKEND IMPLEMENTATION ═══════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function BackendProvider({ client, resolver, session, children }: BackendProviderProps) {
   const activeClient = useMemo(() => {

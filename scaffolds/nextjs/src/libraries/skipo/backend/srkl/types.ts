@@ -1,25 +1,4 @@
 /**
- * ASCII Architecture Flowchart: types
- *
- *   ┌──────────────────────────────────────┐
- *   │           Initialize types           │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file types.ts
  * @description Type definitions for SRKL Ecosystem Service Broker integration.
  * Enables client applications to declare service requirements, query SRKL vaults,

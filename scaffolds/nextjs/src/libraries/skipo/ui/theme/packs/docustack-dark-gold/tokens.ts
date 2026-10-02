@@ -1,40 +1,10 @@
-/**
- * ASCII Architecture Flowchart: tokens
- *
- *   ┌──────────────────────────────────┐
- *   │        Initialize tokens         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            darkTokens            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           lightTokens            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import type { SkipoSemanticTokens } from '../../types.js';
 
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
-
-// ════ TOKENS IMPLEMENTATION ═══════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export const darkTokens: SkipoSemanticTokens = {
-  bg: { canvas: '#121214', surface: '#1e1e24', surfaceHover: '#282832', blur: 'blur(16px)' },
-  text: { primary: '#ffffff', muted: '#A0A0B0', inverse: '#121214' },
-  accent: { primary: '#d4af37', fg: '#000000', glow: '0 0 16px rgba(212, 175, 55, 0.45)', hover: '#c59f2e' },
-  border: { color: '#363640', input: '#d4af37', style: '2px solid #363640' },
+  bg: { canvas: '#121214', surface: '#1E1E24', surfaceHover: '#26262E', blur: 'blur(16px)' },
+  text: { primary: '#F3EDE0', muted: '#A0A0B0', inverse: '#121214' },
+  accent: { primary: '#D4AF37', fg: '#000000', glow: '0 0 16px rgba(212, 175, 55, 0.45)', hover: '#B59443' },
+  border: { color: '#000000', input: '#D4AF37', style: '2px solid #000000' },
   radius: { base: '0px', sm: '0px', lg: '0px' },
   shadow: {
     card: '4px 4px 0px #000000', cardHover: '6px 6px 0px #000000',
@@ -42,8 +12,8 @@ export const darkTokens: SkipoSemanticTokens = {
   },
   font: { sans: "'Courier Prime', monospace", mono: "'JetBrains Mono', monospace" },
   status: {
-    success: '#10b981', successFg: '#000000', warning: '#f59e0b', warningFg: '#000000',
-    danger: '#ef4444', dangerFg: '#ffffff', info: '#3b82f6', infoFg: '#ffffff'
+    success: '#10B981', successFg: '#000000', warning: '#F59E0B', warningFg: '#000000',
+    danger: '#EF4444', dangerFg: '#FFFFFF', info: '#3B82F6', infoFg: '#FFFFFF'
   },
   shell: {
     topToolbarHeight: '44px', topToolbarBg: 'rgba(18, 18, 20, 0.95)',
@@ -53,23 +23,23 @@ export const darkTokens: SkipoSemanticTokens = {
 };
 
 export const lightTokens: SkipoSemanticTokens = {
-  bg: { canvas: '#FAF7F0', surface: '#EFE9DC', surfaceHover: '#E4DCCB', blur: 'blur(16px)' },
-  text: { primary: '#1A1815', muted: '#6E675C', inverse: '#FAF7F0' },
-  accent: { primary: '#B8860B', fg: '#ffffff', glow: '0 0 14px rgba(184, 134, 11, 0.35)', hover: '#996F08' },
-  border: { color: '#2C271E', input: '#B8860B', style: '2px solid #2C271E' },
+  bg: { canvas: '#F8F6F0', surface: '#EDE8DC', surfaceHover: '#E4DEC0', blur: 'blur(16px)' },
+  text: { primary: '#18181A', muted: '#6E6B65', inverse: '#F8F6F0' },
+  accent: { primary: '#B58900', fg: '#FFFFFF', glow: '0 0 14px rgba(181, 137, 0, 0.35)', hover: '#997400' },
+  border: { color: '#2A2518', input: '#B58900', style: '2px solid #2A2518' },
   radius: { base: '0px', sm: '0px', lg: '0px' },
   shadow: {
-    card: '4px 4px 0px #2C271E', cardHover: '6px 6px 0px #2C271E',
-    btn: '2px 2px 0px #2C271E', btnHover: '3px 3px 0px #2C271E', btnActive: '1px 1px 0px #2C271E'
+    card: '4px 4px 0px #2A2518', cardHover: '6px 6px 0px #2A2518',
+    btn: '2px 2px 0px #2A2518', btnHover: '3px 3px 0px #2A2518', btnActive: '1px 1px 0px #2A2518'
   },
   font: { sans: "'Courier Prime', monospace", mono: "'JetBrains Mono', monospace" },
   status: {
-    success: '#059669', successFg: '#ffffff', warning: '#f59e0b', warningFg: '#000000',
-    danger: '#dc2626', dangerFg: '#ffffff', info: '#2563eb', infoFg: '#ffffff'
+    success: '#059669', successFg: '#FFFFFF', warning: '#D97706', warningFg: '#FFFFFF',
+    danger: '#DC2626', dangerFg: '#FFFFFF', info: '#2563EB', infoFg: '#FFFFFF'
   },
   shell: {
-    topToolbarHeight: '44px', topToolbarBg: '#EFE9DC',
-    bottomStripHeight: '30px', bottomStripBg: '#E4DCCB',
-    inspectionTextTranslucent: 'rgba(26, 24, 21, 0.85)'
+    topToolbarHeight: '44px', topToolbarBg: '#EDE8DC',
+    bottomStripHeight: '30px', bottomStripBg: '#E4DEC0',
+    inspectionTextTranslucent: 'rgba(24, 24, 26, 0.85)'
   }
 };

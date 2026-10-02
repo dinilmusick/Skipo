@@ -1,38 +1,7 @@
-/**
- * ASCII Architecture Flowchart: TraceEngine
- *
- *   ┌──────────────────────────────────┐
- *   │      Initialize TraceEngine      │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              traces              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           outputPairs            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            inputPairs            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import type { BaseNode } from '../domain/BaseNode.js';
 import type { BaseHandle } from '../domain/BaseHandle.js';
 import { CompatibilityMatrix, type CompatibilityResolution } from '../rules/CompatibilityMatrix.js';
 import { SpatialEngine } from './SpatialEngine.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export interface Trace {
   id: string;

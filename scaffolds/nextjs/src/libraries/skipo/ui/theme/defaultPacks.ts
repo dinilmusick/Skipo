@@ -1,34 +1,4 @@
-/**
- * ASCII Architecture Flowchart: defaultPacks
- *
- *   ┌──────────────────────────────────┐
- *   │     Initialize defaultPacks      │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │     DEFAULT_DARK_THEME_PACK      │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │     DEFAULT_LIGHT_THEME_PACK     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import type { SkipoThemePack } from './types.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
-
-// ════ DEFAULTPACKS IMPLEMENTATION ═════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const DEFAULT_DARK_THEME_PACK: SkipoThemePack = {
   metadata: {
@@ -121,7 +91,7 @@ export const DEFAULT_LIGHT_THEME_PACK: SkipoThemePack = {
     },
     accent: {
       primary: '#6f4e37',
-      fg: 'var(--skipo-text-primary, #ffffff)',
+      fg: '#ffffff',
       glow: '0 0 12px rgba(111, 78, 55, 0.35)',
       hover: '#5c3f2b'
     },
@@ -149,8 +119,8 @@ export const DEFAULT_LIGHT_THEME_PACK: SkipoThemePack = {
     status: {
       success: '#059669',
       successFg: '#ffffff',
-      warning: '#f59e0b',
-      warningFg: '#000000',
+      warning: '#d97706',
+      warningFg: '#ffffff',
       danger: '#dc2626',
       dangerFg: '#ffffff',
       info: '#2563eb',

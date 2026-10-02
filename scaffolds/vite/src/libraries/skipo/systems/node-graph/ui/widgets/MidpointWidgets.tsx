@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: MidpointWidgets
- *
- *   ┌──────────────────────────────────┐
- *   │    Initialize MidpointWidgets    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         MidpointWidgets          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 
 export interface MidpointWidgetsProps {
@@ -29,10 +8,6 @@ export interface MidpointWidgetsProps {
   onInspect?: () => void;
   onToggleLock?: () => void;
 }
-
-
-// ════ MIDPOINTWIDGETS IMPLEMENTATION ══════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function MidpointWidgets({ x, y, locked, onDelete, onInspect, onToggleLock }: MidpointWidgetsProps) {
   return (

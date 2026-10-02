@@ -1,25 +1,4 @@
 /**
- * ASCII Architecture Flowchart: types
- *
- *   ┌──────────────────────────────────────┐
- *   │           Initialize types           │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file types.ts
  * @description Formal TypeScript types for backend execution boundary.
  * Conforms to SKIPO::STATE_EXECUTION_ARCHITECTURE and L9 (<=200L).

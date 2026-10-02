@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: AppShell
- *
- *   ┌──────────────────────────────────┐
- *   │       Initialize AppShell        │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             AppShell             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef } from 'react';
 import { BottomStripProvider } from '../bottom-strip/BottomStripContext.js';
@@ -38,10 +17,6 @@ export interface AppShellProps extends React.HTMLAttributes<HTMLDivElement> {
  * AppShell — Root layout container providing top toolbar slot, clean central viewport, and bottom strip.
  * Supports isolated workspaceGate modal/screen rendering before main canvas/app UI loads.
  */
-
-// ════ APPSHELL IMPLEMENTATION ═════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(({
   header,
   sidebar,

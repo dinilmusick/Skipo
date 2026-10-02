@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: BottomStrip
- *
- *   ┌──────────────────────────────────┐
- *   │      Initialize BottomStrip      │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           BottomStrip            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         showDescription          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            activeText            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef } from 'react';
 import { useBottomStrip } from './BottomStripContext.js';
@@ -44,10 +13,6 @@ export interface BottomStripProps extends React.HTMLAttributes<HTMLElement> {
   hideDefaultLeft?: boolean;
   hideDefaultRight?: boolean;
 }
-
-
-// ════ BOTTOMSTRIP IMPLEMENTATION ══════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const BottomStrip = forwardRef<HTMLElement, BottomStripProps>(({
   leftSlot,

@@ -56,6 +56,9 @@ export interface NodeGraphConfig {
   tracingEnabled?: boolean;
   autoSolidify?: boolean;
   traceCutoffDistance?: number;
+  ghostRoutingEnabled?: boolean;
+  ghostScenarioCount?: number;
+  ghostDecayMs?: number;
 }
 
 export interface NodeGraphPlugin {

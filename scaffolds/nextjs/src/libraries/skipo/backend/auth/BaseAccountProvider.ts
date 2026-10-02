@@ -1,39 +1,8 @@
-/**
- * ASCII Architecture Flowchart: BaseAccountProvider
- *
- *   ┌──────────────────────────────────┐
- *   │  Initialize BaseAccountProvider  │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             isValid              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             existing             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           passwordHash           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import { SkipoBase } from '@skipo/core';
 import { AuthCredentials, AuthSession, CreateUserData, SignupInput, User } from './types.js';
 import { PasswordHasher } from './PasswordHasher.js';
 import { RateLimiter } from './RateLimiter.js';
 import { SessionManager } from './SessionManager.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export abstract class BaseAccountProvider extends SkipoBase {
   protected rateLimiter = new RateLimiter();

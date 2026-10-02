@@ -6,9 +6,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Database, HardDrive, LogOut, Network, Cpu, Layout } from 'lucide-react';
+import { Database, HardDrive, LogOut, Network, Cpu, Layout, Settings } from 'lucide-react';
 import { useAppStore } from '../../frontend-state/appStore';
 import { BaseButton, BaseBadge, BaseCard } from './ui';
+import { SettingsTab } from '../../libraries/skipo/ui/components/settings/SettingsTab';
 import { BottomStrip } from './bottom-strip/BottomStrip';
 import { NodeGraphView } from './nodegraph/NodeGraphView';
 import { QueueView } from './queue/QueueView';
@@ -17,7 +18,7 @@ import { apiClient } from '../../libraries/client/apiClient';
 
 export const MainApp: React.FC = () => {
   const { user, activeWorkspace, logout, setWorkspaces } = useAppStore();
-  const [activeTab, setActiveTab] = useState<'overview' | 'graph' | 'queue'>('graph');
+  const [activeTab, setActiveTab] = useState<'overview' | 'graph' | 'queue' | 'settings'>('graph');
 
   useGlobalHoverInspection();
 
@@ -85,6 +86,18 @@ export const MainApp: React.FC = () => {
               <Layout size={13} />
               <span>Overview</span>
             </BaseButton>
+
+            <BaseButton
+              variant={activeTab === 'settings' ? 'primary' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveTab('settings')}
+              data-skipo-label="Settings"
+              data-skipo-desc="Manage app appearance, themes, and system settings"
+              className="flex items-center gap-1.5"
+            >
+              <Settings size={13} />
+              <span>Settings</span>
+            </BaseButton>
           </nav>
         </div>
 
@@ -128,6 +141,15 @@ export const MainApp: React.FC = () => {
         {activeTab === 'queue' && (
           <div className="p-6 max-w-4xl mx-auto h-full overflow-y-auto">
             <QueueView />
+          </div>
+        )}
+
+        {activeTab === 'settings' && (
+          <div className="h-full overflow-y-auto">
+            <SettingsTab
+              appName="MyApp"
+              activeWorkspaceName={activeWorkspace?.name || 'Local Workspace'}
+            />
           </div>
         )}
 

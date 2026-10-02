@@ -1,25 +1,4 @@
 /**
- * ASCII Architecture Flowchart: index
- *
- *   ┌──────────────────────────────────────┐
- *   │           Initialize index           │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file index.ts
  * @description Dedicated SRKL Ecosystem Service Broker package exports.
  * Enables applications across the ecosystem to declare service dependencies,

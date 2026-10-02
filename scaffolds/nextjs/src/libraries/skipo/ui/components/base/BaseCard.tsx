@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: BaseCard
- *
- *   ┌──────────────────────────────────┐
- *   │       Initialize BaseCard        │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             BaseCard             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef } from 'react';
 import '../../styles/base.css';
@@ -28,10 +7,6 @@ export interface BaseCardProps extends React.HTMLAttributes<HTMLDivElement> {
   depth?: 'sm' | 'md' | 'lg';
   interactive?: boolean;
 }
-
-
-// ════ BASECARD IMPLEMENTATION ═════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const BaseCard = forwardRef<HTMLDivElement, BaseCardProps>(({
   variant = 'surface',

@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: HandleTypeRegistry
- *
- *   ┌──────────────────────────────────────┐
- *   │    Initialize HandleTypeRegistry     │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export interface HandleTypeDefinition {
   dataType: string;
   category: 'DATA' | 'VIEW';

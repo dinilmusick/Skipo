@@ -1,35 +1,4 @@
-/**
- * ASCII Architecture Flowchart: AttractionEngine
- *
- *   ┌──────────────────────────────────┐
- *   │   Initialize AttractionEngine    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             inTypesA             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             inTypesB             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             sharedIn             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import type { BaseNode, NodePosition } from '../domain/BaseNode.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export class AttractionEngine {
   public static computeSimilarity(nodeA: BaseNode, nodeB: BaseNode): number {

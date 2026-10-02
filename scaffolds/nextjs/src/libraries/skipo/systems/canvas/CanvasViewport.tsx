@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: CanvasViewport
- *
- *   ┌──────────────────────────────────┐
- *   │    Initialize CanvasViewport     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          CanvasViewport          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           containerRef           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           handleWheel            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { useRef, useState } from 'react';
 import type { Transform } from './types.js';
@@ -40,10 +9,6 @@ interface CanvasViewportProps {
   minZoom?: number;
   maxZoom?: number;
 }
-
-
-// ════ CANVASVIEWPORT IMPLEMENTATION ═══════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function CanvasViewport({ 
   children, 

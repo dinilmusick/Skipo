@@ -1,25 +1,4 @@
-/**
- * ASCII Architecture Flowchart: BaseViewWindow
- *
- *   ┌──────────────────────────────────────┐
- *   │      Initialize BaseViewWindow       │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
 import type { NodePosition, NodeSize } from './BaseNode.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export type DynamicState = 'INACTIVE' | 'ACTIVE' | 'PINNED_LIVE';
 

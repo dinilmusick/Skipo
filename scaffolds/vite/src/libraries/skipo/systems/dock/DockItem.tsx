@@ -1,38 +1,11 @@
-/**
- * ASCII Architecture Flowchart: DockItem
- *
- *   ┌──────────────────────────────────┐
- *   │       Initialize DockItem        │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             DockItem             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
-import type React from 'react';
 import type { DockItemConfig } from './types.js';
 
 interface DockItemProps {
-  key?: React.Key;
   item: DockItemConfig;
   isActive?: boolean;
   onClick?: () => void;
 }
-
-
-// ════ DOCKITEM IMPLEMENTATION ═════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function DockItem({ item, isActive, onClick }: DockItemProps) {
   return (
@@ -48,7 +21,7 @@ export function DockItem({ item, isActive, onClick }: DockItemProps) {
         cursor: 'pointer',
         backgroundColor: isActive ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
         transition: 'background-color 0.2s, transform 0.1s',
-        color: 'var(--skipo-text-primary, #ffffff)',
+        color: '#fff',
       }}
       onClick={() => {
         onClick?.();
@@ -89,7 +62,7 @@ export function DockItem({ item, isActive, onClick }: DockItemProps) {
           width: '6px',
           height: '6px',
           borderRadius: '50%',
-          backgroundColor: 'var(--skipo-accent, #d4af37)',
+          backgroundColor: '#d4af37',
         }} />
       )}
     </div>

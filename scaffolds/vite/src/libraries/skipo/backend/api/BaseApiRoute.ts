@@ -1,26 +1,5 @@
-/**
- * ASCII Architecture Flowchart: BaseApiRoute
- *
- *   ┌──────────────────────────────────────┐
- *   │       Initialize BaseApiRoute        │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
 import { SkipoBase } from '@skipo/core';
 import { RouteConfig } from './types.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export abstract class BaseApiRoute extends SkipoBase {
   protected config: RouteConfig;

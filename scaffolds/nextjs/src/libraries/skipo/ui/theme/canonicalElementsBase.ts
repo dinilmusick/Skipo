@@ -1,29 +1,4 @@
-/**
- * ASCII Architecture Flowchart: canonicalElementsBase
- *
- *   ┌────────────────────────────────────┐
- *   │  Initialize canonicalElementsBase  │
- *   └────────────────────────────────────┘
- *                     │
- *                     ▼
- *   ┌────────────────────────────────────┐
- *   │      CANONICAL_ELEMENTS_BASE       │
- *   └────────────────────────────────────┘
- *                     │
- *                     ▼
- *   ┌────────────────────────────────────┐
- *   │   Return State / Result Payload    │
- *   └────────────────────────────────────┘
- */
-
 import type { UIElementDefinition } from './types.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
-
-// ════ CANONICALELEMENTSBASE IMPLEMENTATION ════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const CANONICAL_ELEMENTS_BASE: UIElementDefinition[] = [
   // Layout & Wallpaper

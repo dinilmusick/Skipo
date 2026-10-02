@@ -1,41 +1,6 @@
-/**
- * ASCII Architecture Flowchart: DefaultRules
- *
- *   ┌──────────────────────────────────┐
- *   │     Initialize DefaultRules      │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │   initializeDefaultGraphRules    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              types               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │                t                 │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import { HandleTypeRegistry } from './HandleTypeRegistry.js';
 import { WireTypeRegistry } from './WireTypeRegistry.js';
 import { CompatibilityMatrix } from './CompatibilityMatrix.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
-
-// ════ DEFAULTRULES IMPLEMENTATION ═════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function initializeDefaultGraphRules(): void {
   // 1. Register Data Handle Types

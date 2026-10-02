@@ -1,39 +1,8 @@
-/**
- * ASCII Architecture Flowchart: CommandApi
- *
- *   ┌──────────────────────────────────┐
- *   │      Initialize CommandApi       │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │               node               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │               node               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │               node               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import type { GraphStore } from './GraphStore.js';
 import { BaseNode, CustomNode, type BaseNodeProps } from '../domain/BaseNode.js';
 import type { HandleOffset } from '../domain/BaseHandle.js';
 import { SolidConnection } from '../domain/BaseConnection.js';
 import type { Group } from '../domain/BaseGraph.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export class CommandApi {
   constructor(private store: GraphStore) {}

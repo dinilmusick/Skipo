@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: StatusLight
- *
- *   ┌──────────────────────────────────┐
- *   │      Initialize StatusLight      │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           StatusLight            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          defaultLabels           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           displayText            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React from 'react';
 import { useBottomStrip } from './BottomStripContext.js';
@@ -38,10 +7,6 @@ export interface StatusLightProps extends React.HTMLAttributes<HTMLSpanElement> 
   label?: string;
   pulse?: boolean;
 }
-
-
-// ════ STATUSLIGHT IMPLEMENTATION ══════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const StatusLight: React.FC<StatusLightProps> = ({
   status = 'idle',

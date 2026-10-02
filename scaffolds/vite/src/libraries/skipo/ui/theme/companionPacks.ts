@@ -1,40 +1,9 @@
-/**
- * ASCII Architecture Flowchart: companionPacks
- *
- *   ┌──────────────────────────────────┐
- *   │    Initialize companionPacks     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │        coffeeLightTokens         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         coffeeDarkTokens         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │       coffeeLightElements        │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import type { ModularThemePack } from './types.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 const coffeeLightTokens = {
   bg: { canvas: '#F5EDE4', surface: '#E8DCC4', surfaceHover: '#DFCFB9', blur: 'blur(12px)' },
   text: { primary: '#21140E', muted: '#7A6B5D', inverse: '#F5EDE4' },
-  accent: { primary: '#C87D32', fg: 'var(--skipo-text-primary, #ffffff)', glow: '0 0 12px rgba(200, 125, 50, 0.35)', hover: '#C25E45' },
+  accent: { primary: '#C87D32', fg: '#FFFFFF', glow: '0 0 12px rgba(200, 125, 50, 0.35)', hover: '#C25E45' },
   border: { color: '#2C1810', input: '#C87D32', style: '2px solid #2C1810' },
   radius: { base: '0px', sm: '0px', lg: '0px' },
   shadow: {
@@ -43,8 +12,8 @@ const coffeeLightTokens = {
   },
   font: { sans: "'Courier Prime', monospace", mono: "'JetBrains Mono', monospace" },
   status: {
-    success: '#059669', successFg: 'var(--skipo-text-primary, #ffffff)', warning: 'var(--skipo-warning, #f59e0b)', warningFg: 'var(--skipo-text-primary, #ffffff)',
-    danger: 'var(--skipo-error, #e76f51)', dangerFg: 'var(--skipo-text-primary, #ffffff)', info: 'var(--skipo-accent, #d4af37)', infoFg: 'var(--skipo-text-primary, #ffffff)'
+    success: '#059669', successFg: '#FFFFFF', warning: '#D97706', warningFg: '#FFFFFF',
+    danger: '#DC2626', dangerFg: '#FFFFFF', info: '#2563EB', infoFg: '#FFFFFF'
   },
   shell: {
     topToolbarHeight: '44px', topToolbarBg: '#DFCFB9',
@@ -56,7 +25,7 @@ const coffeeLightTokens = {
 const coffeeDarkTokens = {
   bg: { canvas: '#1A120E', surface: '#281D17', surfaceHover: '#362720', blur: 'blur(14px)' },
   text: { primary: '#F5EDE4', muted: '#A8988B', inverse: '#1A120E' },
-  accent: { primary: '#E08A3C', fg: 'var(--skipo-surface-background, #121214)', glow: '0 0 14px rgba(224, 138, 60, 0.4)', hover: '#C87D32' },
+  accent: { primary: '#E08A3C', fg: '#000000', glow: '0 0 14px rgba(224, 138, 60, 0.4)', hover: '#C87D32' },
   border: { color: '#3D2C22', input: '#E08A3C', style: '2px solid #3D2C22' },
   radius: { base: '0px', sm: '0px', lg: '0px' },
   shadow: {
@@ -65,8 +34,8 @@ const coffeeDarkTokens = {
   },
   font: { sans: "'Courier Prime', monospace", mono: "'JetBrains Mono', monospace" },
   status: {
-    success: 'var(--skipo-success, #2a9d8f)', successFg: 'var(--skipo-surface-background, #121214)', warning: 'var(--skipo-warning, #f59e0b)', warningFg: 'var(--skipo-surface-background, #121214)',
-    danger: 'var(--skipo-error, #e76f51)', dangerFg: 'var(--skipo-text-primary, #ffffff)', info: 'var(--skipo-accent, #d4af37)', infoFg: 'var(--skipo-text-primary, #ffffff)'
+    success: '#10B981', successFg: '#000000', warning: '#F59E0B', warningFg: '#000000',
+    danger: '#EF4444', dangerFg: '#FFFFFF', info: '#3B82F6', infoFg: '#FFFFFF'
   },
   shell: {
     topToolbarHeight: '44px', topToolbarBg: '#1A120E',
@@ -78,7 +47,7 @@ const coffeeDarkTokens = {
 const coffeeLightElements = {
   canvas: { cssVars: { '--color-base': '#F5EDE4', '--skipo-bg': '#F5EDE4' }, styles: { backgroundColor: '#F5EDE4', color: '#21140E' } },
   wallpaperOverlay: { cssVars: { '--wallpaper-overlay-color': '#F5EDE4', '--wallpaper-overlay-opacity': '0.60' } },
-  buttonPrimary: { cssVars: { '--color-accent': '#C87D32' }, styles: { backgroundColor: '#C87D32', color: 'var(--skipo-text-primary, #ffffff)', border: '2px solid #2C1810' } },
+  buttonPrimary: { cssVars: { '--color-accent': '#C87D32' }, styles: { backgroundColor: '#C87D32', color: '#FFFFFF', border: '2px solid #2C1810' } },
   kanbanColumn: { cssVars: { '--color-surface': '#E8DCC4', '--color-border': '#2C1810' } },
   card: { cssVars: { '--color-surface': '#E8DCC4', '--color-border': '#2C1810' } }
 };
@@ -86,14 +55,10 @@ const coffeeLightElements = {
 const coffeeDarkElements = {
   canvas: { cssVars: { '--color-base': '#1A120E', '--skipo-bg': '#1A120E' }, styles: { backgroundColor: '#1A120E', color: '#F5EDE4' } },
   wallpaperOverlay: { cssVars: { '--wallpaper-overlay-color': '#1A120E', '--wallpaper-overlay-opacity': '0.75' } },
-  buttonPrimary: { cssVars: { '--color-accent': '#E08A3C' }, styles: { backgroundColor: '#E08A3C', color: 'var(--skipo-surface-background, #121214)', border: '2px solid #3D2C22' } },
+  buttonPrimary: { cssVars: { '--color-accent': '#E08A3C' }, styles: { backgroundColor: '#E08A3C', color: '#000000', border: '2px solid #3D2C22' } },
   kanbanColumn: { cssVars: { '--color-surface': '#281D17', '--color-border': '#3D2C22' } },
   card: { cssVars: { '--color-surface': '#281D17', '--color-border': '#3D2C22' } }
 };
-
-
-// ════ COMPANIONPACKS IMPLEMENTATION ═══════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const DOCUSTACK_WARM_COFFEE_PACK: ModularThemePack = {
   metadata: {
@@ -111,7 +76,7 @@ export const DOCUSTACK_WARM_COFFEE_PACK: ModularThemePack = {
 const cyberDarkTokens = {
   bg: { canvas: '#0A0B10', surface: '#121520', surfaceHover: '#1A1F2C', blur: 'blur(20px)' },
   text: { primary: '#E0F7FC', muted: '#708A9E', inverse: '#0A0B10' },
-  accent: { primary: '#00F0FF', fg: 'var(--skipo-surface-background, #121214)', glow: '0 0 18px rgba(0, 240, 255, 0.65)', hover: '#00D0E0' },
+  accent: { primary: '#00F0FF', fg: '#000000', glow: '0 0 18px rgba(0, 240, 255, 0.65)', hover: '#00D0E0' },
   border: { color: '#00F0FF', input: '#FF0055', style: '2px solid #00F0FF' },
   radius: { base: '0px', sm: '0px', lg: '0px' },
   shadow: {
@@ -120,8 +85,8 @@ const cyberDarkTokens = {
   },
   font: { sans: "'Space Grotesk', sans-serif", mono: "'JetBrains Mono', monospace" },
   status: {
-    success: '#00FF9D', successFg: 'var(--skipo-surface-background, #121214)', warning: '#FFE600', warningFg: 'var(--skipo-surface-background, #121214)',
-    danger: '#FF0055', dangerFg: 'var(--skipo-text-primary, #ffffff)', info: '#00F0FF', infoFg: 'var(--skipo-surface-background, #121214)'
+    success: '#00FF9D', successFg: '#000000', warning: '#FFE600', warningFg: '#000000',
+    danger: '#FF0055', dangerFg: '#FFFFFF', info: '#00F0FF', infoFg: '#000000'
   },
   shell: {
     topToolbarHeight: '44px', topToolbarBg: '#0A0B10',
@@ -133,7 +98,7 @@ const cyberDarkTokens = {
 const cyberLightTokens = {
   bg: { canvas: '#EBF4F7', surface: '#D4E5ED', surfaceHover: '#C2D9E4', blur: 'blur(16px)' },
   text: { primary: '#0B1920', muted: '#536D7A', inverse: '#EBF4F7' },
-  accent: { primary: '#008C99', fg: 'var(--skipo-text-primary, #ffffff)', glow: '0 0 14px rgba(0, 140, 153, 0.4)', hover: '#00727D' },
+  accent: { primary: '#008C99', fg: '#FFFFFF', glow: '0 0 14px rgba(0, 140, 153, 0.4)', hover: '#00727D' },
   border: { color: '#008C99', input: '#D6004C', style: '2px solid #008C99' },
   radius: { base: '0px', sm: '0px', lg: '0px' },
   shadow: {
@@ -142,8 +107,8 @@ const cyberLightTokens = {
   },
   font: { sans: "'Space Grotesk', sans-serif", mono: "'JetBrains Mono', monospace" },
   status: {
-    success: '#059669', successFg: 'var(--skipo-text-primary, #ffffff)', warning: 'var(--skipo-warning, #f59e0b)', warningFg: 'var(--skipo-text-primary, #ffffff)',
-    danger: 'var(--skipo-error, #e76f51)', dangerFg: 'var(--skipo-text-primary, #ffffff)', info: '#0284C7', infoFg: 'var(--skipo-text-primary, #ffffff)'
+    success: '#059669', successFg: '#FFFFFF', warning: '#D97706', warningFg: '#FFFFFF',
+    danger: '#DC2626', dangerFg: '#FFFFFF', info: '#0284C7', infoFg: '#FFFFFF'
   },
   shell: {
     topToolbarHeight: '44px', topToolbarBg: '#D4E5ED',
@@ -156,7 +121,7 @@ const cyberDarkElements = {
   canvas: { cssVars: { '--color-base': '#0A0B10', '--skipo-bg': '#0A0B10' } },
   buttonPrimary: {
     cssVars: { '--color-accent': '#00F0FF' },
-    styles: { backgroundColor: '#00F0FF', color: 'var(--skipo-surface-background, #121214)', border: '2px solid #000000' },
+    styles: { backgroundColor: '#00F0FF', color: '#000000', border: '2px solid #000000' },
     effects: { glow: '0 0 15px rgba(0, 240, 255, 0.8)' }
   },
   graphNodeRoot: {
@@ -169,7 +134,7 @@ const cyberLightElements = {
   canvas: { cssVars: { '--color-base': '#EBF4F7', '--skipo-bg': '#EBF4F7' } },
   buttonPrimary: {
     cssVars: { '--color-accent': '#008C99' },
-    styles: { backgroundColor: '#008C99', color: 'var(--skipo-text-primary, #ffffff)', border: '2px solid #008C99' },
+    styles: { backgroundColor: '#008C99', color: '#FFFFFF', border: '2px solid #008C99' },
     effects: { glow: '0 0 12px rgba(0, 140, 153, 0.5)' }
   },
   graphNodeRoot: {

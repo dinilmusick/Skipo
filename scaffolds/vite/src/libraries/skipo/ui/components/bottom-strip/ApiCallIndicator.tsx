@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: ApiCallIndicator
- *
- *   ┌──────────────────────────────────┐
- *   │   Initialize ApiCallIndicator    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         ApiCallIndicator         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              count               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              isBusy              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React from 'react';
 import { useBottomStrip } from './BottomStripContext.js';
@@ -36,10 +5,6 @@ import { useBottomStrip } from './BottomStripContext.js';
 export interface ApiCallIndicatorProps extends React.HTMLAttributes<HTMLSpanElement> {
   activeCount?: number;
 }
-
-
-// ════ APICALLINDICATOR IMPLEMENTATION ═════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const ApiCallIndicator: React.FC<ApiCallIndicatorProps> = ({
   activeCount,

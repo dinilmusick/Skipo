@@ -1,35 +1,4 @@
-/**
- * ASCII Architecture Flowchart: cascade
- *
- *   ┌──────────────────────────────────┐
- *   │        Initialize cascade        │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │     resolveTypographyCascade     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            globalFont            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          globalMonoFont          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import type { ThemeTypographyDefinition } from './typography.schema.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export interface ResolvedTypographyCascade {
   globalFont: string;
@@ -42,17 +11,13 @@ export interface ResolvedTypographyCascade {
   cssVars: Record<string, string>;
 }
 
-
-// ════ CASCADE IMPLEMENTATION ══════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export function resolveTypographyCascade(
   typo?: ThemeTypographyDefinition,
-  fallbackAccent: string = 'var(--skipo-accent, #d4af37)'
+  fallbackAccent: string = '#D4AF37'
 ): ResolvedTypographyCascade {
   const globalFont = typo?.globalFont || "'Courier Prime', monospace";
   const globalMonoFont = typo?.globalMonoFont || "'JetBrains Mono', monospace";
-  const globalColor = typo?.globalColor || 'var(--skipo-text-primary, #ffffff)';
+  const globalColor = typo?.globalColor || '#F3EDE0';
   const globalAccentColor = typo?.globalAccentColor || fallbackAccent;
 
   const headingFont = typo?.headingFont || globalFont;
@@ -113,11 +78,11 @@ export function resolveTypographyCascade(
 
     // Code Block
     '--skipo-codeblock-font': sec.codeBlock?.font || codeFont,
-    '--skipo-codeblock-bg': sec.codeBlock?.bg || 'var(--skipo-surface-background, #121214)',
+    '--skipo-codeblock-bg': sec.codeBlock?.bg || '#121214',
 
     // Table
     '--skipo-table-header-bg': sec.table?.headerBg || globalAccentColor,
-    '--skipo-table-header-color': sec.table?.headerColor || 'var(--skipo-surface-background, #121214)',
+    '--skipo-table-header-color': sec.table?.headerColor || '#000000',
 
     // Link
     '--skipo-link-color': sec.link?.color || globalAccentColor

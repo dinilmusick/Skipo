@@ -1,25 +1,4 @@
 /**
- * ASCII Architecture Flowchart: Transport
- *
- *   ┌──────────────────────────────────────┐
- *   │         Initialize Transport         │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file Transport.ts
  * @description Pluggable transport abstraction decoupling business logic from underlying network protocols.
  */

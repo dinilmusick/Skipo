@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: BaseSelect
- *
- *   ┌──────────────────────────────────┐
- *   │      Initialize BaseSelect       │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            BaseSelect            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef } from 'react';
 import '../../styles/base.css';
@@ -27,10 +6,6 @@ export interface BaseSelectProps extends React.SelectHTMLAttributes<HTMLSelectEl
   options: { label: string; value: string }[];
   error?: boolean;
 }
-
-
-// ════ BASESELECT IMPLEMENTATION ═══════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const BaseSelect = forwardRef<HTMLSelectElement, BaseSelectProps>(({
   options,

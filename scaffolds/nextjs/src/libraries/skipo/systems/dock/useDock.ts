@@ -1,31 +1,6 @@
-/**
- * ASCII Architecture Flowchart: useDock
- *
- *   ┌──────────────────────────────────┐
- *   │        Initialize useDock        │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           updateBadge            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import { useState, useCallback } from 'react';
 import type { DockItemConfig } from './types.js';
-
-
-// ════ USEDOCK IMPLEMENTATION ══════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function useDock(initialItems: DockItemConfig[] = []) {
   const [items, setItems] = useState<DockItemConfig[]>(initialItems);

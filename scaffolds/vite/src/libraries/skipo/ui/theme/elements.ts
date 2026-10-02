@@ -1,36 +1,5 @@
-/**
- * ASCII Architecture Flowchart: elements
- *
- *   ┌──────────────────────────────────┐
- *   │       Initialize elements        │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │                el                │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             existing             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          centralLedger           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import type { UIElementDefinition } from './types.js';
 import { CANONICAL_ELEMENTS } from './canonicalElements.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export { CANONICAL_ELEMENTS };
 
@@ -77,10 +46,6 @@ class ElementLedgerRegistry {
     return this.elements.size;
   }
 }
-
-
-// ════ ELEMENTS IMPLEMENTATION ═════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const centralLedger = new ElementLedgerRegistry();
 

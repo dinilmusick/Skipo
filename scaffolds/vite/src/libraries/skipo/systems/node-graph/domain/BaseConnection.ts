@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: BaseConnection
- *
- *   ┌──────────────────────────────────────┐
- *   │      Initialize BaseConnection       │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export interface BaseConnectionProps {
   id: string;
   sourceNodeId: string;

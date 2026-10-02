@@ -1,29 +1,3 @@
-/**
- * ASCII Architecture Flowchart: InfiniteCanvas
- *
- *   ┌──────────────────────────────────┐
- *   │    Initialize InfiniteCanvas     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          InfiniteCanvas          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          gridBackground          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import type { Transform, CanvasItem } from './types.js';
 import { CanvasViewport } from './CanvasViewport.js';
@@ -37,10 +11,6 @@ interface InfiniteCanvasProps {
   showMiniMap?: boolean;
   gridSize?: number;
 }
-
-
-// ════ INFINITECANVAS IMPLEMENTATION ═══════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function InfiniteCanvas({
   items,

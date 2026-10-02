@@ -1,40 +1,14 @@
-/**
- * ASCII Architecture Flowchart: Tile
- *
- *   ┌──────────────────────────────────┐
- *   │         Initialize Tile          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │               Tile               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React from 'react';
 import type { TileConfig } from './types.js';
 
 interface TileProps {
-  key?: React.Key;
   tile: TileConfig;
   onClick?: (id: string) => void;
   onContextMenu?: (e: React.MouseEvent, id: string) => void;
   dragHandleProps?: Record<string, any>;
   isDragging?: boolean;
 }
-
-
-// ════ TILE IMPLEMENTATION ═════════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function Tile({ tile, onClick, onContextMenu, dragHandleProps, isDragging }: TileProps) {
   return (
@@ -60,7 +34,7 @@ export function Tile({ tile, onClick, onContextMenu, dragHandleProps, isDragging
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {tile.icon && <span style={{ fontSize: '24px' }}>{tile.icon}</span>}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ color: 'var(--skipo-text-primary, #ffffff)', fontWeight: 600, fontSize: '14px' }}>{tile.title}</span>
+            <span style={{ color: '#fff', fontWeight: 600, fontSize: '14px' }}>{tile.title}</span>
             {tile.subtitle && <span style={{ color: '#aaa', fontSize: '12px' }}>{tile.subtitle}</span>}
           </div>
         </div>

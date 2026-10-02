@@ -1,36 +1,6 @@
-/**
- * ASCII Architecture Flowchart: useCanvas
- *
- *   ┌──────────────────────────────────┐
- *   │       Initialize useCanvas       │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             addItem              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │        updateItemPosition        │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import { useState, useCallback } from 'react';
 import type { Transform, CanvasItem } from './types.js';
-
-
-// ════ USECANVAS IMPLEMENTATION ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function useCanvas(initialTransform: Transform = { x: 0, y: 0, scale: 1 }) {
   const [transform, setTransform] = useState<Transform>(initialTransform);

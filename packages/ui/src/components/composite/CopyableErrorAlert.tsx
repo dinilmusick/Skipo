@@ -24,7 +24,8 @@ export const CopyableErrorAlert: React.FC<CopyableErrorAlertProps> = ({
 
   const errorMessage = typeof error === 'string' ? error : error.message || String(error);
 
-  const handleCopy = async () => {
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard) {
         await navigator.clipboard.writeText(errorMessage);
@@ -47,26 +48,40 @@ export const CopyableErrorAlert: React.FC<CopyableErrorAlertProps> = ({
         display: 'flex',
         flexDirection: 'column',
         gap: '0.5rem',
+        position: 'relative',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <BaseBadge variant="neutral" style={{ background: 'var(--skipo-danger, #ef4444)', color: '#fff' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
+          <BaseBadge variant="neutral" style={{ background: 'var(--skipo-danger, #ef4444)', color: 'var(--skipo-danger-fg, #ffffff)' }}>
             ERROR
           </BaseBadge>
-          <span style={{ fontWeight: 'bold', fontSize: '13px' }}>{title}</span>
+          <span style={{ fontWeight: 'bold', fontSize: '13px', color: 'var(--skipo-text)' }}>
+            {title}
+          </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', shrink: 0 }}>
           <BaseButton
             size="sm"
             variant={copied ? 'success' : 'secondary'}
             onClick={handleCopy}
             type="button"
+            title="Copy Error to Clipboard"
+            aria-label="Copy Error"
+            style={{ fontSize: '10px', height: '24px', padding: '0 8px' }}
           >
-            {copied ? 'COPIED' : 'COPY'}
+            {copied ? 'Copied' : 'Copy'}
           </BaseButton>
           {onClear && (
-            <BaseButton size="sm" variant="ghost" onClick={onClear} type="button">
+            <BaseButton
+              size="sm"
+              variant="ghost"
+              onClick={onClear}
+              type="button"
+              title="Dismiss"
+              aria-label="Dismiss"
+              style={{ fontSize: '10px', height: '24px', padding: '0 6px' }}
+            >
               ✕
             </BaseButton>
           )}
@@ -78,9 +93,12 @@ export const CopyableErrorAlert: React.FC<CopyableErrorAlertProps> = ({
           fontFamily: 'var(--skipo-font-mono, monospace)',
           wordBreak: 'break-word',
           whiteSpace: 'pre-wrap',
-          maxHeight: '120px',
+          maxHeight: '140px',
           overflowY: 'auto',
           color: 'var(--skipo-text)',
+          backgroundColor: 'rgba(0, 0, 0, 0.2)',
+          padding: '6px 8px',
+          borderRadius: '4px',
         }}
       >
         {errorMessage}

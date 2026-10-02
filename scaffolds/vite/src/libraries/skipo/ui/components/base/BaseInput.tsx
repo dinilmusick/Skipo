@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: BaseInput
- *
- *   ┌──────────────────────────────────┐
- *   │       Initialize BaseInput       │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            BaseInput             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef } from 'react';
 import '../../styles/base.css';
@@ -27,10 +6,6 @@ export interface BaseInputProps extends React.InputHTMLAttributes<HTMLInputEleme
   error?: boolean;
   leadingIcon?: React.ReactNode;
 }
-
-
-// ════ BASEINPUT IMPLEMENTATION ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const BaseInput = forwardRef<HTMLInputElement, BaseInputProps>(({
   error,

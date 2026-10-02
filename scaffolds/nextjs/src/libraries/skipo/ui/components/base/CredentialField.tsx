@@ -1,42 +1,7 @@
-/**
- * ASCII Architecture Flowchart: CredentialField
- *
- *   ┌──────────────────────────────────┐
- *   │    Initialize CredentialField    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │      KNOWN_CREDENTIAL_URLS       │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         CredentialField          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              known               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef, useState } from 'react';
 import { BaseTooltip } from './BaseTooltip.js';
 import '../../styles/base.css';
-
-
-// ════ CREDENTIALFIELD IMPLEMENTATION ══════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const KNOWN_CREDENTIAL_URLS: Record<string, { name: string; url: string }> = {
   openai: { name: 'OpenAI API Keys', url: 'https://platform.openai.com/api-keys' },

@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: BaseTooltip
- *
- *   ┌──────────────────────────────────┐
- *   │      Initialize BaseTooltip      │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           BaseTooltip            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           textContent            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         handleMouseEnter         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef, cloneElement, isValidElement } from 'react';
 import { useBottomStrip } from '../bottom-strip/BottomStripContext.js';
@@ -44,10 +13,6 @@ export interface BaseTooltipProps extends Omit<React.HTMLAttributes<HTMLDivEleme
  * BaseTooltip — Redirects hover/focus inspection text to the bottom strip center.
  * Zero floating tooltip bubbles rendered in the DOM.
  */
-
-// ════ BASETOOLTIP IMPLEMENTATION ══════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export const BaseTooltip = forwardRef<HTMLDivElement, BaseTooltipProps>(({
   content,
   description,

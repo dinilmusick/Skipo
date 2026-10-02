@@ -1,41 +1,10 @@
 /**
- * ASCII Architecture Flowchart: BullMQAdapter
- *
- *   ┌──────────────────────────────────┐
- *   │     Initialize BullMQAdapter     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           priorityVal            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │               bJob               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │               bJob               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file BullMQAdapter.ts
  * @description BullMQ Queue adapter with high-fidelity in-memory fallback.
  * Implements priority scheduling, retry policy, and concurrency control.
  */
 
-import type { Queue, Worker } from 'bullmq';
+import { Queue, Worker } from 'bullmq';
 import { ExecutionJob, ExecutionQueueAdapter, ExecutionResult, JobPriority, JobStatus } from './types.js';
 
 export interface BullMQAdapterOptions {
@@ -54,16 +23,11 @@ export class BullMQAdapter implements ExecutionQueueAdapter {
   private isInMemory = false;
 
   constructor(options: BullMQAdapterOptions) {
-    if (typeof window !== 'undefined' || options.useInMemory || !options.connection) {
+    if (options.useInMemory || !options.connection) {
       this.isInMemory = true;
     } else {
       try {
-        const bullModule = typeof require !== 'undefined' ? require('bullmq') : null;
-        if (bullModule && bullModule.Queue) {
-          this.queue = new bullModule.Queue(options.queueName, { connection: options.connection });
-        } else {
-          this.isInMemory = true;
-        }
+        this.queue = new Queue(options.queueName, { connection: options.connection });
       } catch {
         this.isInMemory = true;
       }

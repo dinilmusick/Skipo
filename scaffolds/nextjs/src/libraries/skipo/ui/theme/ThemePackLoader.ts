@@ -1,35 +1,4 @@
-/**
- * ASCII Architecture Flowchart: ThemePackLoader
- *
- *   ┌──────────────────────────────────┐
- *   │    Initialize ThemePackLoader    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │        mapTypographyAndBg        │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │       mapAccentAndBorders        │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │       mapShadowsAndStatus        │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import type { SkipoThemePack, SkipoSemanticTokens } from './types.js';
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export { DEFAULT_DARK_THEME_PACK, DEFAULT_LIGHT_THEME_PACK } from './defaultPacks.js';
 
 function mapTypographyAndBg(tokens: SkipoSemanticTokens): Record<string, string> {
@@ -83,31 +52,12 @@ function mapShadowsAndStatus(tokens: SkipoSemanticTokens): Record<string, string
   };
 }
 
-
-// ════ THEMEPACKLOADER IMPLEMENTATION ══════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
-function sanitizeVarValue(prop: string, val: string): string {
-  if (!val) return val;
-  const selfRefRegex = new RegExp(`var\\(\\s*${prop}\\s*(?:,\\s*([^\\)]+))?\\)`);
-  const match = val.match(selfRefRegex);
-  if (match) {
-    return match[1] ? match[1].trim() : '';
-  }
-  return val;
-}
-
 export function tokensToCssVariables(tokens: SkipoSemanticTokens): Record<string, string> {
-  const raw: Record<string, string> = {
+  return {
     ...mapTypographyAndBg(tokens),
     ...mapAccentAndBorders(tokens),
     ...mapShadowsAndStatus(tokens)
   };
-  const sanitized: Record<string, string> = {};
-  for (const [key, val] of Object.entries(raw)) {
-    sanitized[key] = sanitizeVarValue(key, val);
-  }
-  return sanitized;
 }
 
 export function applyThemePack(themePack: SkipoThemePack, target?: HTMLElement): void {
@@ -116,9 +66,7 @@ export function applyThemePack(themePack: SkipoThemePack, target?: HTMLElement):
   if (!el) return;
 
   for (const [prop, val] of Object.entries(vars)) {
-    if (val) {
-      el.style.setProperty(prop, val);
-    }
+    el.style.setProperty(prop, val);
   }
   el.setAttribute('data-skipo-theme', themePack.metadata.mode);
   el.setAttribute('data-skipo-theme-id', themePack.metadata.id);

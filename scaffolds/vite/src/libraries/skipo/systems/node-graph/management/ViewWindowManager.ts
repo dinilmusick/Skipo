@@ -1,37 +1,6 @@
-/**
- * ASCII Architecture Flowchart: ViewWindowManager
- *
- *   ┌──────────────────────────────────┐
- *   │   Initialize ViewWindowManager   │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │                id                │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              window              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │               link               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import { BaseViewWindow, CustomViewWindow } from '../domain/BaseViewWindow.js';
 import { ViewLink } from '../domain/BaseConnection.js';
 import type { NodePosition, NodeSize } from '../domain/BaseNode.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export interface CreateViewWindowParams {
   id?: string;

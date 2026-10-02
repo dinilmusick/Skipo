@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: index
- *
- *   ┌──────────────────────────────────────┐
- *   │           Initialize index           │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export * from './types.js';
 export * from './Viewport.js';
 export * from './WireRenderer.js';
@@ -37,3 +16,4 @@ export * from './management/index.js';
 export * from './store/index.js';
 export * from './ui/index.js';
 export * from './Viewer2DNodes.js';
+export * from './useGhostRouting.js';

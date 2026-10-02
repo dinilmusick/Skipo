@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: MovableSocketView
- *
- *   ┌──────────────────────────────────┐
- *   │   Initialize MovableSocketView   │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │        MovableSocketView         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         isDraggingGizmo          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            dragStart             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import type React from 'react';
 import { useState, useRef } from 'react';
@@ -36,7 +5,6 @@ import type { Socket } from './types.js';
 import { getBeamPoints } from './spatial/socketCoordinates.js';
 
 export interface MovableSocketViewProps {
-  key?: React.Key;
   nodeId: string;
   socket: Socket;
   isRight?: boolean;
@@ -45,10 +13,6 @@ export interface MovableSocketViewProps {
   onMouseUp?: (e: React.MouseEvent, nodeId: string, socketId: string, type: 'input' | 'output') => void;
   onSocketNudgeChange?: (nodeId: string, socketId: string, nudge: { x: number; y: number }) => void;
 }
-
-
-// ════ MOVABLESOCKETVIEW IMPLEMENTATION ════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function MovableSocketView({
   nodeId,
@@ -119,7 +83,7 @@ export function MovableSocketView({
           }}
         >
           <polygon points={beamPoints} fill={themeColor} opacity={0.5} />
-          <polygon points={beamPoints} fill='var(--skipo-text-primary, #ffffff)' opacity={0.8} transform="scale(0.5)" />
+          <polygon points={beamPoints} fill="#ffffff" opacity={0.8} transform="scale(0.5)" />
         </svg>
       )}
 

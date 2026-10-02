@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: useSearchKeyboardNavigation
- *
- *   ┌──────────────────────────────────────────┐
- *   │  Initialize useSearchKeyboardNavigation  │
- *   └──────────────────────────────────────────┘
- *                        │
- *                        ▼
- *   ┌──────────────────────────────────────────┐
- *   │             listContainerRef             │
- *   └──────────────────────────────────────────┘
- *                        │
- *                        ▼
- *   ┌──────────────────────────────────────────┐
- *   │                container                 │
- *   └──────────────────────────────────────────┘
- *                        │
- *                        ▼
- *   ┌──────────────────────────────────────────┐
- *   │                 element                  │
- *   └──────────────────────────────────────────┘
- *                        │
- *                        ▼
- *   ┌──────────────────────────────────────────┐
- *   │      Return State / Result Payload       │
- *   └──────────────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import type React from 'react';
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -47,10 +16,6 @@ export interface UseSearchKeyboardNavigationOptions<T> {
  * - Enter selects the highlighted item immediately.
  * - Escape closes the search interface.
  */
-
-// ════ USESEARCHKEYBOARDNAVIGATION IMPLEMENTATION ══════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export function useSearchKeyboardNavigation<T>({
   items,
   onSelect,

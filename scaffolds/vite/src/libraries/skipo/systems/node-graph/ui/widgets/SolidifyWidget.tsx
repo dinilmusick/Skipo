@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: SolidifyWidget
- *
- *   ┌──────────────────────────────────┐
- *   │    Initialize SolidifyWidget     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          SolidifyWidget          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 
 export interface SolidifyWidgetProps {
@@ -26,10 +5,6 @@ export interface SolidifyWidgetProps {
   y: number;
   onSolidify: () => void;
 }
-
-
-// ════ SOLIDIFYWIDGET IMPLEMENTATION ═══════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function SolidifyWidget({ x, y, onSolidify }: SolidifyWidgetProps) {
   return (

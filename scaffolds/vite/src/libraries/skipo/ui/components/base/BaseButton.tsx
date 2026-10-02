@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: BaseButton
- *
- *   ┌──────────────────────────────────┐
- *   │      Initialize BaseButton       │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            BaseButton            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef } from 'react';
 import '../../styles/base.css';
@@ -29,10 +8,6 @@ export interface BaseButtonProps extends React.ButtonHTMLAttributes<HTMLButtonEl
   loading?: boolean;
   icon?: React.ReactNode;
 }
-
-
-// ════ BASEBUTTON IMPLEMENTATION ═══════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const BaseButton = forwardRef<HTMLButtonElement, BaseButtonProps>(({
   variant = 'secondary',

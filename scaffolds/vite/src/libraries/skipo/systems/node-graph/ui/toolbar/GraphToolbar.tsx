@@ -1,29 +1,3 @@
-/**
- * ASCII Architecture Flowchart: GraphToolbar
- *
- *   ┌──────────────────────────────────┐
- *   │     Initialize GraphToolbar      │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           GraphToolbar           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             btnStyle             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import type React from 'react';
 import type { GraphSettings } from '../../domain/BaseGraph.js';
@@ -38,10 +12,6 @@ export interface GraphToolbarProps {
   className?: string;
 }
 
-
-// ════ GRAPHTOOLBAR IMPLEMENTATION ═════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export function GraphToolbar({
   settings,
   onUpdateSettings,
@@ -53,7 +23,7 @@ export function GraphToolbar({
 }: GraphToolbarProps) {
   const btnStyle = (active: boolean): React.CSSProperties => ({
     background: active ? 'var(--skipo-accent, #d4af37)' : 'transparent',
-    color: active ? 'var(--skipo-surface-background, #121214)' : 'var(--skipo-text, #ffffff)',
+    color: active ? '#000000' : 'var(--skipo-text, #ffffff)',
     border: '1px solid var(--skipo-border, #444)',
     borderRadius: '4px',
     padding: '4px 8px',

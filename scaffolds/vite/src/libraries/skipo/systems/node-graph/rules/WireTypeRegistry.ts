@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: WireTypeRegistry
- *
- *   ┌──────────────────────────────────────┐
- *   │     Initialize WireTypeRegistry      │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export interface WireTypeDefinition {
   wireType: string;
   color: string;

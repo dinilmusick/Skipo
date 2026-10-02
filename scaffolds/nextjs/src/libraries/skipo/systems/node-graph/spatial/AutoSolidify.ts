@@ -1,38 +1,7 @@
-/**
- * ASCII Architecture Flowchart: AutoSolidify
- *
- *   ┌──────────────────────────────────┐
- *   │     Initialize AutoSolidify      │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             nodeMap              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │        lockedConnections         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │        resultConnections         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import type { BaseNode } from '../domain/BaseNode.js';
 import { SolidConnection } from '../domain/BaseConnection.js';
 import type { Trace } from './TraceEngine.js';
 import { SpatialEngine } from './SpatialEngine.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 interface CandidatePair {
   trace: Trace;

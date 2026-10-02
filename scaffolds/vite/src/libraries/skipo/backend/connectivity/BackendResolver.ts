@@ -1,35 +1,4 @@
 /**
- * ASCII Architecture Flowchart: BackendResolver
- *
- *   ┌──────────────────────────────────┐
- *   │    Initialize BackendResolver    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         isRemoteHealthy          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         isRemoteHealthy          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             remoteOk             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file BackendResolver.ts
  * @description Topology resolution engine selecting between local in-process and remote execution adapters.
  */

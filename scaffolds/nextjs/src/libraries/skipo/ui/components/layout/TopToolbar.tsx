@@ -1,29 +1,3 @@
-/**
- * ASCII Architecture Flowchart: TopToolbar
- *
- *   ┌──────────────────────────────────┐
- *   │      Initialize TopToolbar       │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            TopToolbar            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             isActive             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef } from 'react';
 import { BaseTooltip } from '../base/BaseTooltip.js';
@@ -50,10 +24,6 @@ export interface TopToolbarProps extends Omit<React.HTMLAttributes<HTMLElement>,
  * TopToolbar — Universal single top toolbar for app title and flat tab navigation.
  * Nested tabs are strictly prohibited across all Skipo applications.
  */
-
-// ════ TOPTOOLBAR IMPLEMENTATION ═══════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export const TopToolbar = forwardRef<HTMLElement, TopToolbarProps>(({
   title,
   logo,

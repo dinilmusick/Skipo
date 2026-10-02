@@ -1,25 +1,4 @@
 /**
- * ASCII Architecture Flowchart: types
- *
- *   ┌──────────────────────────────────────┐
- *   │           Initialize types           │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file types.ts
  * @description Canonical protocol types, messages, jobs, callbacks, and resolution interfaces.
  */

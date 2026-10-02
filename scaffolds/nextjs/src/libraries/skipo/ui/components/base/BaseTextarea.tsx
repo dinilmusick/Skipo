@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: BaseTextarea
- *
- *   ┌──────────────────────────────────┐
- *   │     Initialize BaseTextarea      │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           BaseTextarea           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef } from 'react';
 import '../../styles/base.css';
@@ -26,10 +5,6 @@ import '../../styles/base.css';
 export interface BaseTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   autoResize?: boolean;
 }
-
-
-// ════ BASETEXTAREA IMPLEMENTATION ═════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const BaseTextarea = forwardRef<HTMLTextAreaElement, BaseTextareaProps>(({
   className = '',

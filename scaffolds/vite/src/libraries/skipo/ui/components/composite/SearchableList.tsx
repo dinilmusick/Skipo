@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: SearchableList
- *
- *   ┌──────────────────────────────────┐
- *   │    Initialize SearchableList     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          SearchableList          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          filteredItems           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          isHighlighted           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { useState, useMemo } from 'react';
 import { SearchInput } from './SearchInput.js';
@@ -48,10 +17,6 @@ export interface SearchableListProps<T> {
   className?: string;
   autoFocus?: boolean;
 }
-
-
-// ════ SEARCHABLELIST IMPLEMENTATION ═══════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function SearchableList<T>({
   items,

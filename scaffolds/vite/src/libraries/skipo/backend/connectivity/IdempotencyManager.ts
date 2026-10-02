@@ -1,35 +1,4 @@
 /**
- * ASCII Architecture Flowchart: IdempotencyManager
- *
- *   ┌──────────────────────────────────┐
- *   │  Initialize IdempotencyManager   │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              cached              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          existingFlight          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         executionPromise         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file IdempotencyManager.ts
  * @description In-flight mutation deduplication, concurrent attachment, and completed result caching.
  */

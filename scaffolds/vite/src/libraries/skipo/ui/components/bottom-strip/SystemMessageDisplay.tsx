@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: SystemMessageDisplay
- *
- *   ┌───────────────────────────────────┐
- *   │  Initialize SystemMessageDisplay  │
- *   └───────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌───────────────────────────────────┐
- *   │        SystemMessageDisplay       │
- *   └───────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌───────────────────────────────────┐
- *   │           latestMessage           │
- *   └───────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌───────────────────────────────────┐
- *   │              colorMap             │
- *   └───────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌───────────────────────────────────┐
- *   │   Return State / Result Payload   │
- *   └───────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React from 'react';
 import { useBottomStrip, type SystemMessage } from './BottomStripContext.js';
@@ -36,10 +5,6 @@ import { useBottomStrip, type SystemMessage } from './BottomStripContext.js';
 export interface SystemMessageDisplayProps extends React.HTMLAttributes<HTMLDivElement> {
   maxVisible?: number;
 }
-
-
-// ════ SYSTEMMESSAGEDISPLAY IMPLEMENTATION ═════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const SystemMessageDisplay: React.FC<SystemMessageDisplayProps> = ({
   className = '',

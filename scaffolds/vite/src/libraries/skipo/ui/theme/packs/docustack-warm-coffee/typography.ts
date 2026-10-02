@@ -1,34 +1,4 @@
-/**
- * ASCII Architecture Flowchart: typography
- *
- *   ┌──────────────────────────────────┐
- *   │      Initialize typography       │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         lightTypography          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          darkTypography          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import type { ThemeTypographyDefinition } from '../../schema/typography.schema.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
-
-// ════ TYPOGRAPHY IMPLEMENTATION ═══════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const lightTypography: ThemeTypographyDefinition = {
   globalFont: "'Courier Prime', monospace",
@@ -51,7 +21,7 @@ export const lightTypography: ThemeTypographyDefinition = {
     ol: { markerColor: '#C87D32', spacing: '6px' },
     inlineCode: { fontSize: '13px', color: '#9E5B1E', bg: 'rgba(200, 125, 50, 0.12)', border: '1px solid rgba(200, 125, 50, 0.25)', radius: '3px' },
     codeBlock: { fontSize: '13px', color: '#21140E', bg: '#E8DCC4', border: '1px solid #DFCFB9', radius: '4px' },
-    table: { headerBg: '#C87D32', headerColor: 'var(--skipo-text-primary, #ffffff)', border: '1px solid #DFCFB9', cellBg: '#F5EDE4' },
+    table: { headerBg: '#C87D32', headerColor: '#FFFFFF', border: '1px solid #DFCFB9', cellBg: '#F5EDE4' },
     link: { color: '#C87D32', textDecoration: 'none', hoverColor: '#C25E45', hoverUnderline: true },
     hr: { color: '#C87D32', borderStyle: 'solid', height: '2px' }
   }
@@ -78,8 +48,8 @@ export const darkTypography: ThemeTypographyDefinition = {
     ol: { markerColor: '#E08A3C', spacing: '6px' },
     inlineCode: { fontSize: '13px', color: '#E08A3C', bg: 'rgba(224, 138, 60, 0.15)', border: '1px solid rgba(224, 138, 60, 0.3)', radius: '3px' },
     codeBlock: { fontSize: '13px', color: '#F5EDE4', bg: '#281D17', border: '1px solid #3D2C22', radius: '4px' },
-    table: { headerBg: '#E08A3C', headerColor: 'var(--skipo-surface-background, #121214)', border: '1px solid #3D2C22', cellBg: '#1A120E' },
-    link: { color: '#E08A3C', textDecoration: 'none', hoverColor: 'var(--skipo-text-primary, #ffffff)', hoverUnderline: true },
+    table: { headerBg: '#E08A3C', headerColor: '#000000', border: '1px solid #3D2C22', cellBg: '#1A120E' },
+    link: { color: '#E08A3C', textDecoration: 'none', hoverColor: '#FFFFFF', hoverUnderline: true },
     hr: { color: '#E08A3C', borderStyle: 'solid', height: '2px' }
   }
 };

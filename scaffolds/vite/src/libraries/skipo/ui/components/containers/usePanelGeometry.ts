@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: usePanelGeometry
- *
- *   ┌──────────────────────────────────┐
- *   │   Initialize usePanelGeometry    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │      DEFAULT_PANEL_GEOMETRY      │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           memoryCache            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           subscribers            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import { useState, useCallback, useEffect } from 'react';
 
@@ -38,10 +7,6 @@ export interface PanelGeometry {
   width: number;
   height: number;
 }
-
-
-// ════ USEPANELGEOMETRY IMPLEMENTATION ═════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const DEFAULT_PANEL_GEOMETRY: PanelGeometry = {
   x: 24,

@@ -1,38 +1,7 @@
-/**
- * ASCII Architecture Flowchart: LocalFSAdapter
- *
- *   ┌──────────────────────────────────┐
- *   │    Initialize LocalFSAdapter     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             fullPath             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │               data               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             fullPath             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import { promises as fs } from 'fs';
 import path from 'path';
 import { BaseStorageAdapter } from './BaseStorageAdapter.js';
 import { FileInfo, StorageConfig } from './types.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export class LocalFSAdapter extends BaseStorageAdapter {
   private basePath: string;

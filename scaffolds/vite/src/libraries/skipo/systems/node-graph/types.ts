@@ -1,25 +1,4 @@
-/**
- * ASCII Architecture Flowchart: types
- *
- *   ┌──────────────────────────────────────┐
- *   │           Initialize types           │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
 import type { BaseHandle, HandleDirection } from './domain/BaseHandle.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export type SocketType = 'input' | 'output';
 
@@ -77,6 +56,9 @@ export interface NodeGraphConfig {
   tracingEnabled?: boolean;
   autoSolidify?: boolean;
   traceCutoffDistance?: number;
+  ghostRoutingEnabled?: boolean;
+  ghostScenarioCount?: number;
+  ghostDecayMs?: number;
 }
 
 export interface NodeGraphPlugin {

@@ -1,31 +1,5 @@
-/**
- * ASCII Architecture Flowchart: SpatialEngine
- *
- *   ┌──────────────────────────────────┐
- *   │     Initialize SpatialEngine     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │                dx                │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │                dy                │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import type { BaseHandle, HandlePosition } from '../domain/BaseHandle.js';
 import type { BaseNode } from '../domain/BaseNode.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export class SpatialEngine {
   public static calculateEffectiveHandlePosition(node: BaseNode, handle: BaseHandle): HandlePosition {

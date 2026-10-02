@@ -1,37 +1,6 @@
-/**
- * ASCII Architecture Flowchart: AdminGuard
- *
- *   ┌──────────────────────────────────┐
- *   │      Initialize AdminGuard       │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             session              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              token               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             session              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import { SkipoBase } from '@skipo/core';
 import { BaseAccountProvider } from './BaseAccountProvider.js';
 import { AuthSession } from './types.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export class AdminGuard extends SkipoBase {
   public static async verify(

@@ -1,29 +1,4 @@
-/**
- * ASCII Architecture Flowchart: canonicalElementsDomain
- *
- *   ┌──────────────────────────────────────┐
- *   │  Initialize canonicalElementsDomain  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │      CANONICAL_ELEMENTS_DOMAIN       │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
 import type { UIElementDefinition } from './types.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
-
-// ════ CANONICALELEMENTSDOMAIN IMPLEMENTATION ══════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const CANONICAL_ELEMENTS_DOMAIN: UIElementDefinition[] = [
   // Specialized & Domain

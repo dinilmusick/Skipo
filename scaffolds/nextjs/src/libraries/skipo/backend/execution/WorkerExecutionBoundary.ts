@@ -1,25 +1,4 @@
 /**
- * ASCII Architecture Flowchart: WorkerExecutionBoundary
- *
- *   ┌──────────────────────────────────────┐
- *   │  Initialize WorkerExecutionBoundary  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │               context                │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file WorkerExecutionBoundary.ts
  * @description Worker execution boundary enforcing worker-only access to Backend Facade.
  * Conforms to SKIPO::STATE_EXECUTION_ARCHITECTURE and L9 (<=200L).

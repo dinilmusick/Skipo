@@ -1,35 +1,4 @@
 /**
- * ASCII Architecture Flowchart: hooks
- *
- *   ┌──────────────────────────────────┐
- *   │         Initialize hooks         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             dispatch             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          mergedOptions           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │               job                │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file hooks.ts
  * @description React integration hooks for SKIPO_EXECUTION.
  * Routes all frontend mutations through BullMQ commands and reflects updates into SKIPO_STATE.
@@ -48,10 +17,6 @@ export interface CommandExecutionState<TResult = unknown> {
   error?: string;
   completedAt?: number;
 }
-
-
-// ════ HOOKS IMPLEMENTATION ════════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function useCommand<TPayload = unknown, TResult = unknown>(
   type: string,

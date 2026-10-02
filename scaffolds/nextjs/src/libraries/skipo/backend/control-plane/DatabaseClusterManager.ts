@@ -1,36 +1,5 @@
-/**
- * ASCII Architecture Flowchart: DatabaseClusterManager
- *
- *   ┌─────────────────────────────────────┐
- *   │  Initialize DatabaseClusterManager  │
- *   └─────────────────────────────────────┘
- *                     │
- *                     ▼
- *   ┌─────────────────────────────────────┐
- *   │                start                │
- *   └─────────────────────────────────────┘
- *                     │
- *                     ▼
- *   ┌─────────────────────────────────────┐
- *   │               latency               │
- *   └─────────────────────────────────────┘
- *                     │
- *                     ▼
- *   ┌─────────────────────────────────────┐
- *   │                status               │
- *   └─────────────────────────────────────┘
- *                     │
- *                     ▼
- *   ┌─────────────────────────────────────┐
- *   │    Return State / Result Payload    │
- *   └─────────────────────────────────────┘
- */
-
 import { SkipoBase } from '@skipo/core';
 import { ClusterConfig, HealthStatus } from './types.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export class DatabaseClusterManager extends SkipoBase {
   private config: ClusterConfig;

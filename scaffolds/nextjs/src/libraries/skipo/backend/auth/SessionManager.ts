@@ -1,25 +1,4 @@
-/**
- * ASCII Architecture Flowchart: SessionManager
- *
- *   ┌──────────────────────────────────────┐
- *   │      Initialize SessionManager       │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
 import { AuthSession, UserRole } from './types.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export class SessionManager {
   private ttl: number;

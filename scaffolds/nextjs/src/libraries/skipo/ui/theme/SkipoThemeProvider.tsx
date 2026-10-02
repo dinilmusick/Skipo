@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: SkipoThemeProvider
- *
- *   ┌──────────────────────────────────┐
- *   │  Initialize SkipoThemeProvider   │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │        SkipoThemeContext         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │        SkipoThemeProvider        │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            applyPack             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import type { SkipoThemePack, ThemeEngineStatus } from './types.js';
@@ -60,10 +29,6 @@ export interface SkipoThemeProviderProps {
   initialThemePack?: SkipoThemePack;
   engine?: ThemeEngine;
 }
-
-
-// ════ SKIPOTHEMEPROVIDER IMPLEMENTATION ═══════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function SkipoThemeProvider({
   children,

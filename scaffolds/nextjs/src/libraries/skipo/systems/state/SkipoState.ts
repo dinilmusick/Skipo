@@ -1,35 +1,4 @@
 /**
- * ASCII Architecture Flowchart: SkipoState
- *
- *   ┌──────────────────────────────────┐
- *   │      Initialize SkipoState       │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │               next               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │                id                │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              entry               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file SkipoState.ts
  * @description Canonical SKIPO_STATE singleton backed by Zustand and LifecycleGraph.
  * Satisfies Invariants I1-I6 and L9 (<=200L).
@@ -181,9 +150,5 @@ export class SkipoStateEngine implements SkipoStateApi {
     this.store.getState().clearAll();
   }
 }
-
-
-// ════ SKIPOSTATE IMPLEMENTATION ═══════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const SKIPO_STATE = new SkipoStateEngine();

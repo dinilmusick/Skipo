@@ -1,25 +1,4 @@
 /**
- * ASCII Architecture Flowchart: FrontendSession
- *
- *   ┌──────────────────────────────────┐
- *   │    Initialize FrontendSession    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             cleanup              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file FrontendSession.ts
  * @description Frontend session container tracking credentials, capabilities, callbacks, and sequence state.
  */

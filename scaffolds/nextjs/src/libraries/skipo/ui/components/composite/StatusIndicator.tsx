@@ -1,29 +1,3 @@
-/**
- * ASCII Architecture Flowchart: StatusIndicator
- *
- *   ┌──────────────────────────────────┐
- *   │    Initialize StatusIndicator    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         StatusIndicator          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             colorMap             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef } from 'react';
 import '../../styles/composite.css';
@@ -32,10 +6,6 @@ export interface StatusIndicatorProps extends React.HTMLAttributes<HTMLDivElemen
   status: 'online' | 'offline' | 'syncing' | 'error';
   label?: string;
 }
-
-
-// ════ STATUSINDICATOR IMPLEMENTATION ══════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const StatusIndicator = forwardRef<HTMLDivElement, StatusIndicatorProps>(({
   status,

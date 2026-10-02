@@ -1,31 +1,6 @@
-/**
- * ASCII Architecture Flowchart: useMonaco
- *
- *   ┌──────────────────────────────────────┐
- *   │         Initialize useMonaco         │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import { useEffect, useState } from 'react';
 import { skipoDarkTheme } from './themes.js';
-
-
-// ════ USEMONACO IMPLEMENTATION ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function useMonaco() {
   const [monaco, setMonaco] = useState<any>(null);

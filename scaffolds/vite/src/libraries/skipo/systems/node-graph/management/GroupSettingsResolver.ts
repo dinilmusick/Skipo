@@ -1,35 +1,4 @@
-/**
- * ASCII Architecture Flowchart: GroupSettingsResolver
- *
- *   ┌────────────────────────────────────┐
- *   │  Initialize GroupSettingsResolver  │
- *   └────────────────────────────────────┘
- *                     │
- *                     ▼
- *   ┌────────────────────────────────────┐
- *   │              groupMap              │
- *   └────────────────────────────────────┘
- *                     │
- *                     ▼
- *   ┌────────────────────────────────────┐
- *   │                keys                │
- *   └────────────────────────────────────┘
- *                     │
- *                     ▼
- *   ┌────────────────────────────────────┐
- *   │              resolved              │
- *   └────────────────────────────────────┘
- *                     │
- *                     ▼
- *   ┌────────────────────────────────────┐
- *   │   Return State / Result Payload    │
- *   └────────────────────────────────────┘
- */
-
 import type { GraphSettings, Group } from '../domain/BaseGraph.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export class GroupSettingsResolver {
   public static resolveEffectiveSetting<K extends keyof GraphSettings>(

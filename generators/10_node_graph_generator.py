@@ -119,6 +119,54 @@ export interface CompatibilityResolution {{
   wireType?: string;
   reason?: string;
 }}
+
+export interface NodeGraphConfig {{
+  minZoom?: number;
+  maxZoom?: number;
+  ghostRoutingEnabled?: boolean;
+  ghostScenarioCount?: number;
+}}
+
+export interface GhostSocketMapping {{
+  sourceSocketId: string;
+  targetSocketId: string;
+  wireType: string;
+}}
+
+export interface GhostCandidate {{
+  id: string;
+  nodeType: string;
+  label: string;
+  scenarioIndex: number;
+  score: number;
+  sourceNodeId: string;
+  socketMappings: GhostSocketMapping[];
+  relativeOffset: {{ x: number; y: number }};
+}}
+
+export interface GhostNodeRecord {{
+  id: string;
+  nodeType: string;
+  label: string;
+  position: {{ x: number; y: number }};
+  size: {{ width: number; height: number }};
+  scenarioIndex: number;
+  sourceNodeId: string;
+  socketMappings: GhostSocketMapping[];
+  inputs?: Socket[];
+  outputs?: Socket[];
+}}
+
+export interface GhostTraceRecord {{
+  id: string;
+  sourceNodeId: string;
+  sourceSocketId: string;
+  targetGhostNodeId: string;
+  targetSocketId: string;
+  wireType: string;
+  pathD: string;
+  scenarioIndex: number;
+}}
 """
     files.append(GeneratedFile(
         relative_path="types.ts",
@@ -777,12 +825,16 @@ export function NodeCard({{
     canvas_content = f"""{section_header("Canonical Node Graph Canvas")}
 // ══════════════════════════════════════════════════════════════════════════════
 'use client';
-import React, {{ useState, useRef, useCallback }} from 'react';
-import type {{ GraphNode, GraphEdge, NodeDefinition, ViewportState }} from './types.js';
+import React, {{ useState, useRef, useEffect, useCallback }} from 'react';
+import type {{ GraphNode, GraphEdge, NodeDefinition, ViewportState, NodeGraphConfig }} from './types.js';
 import {{ NodeCard }} from './NodeCard.js';
 import {{ SolidifyWidget }} from './SolidifyWidget.js';
 import {{ CompatibleNodePicker }} from './CompatibleNodePicker.js';
 import {{ CanvasContextMenu }} from './CanvasContextMenu.js';
+import {{ useGhostRouting }} from './useGhostRouting.js';
+import {{ GhostTraceLayer }} from './GhostTraceLayer.js';
+import {{ GhostNodeCard }} from './GhostNodeCard.js';
+import {{ GhostSolidifyBar }} from './GhostSolidifyBar.js';
 
 export function isNodeInDeadZone(node: GraphNode, viewport: ViewportState, w: number, h: number): boolean {{
   const cx = w / 2;
@@ -803,6 +855,7 @@ export function getCenterPan(node: GraphNode, viewport: ViewportState, w: number
 export interface NodeGraphCanvasProps {{
   nodes: GraphNode[];
   edges: GraphEdge[];
+  config?: NodeGraphConfig;
   availableNodeTypes?: NodeDefinition[];
   onNodesChange?: (nodes: GraphNode[]) => void;
   onEdgesChange?: (edges: GraphEdge[]) => void;
@@ -812,6 +865,7 @@ export interface NodeGraphCanvasProps {{
 export function NodeGraphCanvas({{
   nodes,
   edges,
+  config,
   availableNodeTypes = [],
   onNodesChange,
   onEdgesChange,
@@ -822,6 +876,16 @@ export function NodeGraphCanvas({{
   const [dragState, setDragState] = useState<{{ nodeId: string; startX: number; startY: number }} | null>(null);
   const [pickerState, setPickerState] = useState<{{ x: number; y: number; handle: any }} | null>(null);
   const [contextMenu, setContextMenu] = useState<{{ x: number; y: number }} | null>(null);
+
+  const ghost = useGhostRouting({{
+    nodes,
+    edges,
+    selectedNodeIds: selectedIds,
+    config,
+    availableNodeTypes,
+    onNodesChange,
+    onEdgesChange
+  }});
 
   useEffect(() => {{
     const handleKeyDown = (e: KeyboardEvent) => {{
@@ -835,14 +899,21 @@ export function NodeGraphCanvas({{
           const cy = rect ? rect.height / 2 : 200;
           setContextMenu({{ x: cx, y: cy }});
         }}
+      }} else if (e.key === 'Tab' && ghost.isActive) {{
+        e.preventDefault();
+        ghost.cycleScenario();
+      }} else if (e.key === 'Enter' && e.shiftKey && ghost.isActive) {{
+        e.preventDefault();
+        ghost.solidifyAll();
       }} else if (e.key === 'Escape') {{
         setContextMenu(null);
         setPickerState(null);
+        ghost.dismiss();
       }}
     }};
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }}, []);
+  }}, [ghost]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const isPanning = useRef(false);
@@ -875,7 +946,6 @@ export function NodeGraphCanvas({{
 
   const handleMouseUp = () => {{
     isPanning.current = false;
-    // Left-click node selection (without dragging): auto-pan to center IF outside dead zone
     if (nodeMouseDownPos.current && !hasDraggedNode.current && containerRef.current) {{
       const clicked = nodes.find(n => n.id === nodeMouseDownPos.current?.nodeId);
       if (clicked) {{
@@ -901,6 +971,28 @@ export function NodeGraphCanvas({{
       onContextMenu={{(e) => {{ e.preventDefault(); setContextMenu({{ x: e.clientX, y: e.clientY }}); }}}}
     >
       <div style={{{{ position: 'absolute', transform: `translate(${{viewport.panX}}px, ${{viewport.panY}}px) scale(${{viewport.zoom}})` }}}}>
+        {{ghost.isActive && (
+          <>
+            <GhostTraceLayer traces={{ghost.activeGhostTraces}} hoveredGhostId={{ghost.hoveredGhostId}} />
+            {{ghost.activeGhostNodes.map(g => (
+              <GhostNodeCard
+                key={{g.id}}
+                ghostNode={{g}}
+                isHovered={{ghost.hoveredGhostId === g.id}}
+                onHover={{ghost.setHoveredGhostId}}
+                onSolidify={{ghost.solidifyOne}}
+              />
+            ))}}
+            <GhostSolidifyBar
+              ghostNodes={{ghost.activeGhostNodes}}
+              scenarioIndex={{ghost.scenarioIndex}}
+              maxScenarios={{config?.ghostScenarioCount ?? 3}}
+              onCycleScenario={{ghost.cycleScenario}}
+              onSolidifyAll={{ghost.solidifyAll}}
+              onDismiss={{ghost.dismiss}}
+            />
+          </>
+        )}}
         {{nodes.map(node => (
           <NodeCard
             key={{node.id}}
@@ -930,10 +1022,505 @@ export function NodeGraphCanvas({{
     files.append(GeneratedFile(
         relative_path="NodeGraphCanvas.tsx",
         content=canvas_content,
-        description="Canonical NodeGraphCanvas with pan, zoom, selection, and picker integration"
+        description="Canonical NodeGraphCanvas with pan, zoom, selection, ghost routing, and picker integration"
     ))
 
-    # 9. index.ts
+    # 9. GhostStore.ts
+    ghost_store_content = f"""{section_header("Ghost Routing Ephemeral Store")}
+// ══════════════════════════════════════════════════════════════════════════════
+import type {{ GhostNodeRecord, GhostTraceRecord }} from './types.js';
+
+export class GhostStore {{
+  private static instance: GhostStore | null = null;
+  public isActive = false;
+  public ghostNodes: GhostNodeRecord[] = [];
+  public ghostTraces: GhostTraceRecord[] = [];
+  public scenarioIndex = 0;
+  public hoveredGhostId: string | null = null;
+  private listeners: Set<() => void> = new Set();
+
+  public static getInstance(): GhostStore {{
+    if (!this.instance) this.instance = new GhostStore();
+    return this.instance;
+  }}
+
+  public subscribe(listener: () => void): () => void {{
+    this.listeners.add(listener);
+    return () => {{ this.listeners.delete(listener); }};
+  }}
+
+  public notify(): void {{
+    for (const l of this.listeners) l();
+  }}
+
+  public setPredictions(nodes: GhostNodeRecord[], traces: GhostTraceRecord[]): void {{
+    this.ghostNodes = nodes;
+    this.ghostTraces = traces;
+    this.isActive = nodes.length > 0;
+    this.scenarioIndex = 0;
+    this.hoveredGhostId = null;
+    this.notify();
+  }}
+
+  public cycleScenario(max = 3): void {{
+    if (this.ghostNodes.length === 0) return;
+    this.scenarioIndex = (this.scenarioIndex + 1) % max;
+    this.notify();
+  }}
+
+  public setHoveredGhostId(id: string | null): void {{
+    this.hoveredGhostId = id;
+    this.notify();
+  }}
+
+  public getActiveGhostNodes(): GhostNodeRecord[] {{
+    return this.ghostNodes.filter(n => n.scenarioIndex === this.scenarioIndex);
+  }}
+
+  public getActiveGhostTraces(): GhostTraceRecord[] {{
+    return this.ghostTraces.filter(t => t.scenarioIndex === this.scenarioIndex);
+  }}
+
+  public clear(): void {{
+    this.isActive = false;
+    this.ghostNodes = [];
+    this.ghostTraces = [];
+    this.scenarioIndex = 0;
+    this.hoveredGhostId = null;
+    this.notify();
+  }}
+}}
+"""
+    files.append(GeneratedFile(
+        relative_path="GhostStore.ts",
+        content=ghost_store_content,
+        description="Ghost routing ephemeral prediction store"
+    ))
+
+    # 10. GhostInferenceEngine.ts
+    ghost_engine_content = f"""{section_header("Ghost Inference Engine")}
+// ══════════════════════════════════════════════════════════════════════════════
+import type {{ GraphNode, NodeDefinition, GhostCandidate, GhostSocketMapping }} from './types.js';
+import {{ ConnectionRuleStore }} from './ConnectionRuleStore.js';
+
+export class GhostInferenceEngine {{
+  public static inferNextNodes(
+    selected: GraphNode[],
+    defs: NodeDefinition[],
+    maxScenarios = 3
+  ): GhostCandidate[] {{
+    if (selected.length === 0 || defs.length === 0) return [];
+    const candidates: GhostCandidate[] = [];
+
+    for (const node of selected) {{
+      const outputs = node.outputs ?? [];
+      if (outputs.length === 0) continue;
+
+      const scored = defs
+        .filter(d => d.type !== node.type)
+        .map(d => {{
+          const mappings: GhostSocketMapping[] = [];
+          for (const out of outputs) {{
+            const matchingIn = d.inputs?.find(inp =>
+              ConnectionRuleStore.canConnect(out.dataType || 'ANY', inp.dataType || 'ANY')
+            );
+            if (matchingIn) {{
+              mappings.push({{
+                sourceSocketId: out.id,
+                targetSocketId: matchingIn.id,
+                wireType: 'DEFAULT'
+              }});
+            }}
+          }}
+          return {{ def: d, mappings, score: mappings.length * 10 }};
+        }})
+        .filter(m => m.mappings.length > 0)
+        .sort((a, b) => b.score - a.score);
+
+      for (let s = 0; s < maxScenarios; s++) {{
+        const target = scored[s % Math.max(1, scored.length)];
+        if (!target) continue;
+        candidates.push({{
+          id: `ghost-${{node.id}}-${{target.def.type}}-s${{s}}`,
+          nodeType: target.def.type,
+          label: target.def.label || target.def.type,
+          scenarioIndex: s,
+          score: target.score,
+          sourceNodeId: node.id,
+          socketMappings: target.mappings,
+          relativeOffset: {{ x: 260, y: (s - 1) * 70 }}
+        }});
+      }}
+    }}
+    return candidates;
+  }}
+}}
+"""
+    files.append(GeneratedFile(
+        relative_path="GhostInferenceEngine.ts",
+        content=ghost_engine_content,
+        description="Ghost routing inference engine"
+    ))
+
+    # 11. GhostTraceLayer.tsx
+    ghost_trace_content = f"""{section_header("Ghost Trace SVG Layer")}
+// ══════════════════════════════════════════════════════════════════════════════
+'use client';
+import React from 'react';
+import type {{ GhostTraceRecord }} from './types.js';
+
+export function GhostTraceLayer({{
+  traces,
+  hoveredGhostId
+}}: {{
+  traces: GhostTraceRecord[];
+  hoveredGhostId?: string | null;
+}}) {{
+  if (traces.length === 0) return null;
+  return (
+    <svg style={{{{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible', zIndex: 3 }}}}>
+      {{traces.map(t => (
+        <path
+          key={{t.id}}
+          d={{t.pathD}}
+          fill="none"
+          stroke="var(--skipo-ghost, #00d9ff)"
+          strokeWidth={{hoveredGhostId === t.targetGhostNodeId ? 2.5 : 2}}
+          strokeDasharray="6,4"
+          opacity={{hoveredGhostId === t.targetGhostNodeId ? 0.95 : 0.65}}
+        />
+      ))}}
+    </svg>
+  );
+}}
+"""
+    files.append(GeneratedFile(
+        relative_path="GhostTraceLayer.tsx",
+        content=ghost_trace_content,
+        description="SVG layer for rendering ghost traces"
+    ))
+
+    # 12. GhostNodeCard.tsx
+    ghost_card_content = f"""{section_header("Ghost Node Card")}
+// ══════════════════════════════════════════════════════════════════════════════
+'use client';
+import React from 'react';
+import type {{ GhostNodeRecord }} from './types.js';
+
+export function GhostNodeCard({{
+  ghostNode,
+  isHovered = false,
+  onHover,
+  onSolidify
+}}: {{
+  ghostNode: GhostNodeRecord;
+  isHovered?: boolean;
+  onHover?: (id: string | null) => void;
+  onSolidify?: (id: string) => void;
+}}) {{
+  const ghostColor = 'var(--skipo-ghost, #00d9ff)';
+  return (
+    <div
+      style={{{{
+        position: 'absolute',
+        left: ghostNode.position.x,
+        top: ghostNode.position.y,
+        width: ghostNode.size.width,
+        height: ghostNode.size.height,
+        backgroundColor: 'rgba(20, 25, 30, 0.75)',
+        border: `2px dashed ${{ghostColor}}`,
+        borderRadius: '8px',
+        opacity: isHovered ? 0.95 : 0.65,
+        display: 'flex',
+        flexDirection: 'column',
+        zIndex: 4,
+        userSelect: 'none',
+        pointerEvents: 'auto',
+        transition: 'opacity 0.15s ease'
+      }}}}
+      onMouseEnter={{() => onHover?.(ghostNode.id)}}
+      onMouseLeave={{() => onHover?.(null)}}
+    >
+      <div style={{{{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}}}>
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={{ghostColor}} strokeWidth="1.8">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+        </svg>
+      </div>
+      <div style={{{{ height: '30px', borderTop: `1px dashed ${{ghostColor}}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px' }}}}>
+        <span style={{{{ fontSize: '11px', fontWeight: 600, color: ghostColor }}}}>{{ghostNode.label}}</span>
+        {{onSolidify && (
+          <button
+            type="button"
+            title="Solidify"
+            aria-label="Solidify"
+            style={{{{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: ghostColor, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}}}
+            onClick={{(e) => {{ e.stopPropagation(); onSolidify(ghostNode.id); }}}}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
+          </button>
+        )}}
+      </div>
+    </div>
+  );
+}}
+"""
+    files.append(GeneratedFile(
+        relative_path="GhostNodeCard.tsx",
+        content=ghost_card_content,
+        description="Semi-transparent ghost node card"
+    ))
+
+    # 13. GhostSolidifyBar.tsx
+    ghost_bar_content = f"""{section_header("Ghost Solidify Action Bar")}
+// ══════════════════════════════════════════════════════════════════════════════
+'use client';
+import React from 'react';
+import type {{ GhostNodeRecord }} from './types.js';
+
+export function GhostSolidifyBar({{
+  ghostNodes,
+  scenarioIndex,
+  maxScenarios = 3,
+  onCycleScenario,
+  onSolidifyAll,
+  onDismiss
+}}: {{
+  ghostNodes: GhostNodeRecord[];
+  scenarioIndex: number;
+  maxScenarios?: number;
+  onCycleScenario: () => void;
+  onSolidifyAll: () => void;
+  onDismiss: () => void;
+}}) {{
+  if (ghostNodes.length === 0) return null;
+  const minX = Math.min(...ghostNodes.map(n => n.position.x));
+  const minY = Math.min(...ghostNodes.map(n => n.position.y));
+  const ghostColor = 'var(--skipo-ghost, #00d9ff)';
+
+  return (
+    <div
+      style={{{{
+        position: 'absolute',
+        left: minX,
+        top: Math.max(10, minY - 40),
+        zIndex: 5,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '3px 6px',
+        backgroundColor: 'rgba(20, 25, 30, 0.9)',
+        border: `1px solid ${{ghostColor}}`,
+        borderRadius: '6px',
+        pointerEvents: 'auto',
+        userSelect: 'none'
+      }}}}
+      onClick={{(e) => e.stopPropagation()}}
+    >
+      <button
+        type="button"
+        title="Cycle Scenario"
+        aria-label="Cycle Scenario"
+        style={{{{ background: 'none', border: `1px solid ${{ghostColor}}`, color: ghostColor, borderRadius: '4px', fontSize: '10px', padding: '2px 6px', cursor: 'pointer' }}}}
+        onClick={{onCycleScenario}}
+      >
+        Branch {{scenarioIndex + 1}}/{{maxScenarios}}
+      </button>
+      <button
+        type="button"
+        title="Solidify All"
+        aria-label="Solidify All"
+        style={{{{ backgroundColor: ghostColor, border: 'none', color: '#000', borderRadius: '4px', fontSize: '10px', fontWeight: 700, padding: '2px 8px', cursor: 'pointer' }}}}
+        onClick={{onSolidifyAll}}
+      >
+        Solidify
+      </button>
+      <button
+        type="button"
+        title="Dismiss"
+        aria-label="Dismiss"
+        style={{{{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', padding: '2px' }}}}
+        onClick={{onDismiss}}
+      >
+        ✕
+      </button>
+    </div>
+  );
+}}
+"""
+    files.append(GeneratedFile(
+        relative_path="GhostSolidifyBar.tsx",
+        content=ghost_bar_content,
+        description="Ghost solidify floating action bar"
+    ))
+
+    # 14. useGhostRouting.ts
+    ghost_hook_content = f"""{section_header("Ghost Routing Hook")}
+// ══════════════════════════════════════════════════════════════════════════════
+'use client';
+import {{ useState, useEffect, useCallback, useRef }} from 'react';
+import type {{ GraphNode, GraphEdge, NodeGraphConfig, NodeDefinition, GhostNodeRecord, GhostTraceRecord }} from './types.js';
+import {{ ConnectionRuleStore }} from './ConnectionRuleStore.js';
+import {{ GhostStore }} from './GhostStore.js';
+import {{ GhostInferenceEngine }} from './GhostInferenceEngine.js';
+
+export function useGhostRouting({{
+  nodes,
+  edges,
+  selectedNodeIds,
+  config,
+  availableNodeTypes,
+  onNodesChange,
+  onEdgesChange
+}}: {{
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  selectedNodeIds: Set<string>;
+  config?: NodeGraphConfig;
+  availableNodeTypes?: NodeDefinition[];
+  onNodesChange?: (nodes: GraphNode[]) => void;
+  onEdgesChange?: (edges: GraphEdge[]) => void;
+}}) {{
+  const ghostStore = useRef(GhostStore.getInstance()).current;
+  const [activeGhostNodes, setActiveGhostNodes] = useState<GhostNodeRecord[]>([]);
+  const [activeGhostTraces, setActiveGhostTraces] = useState<GhostTraceRecord[]>([]);
+  const [scenarioIndex, setScenarioIndex] = useState(0);
+  const [hoveredGhostId, setHoveredGhostId] = useState<string | null>(null);
+
+  useEffect(() => {{
+    return ghostStore.subscribe(() => {{
+      setActiveGhostNodes(ghostStore.getActiveGhostNodes());
+      setActiveGhostTraces(ghostStore.getActiveGhostTraces());
+      setScenarioIndex(ghostStore.scenarioIndex);
+      setHoveredGhostId(ghostStore.hoveredGhostId);
+    }});
+  }}, [ghostStore]);
+
+  useEffect(() => {{
+    if (config?.ghostRoutingEnabled === false || selectedNodeIds.size === 0) {{
+      ghostStore.clear();
+      return;
+    }}
+    const timer = setTimeout(() => {{
+      const selected = nodes.filter(n => selectedNodeIds.has(n.id));
+      const defs = availableNodeTypes && availableNodeTypes.length > 0 ? availableNodeTypes : ConnectionRuleStore.listNodeTypes();
+      const candidates = GhostInferenceEngine.inferNextNodes(selected, defs, config?.ghostScenarioCount ?? 3);
+
+      const layoutNodes: GhostNodeRecord[] = candidates.map(c => {{
+        const source = nodes.find(n => n.id === c.sourceNodeId);
+        return {{
+          id: c.id,
+          nodeType: c.nodeType,
+          label: c.label,
+          position: {{ x: (source ? source.position.x + (source.width ?? 130) : 0) + c.relativeOffset.x, y: (source ? source.position.y : 0) + c.relativeOffset.y }},
+          size: {{ width: 140, height: 90 }},
+          scenarioIndex: c.scenarioIndex,
+          sourceNodeId: c.sourceNodeId,
+          socketMappings: c.socketMappings
+        }};
+      }});
+
+      const traces: GhostTraceRecord[] = [];
+      for (const g of layoutNodes) {{
+        const s = nodes.find(n => n.id === g.sourceNodeId);
+        if (!s) continue;
+        const sx = s.position.x + (s.width ?? 130);
+        const sy = s.position.y + 40;
+        const gx = g.position.x;
+        const gy = g.position.y + 40;
+        const dx = Math.max(Math.abs(gx - sx) * 0.5, 40);
+        traces.push({{
+          id: `trace-${{g.id}}`,
+          sourceNodeId: s.id,
+          sourceSocketId: g.socketMappings[0]?.sourceSocketId || 'out',
+          targetGhostNodeId: g.id,
+          targetSocketId: g.socketMappings[0]?.targetSocketId || 'in',
+          wireType: 'DEFAULT',
+          pathD: `M ${{sx}},${{sy}} C ${{sx + dx}},${{sy}} ${{gx - dx}},${{gy}} ${{gx}},${{gy}}`,
+          scenarioIndex: g.scenarioIndex
+        }});
+      }}
+      ghostStore.setPredictions(layoutNodes, traces);
+    }}, 250);
+
+    return () => clearTimeout(timer);
+  }}, [nodes, selectedNodeIds, config?.ghostRoutingEnabled, config?.ghostScenarioCount, availableNodeTypes, ghostStore]);
+
+  const solidifyOne = useCallback((ghostId: string) => {{
+    const ghost = ghostStore.ghostNodes.find(g => g.id === ghostId);
+    if (!ghost) return;
+    const realId = `node-${{Date.now()}}`;
+    const realNode: GraphNode = {{
+      id: realId,
+      type: ghost.nodeType,
+      label: ghost.label,
+      position: {{ ...ghost.position }},
+      width: ghost.size.width,
+      height: ghost.size.height
+    }};
+    const newEdges: GraphEdge[] = ghost.socketMappings.map((m, i) => ({{
+      id: `edge-${{Date.now()}}-${{i}}`,
+      source: ghost.sourceNodeId,
+      sourceSocket: m.sourceSocketId,
+      target: realId,
+      targetSocket: m.targetSocketId,
+      wireType: m.wireType
+    }}));
+    onNodesChange?.([...nodes, realNode]);
+    onEdgesChange?.([...edges, ...newEdges]);
+    ghostStore.clear();
+  }}, [nodes, edges, onNodesChange, onEdgesChange, ghostStore]);
+
+  const solidifyAll = useCallback(() => {{
+    const active = ghostStore.getActiveGhostNodes();
+    if (active.length === 0) return;
+    const newNodes: GraphNode[] = [];
+    const newEdges: GraphEdge[] = [];
+    for (const g of active) {{
+      const realId = `node-${{Date.now()}}-${{Math.random().toString(36).slice(2, 5)}}`;
+      newNodes.push({{
+        id: realId,
+        type: g.nodeType,
+        label: g.label,
+        position: {{ ...g.position }},
+        width: g.size.width,
+        height: g.size.height
+      }});
+      for (const m of g.socketMappings) {{
+        newEdges.push({{
+          id: `edge-${{Date.now()}}-${{Math.random().toString(36).slice(2, 5)}}`,
+          source: g.sourceNodeId,
+          sourceSocket: m.sourceSocketId,
+          target: realId,
+          targetSocket: m.targetSocketId
+        }});
+      }}
+    }}
+    onNodesChange?.([...nodes, ...newNodes]);
+    onEdgesChange?.([...edges, ...newEdges]);
+    ghostStore.clear();
+  }}, [nodes, edges, onNodesChange, onEdgesChange, ghostStore]);
+
+  return {{
+    isActive: ghostStore.isActive,
+    activeGhostNodes,
+    activeGhostTraces,
+    scenarioIndex,
+    hoveredGhostId,
+    setHoveredGhostId: (id: string | null) => ghostStore.setHoveredGhostId(id),
+    solidifyOne,
+    solidifyAll,
+    cycleScenario: () => ghostStore.cycleScenario(config?.ghostScenarioCount ?? 3),
+    dismiss: () => ghostStore.clear()
+  }};
+}}
+"""
+    files.append(GeneratedFile(
+        relative_path="useGhostRouting.ts",
+        content=ghost_hook_content,
+        description="Ghost routing predictive completion hook"
+    ))
+
+    # 15. index.ts
     index_content = f"""{section_header(f"{graph_name} Suite Facade")}
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -945,6 +1532,12 @@ export * from './CanvasContextMenu.js';
 export * from './MovableSocketHandle.js';
 export * from './NodeCard.js';
 export * from './NodeGraphCanvas.js';
+export * from './GhostStore.js';
+export * from './GhostInferenceEngine.js';
+export * from './GhostTraceLayer.js';
+export * from './GhostNodeCard.js';
+export * from './GhostSolidifyBar.js';
+export * from './useGhostRouting.js';
 """
     files.append(GeneratedFile(
         relative_path="index.ts",
@@ -959,10 +1552,12 @@ export * from './NodeGraphCanvas.js';
 import {{ describe, it, expect, beforeEach }} from 'vitest';
 import {{ ConnectionRuleStore }} from './ConnectionRuleStore.js';
 import {{ getTaperedBeamPoints }} from './MovableSocketHandle.js';
+import {{ GhostStore }} from './GhostStore.js';
 
 describe('{graph_name} Canonical Invariants', () => {{
   beforeEach(() => {{
     ConnectionRuleStore.initializeDefaults();
+    GhostStore.getInstance().clear();
   }});
 
   it('correctly resolves compatibility rules', () => {{
@@ -987,6 +1582,20 @@ describe('{graph_name} Canonical Invariants', () => {{
     expect(points).toBeTruthy();
     expect(points.split(' ').length).toBe(4);
   }});
+
+  it('manages ephemeral ghost state without persistence', () => {{
+    const store = GhostStore.getInstance();
+    store.clear();
+    expect(store.isActive).toBe(false);
+    store.setPredictions(
+      [{{ id: 'g1', nodeType: 'filter', label: 'Filter', position: {{ x: 100, y: 100 }}, size: {{ width: 140, height: 90 }}, scenarioIndex: 0, sourceNodeId: 's1', socketMappings: [] }}],
+      []
+    );
+    expect(store.isActive).toBe(true);
+    expect(store.getActiveGhostNodes().length).toBe(1);
+    store.clear();
+    expect(store.isActive).toBe(false);
+  }});
 }});
 """
     files.append(GeneratedFile(
@@ -1010,11 +1619,20 @@ describe('{graph_name} Canonical Invariants', () => {{
         "Baked anti-spill proportional NodeCard (2/3 icon, 1/3 RTL scrolling text)",
         "Baked icon-only SolidifyWidget without text label",
         "Baked CompatibleNodePicker for socket handle drag release",
-        "Baked central ConnectionRuleStore and canonical NodeGraphCanvas"
+        "Baked central ConnectionRuleStore and canonical NodeGraphCanvas",
+        "Baked predictive completion system (Ghost Routing, ghost traces, and solidification)"
     ])
     return result
 
+def main():
+    args = parse_generator_args("Generate a complete Node Graph Suite with canonical UX controls")
+    target_path = Path(args["target_path"] or ".").resolve()
+    result = generate_node_graph_suite(target_path, args)
+    if args.get("json"):
+        print(json.dumps(result.to_dict(), indent=2))
+    else:
+        print_generator_report(result)
+    sys.exit(0 if result.success else 1)
+
 if __name__ == "__main__":
-    target_dir, params = parse_generator_args("Generate a complete Node Graph Suite with canonical UX controls")
-    result = generate_node_graph_suite(target_dir, params)
-    print_generator_report(result)
+    main()

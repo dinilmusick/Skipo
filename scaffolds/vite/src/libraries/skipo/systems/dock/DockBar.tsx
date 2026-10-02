@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: DockBar
- *
- *   ┌──────────────────────────────────┐
- *   │        Initialize DockBar        │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             DockBar              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            isVertical            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          positionStyles          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { useState } from 'react';
 import type { DockPosition, DockItemConfig } from './types.js';
@@ -41,10 +10,6 @@ interface DockBarProps {
   onItemClick?: (id: string) => void;
   autoHide?: boolean;
 }
-
-
-// ════ DOCKBAR IMPLEMENTATION ══════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function DockBar({ items, position = 'bottom', activeId, onItemClick, autoHide = false }: DockBarProps) {
   const [isHovered, setIsHovered] = useState(false);

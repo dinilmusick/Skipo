@@ -1,35 +1,4 @@
 /**
- * ASCII Architecture Flowchart: CommandBus
- *
- *   ┌──────────────────────────────────┐
- *   │      Initialize CommandBus       │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            timestamp             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │                id                │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          correlationId           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file CommandBus.ts
  * @description Frontend Command factory & enqueue transport boundary.
  * Enforces Invariants I7-I10: all backend-bound operations MUST go through commands.

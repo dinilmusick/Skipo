@@ -1,29 +1,8 @@
-/**
- * ASCII Architecture Flowchart: WorkspaceFS
- *
- *   ┌──────────────────────────────────┐
- *   │      Initialize WorkspaceFS      │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │               data               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import { BaseStorageAdapter } from '../storage/BaseStorageAdapter.js';
 import { SyncEngine } from './SyncEngine.js';
 import { FileInfo } from '../storage/types.js';
 import { WorkspaceConfig } from './types.js';
 import { SkipoBase } from '@skipo/core';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export class WorkspaceFS extends SkipoBase {
   private primary: BaseStorageAdapter;

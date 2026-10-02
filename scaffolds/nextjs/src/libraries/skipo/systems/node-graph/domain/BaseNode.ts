@@ -1,25 +1,4 @@
-/**
- * ASCII Architecture Flowchart: BaseNode
- *
- *   ┌──────────────────────────────────┐
- *   │       Initialize BaseNode        │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          existingIndex           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import type { BaseHandle, HandleDefinition } from './BaseHandle.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export interface NodePosition {
   x: number;

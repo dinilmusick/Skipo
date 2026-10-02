@@ -1,41 +1,9 @@
-/**
- * ASCII Architecture Flowchart: NodeCard
- *
- *   ┌──────────────────────────────────┐
- *   │       Initialize NodeCard        │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         renderNodeEmblem         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │                t                 │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             NodeCard             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { useRef, useState, useLayoutEffect } from 'react';
 import type { GraphNode } from './types.js';
 import { MovableSocketView } from './MovableSocketView.js';
 
 export interface NodeCardProps {
-  key?: React.Key;
   node: GraphNode;
   selected?: boolean;
   onMouseDown?: (e: React.MouseEvent, nodeId: string) => void;
@@ -74,10 +42,6 @@ function renderNodeEmblem(type: string) {
     </svg>
   );
 }
-
-
-// ════ NODECARD IMPLEMENTATION ═════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function NodeCard({
   node, selected, onMouseDown, onDoubleClick,

@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: AutoSaveToggle
- *
- *   ┌──────────────────────────────────┐
- *   │    Initialize AutoSaveToggle     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          AutoSaveToggle          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            isEnabled             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           handleClick            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React from 'react';
 import { useBottomStrip } from './BottomStripContext.js';
@@ -37,10 +6,6 @@ import { BaseButton } from '../base/BaseButton.js';
 export interface AutoSaveToggleProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   onToggle?: () => void;
 }
-
-
-// ════ AUTOSAVETOGGLE IMPLEMENTATION ═══════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const AutoSaveToggle: React.FC<AutoSaveToggleProps> = ({
   onToggle,

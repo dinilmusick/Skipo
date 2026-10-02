@@ -1,33 +1,8 @@
-/**
- * ASCII Architecture Flowchart: index
- *
- *   ┌──────────────────────────────────┐
- *   │         Initialize index         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │    DOCUSTACK_WARM_COFFEE_PACK    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import { validateModularThemePack, type ModularThemePack } from '../../schema/themePack.schema.js';
 import { darkTokens, lightTokens } from './tokens.js';
 import { darkTypography, lightTypography } from './typography.js';
 import { darkElements, lightElements } from './elements.js';
 import manifest from './manifest.json' with { type: 'json' };
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
-
-// ════ INDEX IMPLEMENTATION ════════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const DOCUSTACK_WARM_COFFEE_PACK: ModularThemePack = validateModularThemePack({
   metadata: manifest,

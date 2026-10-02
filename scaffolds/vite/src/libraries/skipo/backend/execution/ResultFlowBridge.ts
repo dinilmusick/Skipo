@@ -1,25 +1,4 @@
 /**
- * ASCII Architecture Flowchart: ResultFlowBridge
- *
- *   ┌──────────────────────────────────────┐
- *   │     Initialize ResultFlowBridge      │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file ResultFlowBridge.ts
  * @description Bridges execution results back to frontend state update streams.
  * Conforms to SKIPO::STATE_EXECUTION_ARCHITECTURE and L9 (<=200L).

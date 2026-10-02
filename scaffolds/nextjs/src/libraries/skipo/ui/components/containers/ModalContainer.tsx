@@ -1,29 +1,3 @@
-/**
- * ASCII Architecture Flowchart: ModalContainer
- *
- *   ┌──────────────────────────────────┐
- *   │    Initialize ModalContainer     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          ModalContainer          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            handleEsc             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -33,10 +7,6 @@ export interface ModalContainerProps extends React.HTMLAttributes<HTMLDivElement
   open: boolean;
   onClose: () => void;
 }
-
-
-// ════ MODALCONTAINER IMPLEMENTATION ═══════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const ModalContainer = forwardRef<HTMLDivElement, ModalContainerProps>(({
   open,

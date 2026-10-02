@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: PageContainer
- *
- *   ┌──────────────────────────────────┐
- *   │     Initialize PageContainer     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          PageContainer           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef } from 'react';
 import '../../styles/containers.css';
@@ -29,10 +8,6 @@ export interface PageContainerProps extends Omit<React.HTMLAttributes<HTMLDivEle
   actions?: React.ReactNode;
   paddingScale?: 'sm' | 'md' | 'lg';
 }
-
-
-// ════ PAGECONTAINER IMPLEMENTATION ════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const PageContainer = forwardRef<HTMLDivElement, PageContainerProps>(({
   title,

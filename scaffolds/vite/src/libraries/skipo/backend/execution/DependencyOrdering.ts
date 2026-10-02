@@ -1,25 +1,4 @@
 /**
- * ASCII Architecture Flowchart: DependencyOrdering
- *
- *   ┌──────────────────────────────────────┐
- *   │    Initialize DependencyOrdering     │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file DependencyOrdering.ts
  * @description Dependency graph ordering and race-condition prevention for jobs.
  * Conforms to SKIPO::STATE_EXECUTION_ARCHITECTURE and L9 (<=200L).

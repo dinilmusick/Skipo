@@ -1,30 +1,9 @@
-/**
- * ASCII Architecture Flowchart: StorageAdapterFactory
- *
- *   ┌──────────────────────────────────────┐
- *   │   Initialize StorageAdapterFactory   │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
 import { BaseStorageAdapter } from './BaseStorageAdapter.js';
 import { StorageConfig } from './types.js';
 import { LocalFSAdapter } from './LocalFSAdapter.js';
 import { S3Adapter } from './S3Adapter.js';
 import { BackblazeB2Adapter } from './BackblazeB2Adapter.js';
 import { SupabaseStorageAdapter } from './SupabaseStorageAdapter.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export class StorageAdapterFactory {
   static create(config: StorageConfig): BaseStorageAdapter {

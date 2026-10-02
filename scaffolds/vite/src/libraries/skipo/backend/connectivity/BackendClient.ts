@@ -1,35 +1,4 @@
 /**
- * ASCII Architecture Flowchart: BackendClient
- *
- *   ┌──────────────────────────────────┐
- *   │     Initialize BackendClient     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              proxy               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             handler              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             executor             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file BackendClient.ts
  * @description Canonical frontend client exposing unified dynamic domain proxy facade across local and remote runtimes.
  */
@@ -171,10 +140,6 @@ export class BackendClient {
     return await this.resolver.health();
   }
 }
-
-
-// ════ BACKENDCLIENT IMPLEMENTATION ════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function createBackendClient(options: BackendClientOptions): BackendClient & Record<string, DomainProxy> {
   return new BackendClient(options) as any;

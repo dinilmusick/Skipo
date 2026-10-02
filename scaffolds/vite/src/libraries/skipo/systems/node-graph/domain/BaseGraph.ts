@@ -1,27 +1,6 @@
-/**
- * ASCII Architecture Flowchart: BaseGraph
- *
- *   ┌──────────────────────────────────┐
- *   │       Initialize BaseGraph       │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │      DEFAULT_GRAPH_SETTINGS      │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import type { BaseNode, NodePosition, NodeSize } from './BaseNode.js';
 import type { BaseConnection } from './BaseConnection.js';
 import type { BaseViewWindow } from './BaseViewWindow.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export interface GraphSettings {
   tracingEnabled: boolean;
@@ -31,10 +10,6 @@ export interface GraphSettings {
   attractionSpeed: number;
   attractionStrength: number;
 }
-
-
-// ════ BASEGRAPH IMPLEMENTATION ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const DEFAULT_GRAPH_SETTINGS: GraphSettings = {
   tracingEnabled: true,

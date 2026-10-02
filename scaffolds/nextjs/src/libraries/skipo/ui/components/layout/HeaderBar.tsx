@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: HeaderBar
- *
- *   ┌──────────────────────────────────┐
- *   │       Initialize HeaderBar       │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            HeaderBar             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef } from 'react';
 import '../../styles/layout.css';
@@ -28,10 +7,6 @@ export interface HeaderBarProps extends Omit<React.HTMLAttributes<HTMLElement>, 
   nav?: React.ReactNode;
   actions?: React.ReactNode;
 }
-
-
-// ════ HEADERBAR IMPLEMENTATION ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const HeaderBar = forwardRef<HTMLElement, HeaderBarProps>(({
   title,

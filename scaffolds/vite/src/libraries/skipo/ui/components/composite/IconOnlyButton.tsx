@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: IconOnlyButton
- *
- *   ┌──────────────────────────────────┐
- *   │    Initialize IconOnlyButton     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          IconOnlyButton          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef } from 'react';
 import { BaseTooltip } from '../base/BaseTooltip.js';
@@ -36,10 +15,6 @@ export interface IconOnlyButtonProps extends React.ButtonHTMLAttributes<HTMLButt
  * IconOnlyButton — Strict icon-only brutalist button.
  * Static text labels are forbidden. Label appears exclusively in the bottom strip center on hover.
  */
-
-// ════ ICONONLYBUTTON IMPLEMENTATION ═══════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export const IconOnlyButton = forwardRef<HTMLButtonElement, IconOnlyButtonProps>(({
   icon,
   label,

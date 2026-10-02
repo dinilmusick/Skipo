@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: MonacoEditor
- *
- *   ┌──────────────────────────────────┐
- *   │     Initialize MonacoEditor      │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           MonacoEditor           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           containerRef           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            editorRef             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import { useEffect, useRef } from 'react';
 import { useMonaco } from './useMonaco.js';
@@ -39,10 +8,6 @@ interface MonacoEditorProps extends EditorConfig {
   height?: string | number;
   width?: string | number;
 }
-
-
-// ════ MONACOEDITOR IMPLEMENTATION ═════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function MonacoEditor({
   value,

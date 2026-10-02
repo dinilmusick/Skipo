@@ -1,24 +1,3 @@
-/**
- * ASCII Architecture Flowchart: SidebarContainer
- *
- *   ┌──────────────────────────────────┐
- *   │   Initialize SidebarContainer    │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         SidebarContainer         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import React, { forwardRef, useState } from 'react';
 import { IconOnlyButton } from '../composite/IconOnlyButton.js';
@@ -28,10 +7,6 @@ export interface SidebarContainerProps extends React.HTMLAttributes<HTMLDivEleme
   minWidth?: number;
   maxWidth?: number;
 }
-
-
-// ════ SIDEBARCONTAINER IMPLEMENTATION ═════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const SidebarContainer = forwardRef<HTMLDivElement, SidebarContainerProps>(({
   minWidth = 200,

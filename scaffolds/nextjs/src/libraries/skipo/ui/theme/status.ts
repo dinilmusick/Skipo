@@ -1,41 +1,6 @@
-/**
- * ASCII Architecture Flowchart: status
- *
- *   ┌──────────────────────────────────┐
- *   │        Initialize status         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │       getThemeEngineStatus       │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              socket              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            basePackId            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import type { ElementStatusReport, ThemeEngineStatus } from './types.js';
 import { centralLedger } from './elements.js';
 import type { ThemeEngine } from './engine.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
-
-// ════ STATUS IMPLEMENTATION ═══════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function getThemeEngineStatus(engine: ThemeEngine): ThemeEngineStatus {
   const socket = engine.getSocket();

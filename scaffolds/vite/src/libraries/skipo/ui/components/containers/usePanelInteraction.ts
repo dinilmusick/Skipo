@@ -1,36 +1,4 @@
-/**
- * ASCII Architecture Flowchart: usePanelInteraction
- *
- *   ┌──────────────────────────────────┐
- *   │  Initialize usePanelInteraction  │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │         calculateResized         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              nextW               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              nextH               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
-import type React from 'react';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { PanelGeometry } from './usePanelGeometry.js';
 import type { ResizeDirection } from './ResizeHandles.js';
@@ -88,10 +56,6 @@ function useInteractionListeners(
   }, [isInteracting, minWidth, minHeight, updateGeometry, setIsInteracting, activeOpRef]);
 }
 
-
-// ════ USEPANELINTERACTION IMPLEMENTATION ══════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export function usePanelInteraction(
   geometry: PanelGeometry,
   updateGeometry: (next: Partial<PanelGeometry> | ((prev: PanelGeometry) => PanelGeometry)) => void,
@@ -116,3 +80,4 @@ export function usePanelInteraction(
   useInteractionListeners(isInteracting, setIsInteracting, activeOpRef, updateGeometry, minWidth, minHeight);
   return { isInteracting, handleMouseDownHeader, handleStartResize };
 }
+

@@ -1,43 +1,8 @@
-/**
- * ASCII Architecture Flowchart: Viewport
- *
- *   ┌──────────────────────────────────┐
- *   │       Initialize Viewport        │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          screenToCanvas          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          canvasToScreen          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           zoomAtPoint            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import type { ViewportState, NodeGraphConfig, GraphNode } from './types.js';
 
 /**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * Converts screen coordinates to canvas coordinates based on the viewport.
  */
-
-// ════ VIEWPORT IMPLEMENTATION ═════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export function screenToCanvas(
   clientX: number,
   clientY: number,

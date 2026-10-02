@@ -1,35 +1,4 @@
 /**
- * ASCII Architecture Flowchart: SkipoExecution
- *
- *   ┌──────────────────────────────────┐
- *   │    Initialize SkipoExecution     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │               cmd                │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │               job                │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             stateId              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file SkipoExecution.ts
  * @description Canonical SKIPO_EXECUTION system orchestrator.
  * Connects BullMQ queues, CommandBus, and SKIPO_STATE result flow.
@@ -107,9 +76,5 @@ export class SkipoExecutionEngine {
     await this.backendQueue.close();
   }
 }
-
-
-// ════ SKIPOEXECUTION IMPLEMENTATION ═══════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export const SKIPO_EXECUTION = new SkipoExecutionEngine();

@@ -1,31 +1,3 @@
-/**
- * ASCII Architecture Flowchart: GraphStore
- *
- *   ┌──────────────────────────────────┐
- *   │      Initialize GraphStore       │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             listener             │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              trace               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │            sourceNode            │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
 import { BaseNode } from '../domain/BaseNode.js';
 import { SolidConnection } from '../domain/BaseConnection.js';
 import type { GraphSettings, Group } from '../domain/BaseGraph.js';
@@ -36,9 +8,6 @@ import { AutoSolidify } from '../spatial/AutoSolidify.js';
 import { ViewWindowManager } from '../management/ViewWindowManager.js';
 import { LandmarkManager } from '../management/LandmarkManager.js';
 import { ViewEngine } from '../management/ViewEngine.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export type GraphListener = () => void;
 

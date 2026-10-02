@@ -1,35 +1,4 @@
 /**
- * ASCII Architecture Flowchart: LifecycleGraph
- *
- *   ┌──────────────────────────────────┐
- *   │    Initialize LifecycleGraph     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             visited              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │              stack               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │             current              │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file LifecycleGraph.ts
  * @description Directed Acyclic Graph (DAG) for state and component lifecycles.
  * Enforces cycle invalidation and recursive cascade destruction.

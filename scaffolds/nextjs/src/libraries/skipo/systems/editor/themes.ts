@@ -1,28 +1,3 @@
-/**
- * ASCII Architecture Flowchart: themes
- *
- *   ┌──────────────────────────────────┐
- *   │        Initialize themes         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │          skipoDarkTheme          │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
-
-// ════ THEMES IMPLEMENTATION ═══════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export const skipoDarkTheme = {
   base: 'vs-dark' as const,
   inherit: true,
@@ -39,7 +14,7 @@ export const skipoDarkTheme = {
     'editorLineNumber.foreground': '#363b54',
     'editor.selectionBackground': '#28324a',
     'editor.lineHighlightBackground': '#1c1c26',
-    'editorCursor.foreground': 'var(--skipo-accent, #d4af37)',
+    'editorCursor.foreground': '#d4af37',
     'editorIndentGuide.background': '#222222',
   }
 };

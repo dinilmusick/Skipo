@@ -1,34 +1,3 @@
-/**
- * ASCII Architecture Flowchart: WireRenderer
- *
- *   ┌──────────────────────────────────┐
- *   │     Initialize WireRenderer      │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │           WireRenderer           │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │        getSocketPosition         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │               node               │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 'use client';
 import type { GraphEdge, NodeGraphConfig } from './types.js';
 
@@ -45,10 +14,6 @@ interface WireRendererProps {
     color?: string;
   } | null;
 }
-
-
-// ════ WIRERENDERER IMPLEMENTATION ═════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export function WireRenderer({ edges, nodesData, config: _config, onDeleteEdge, connecting }: WireRendererProps) {
   const getSocketPosition = (nodeId: string, socketId: string, type: 'input' | 'output') => {

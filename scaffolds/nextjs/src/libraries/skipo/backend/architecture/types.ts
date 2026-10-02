@@ -1,25 +1,4 @@
 /**
- * ASCII Architecture Flowchart: types
- *
- *   ┌──────────────────────────────────┐
- *   │         Initialize types         │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │    validateServiceDefinition     │
- *   └──────────────────────────────────┘
- *                    │
- *                    ▼
- *   ┌──────────────────────────────────┐
- *   │  Return State / Result Payload   │
- *   └──────────────────────────────────┘
- */
-
-/**
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
  * @file types.ts
  * @description Formal TypeScript types and contracts for APP_ARCHITECTURE_SPEC.
  * Conforms strictly to Inviolable Law L7 and < 200 lines limit.
@@ -60,10 +39,6 @@ export interface BackendFacade<
  * 1. deployment == "remote" => runtime == "server"
  * 2. runtime == "client" => deployment == "local"
  */
-
-// ════ TYPES IMPLEMENTATION ════════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
-
 export function validateServiceDefinition(def: {
   name?: string;
   runtime: Runtime;

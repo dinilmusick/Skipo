@@ -1,26 +1,5 @@
-/**
- * ASCII Architecture Flowchart: BaseDataProvider
- *
- *   ┌──────────────────────────────────────┐
- *   │     Initialize BaseDataProvider      │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │  Execute Component / Pipeline Logic  │
- *   └──────────────────────────────────────┘
- *                      │
- *                      ▼
- *   ┌──────────────────────────────────────┐
- *   │    Return State / Result Payload     │
- *   └──────────────────────────────────────┘
- */
-
 import { SkipoBase } from '@skipo/core';
 import { IDataProvider, QueryFilter, SortOrder } from './types.js';
-
-// ════ TYPES & DOMAIN CONTRACTS ════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 
 export abstract class BaseDataProvider<T> extends SkipoBase implements IDataProvider<T> {
   abstract query(filters?: QueryFilter[], sort?: SortOrder[], limit?: number): Promise<T[]>;
