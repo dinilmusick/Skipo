@@ -116,8 +116,12 @@ interface NodeGraphConfig {
     snapToGrid?: boolean;
     wireStyle?: 'bezier' | 'straight' | 'step';
     tracingEnabled?: boolean;
+    magneticTracesEnabled?: boolean;
     autoSolidify?: boolean;
     traceCutoffDistance?: number;
+    ghostRoutingEnabled?: boolean;
+    ghostScenarioCount?: number;
+    ghostDecayMs?: number;
 }
 interface NodeGraphPlugin {
     registerNodeDefinition?: (def: unknown) => void;
@@ -471,6 +475,8 @@ declare class CustomGraph extends BaseGraph {
     customGraphDefinition?: Record<string, unknown>;
 }
 
+declare const PRIMITIVE_NODE_DEFINITIONS: NodeDefinition[];
+
 interface HandleTypeDefinition {
     dataType: string;
     category: 'DATA' | 'VIEW';
@@ -635,6 +641,106 @@ declare const getBeamPoints: (nudge: {
     y: number;
 }, baseW?: number, headW?: number) => string;
 
+interface GhostSocketMapping {
+    sourceSocketId: string;
+    targetSocketId: string;
+    wireType: string;
+}
+interface GhostCandidate {
+    id: string;
+    nodeType: string;
+    label: string;
+    scenarioIndex: number;
+    score: number;
+    sourceNodeId: string;
+    socketMappings: GhostSocketMapping[];
+    relativeOffset: {
+        x: number;
+        y: number;
+    };
+}
+interface GhostNodeRecord {
+    id: string;
+    nodeType: string;
+    label: string;
+    position: {
+        x: number;
+        y: number;
+    };
+    size: {
+        width: number;
+        height: number;
+    };
+    scenarioIndex: number;
+    sourceNodeId: string;
+    socketMappings: GhostSocketMapping[];
+    inputs?: Socket[];
+    outputs?: Socket[];
+}
+interface GhostTraceRecord {
+    id: string;
+    sourceNodeId: string;
+    sourceSocketId: string;
+    targetGhostNodeId: string;
+    targetSocketId: string;
+    wireType: string;
+    pathD: string;
+    scenarioIndex: number;
+}
+interface GhostInferenceOptions {
+    scenarioCount?: number;
+    maxSuggestionsPerNode?: number;
+    customScorer?: (sourceType: string, candidateType: string) => number;
+}
+
+declare class GhostInferenceEngine {
+    static inferNextNodes(selectedNodes: GraphNode[], allNodeDefs: NodeDefinition[], options?: GhostInferenceOptions): GhostCandidate[];
+    private static resolveSocketMappings;
+    private static computeAffinityScore;
+}
+
+declare class GhostLayoutResolver {
+    static resolveLayout(candidates: GhostCandidate[], existingNodes: GraphNode[], allNodeDefs: NodeDefinition[]): GhostNodeRecord[];
+    private static findNonOverlappingPosition;
+    private static intersects;
+}
+
+declare class GhostTracePathBuilder {
+    static buildGhostTraces(ghostNodes: GhostNodeRecord[], existingNodes: GraphNode[]): GhostTraceRecord[];
+    private static getRealSocketPosition;
+    private static getGhostSocketPosition;
+    static renderBezier(startX: number, startY: number, endX: number, endY: number): string;
+}
+
+interface MagneticTraceRecord {
+    id: string;
+    sourceNodeId: string;
+    sourceSocketId: string;
+    targetNodeId: string;
+    targetSocketId: string;
+    wireType: string;
+    color: string;
+    pathD: string;
+    midpoint: {
+        x: number;
+        y: number;
+    };
+    distance: number;
+}
+
+interface UseMagneticTracesParams {
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+    config?: NodeGraphConfig;
+    onEdgesChange?: (edges: GraphEdge[]) => void;
+}
+declare function useMagneticTraces({ nodes, edges, config, onEdgesChange }: UseMagneticTracesParams): {
+    traces: MagneticTraceRecord[];
+    isEnabled: boolean;
+    solidifyTrace: (traceId: string) => void;
+    solidifyAll: () => void;
+};
+
 declare class GroupSettingsResolver {
     static resolveEffectiveSetting<K extends keyof GraphSettings>(settingKey: K, rootSettings: GraphSettings, targetOverrides?: Partial<GraphSettings>, groupId?: string, groups?: Group[]): GraphSettings[K];
     static resolveAllSettings(rootSettings: GraphSettings, targetOverrides?: Partial<GraphSettings>, groupId?: string, groups?: Group[]): GraphSettings;
@@ -771,6 +877,27 @@ declare class CommandApi {
     };
 }
 
+type GhostStoreListener = () => void;
+declare class GhostStore {
+    private static instance;
+    isActive: boolean;
+    ghostNodes: GhostNodeRecord[];
+    ghostTraces: GhostTraceRecord[];
+    scenarioIndex: number;
+    hoveredGhostId: string | null;
+    sourceNodeIds: string[];
+    private listeners;
+    static getInstance(): GhostStore;
+    subscribe(listener: GhostStoreListener): () => void;
+    notify(): void;
+    setPredictions(nodes: GhostNodeRecord[], traces: GhostTraceRecord[], sourceNodeIds: string[]): void;
+    cycleScenario(maxScenarios?: number): void;
+    setHoveredGhostId(id: string | null): void;
+    getActiveGhostNodes(): GhostNodeRecord[];
+    getActiveGhostTraces(): GhostTraceRecord[];
+    clear(): void;
+}
+
 interface MidpointWidgetsProps {
     x: number;
     y: number;
@@ -826,6 +953,12 @@ interface CanvasContextMenuProps {
     onClose: () => void;
 }
 declare function CanvasContextMenu({ x, y, availableNodeTypes, hasSelection, onSpawnNode, onOpenSpawnMenu, onSelectAll, onDeleteSelected, onClearSelection, onClose }: CanvasContextMenuProps): react__default.JSX.Element;
+
+interface MagneticTraceLayerProps {
+    traces: MagneticTraceRecord[];
+    onSolidify: (traceId: string) => void;
+}
+declare function MagneticTraceLayer({ traces, onSolidify }: MagneticTraceLayerProps): react.JSX.Element | null;
 
 interface GraphToolbarProps {
     settings: GraphSettings;
@@ -907,6 +1040,30 @@ declare class ReactFlowAdapter {
     }>;
 }
 
+interface GhostTraceLayerProps {
+    traces: GhostTraceRecord[];
+    hoveredGhostId?: string | null;
+}
+declare function GhostTraceLayer({ traces, hoveredGhostId }: GhostTraceLayerProps): react.JSX.Element | null;
+
+interface GhostNodeCardProps {
+    ghostNode: GhostNodeRecord;
+    isHovered?: boolean;
+    onHover?: (id: string | null) => void;
+    onSolidify?: (id: string) => void;
+}
+declare function GhostNodeCard({ ghostNode, isHovered, onHover, onSolidify }: GhostNodeCardProps): react.JSX.Element;
+
+interface GhostSolidifyBarProps {
+    ghostNodes: GhostNodeRecord[];
+    scenarioIndex: number;
+    maxScenarios?: number;
+    onCycleScenario: () => void;
+    onSolidifyAll: () => void;
+    onDismiss: () => void;
+}
+declare function GhostSolidifyBar({ ghostNodes, scenarioIndex, maxScenarios, onCycleScenario, onSolidifyAll, onDismiss }: GhostSolidifyBarProps): react.JSX.Element | null;
+
 interface Viewer2DNodesProps {
     node: GraphNode;
     selected?: boolean;
@@ -933,4 +1090,26 @@ interface MovableSocketHandleProps {
 }
 declare function MovableSocketHandle({ socket, nodeId, cardWidth, isOutput, baseY, onSocketMouseDown, onSocketNudgeChange }: MovableSocketHandleProps): react__default.JSX.Element;
 
-export { AttractionEngine, AutoSolidify, BaseConnection, type BaseConnectionProps, BaseGraph, BaseHandle, type BaseHandleProps, BaseNode, type BaseNodeProps, BaseViewWindow, type BaseViewWindowProps, CanvasContextMenu, type CanvasContextMenuProps, type CaptureGraphSnapshotParams, CommandApi, CompatibilityMatrix, type CompatibilityResolution, type CompatibilityRule, CompatibleNodePicker, type CompatibleNodePickerProps, type ConnectionMode, ConnectionRuleStore, type CreateViewWindowParams, CustomGraph, CustomNode, CustomViewWindow, DEFAULT_GRAPH_SETTINGS, DataHandle, type DynamicState, type GraphEdge, type GraphListener, type GraphNode, type GraphSettings, GraphStore, GraphToolbar, type GraphToolbarProps, type GraphView, type Group, GroupSettingsResolver, type HandleCategory, type HandleDefinition, type HandleDescriptor, type HandleDirection, type HandleOffset, type HandlePosition, type HandleTypeDefinition, HandleTypeRegistry, type Landmark, LandmarkManager, MidpointWidgets, type MidpointWidgetsProps, MovableSocketHandle, MovableSocketView, type MovableSocketViewProps, NodeCard, type NodeCardProps, type NodeDefinition, NodeDetailsPanel, type NodeDetailsPanelProps, NodeGraphCanvas, type NodeGraphCanvasProps, type NodeGraphConfig, type NodeGraphPlugin, type NodePosition, NodeSearchPalette, type NodeSearchPaletteProps, type NodeSize, ReactFlowAdapter, type ReactFlowEdgeData, type ReactFlowNodeData, type Socket, type SocketCoordOptions, type SocketCoordResult, type SocketType, SolidConnection, type SolidConnectionProps, SolidifyWidget, type SolidifyWidgetProps, SpatialEngine, type Trace, TraceEngine, ViewEngine, ViewHandle, ViewLink, type ViewLinkProps, ViewWindowManager, Viewer2DNodes, type Viewer2DNodesProps, type ViewportState, WireRenderer, type WireTypeDefinition, WireTypeRegistry, calculateSocketCoordinates, canvasToScreen, clampZoom, fitToView, getBeamPoints, getCenterPanForNode, getNodesInSelection, initializeDefaultGraphRules, isNodeInCenterDeadZone, screenToCanvas, useNodeGraph, zoomAtPoint };
+interface UseGhostRoutingParams {
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+    selectedNodeIds: Set<string>;
+    config?: NodeGraphConfig;
+    availableNodeTypes?: NodeDefinition[];
+    onNodesChange?: (nodes: GraphNode[]) => void;
+    onEdgesChange?: (edges: GraphEdge[]) => void;
+}
+declare function useGhostRouting({ nodes, edges, selectedNodeIds, config, availableNodeTypes, onNodesChange, onEdgesChange }: UseGhostRoutingParams): {
+    isActive: boolean;
+    activeGhostNodes: GhostNodeRecord[];
+    activeGhostTraces: GhostTraceRecord[];
+    scenarioIndex: number;
+    hoveredGhostId: string | null;
+    setHoveredGhostId: (id: string | null) => void;
+    solidifyOne: (ghostId: string) => void;
+    solidifyAll: () => void;
+    cycleScenario: () => void;
+    dismiss: () => void;
+};
+
+export { AttractionEngine, AutoSolidify, BaseConnection, type BaseConnectionProps, BaseGraph, BaseHandle, type BaseHandleProps, BaseNode, type BaseNodeProps, BaseViewWindow, type BaseViewWindowProps, CanvasContextMenu, type CanvasContextMenuProps, type CaptureGraphSnapshotParams, CommandApi, CompatibilityMatrix, type CompatibilityResolution, type CompatibilityRule, CompatibleNodePicker, type CompatibleNodePickerProps, type ConnectionMode, ConnectionRuleStore, type CreateViewWindowParams, CustomGraph, CustomNode, CustomViewWindow, DEFAULT_GRAPH_SETTINGS, DataHandle, type DynamicState, type GhostCandidate, GhostInferenceEngine, type GhostInferenceOptions, GhostLayoutResolver, GhostNodeCard, type GhostNodeCardProps, type GhostNodeRecord, type GhostSocketMapping, GhostSolidifyBar, type GhostSolidifyBarProps, GhostStore, type GhostStoreListener, GhostTraceLayer, type GhostTraceLayerProps, GhostTracePathBuilder, type GhostTraceRecord, type GraphEdge, type GraphListener, type GraphNode, type GraphSettings, GraphStore, GraphToolbar, type GraphToolbarProps, type GraphView, type Group, GroupSettingsResolver, type HandleCategory, type HandleDefinition, type HandleDescriptor, type HandleDirection, type HandleOffset, type HandlePosition, type HandleTypeDefinition, HandleTypeRegistry, type Landmark, LandmarkManager, MagneticTraceLayer, type MagneticTraceLayerProps, type MagneticTraceRecord, MidpointWidgets, type MidpointWidgetsProps, MovableSocketHandle, MovableSocketView, type MovableSocketViewProps, NodeCard, type NodeCardProps, type NodeDefinition, NodeDetailsPanel, type NodeDetailsPanelProps, NodeGraphCanvas, type NodeGraphCanvasProps, type NodeGraphConfig, type NodeGraphPlugin, type NodePosition, NodeSearchPalette, type NodeSearchPaletteProps, type NodeSize, PRIMITIVE_NODE_DEFINITIONS, ReactFlowAdapter, type ReactFlowEdgeData, type ReactFlowNodeData, type Socket, type SocketCoordOptions, type SocketCoordResult, type SocketType, SolidConnection, type SolidConnectionProps, SolidifyWidget, type SolidifyWidgetProps, SpatialEngine, type Trace, TraceEngine, type UseGhostRoutingParams, type UseMagneticTracesParams, ViewEngine, ViewHandle, ViewLink, type ViewLinkProps, ViewWindowManager, Viewer2DNodes, type Viewer2DNodesProps, type ViewportState, WireRenderer, type WireTypeDefinition, WireTypeRegistry, calculateSocketCoordinates, canvasToScreen, clampZoom, fitToView, getBeamPoints, getCenterPanForNode, getNodesInSelection, initializeDefaultGraphRules, isNodeInCenterDeadZone, screenToCanvas, useGhostRouting, useMagneticTraces, useNodeGraph, zoomAtPoint };

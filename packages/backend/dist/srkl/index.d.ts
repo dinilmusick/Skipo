@@ -65,7 +65,7 @@ interface AdaptedStorageConnection {
 /**
  * @file SrklClient.ts
  * @description Universal HTTP Client for querying SRKL Service Account Vaults.
- * Used across the ecosystem by client apps and gateway routers (e.g. Depm).
+ * Used across the ecosystem by client apps and gateway routers (e.g. Depm, DocuStack).
  * Strictly adheres to Skipo governance (< 200 lines).
  */
 
@@ -85,7 +85,9 @@ declare class SrklClient {
         status?: string;
     }>;
     getServices(types?: string[], options?: SrklEcosystemQueryOptions): Promise<SrklServiceAccount[]>;
-    getServiceById(id: string, options?: SrklEcosystemQueryOptions): Promise<SrklServiceAccount | null>;
+    getStorageConnections(userIdOverride?: string): Promise<any[]>;
+    getBackblazeBuckets(keyId: string, applicationKey: string): Promise<any[]>;
+    static filterRelevantServices(services: SrklServiceAccount[], allowedTypes: string[]): SrklServiceAccount[];
     static adaptToStorageConnection(account: SrklServiceAccount): AdaptedStorageConnection;
 }
 declare function createSrklClient(options?: SrklClientOptions): SrklClient;
@@ -93,7 +95,6 @@ declare function createSrklClient(options?: SrklClientOptions): SrklClient;
 /**
  * @file useSrklServices.ts
  * @description React Hook for discovering and consuming services from SRKL Vaults.
- * Used by client apps to reactively load credentials matching declared requirements.
  * Strictly adheres to Skipo governance (< 200 lines).
  */
 
@@ -111,7 +112,7 @@ interface UseSrklServicesResult {
     error: string | null;
     isConnected: boolean;
     latencyMs: number | null;
-    refetch: () => Promise<void>;
+    refetch: (force?: boolean) => Promise<void>;
     srklUrl: string;
     setSrklUrl: (url: string) => void;
     client: SrklClient;

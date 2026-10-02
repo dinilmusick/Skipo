@@ -21389,6 +21389,67 @@ var DOCUSTACK_CYBERPUNK_PACK = validateModularThemePack({
 });
 var docustack_cyberpunk_neon_default = DOCUSTACK_CYBERPUNK_PACK;
 
+// src/theme/appSocket.ts
+var DEPM_THEME_PACKS = [
+  DOCUSTACK_DARK_GOLD_PACK,
+  DOCUSTACK_WARM_COFFEE_PACK,
+  DOCUSTACK_CYBERPUNK_PACK
+];
+var depmThemeSocket = createAppThemeSocket({
+  appId: "depm",
+  appName: "DEPM Multi-Cloud Ecosystem Platform",
+  version: "1.0.0",
+  defaultThemePackId: "docustack-dark-gold",
+  elementIds: [
+    "canvas",
+    "topToolbar",
+    "bottomStrip",
+    "headerBar",
+    "workspaceTabBar",
+    "card",
+    "modalDialog",
+    "floatingPanel",
+    "buttonPrimary",
+    "buttonSecondary",
+    "buttonGhost",
+    "inputField",
+    "selectDropdown",
+    "badge",
+    "kanbanBoard",
+    "documentCard",
+    "graphCanvas",
+    "graphNodeRoot",
+    "graphNodeLeaf",
+    "graphEdge",
+    "codeEditor"
+  ],
+  elementDefaults: {
+    canvas: {
+      cssVars: {
+        "--skipo-bg": "#121214",
+        "--color-base": "#121214"
+      }
+    },
+    topToolbar: {
+      cssVars: {
+        "--skipo-top-toolbar-height": "44px",
+        "--skipo-top-toolbar-bg": "rgba(18, 18, 20, 0.95)"
+      }
+    },
+    bottomStrip: {
+      cssVars: {
+        "--skipo-bottom-strip-height": "30px",
+        "--skipo-bottom-strip-bg": "rgba(18, 18, 20, 0.95)"
+      }
+    }
+  }
+});
+var appThemeEngine = new ThemeEngine(
+  depmThemeSocket,
+  DEPM_THEME_PACKS,
+  "dark"
+);
+
 export {
   DEFAULT_DARK_THEME_PACK,
   DEFAULT_LIGHT_THEME_PACK,
@@ -21430,5 +21491,8 @@ export {
   DOCUSTACK_WARM_COFFEE_PACK,
   docustack_warm_coffee_default,
   DOCUSTACK_CYBERPUNK_PACK,
-  docustack_cyberpunk_neon_default
+  docustack_cyberpunk_neon_default,
+  DEPM_THEME_PACKS,
+  depmThemeSocket,
+  appThemeEngine
 };

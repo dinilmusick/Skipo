@@ -180,10 +180,10 @@ export const CopyableLogViewer: React.FC<CopyableLogViewerProps> = ({
         ) : (
           filteredLogs.map(log => (
             <div key={log.id} style={{ display: 'flex', gap: '8px', wordBreak: 'break-all' }}>
-              <span style={{ color: 'var(--skipo-text-muted, #555)', shrink: 0, fontSize: '10px' }}>
+              <span style={{ color: 'var(--skipo-text-muted, #555)', flexShrink: 0, fontSize: '10px' }}>
                 {log.timestamp}
               </span>
-              <span style={{ color: getLevelColor(log.level), fontWeight: 700, width: '42px', shrink: 0, fontSize: '10px' }}>
+              <span style={{ color: getLevelColor(log.level), fontWeight: 700, width: '42px', flexShrink: 0, fontSize: '10px' }}>
                 [{log.level?.toUpperCase()}]
               </span>
               <span style={{ flex: 1 }}>{log.message}</span>

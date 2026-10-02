@@ -28,7 +28,8 @@ $$\begin{array}{ll}
 \mathbf{L_{21}} \text{ (Zero-Trace Legacy Purge)} & \forall s_{\text{legacy}} \in \text{LegacySystems}: \text{CompetesWith}(\text{Skipo}, s_{\text{legacy}}) \implies \text{PurgeEntirely}(s_{\text{legacy}}) \wedge \text{Trace}(s_{\text{legacy}}) = \emptyset \\
 \mathbf{L_{22}} \text{ (Single Universal Build Pipeline)} & \text{Artifacts}(a) \equiv \{\text{dist/}, \text{api/index.js}\} \wedge \text{WranglerMain} \equiv \text{"api/index.js"} \wedge \text{EvalBanned}(a) \wedge \text{Lockfiles}(a) \equiv 1 \\
 \mathbf{L_{23}} \text{ (Zero-Drift State & Storage Immutability)} & \forall a \in \text{Apps}: \text{WorkspaceData}(a) \subset \text{"ultrst-users"}.\text{app\_profiles} \wedge \text{StorageConfig}(w) \text{ immutable} \wedge \text{LocalFSMissing}(w) \implies \text{DesaturateTile}(w) \\
-\mathbf{L_{24}} \text{ (Cloudflare Runtime & Asset Routing)} & \text{AssetsRunWorkerFirst} \equiv \text{true} \wedge \text{AssetPassthrough}(req) \wedge \neg\text{PathRewrite}(\text{"/index.html"}) \wedge \text{DefaultExport} \equiv \{\text{fetch}\}
+\mathbf{L_{24}} \text{ (Cloudflare Runtime & Asset Routing)} & \text{AssetsRunWorkerFirst} \equiv \text{true} \wedge \text{AssetPassthrough}(req) \wedge \neg\text{PathRewrite}(\text{"/index.html"}) \wedge \text{DefaultExport} \equiv \{\text{fetch}\} \\
+\mathbf{L_{25}} \text{ (Node Graph Spatial Purity & Zero-Toolbar Spawn)} & \forall g \in \text{NodeGraphs}: \text{SpawnMechanism}(g) \equiv \{\text{RightClick}(\text{CanvasContextMenu}), \text{Key}('N'), \text{WireDrag}(\text{CompatibleNodePicker})\} \wedge \text{TopToolbar}(\text{SpawnButtons}) = \emptyset \wedge \text{GhostRouting.enabled} \equiv \text{true} \wedge \text{MagneticTraces.enabled} \equiv \text{true}
 \end{array}$$
 
 ## 2. DETERMINISTIC AGENT EXECUTION ALGORITHM

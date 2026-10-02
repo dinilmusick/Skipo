@@ -63,7 +63,7 @@ export const ThemeSettingsSection: React.FC = () => {
         <div style={{ display: 'flex', gap: '8px' }}>
           <BaseButton
             size="sm"
-            variant={theme === 'dark' ? 'primary' : 'secondary'}
+            variant={theme === 'dark' ? 'accent' : 'secondary'}
             onClick={() => setTheme('dark')}
             type="button"
           >
@@ -71,7 +71,7 @@ export const ThemeSettingsSection: React.FC = () => {
           </BaseButton>
           <BaseButton
             size="sm"
-            variant={theme === 'light' ? 'primary' : 'secondary'}
+            variant={theme === 'light' ? 'accent' : 'secondary'}
             onClick={() => setTheme('light')}
             type="button"
           >

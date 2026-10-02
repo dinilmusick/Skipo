@@ -1,4 +1,4 @@
-export { AppThemeSocket, BlockquoteStyleDefinition, BlockquoteStyleSchema, CANONICAL_ELEMENTS, CodeStyleDefinition, CodeStyleSchema, DEFAULT_DARK_THEME_PACK, DEFAULT_LIGHT_THEME_PACK, DOCUSTACK_CYBERPUNK_PACK, DOCUSTACK_DARK_GOLD_PACK, DOCUSTACK_WARM_COFFEE_PACK, DOCUSTACK_CYBERPUNK_PACK as DocuStackCyberpunkPack, DOCUSTACK_DARK_GOLD_PACK as DocuStackDarkGoldPack, DOCUSTACK_WARM_COFFEE_PACK as DocuStackWarmCoffeePack, ElementStatusReport, HeadingLevelDefinition, HeadingLevelSchema, HorizontalRuleStyleSchema, LinkStyleDefinition, LinkStyleSchema, ListStyleDefinition, ListStyleSchema, MarkdownSectionStyles, MarkdownSectionStylesSchema, ModularThemePack, ModularThemePackSchema, ParagraphStyleDefinition, ParagraphStyleSchema, ResolvedTypographyCascade, SkipoSemanticTokens, SkipoSemanticTokensSchema, SkipoThemeContextValue, SkipoThemeMetadata, SkipoThemeMetadataSchema, SkipoThemePack, SkipoThemeProvider, SkipoThemeProviderProps, TableStyleDefinition, TableStyleSchema, ThemeApplicationState, ThemeEngine, ThemeEngineStatus, ThemeTypographyDefinition, ThemeTypographySchema, ThemeVariantDefinition, ThemeVariantDefinitionSchema, UIElementCategory, UIElementDefinition, UIElementThemeValue, UIElementThemeValueSchema, applyThemePack, centralLedger, createAppThemeSocket, getAllUIElements, getThemeEngineStatus, getUIElement, palettes, registerUIElement, resolveTypographyCascade, safeValidateModularThemePack, tokensToCssVariables, useSkipoTheme, validateModularThemePack, validateSocketElements, validateThemePack } from './theme/index.js';
+export { AppThemeSocket, BlockquoteStyleDefinition, BlockquoteStyleSchema, CANONICAL_ELEMENTS, CodeStyleDefinition, CodeStyleSchema, DEFAULT_DARK_THEME_PACK, DEFAULT_LIGHT_THEME_PACK, DEPM_THEME_PACKS, DOCUSTACK_CYBERPUNK_PACK, DOCUSTACK_DARK_GOLD_PACK, DOCUSTACK_WARM_COFFEE_PACK, DOCUSTACK_CYBERPUNK_PACK as DocuStackCyberpunkPack, DOCUSTACK_DARK_GOLD_PACK as DocuStackDarkGoldPack, DOCUSTACK_WARM_COFFEE_PACK as DocuStackWarmCoffeePack, ElementStatusReport, HeadingLevelDefinition, HeadingLevelSchema, HorizontalRuleStyleSchema, LinkStyleDefinition, LinkStyleSchema, ListStyleDefinition, ListStyleSchema, MarkdownSectionStyles, MarkdownSectionStylesSchema, ModularThemePack, ModularThemePackSchema, ParagraphStyleDefinition, ParagraphStyleSchema, ResolvedTypographyCascade, SkipoSemanticTokens, SkipoSemanticTokensSchema, SkipoThemeContextValue, SkipoThemeMetadata, SkipoThemeMetadataSchema, SkipoThemePack, SkipoThemeProvider, SkipoThemeProviderProps, TableStyleDefinition, TableStyleSchema, ThemeApplicationState, ThemeEngine, ThemeEngineStatus, ThemeTypographyDefinition, ThemeTypographySchema, ThemeVariantDefinition, ThemeVariantDefinitionSchema, UIElementCategory, UIElementDefinition, UIElementThemeValue, UIElementThemeValueSchema, appThemeEngine, applyThemePack, centralLedger, createAppThemeSocket, depmThemeSocket, getAllUIElements, getThemeEngineStatus, getUIElement, palettes, registerUIElement, resolveTypographyCascade, safeValidateModularThemePack, tokensToCssVariables, useSkipoTheme, validateModularThemePack, validateSocketElements, validateThemePack } from './theme/index.js';
 import * as React$1 from 'react';
 import React__default from 'react';
 import 'zod';
@@ -248,6 +248,22 @@ interface SearchableListProps<T> {
 }
 declare function SearchableList<T>({ items, getItemKey, renderItem, onSelect, onClose, placeholder, filterFn, emptyMessage, maxHeight, className, autoFocus }: SearchableListProps<T>): React__default.JSX.Element;
 
+interface LogEntry {
+    id?: string;
+    level?: 'info' | 'warn' | 'error';
+    message: string;
+    timestamp?: string;
+}
+interface CopyableLogViewerProps {
+    logs: Array<string | LogEntry>;
+    title?: string;
+    maxHeight?: string | number;
+    autoScroll?: boolean;
+    className?: string;
+    onClear?: () => void;
+}
+declare const CopyableLogViewer: React__default.FC<CopyableLogViewerProps>;
+
 interface BottomStripProps extends React__default.HTMLAttributes<HTMLElement> {
     leftSlot?: React__default.ReactNode;
     centerSlot?: React__default.ReactNode;
@@ -366,4 +382,15 @@ interface SystemMessageDisplayProps extends React__default.HTMLAttributes<HTMLDi
 }
 declare const SystemMessageDisplay: React__default.FC<SystemMessageDisplayProps>;
 
-export { ApiCallIndicator, type ApiCallIndicatorProps, AppShell, type AppShellProps, type AutoSaveStatus, AutoSaveToggle, type AutoSaveToggleProps, BaseBadge, type BaseBadgeProps, BaseButton, type BaseButtonProps, BaseCard, type BaseCardProps, BaseInput, type BaseInputProps, BaseSelect, type BaseSelectProps, BaseTextarea, type BaseTextareaProps, BaseToggle, type BaseToggleProps, BaseTooltip, type BaseTooltipProps, BottomStrip, type BottomStripContextValue, type BottomStripProps, BottomStripProvider, type BottomStripProviderProps, BreadcrumbNav, type BreadcrumbNavProps, ConfirmDialog, type ConfirmDialogProps, CopyableErrorAlert, type CopyableErrorAlertProps, CredentialField, type CredentialFieldProps, DEFAULT_PANEL_GEOMETRY, DrawerContainer, type DrawerContainerProps, EmptyState, type EmptyStateProps, FloatingDetailsPanel, type FloatingDetailsPanelProps, HeaderBar, type HeaderBarProps, IconOnlyButton, type IconOnlyButtonProps, KNOWN_CREDENTIAL_URLS, LoadingOverlay, ModalContainer, type ModalContainerProps, PageContainer, type PageContainerProps, PanelContainer, type PanelGeometry, type ResizeDirection, ResizeHandles, type ResizeHandlesProps, SearchInput, SearchableList, type SearchableListProps, SectionContainer, type SectionContainerProps, SidebarContainer, type SidebarContainerProps, SplitContainer, type SplitContainerProps, StatusIndicator, type StatusIndicatorProps, StatusLight, type StatusLightProps, type SystemMessage, SystemMessageDisplay, type SystemMessageDisplayProps, type SystemMessageType, TabContainer, type TabContainerProps, TopToolbar, type TopToolbarProps, type TopToolbarTab, type UseSearchKeyboardNavigationOptions, useBottomStrip, usePanelGeometry, usePanelInteraction, useSearchKeyboardNavigation };
+declare const ThemeSettingsSection: React__default.FC;
+
+interface SettingsTabProps {
+    appName?: string;
+    version?: string;
+    systemLogs?: string[];
+    activeWorkspaceName?: string;
+    onResetDefaults?: () => void;
+}
+declare const SettingsTab: React__default.FC<SettingsTabProps>;
+
+export { ApiCallIndicator, type ApiCallIndicatorProps, AppShell, type AppShellProps, type AutoSaveStatus, AutoSaveToggle, type AutoSaveToggleProps, BaseBadge, type BaseBadgeProps, BaseButton, type BaseButtonProps, BaseCard, type BaseCardProps, BaseInput, type BaseInputProps, BaseSelect, type BaseSelectProps, BaseTextarea, type BaseTextareaProps, BaseToggle, type BaseToggleProps, BaseTooltip, type BaseTooltipProps, BottomStrip, type BottomStripContextValue, type BottomStripProps, BottomStripProvider, type BottomStripProviderProps, BreadcrumbNav, type BreadcrumbNavProps, ConfirmDialog, type ConfirmDialogProps, CopyableErrorAlert, type CopyableErrorAlertProps, CopyableLogViewer, type CopyableLogViewerProps, CredentialField, type CredentialFieldProps, DEFAULT_PANEL_GEOMETRY, DrawerContainer, type DrawerContainerProps, EmptyState, type EmptyStateProps, FloatingDetailsPanel, type FloatingDetailsPanelProps, HeaderBar, type HeaderBarProps, IconOnlyButton, type IconOnlyButtonProps, KNOWN_CREDENTIAL_URLS, LoadingOverlay, type LogEntry, ModalContainer, type ModalContainerProps, PageContainer, type PageContainerProps, PanelContainer, type PanelGeometry, type ResizeDirection, ResizeHandles, type ResizeHandlesProps, SearchInput, SearchableList, type SearchableListProps, SectionContainer, type SectionContainerProps, SettingsTab, type SettingsTabProps, SidebarContainer, type SidebarContainerProps, SplitContainer, type SplitContainerProps, StatusIndicator, type StatusIndicatorProps, StatusLight, type StatusLightProps, type SystemMessage, SystemMessageDisplay, type SystemMessageDisplayProps, type SystemMessageType, TabContainer, type TabContainerProps, ThemeSettingsSection, TopToolbar, type TopToolbarProps, type TopToolbarTab, type UseSearchKeyboardNavigationOptions, useBottomStrip, usePanelGeometry, usePanelInteraction, useSearchKeyboardNavigation };

@@ -1,4 +1,5 @@
 // src/srkl/SrklClient.ts
+var CANONICAL_SRKL_URL = "https://srkl-engine.vercel.app";
 var SrklClient = class {
   baseUrl;
   userId;
@@ -6,7 +7,7 @@ var SrklClient = class {
   workspaceId;
   getAuthHeadersCustom;
   constructor(options = {}) {
-    this.baseUrl = (options.srklUrl || "http://localhost:3001").replace(/\/+$/, "");
+    this.baseUrl = (options.srklUrl || CANONICAL_SRKL_URL).replace(/\/+$/, "");
     this.userId = options.userId || "usr-anon";
     this.token = options.token;
     this.workspaceId = options.workspaceId;
@@ -39,7 +40,7 @@ var SrklClient = class {
       const latencyMs = Date.now() - start;
       if (!res.ok) return { ok: false, latencyMs };
       const data = await res.json();
-      return { ok: true, latencyMs, status: data?.status };
+      return { ok: true, latencyMs, status: data.status };
     } catch {
       return { ok: false, latencyMs: Date.now() - start };
     }
@@ -61,18 +62,30 @@ var SrklClient = class {
     const data = await res.json();
     return data.services || [];
   }
-  async getServiceById(id, options = {}) {
-    const wsId = options.workspaceId || this.workspaceId;
-    const url = new URL(`${this.baseUrl}/api/ecosystem/services/${encodeURIComponent(id)}`);
-    if (wsId) url.searchParams.set("workspaceId", wsId);
-    const res = await fetch(url.toString(), {
+  async getStorageConnections(userIdOverride) {
+    const headers = this.buildHeaders();
+    if (userIdOverride) headers["x-user-id"] = userIdOverride;
+    const res = await fetch(`${this.baseUrl}/api/workspaces/storage/connections`, {
       method: "GET",
-      headers: this.buildHeaders()
+      headers
     });
-    if (res.status === 404) return null;
-    if (!res.ok) throw new Error(`SRKL service lookup failed (${res.status})`);
+    if (!res.ok) throw new Error(`SRKL storage connections query failed (${res.status})`);
     const data = await res.json();
-    return data?.service || null;
+    return Array.isArray(data.connections) ? data.connections : [];
+  }
+  async getBackblazeBuckets(keyId, applicationKey) {
+    const res = await fetch(`${this.baseUrl}/api/backblaze/buckets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keyId, applicationKey })
+    });
+    if (!res.ok) throw new Error(`SRKL bucket listing failed (${res.status})`);
+    const data = await res.json();
+    return data.buckets || [];
+  }
+  static filterRelevantServices(services, allowedTypes) {
+    const normalized = allowedTypes.map((t) => t.toLowerCase());
+    return services.filter((s) => normalized.includes((s.serviceId || "").toLowerCase()));
   }
   static adaptToStorageConnection(account) {
     const creds = account.credentials || {};
@@ -104,35 +117,24 @@ function createSrklClient(options = {}) {
 }
 
 // src/srkl/useSrklServices.ts
-import { useState, useEffect, useCallback, useMemo } from "react";
-function getStoredSrklUrl(fallback) {
-  try {
-    const storage = globalThis?.localStorage;
-    if (storage && typeof storage.getItem === "function") {
-      return storage.getItem("srkl_endpoint_url") || fallback;
-    }
-  } catch {
-  }
-  return fallback;
-}
-function persistSrklUrl(url) {
-  try {
-    const storage = globalThis?.localStorage;
-    if (storage && typeof storage.setItem === "function") {
-      storage.setItem("srkl_endpoint_url", url);
-    }
-  } catch {
-  }
-}
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 function useSrklServices(options) {
   const { declaredTypes, userId, token, workspaceId, autoFetch = true } = options;
-  const initialUrl = options.srklUrl || getStoredSrklUrl("http://localhost:3001");
+  const getStoredUrl = () => {
+    try {
+      return globalThis?.localStorage?.getItem("srkl_endpoint_url") || null;
+    } catch {
+      return null;
+    }
+  };
+  const initialUrl = options.srklUrl || getStoredUrl() || CANONICAL_SRKL_URL;
   const [srklUrl, setSrklUrlState] = useState(initialUrl);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [latencyMs, setLatencyMs] = useState(null);
+  const hasFetchedRef = useRef(false);
   const client = useMemo(
     () => new SrklClient({ srklUrl, userId, token, workspaceId }),
     [srklUrl, userId, token, workspaceId]
@@ -140,10 +142,15 @@ function useSrklServices(options) {
   const setSrklUrl = useCallback((url) => {
     const clean = url.trim().replace(/\/+$/, "");
     setSrklUrlState(clean);
-    persistSrklUrl(clean);
+    try {
+      globalThis?.localStorage?.setItem("srkl_endpoint_url", clean);
+    } catch {
+    }
   }, []);
-  const refetch = useCallback(async () => {
+  const refetch = useCallback(async (force = false) => {
     if (!declaredTypes || declaredTypes.length === 0) return;
+    if (hasFetchedRef.current && !force) return;
+    hasFetchedRef.current = true;
     setLoading(true);
     setError(null);
     const health = await client.checkHealth();
@@ -156,7 +163,8 @@ function useSrklServices(options) {
     }
     try {
       const data = await client.getServices(declaredTypes);
-      setServices(data);
+      const filtered = SrklClient.filterRelevantServices(data, declaredTypes);
+      setServices(filtered);
     } catch (err) {
       setError(err.message || "Failed to fetch services from SRKL");
       setServices([]);

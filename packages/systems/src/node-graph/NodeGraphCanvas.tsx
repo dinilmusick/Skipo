@@ -12,7 +12,9 @@ import { NodeSearchPalette } from './ui/widgets/NodeSearchPalette.js';
 import { CanvasContextMenu } from './ui/widgets/CanvasContextMenu.js';
 import { ConnectionRuleStore } from './rules/ConnectionRuleStore.js';
 import { useGhostRouting } from './useGhostRouting.js';
+import { useMagneticTraces } from './spatial/useMagneticTraces.js';
 import { GhostTraceLayer, GhostNodeCard, GhostSolidifyBar } from './ui/ghost/index.js';
+import { MagneticTraceLayer } from './ui/widgets/MagneticTraceLayer.js';
 
 export interface NodeGraphCanvasProps {
   nodes: GraphNode[];
@@ -42,12 +44,29 @@ export function NodeGraphCanvas({
   onSelectionChange
 }: NodeGraphCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Initialize central rules store and default primitive nodes
+  useEffect(() => {
+    if (!ConnectionRuleStore.isInitialized()) ConnectionRuleStore.initializeDefaults();
+  }, []);
+
+  const effectiveNodeTypes = availableNodeTypes && availableNodeTypes.length > 0
+    ? availableNodeTypes
+    : ConnectionRuleStore.listNodeTypes();
+
+  const magnetic = useMagneticTraces({
+    nodes,
+    edges,
+    config,
+    onEdgesChange
+  });
+
   const ghost = useGhostRouting({
     nodes,
     edges,
     selectedNodeIds,
     config,
-    availableNodeTypes,
+    availableNodeTypes: effectiveNodeTypes,
     onNodesChange,
     onEdgesChange
   });
@@ -236,6 +255,9 @@ export function NodeGraphCanvas({
     }
     // When dragging a node (hasDraggedNode.current is true): DO NOT auto-pan! Camera stays put.
 
+    if (hasDraggedNode.current && config?.autoSolidify) {
+      magnetic.solidifyAll();
+    }
     nodeMouseDownPos.current = null;
     hasDraggedNode.current = false;
     setDragNodeId(null);
@@ -334,7 +356,7 @@ export function NodeGraphCanvas({
       const id = `node-${Date.now()}-${idx}`;
       const posX = graphX + idx * 200;
       const posY = graphY + idx * 40;
-      const def = availableNodeTypes?.find(d => d.type === type) || ConnectionRuleStore.getNodeType(type);
+      const def = effectiveNodeTypes.find(d => d.type === type) || ConnectionRuleStore.getNodeType(type);
       const isSourceOut = sourceHandle.direction === 'output';
       const inputs = def?.inputs?.map(i => ({ id: i.id, label: i.label || i.id, type: 'input' as const, dataType: i.dataType })) ?? [{ id: 'in-1', label: 'In', type: 'input' as const, dataType: sourceHandle.dataType || 'ANY' }];
       const outputs = def?.outputs?.map(o => ({ id: o.id, label: o.label || o.id, type: 'output' as const, dataType: o.dataType })) ?? [{ id: 'out-1', label: 'Out', type: 'output' as const, dataType: sourceHandle.dataType || 'ANY' }];
@@ -354,7 +376,7 @@ export function NodeGraphCanvas({
     onNodesChange([...nodes, ...newNodes]);
     if (newEdges.length > 0) onEdgesChange?.([...edges, ...newEdges]);
     setPickerState(null);
-  }, [pickerState, nodes, edges, availableNodeTypes, onNodesChange, onEdgesChange]);
+  }, [pickerState, nodes, edges, effectiveNodeTypes, onNodesChange, onEdgesChange]);
 
   const handleSocketNudgeChange = (nodeId: string, socketId: string, nudge: { x: number; y: number }) => {
     if (!onNodesChange) return;
@@ -396,6 +418,9 @@ export function NodeGraphCanvas({
     >
       <WireRenderer edges={edges} nodesData={nodesData} connecting={connecting ? { startX: connecting.startX, startY: connecting.startY, endX: connecting.endX, endY: connecting.endY } : null} />
       <div style={{ position: 'absolute', top: 0, left: 0, transformOrigin: '0 0', transform: `translate(${viewport.panX}px, ${viewport.panY}px) scale(${viewport.zoom})` }}>
+        {magnetic.isEnabled && (
+          <MagneticTraceLayer traces={magnetic.traces} onSolidify={magnetic.solidifyTrace} />
+        )}
         {ghost.isActive && (
           <>
             <GhostTraceLayer traces={ghost.activeGhostTraces} hoveredGhostId={ghost.hoveredGhostId} />
@@ -435,13 +460,13 @@ export function NodeGraphCanvas({
         <div style={{ position: 'absolute', left: Math.min(boxSelection.startX, boxSelection.endX), top: Math.min(boxSelection.startY, boxSelection.endY), width: Math.abs(boxSelection.endX - boxSelection.startX), height: Math.abs(boxSelection.endY - boxSelection.startY), backgroundColor: 'rgba(97, 175, 239, 0.18)', border: '1px solid var(--skipo-accent, #61afef)', pointerEvents: 'none' }} />
       )}
       {pickerState && (
-        <CompatibleNodePicker x={pickerState.x} y={pickerState.y} sourceHandle={pickerState.sourceHandle} availableNodeTypes={availableNodeTypes} onSelect={handlePickerSelect} onClose={() => setPickerState(null)} />
+        <CompatibleNodePicker x={pickerState.x} y={pickerState.y} sourceHandle={pickerState.sourceHandle} availableNodeTypes={effectiveNodeTypes} onSelect={handlePickerSelect} onClose={() => setPickerState(null)} />
       )}
       {contextMenu && (
         <CanvasContextMenu
-          x={contextMenu.x} y={contextMenu.y} availableNodeTypes={availableNodeTypes} hasSelection={selectedNodeIds.size > 0}
+          x={contextMenu.x} y={contextMenu.y} availableNodeTypes={effectiveNodeTypes} hasSelection={selectedNodeIds.size > 0}
           onSpawnNode={(type) => {
-            const def = availableNodeTypes?.find(d => d.type === type) || ConnectionRuleStore.getNodeType(type);
+            const def = effectiveNodeTypes.find(d => d.type === type) || ConnectionRuleStore.getNodeType(type);
             const id = `node-${Date.now()}`;
             const inputs = def?.inputs?.map(i => ({ id: i.id, label: i.label || i.id, type: 'input' as const, dataType: i.dataType })) ?? [{ id: 'in-1', label: 'In', type: 'input' as const }];
             const outputs = def?.outputs?.map(o => ({ id: o.id, label: o.label || o.id, type: 'output' as const, dataType: o.dataType })) ?? [{ id: 'out-1', label: 'Out', type: 'output' as const }];
@@ -469,9 +494,9 @@ export function NodeGraphCanvas({
         <NodeSearchPalette
           x={spawnMenuState.x}
           y={spawnMenuState.y}
-          availableNodeTypes={availableNodeTypes}
+          availableNodeTypes={effectiveNodeTypes}
           onSpawnNode={(type) => {
-            const def = availableNodeTypes?.find(d => d.type === type) || ConnectionRuleStore.getNodeType(type);
+            const def = effectiveNodeTypes.find(d => d.type === type) || ConnectionRuleStore.getNodeType(type);
             const id = `node-${Date.now()}`;
             const inputs = def?.inputs?.map(i => ({ id: i.id, label: i.label || i.id, type: 'input' as const, dataType: i.dataType })) ?? [{ id: 'in-1', label: 'In', type: 'input' as const }];
             const outputs = def?.outputs?.map(o => ({ id: o.id, label: o.label || o.id, type: 'output' as const, dataType: o.dataType })) ?? [{ id: 'out-1', label: 'Out', type: 'output' as const }];

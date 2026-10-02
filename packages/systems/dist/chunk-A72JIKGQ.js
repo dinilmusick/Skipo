@@ -343,6 +343,43 @@ function renderNodeEmblem(type) {
       /* @__PURE__ */ jsx3("path", { d: "M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" })
     ] });
   }
+  if (t.includes("number") || t.includes("math")) {
+    return /* @__PURE__ */ jsxs3("svg", { width: "38", height: "38", viewBox: "0 0 24 24", fill: "none", stroke: "var(--skipo-accent, #61afef)", strokeWidth: "1.8", children: [
+      /* @__PURE__ */ jsx3("line", { x1: "4", y1: "9", x2: "20", y2: "9" }),
+      /* @__PURE__ */ jsx3("line", { x1: "4", y1: "15", x2: "20", y2: "15" }),
+      /* @__PURE__ */ jsx3("line", { x1: "10", y1: "3", x2: "8", y2: "21" }),
+      /* @__PURE__ */ jsx3("line", { x1: "16", y1: "3", x2: "14", y2: "21" })
+    ] });
+  }
+  if (t.includes("string") || t.includes("text")) {
+    return /* @__PURE__ */ jsxs3("svg", { width: "38", height: "38", viewBox: "0 0 24 24", fill: "none", stroke: "#98c379", strokeWidth: "1.8", children: [
+      /* @__PURE__ */ jsx3("polyline", { points: "4 7 4 4 20 4 20 7" }),
+      /* @__PURE__ */ jsx3("line", { x1: "9", y1: "20", x2: "15", y2: "20" }),
+      /* @__PURE__ */ jsx3("line", { x1: "12", y1: "4", x2: "12", y2: "20" })
+    ] });
+  }
+  if (t.includes("bool") || t.includes("toggle")) {
+    return /* @__PURE__ */ jsxs3("svg", { width: "38", height: "38", viewBox: "0 0 24 24", fill: "none", stroke: "#e5c07b", strokeWidth: "1.8", children: [
+      /* @__PURE__ */ jsx3("rect", { x: "1", y: "5", width: "22", height: "14", rx: "7", ry: "7" }),
+      /* @__PURE__ */ jsx3("circle", { cx: "16", cy: "12", r: "3", fill: "#e5c07b" })
+    ] });
+  }
+  if (t.includes("vector") || t.includes("vec")) {
+    return /* @__PURE__ */ jsxs3("svg", { width: "38", height: "38", viewBox: "0 0 24 24", fill: "none", stroke: "#56b6c2", strokeWidth: "1.8", children: [
+      /* @__PURE__ */ jsx3("path", { d: "M5 19L19 5" }),
+      /* @__PURE__ */ jsx3("polyline", { points: "9 5 19 5 19 15" })
+    ] });
+  }
+  if (t.includes("color")) {
+    return /* @__PURE__ */ jsx3("svg", { width: "38", height: "38", viewBox: "0 0 24 24", fill: "none", stroke: "#e06c75", strokeWidth: "1.8", children: /* @__PURE__ */ jsx3("path", { d: "M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" }) });
+  }
+  if (t.includes("display") || t.includes("view") || t.includes("out")) {
+    return /* @__PURE__ */ jsxs3("svg", { width: "38", height: "38", viewBox: "0 0 24 24", fill: "none", stroke: "#c678dd", strokeWidth: "1.8", children: [
+      /* @__PURE__ */ jsx3("rect", { x: "2", y: "3", width: "20", height: "14", rx: "2" }),
+      /* @__PURE__ */ jsx3("line", { x1: "8", y1: "21", x2: "16", y2: "21" }),
+      /* @__PURE__ */ jsx3("line", { x1: "12", y1: "17", x2: "12", y2: "21" })
+    ] });
+  }
   return /* @__PURE__ */ jsxs3("svg", { width: "38", height: "38", viewBox: "0 0 24 24", fill: "none", stroke: "var(--skipo-accent, #61afef)", strokeWidth: "1.8", children: [
     /* @__PURE__ */ jsx3("rect", { x: "3", y: "3", width: "18", height: "18", rx: "3" }),
     /* @__PURE__ */ jsx3("circle", { cx: "12", cy: "12", r: "4" })
@@ -617,7 +654,7 @@ function useNodeGraph(initialNodes = [], initialEdges = []) {
 }
 
 // src/node-graph/NodeGraphCanvas.tsx
-import { useRef as useRef3, useState as useState6, useEffect, useCallback as useCallback2 } from "react";
+import { useRef as useRef4, useState as useState7, useEffect as useEffect2, useCallback as useCallback4 } from "react";
 
 // src/node-graph/ui/widgets/CompatibleNodePicker.tsx
 import { useState as useState4, useMemo } from "react";
@@ -706,7 +743,7 @@ var WireTypeRegistry = class {
 
 // src/node-graph/rules/DefaultRules.ts
 function initializeDefaultGraphRules() {
-  const types = ["STRING", "NUMBER", "BOOLEAN", "OBJECT", "ARRAY", "ANY"];
+  const types = ["STRING", "NUMBER", "BOOLEAN", "VECTOR2", "COLOR", "OBJECT", "ARRAY", "ANY"];
   for (const t of types) {
     HandleTypeRegistry.register({ dataType: t, category: "DATA" });
   }
@@ -715,6 +752,8 @@ function initializeDefaultGraphRules() {
   WireTypeRegistry.register({ wireType: "STRING", color: "#98c379", strokeWidth: 2.5, style: "bezier" });
   WireTypeRegistry.register({ wireType: "NUMBER", color: "#61afef", strokeWidth: 2.5, style: "bezier" });
   WireTypeRegistry.register({ wireType: "BOOLEAN", color: "#e5c07b", strokeWidth: 2.5, style: "bezier" });
+  WireTypeRegistry.register({ wireType: "VECTOR2", color: "#56b6c2", strokeWidth: 2.5, style: "bezier" });
+  WireTypeRegistry.register({ wireType: "COLOR", color: "#e06c75", strokeWidth: 2.5, style: "bezier" });
   WireTypeRegistry.register({ wireType: "OBJECT", color: "#c678dd", strokeWidth: 2.5, style: "bezier" });
   WireTypeRegistry.register({ wireType: "ARRAY", color: "#e06c75", strokeWidth: 2.5, style: "bezier" });
   WireTypeRegistry.register({ wireType: "VIEW", color: "#c678dd", strokeWidth: 2, dashArray: "5,5", style: "bezier" });
@@ -749,6 +788,90 @@ function initializeDefaultGraphRules() {
   });
 }
 
+// src/node-graph/domain/primitives/PrimitiveNodeDefs.ts
+var PRIMITIVE_NODE_DEFINITIONS = [
+  {
+    type: "primitive-number",
+    label: "Number",
+    description: "Outputs a numerical constant or variable",
+    inputs: [
+      { id: "in", label: "Val", category: "DATA", dataType: "NUMBER", direction: "INPUT", connectionMode: "SINGLE" }
+    ],
+    outputs: [
+      { id: "out", label: "Num", category: "DATA", dataType: "NUMBER", direction: "OUTPUT", connectionMode: "MULTI" }
+    ],
+    metadata: { isPrimitive: true, defaultValue: 0 }
+  },
+  {
+    type: "primitive-string",
+    label: "String",
+    description: "Outputs a text string constant",
+    inputs: [
+      { id: "in", label: "Val", category: "DATA", dataType: "STRING", direction: "INPUT", connectionMode: "SINGLE" }
+    ],
+    outputs: [
+      { id: "out", label: "Str", category: "DATA", dataType: "STRING", direction: "OUTPUT", connectionMode: "MULTI" }
+    ],
+    metadata: { isPrimitive: true, defaultValue: "" }
+  },
+  {
+    type: "primitive-boolean",
+    label: "Boolean",
+    description: "Outputs a boolean true/false toggle state",
+    inputs: [
+      { id: "in", label: "Toggle", category: "DATA", dataType: "BOOLEAN", direction: "INPUT", connectionMode: "SINGLE" }
+    ],
+    outputs: [
+      { id: "out", label: "Bool", category: "DATA", dataType: "BOOLEAN", direction: "OUTPUT", connectionMode: "MULTI" }
+    ],
+    metadata: { isPrimitive: true, defaultValue: false }
+  },
+  {
+    type: "primitive-vector2",
+    label: "Vector2",
+    description: "2D coordinates (X, Y)",
+    inputs: [
+      { id: "x", label: "X", category: "DATA", dataType: "NUMBER", direction: "INPUT", connectionMode: "SINGLE" },
+      { id: "y", label: "Y", category: "DATA", dataType: "NUMBER", direction: "INPUT", connectionMode: "SINGLE" }
+    ],
+    outputs: [
+      { id: "vec", label: "Vec2", category: "DATA", dataType: "VECTOR2", direction: "OUTPUT", connectionMode: "MULTI" }
+    ],
+    metadata: { isPrimitive: true, defaultValue: { x: 0, y: 0 } }
+  },
+  {
+    type: "primitive-color",
+    label: "Color",
+    description: "Color swatch or hex code",
+    outputs: [
+      { id: "color", label: "Color", category: "DATA", dataType: "COLOR", direction: "OUTPUT", connectionMode: "MULTI" }
+    ],
+    metadata: { isPrimitive: true, defaultValue: "#61afef" }
+  },
+  {
+    type: "primitive-math",
+    label: "Math",
+    description: "Arithmetic operator on two numbers",
+    inputs: [
+      { id: "a", label: "A", category: "DATA", dataType: "NUMBER", direction: "INPUT", connectionMode: "SINGLE" },
+      { id: "b", label: "B", category: "DATA", dataType: "NUMBER", direction: "INPUT", connectionMode: "SINGLE" }
+    ],
+    outputs: [
+      { id: "result", label: "Out", category: "DATA", dataType: "NUMBER", direction: "OUTPUT", connectionMode: "MULTI" }
+    ],
+    metadata: { isPrimitive: true, operation: "add" }
+  },
+  {
+    type: "primitive-display",
+    label: "Display",
+    description: "Displays input value in realtime",
+    inputs: [
+      { id: "in", label: "In", category: "DATA", dataType: "ANY", direction: "INPUT", connectionMode: "SINGLE" }
+    ],
+    metadata: { isPrimitive: true }
+  }
+];
+
 // src/node-graph/rules/ConnectionRuleStore.ts
 var ConnectionRuleStore = class {
   static nodeTypes = /* @__PURE__ */ new Map();
@@ -756,6 +879,7 @@ var ConnectionRuleStore = class {
   static initialized = false;
   static initializeDefaults() {
     initializeDefaultGraphRules();
+    this.registerNodeTypes(PRIMITIVE_NODE_DEFINITIONS);
     this.initialized = true;
     this.notify();
   }
@@ -1333,8 +1457,986 @@ function CanvasContextMenu({
   );
 }
 
+// src/node-graph/useGhostRouting.ts
+import { useEffect, useState as useState6, useCallback as useCallback2, useRef as useRef3 } from "react";
+
+// src/node-graph/store/GhostStore.ts
+var GhostStore = class _GhostStore {
+  static instance = null;
+  isActive = false;
+  ghostNodes = [];
+  ghostTraces = [];
+  scenarioIndex = 0;
+  hoveredGhostId = null;
+  sourceNodeIds = [];
+  listeners = /* @__PURE__ */ new Set();
+  static getInstance() {
+    if (!this.instance) {
+      this.instance = new _GhostStore();
+    }
+    return this.instance;
+  }
+  subscribe(listener) {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+  notify() {
+    for (const listener of this.listeners) {
+      listener();
+    }
+  }
+  setPredictions(nodes, traces, sourceNodeIds) {
+    this.ghostNodes = nodes;
+    this.ghostTraces = traces;
+    this.sourceNodeIds = [...sourceNodeIds];
+    this.isActive = nodes.length > 0;
+    this.scenarioIndex = 0;
+    this.hoveredGhostId = null;
+    this.notify();
+  }
+  cycleScenario(maxScenarios = 3) {
+    if (this.ghostNodes.length === 0) return;
+    const available = new Set(this.ghostNodes.map((n) => n.scenarioIndex));
+    const count = Math.max(available.size, maxScenarios);
+    this.scenarioIndex = (this.scenarioIndex + 1) % count;
+    this.notify();
+  }
+  setHoveredGhostId(id) {
+    if (this.hoveredGhostId !== id) {
+      this.hoveredGhostId = id;
+      this.notify();
+    }
+  }
+  getActiveGhostNodes() {
+    return this.ghostNodes.filter((n) => n.scenarioIndex === this.scenarioIndex);
+  }
+  getActiveGhostTraces() {
+    return this.ghostTraces.filter((t) => t.scenarioIndex === this.scenarioIndex);
+  }
+  clear() {
+    this.isActive = false;
+    this.ghostNodes = [];
+    this.ghostTraces = [];
+    this.scenarioIndex = 0;
+    this.hoveredGhostId = null;
+    this.sourceNodeIds = [];
+    this.notify();
+  }
+};
+
+// src/node-graph/spatial/prediction/GhostInferenceEngine.ts
+var GhostInferenceEngine = class {
+  static inferNextNodes(selectedNodes, allNodeDefs, options = {}) {
+    if (selectedNodes.length === 0 || allNodeDefs.length === 0) {
+      return [];
+    }
+    const scenarioCount = Math.max(1, options.scenarioCount ?? 3);
+    const maxSuggestions = options.maxSuggestionsPerNode ?? 2;
+    const candidates = [];
+    for (const sourceNode of selectedNodes) {
+      const outputSockets = sourceNode.outputs ?? [];
+      if (outputSockets.length === 0) continue;
+      const scoredDefs = [];
+      for (const def of allNodeDefs) {
+        if (def.type === sourceNode.type) continue;
+        const mappings = this.resolveSocketMappings(outputSockets, def);
+        if (mappings.length === 0) continue;
+        let score = mappings.length * 10;
+        if (options.customScorer) {
+          score += options.customScorer(sourceNode.type, def.type);
+        } else {
+          score += this.computeAffinityScore(sourceNode.type, def.type);
+        }
+        scoredDefs.push({ def, mappings, score });
+      }
+      scoredDefs.sort((a, b) => b.score - a.score);
+      for (let sIdx = 0; sIdx < scenarioCount; sIdx++) {
+        const slice = scoredDefs.slice(sIdx * maxSuggestions, (sIdx + 1) * maxSuggestions);
+        for (let i = 0; i < slice.length; i++) {
+          const match = slice[i];
+          const yOffset = (i - (slice.length - 1) / 2) * 140;
+          candidates.push({
+            id: `ghost-${sourceNode.id}-${match.def.type}-s${sIdx}-${i}`,
+            nodeType: match.def.type,
+            label: match.def.label || match.def.type,
+            scenarioIndex: sIdx,
+            score: match.score,
+            sourceNodeId: sourceNode.id,
+            socketMappings: match.mappings,
+            relativeOffset: { x: 260, y: yOffset }
+          });
+        }
+      }
+    }
+    return candidates;
+  }
+  static resolveSocketMappings(sourceOutputs, targetDef) {
+    const mappings = [];
+    const targetInputs = targetDef.inputs ?? [];
+    for (const outSocket of sourceOutputs) {
+      const matchingInput = targetInputs.find((inp) => {
+        return ConnectionRuleStore.canConnect(
+          { dataType: outSocket.dataType || "ANY", direction: "OUTPUT", handleCategory: "DATA" },
+          { dataType: inp.dataType || "ANY", direction: "INPUT", handleCategory: "DATA" }
+        );
+      });
+      if (matchingInput) {
+        const resolution = ConnectionRuleStore.resolve(
+          { dataType: outSocket.dataType || "ANY", direction: "OUTPUT", handleCategory: "DATA" },
+          { dataType: matchingInput.dataType || "ANY", direction: "INPUT", handleCategory: "DATA" }
+        );
+        mappings.push({
+          sourceSocketId: outSocket.id,
+          targetSocketId: matchingInput.id,
+          wireType: resolution.wireType || "DEFAULT"
+        });
+      }
+    }
+    return mappings;
+  }
+  static computeAffinityScore(sourceType, targetType) {
+    const s = sourceType.toLowerCase();
+    const t = targetType.toLowerCase();
+    if ((s.includes("source") || s.includes("input")) && (t.includes("process") || t.includes("filter"))) return 15;
+    if ((s.includes("process") || s.includes("filter")) && (t.includes("sink") || t.includes("output"))) return 15;
+    if (s.includes("audio") && t.includes("audio")) return 12;
+    if (s.includes("data") && t.includes("data")) return 10;
+    return 5;
+  }
+};
+
+// src/node-graph/spatial/prediction/GhostLayoutResolver.ts
+var GhostLayoutResolver = class {
+  static resolveLayout(candidates, existingNodes, allNodeDefs) {
+    const nodeMap = new Map(existingNodes.map((n) => [n.id, n]));
+    const defMap = new Map(allNodeDefs.map((d) => [d.type, d]));
+    const occupiedRects = existingNodes.map((n) => ({
+      x: n.position.x,
+      y: n.position.y,
+      width: n.width ?? 180,
+      height: n.height ?? 120
+    }));
+    const resolved = [];
+    for (const cand of candidates) {
+      const source = nodeMap.get(cand.sourceNodeId);
+      const def = defMap.get(cand.nodeType);
+      const width = 180;
+      const height = 120;
+      const baseX = (source ? source.position.x + (source.width ?? 180) : 0) + 80;
+      const baseY = (source ? source.position.y : 0) + cand.relativeOffset.y;
+      const placedRect = this.findNonOverlappingPosition(
+        { x: baseX, y: baseY, width, height },
+        occupiedRects
+      );
+      occupiedRects.push(placedRect);
+      const inputs = (def?.inputs ?? []).map((h) => ({
+        id: h.id,
+        label: h.label || h.id,
+        type: "input",
+        dataType: h.dataType,
+        direction: "INPUT"
+      }));
+      const outputs = (def?.outputs ?? []).map((h) => ({
+        id: h.id,
+        label: h.label || h.id,
+        type: "output",
+        dataType: h.dataType,
+        direction: "OUTPUT"
+      }));
+      resolved.push({
+        id: cand.id,
+        nodeType: cand.nodeType,
+        label: cand.label,
+        position: { x: placedRect.x, y: placedRect.y },
+        size: { width, height },
+        scenarioIndex: cand.scenarioIndex,
+        sourceNodeId: cand.sourceNodeId,
+        socketMappings: cand.socketMappings,
+        inputs,
+        outputs
+      });
+    }
+    return resolved;
+  }
+  static findNonOverlappingPosition(ideal, existing) {
+    let curr = { ...ideal };
+    let collision = true;
+    let attempts = 0;
+    const padding = 20;
+    while (collision && attempts < 15) {
+      collision = false;
+      for (const box of existing) {
+        if (this.intersects(curr, box, padding)) {
+          collision = true;
+          curr.y = box.y + box.height + padding;
+          curr.x = ideal.x + (attempts % 2 === 1 ? 24 : 0);
+          break;
+        }
+      }
+      attempts++;
+    }
+    return curr;
+  }
+  static intersects(a, b, pad) {
+    return !(a.x + a.width + pad <= b.x || b.x + b.width + pad <= a.x || a.y + a.height + pad <= b.y || b.y + b.height + pad <= a.y);
+  }
+};
+
+// src/node-graph/spatial/prediction/GhostTracePathBuilder.ts
+var GhostTracePathBuilder = class {
+  static buildGhostTraces(ghostNodes, existingNodes) {
+    const nodeMap = new Map(existingNodes.map((n) => [n.id, n]));
+    const traces = [];
+    for (const ghost of ghostNodes) {
+      const source = nodeMap.get(ghost.sourceNodeId);
+      if (!source) continue;
+      for (const mapping of ghost.socketMappings) {
+        const start = this.getRealSocketPosition(source, mapping.sourceSocketId, "output");
+        const end = this.getGhostSocketPosition(ghost, mapping.targetSocketId, "input");
+        const pathD = this.renderBezier(start.x, start.y, end.x, end.y);
+        traces.push({
+          id: `trace-ghost-${source.id}-${mapping.sourceSocketId}->${ghost.id}-${mapping.targetSocketId}`,
+          sourceNodeId: source.id,
+          sourceSocketId: mapping.sourceSocketId,
+          targetGhostNodeId: ghost.id,
+          targetSocketId: mapping.targetSocketId,
+          wireType: mapping.wireType,
+          pathD,
+          scenarioIndex: ghost.scenarioIndex
+        });
+      }
+    }
+    return traces;
+  }
+  static getRealSocketPosition(node, socketId, type) {
+    const sockets = type === "input" ? node.inputs : node.outputs;
+    const socket = sockets?.find((s) => s.id === socketId);
+    const index = sockets && socket ? sockets.indexOf(socket) : 0;
+    const w = node.width ?? 180;
+    const count = Math.max(1, sockets?.length ?? 1);
+    const x = type === "input" ? node.position.x : node.position.x + w;
+    const y = node.position.y + (index + 1) * (node.height ?? 120) / (count + 1);
+    return {
+      x: x + (socket?.offset?.x ?? 0),
+      y: y + (socket?.offset?.y ?? 0)
+    };
+  }
+  static getGhostSocketPosition(ghost, socketId, type) {
+    const sockets = type === "input" ? ghost.inputs : ghost.outputs;
+    const socket = sockets?.find((s) => s.id === socketId);
+    const index = sockets && socket ? sockets.indexOf(socket) : 0;
+    const w = ghost.size.width;
+    const count = Math.max(1, sockets?.length ?? 1);
+    const x = type === "input" ? ghost.position.x : ghost.position.x + w;
+    const y = ghost.position.y + (index + 1) * ghost.size.height / (count + 1);
+    return { x, y };
+  }
+  static renderBezier(startX, startY, endX, endY) {
+    const delta = Math.max(Math.abs(endX - startX) * 0.5, 45);
+    return `M ${startX},${startY} C ${startX + delta},${startY} ${endX - delta},${endY} ${endX},${endY}`;
+  }
+};
+
+// src/node-graph/useGhostRouting.ts
+function useGhostRouting({
+  nodes,
+  edges,
+  selectedNodeIds,
+  config,
+  availableNodeTypes,
+  onNodesChange,
+  onEdgesChange
+}) {
+  const ghostStore = useRef3(GhostStore.getInstance()).current;
+  const [activeGhostNodes, setActiveGhostNodes] = useState6([]);
+  const [activeGhostTraces, setActiveGhostTraces] = useState6([]);
+  const [scenarioIndex, setScenarioIndex] = useState6(0);
+  const [hoveredGhostId, setHoveredGhostId] = useState6(null);
+  const debounceTimerRef = useRef3(null);
+  useEffect(() => {
+    const unsubscribe = ghostStore.subscribe(() => {
+      setActiveGhostNodes(ghostStore.getActiveGhostNodes());
+      setActiveGhostTraces(ghostStore.getActiveGhostTraces());
+      setScenarioIndex(ghostStore.scenarioIndex);
+      setHoveredGhostId(ghostStore.hoveredGhostId);
+    });
+    return () => unsubscribe();
+  }, [ghostStore]);
+  useEffect(() => {
+    if (config?.ghostRoutingEnabled === false) {
+      ghostStore.clear();
+      return;
+    }
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    if (selectedNodeIds.size === 0) {
+      ghostStore.clear();
+      return;
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      const selected = nodes.filter((n) => selectedNodeIds.has(n.id));
+      const defs = availableNodeTypes && availableNodeTypes.length > 0 ? availableNodeTypes : ConnectionRuleStore.listNodeTypes();
+      const candidates = GhostInferenceEngine.inferNextNodes(selected, defs, {
+        scenarioCount: config?.ghostScenarioCount ?? 3
+      });
+      const layoutNodes = GhostLayoutResolver.resolveLayout(candidates, nodes, defs);
+      const traces = GhostTracePathBuilder.buildGhostTraces(layoutNodes, nodes);
+      ghostStore.setPredictions(layoutNodes, traces, Array.from(selectedNodeIds));
+    }, 250);
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, [nodes, selectedNodeIds, config?.ghostRoutingEnabled, config?.ghostScenarioCount, availableNodeTypes, ghostStore]);
+  const solidifyOne = useCallback2((ghostId) => {
+    const ghost = ghostStore.ghostNodes.find((g) => g.id === ghostId);
+    if (!ghost) return;
+    const realNodeId = `node-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const realNode = {
+      id: realNodeId,
+      type: ghost.nodeType,
+      label: ghost.label,
+      position: { ...ghost.position },
+      width: ghost.size.width,
+      height: ghost.size.height,
+      inputs: ghost.inputs,
+      outputs: ghost.outputs
+    };
+    const newEdges = ghost.socketMappings.map((m) => ({
+      id: `edge-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      source: ghost.sourceNodeId,
+      sourceSocket: m.sourceSocketId,
+      target: realNodeId,
+      targetSocket: m.targetSocketId,
+      wireType: m.wireType
+    }));
+    onNodesChange?.([...nodes, realNode]);
+    onEdgesChange?.([...edges, ...newEdges]);
+    ghostStore.clear();
+  }, [nodes, edges, onNodesChange, onEdgesChange, ghostStore]);
+  const solidifyAll = useCallback2(() => {
+    const activeNodes = ghostStore.getActiveGhostNodes();
+    if (activeNodes.length === 0) return;
+    const newRealNodes = [];
+    const newRealEdges = [];
+    for (const ghost of activeNodes) {
+      const realNodeId = `node-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      newRealNodes.push({
+        id: realNodeId,
+        type: ghost.nodeType,
+        label: ghost.label,
+        position: { ...ghost.position },
+        width: ghost.size.width,
+        height: ghost.size.height,
+        inputs: ghost.inputs,
+        outputs: ghost.outputs
+      });
+      for (const m of ghost.socketMappings) {
+        newRealEdges.push({
+          id: `edge-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          source: ghost.sourceNodeId,
+          sourceSocket: m.sourceSocketId,
+          target: realNodeId,
+          targetSocket: m.targetSocketId,
+          wireType: m.wireType
+        });
+      }
+    }
+    onNodesChange?.([...nodes, ...newRealNodes]);
+    onEdgesChange?.([...edges, ...newRealEdges]);
+    ghostStore.clear();
+  }, [nodes, edges, onNodesChange, onEdgesChange, ghostStore]);
+  const cycleScenario = useCallback2(() => {
+    ghostStore.cycleScenario(config?.ghostScenarioCount ?? 3);
+  }, [ghostStore, config?.ghostScenarioCount]);
+  const dismiss = useCallback2(() => {
+    ghostStore.clear();
+  }, [ghostStore]);
+  return {
+    isActive: ghostStore.isActive,
+    activeGhostNodes,
+    activeGhostTraces,
+    scenarioIndex,
+    hoveredGhostId,
+    setHoveredGhostId: (id) => ghostStore.setHoveredGhostId(id),
+    solidifyOne,
+    solidifyAll,
+    cycleScenario,
+    dismiss
+  };
+}
+
+// src/node-graph/spatial/useMagneticTraces.ts
+import { useMemo as useMemo3, useCallback as useCallback3 } from "react";
+function getSocketCanvasPos(node, socket, isOut, idx, total) {
+  const h = node.height ?? 130;
+  const w = node.width ?? 130;
+  const topOffset = total === 1 ? h * 0.5 : h * 0.25 + idx * 24;
+  const nudge = socket.offset ?? { x: 0, y: 0 };
+  const baseX = isOut ? node.position.x + w : node.position.x;
+  return {
+    x: baseX + nudge.x,
+    y: node.position.y + topOffset + nudge.y
+  };
+}
+function useMagneticTraces({
+  nodes,
+  edges,
+  config,
+  onEdgesChange
+}) {
+  const isEnabled = config?.magneticTracesEnabled !== false && config?.tracingEnabled !== false;
+  const cutoff = config?.traceCutoffDistance ?? 220;
+  const traces = useMemo3(() => {
+    if (!isEnabled || nodes.length < 2) return [];
+    const existingEdgeKeys = new Set(
+      edges.map((e) => `${e.source}:${e.sourceSocket}->${e.target}:${e.targetSocket}`)
+    );
+    const candidates = [];
+    for (let i = 0; i < nodes.length; i++) {
+      const srcNode = nodes[i];
+      const outputs = srcNode.outputs ?? [];
+      if (outputs.length === 0) continue;
+      for (let j = 0; j < nodes.length; j++) {
+        if (i === j) continue;
+        const tgtNode = nodes[j];
+        const inputs = tgtNode.inputs ?? [];
+        if (inputs.length === 0) continue;
+        outputs.forEach((outSock, outIdx) => {
+          const outPos = getSocketCanvasPos(srcNode, outSock, true, outIdx, outputs.length);
+          inputs.forEach((inSock, inIdx) => {
+            const edgeKey = `${srcNode.id}:${outSock.id}->${tgtNode.id}:${inSock.id}`;
+            if (existingEdgeKeys.has(edgeKey)) return;
+            const inPos = getSocketCanvasPos(tgtNode, inSock, false, inIdx, inputs.length);
+            const dist = Math.hypot(inPos.x - outPos.x, inPos.y - outPos.y);
+            if (dist <= cutoff) {
+              const canConnect = ConnectionRuleStore.canConnect(
+                { dataType: outSock.dataType || "ANY", direction: "OUTPUT", handleCategory: "DATA" },
+                { dataType: inSock.dataType || "ANY", direction: "INPUT", handleCategory: "DATA" }
+              );
+              if (canConnect) {
+                const resolution = ConnectionRuleStore.resolve(
+                  { dataType: outSock.dataType || "ANY", direction: "OUTPUT", handleCategory: "DATA" },
+                  { dataType: inSock.dataType || "ANY", direction: "INPUT", handleCategory: "DATA" }
+                );
+                const wireType = resolution.wireType || "DEFAULT";
+                const wireDef = WireTypeRegistry.get(wireType);
+                const color = wireDef?.color || "#61afef";
+                const delta = Math.max(Math.abs(inPos.x - outPos.x) * 0.5, 40);
+                const pathD = `M ${outPos.x},${outPos.y} C ${outPos.x + delta},${outPos.y} ${inPos.x - delta},${inPos.y} ${inPos.x},${inPos.y}`;
+                candidates.push({
+                  id: `mag-${srcNode.id}-${outSock.id}->${tgtNode.id}-${inSock.id}`,
+                  sourceNodeId: srcNode.id,
+                  sourceSocketId: outSock.id,
+                  targetNodeId: tgtNode.id,
+                  targetSocketId: inSock.id,
+                  wireType,
+                  color,
+                  pathD,
+                  midpoint: { x: (outPos.x + inPos.x) / 2, y: (outPos.y + inPos.y) / 2 },
+                  distance: dist
+                });
+              }
+            }
+          });
+        });
+      }
+    }
+    candidates.sort((a, b) => a.distance - b.distance);
+    const claimedOutputs = /* @__PURE__ */ new Set();
+    const claimedInputs = /* @__PURE__ */ new Set();
+    const filtered = [];
+    for (const c of candidates) {
+      const outKey = `${c.sourceNodeId}:${c.sourceSocketId}`;
+      const inKey = `${c.targetNodeId}:${c.targetSocketId}`;
+      if (!claimedOutputs.has(outKey) && !claimedInputs.has(inKey)) {
+        claimedOutputs.add(outKey);
+        claimedInputs.add(inKey);
+        filtered.push(c);
+      }
+    }
+    return filtered;
+  }, [nodes, edges, isEnabled, cutoff]);
+  const solidifyTrace = useCallback3((traceId) => {
+    const trace = traces.find((t) => t.id === traceId);
+    if (!trace || !onEdgesChange) return;
+    const newEdge = {
+      id: `edge-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      source: trace.sourceNodeId,
+      sourceSocket: trace.sourceSocketId,
+      target: trace.targetNodeId,
+      targetSocket: trace.targetSocketId,
+      wireType: trace.wireType,
+      color: trace.color,
+      locked: true
+    };
+    onEdgesChange([...edges, newEdge]);
+  }, [traces, edges, onEdgesChange]);
+  const solidifyAll = useCallback3(() => {
+    if (traces.length === 0 || !onEdgesChange) return;
+    const newEdges = traces.map((t, idx) => ({
+      id: `edge-${Date.now()}-${idx}`,
+      source: t.sourceNodeId,
+      sourceSocket: t.sourceSocketId,
+      target: t.targetNodeId,
+      targetSocket: t.targetSocketId,
+      wireType: t.wireType,
+      color: t.color,
+      locked: true
+    }));
+    onEdgesChange([...edges, ...newEdges]);
+  }, [traces, edges, onEdgesChange]);
+  return {
+    traces,
+    isEnabled,
+    solidifyTrace,
+    solidifyAll
+  };
+}
+
+// src/node-graph/ui/ghost/GhostTraceLayer.tsx
+import { jsx as jsx7 } from "react/jsx-runtime";
+function GhostTraceLayer({ traces, hoveredGhostId }) {
+  if (traces.length === 0) return null;
+  return /* @__PURE__ */ jsx7(
+    "svg",
+    {
+      style: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
+        overflow: "visible",
+        zIndex: 3
+      },
+      children: traces.map((trace) => {
+        const isHovered = hoveredGhostId === trace.targetGhostNodeId;
+        const color = "var(--skipo-ghost, #00d9ff)";
+        return /* @__PURE__ */ jsx7("g", { children: /* @__PURE__ */ jsx7(
+          "path",
+          {
+            d: trace.pathD,
+            fill: "none",
+            stroke: color,
+            strokeWidth: isHovered ? 2.5 : 2,
+            strokeDasharray: "6,4",
+            opacity: isHovered ? 0.9 : 0.6,
+            style: {
+              transition: "opacity 0.15s ease, stroke-width 0.15s ease"
+            }
+          }
+        ) }, trace.id);
+      })
+    }
+  );
+}
+
+// src/node-graph/ui/ghost/GhostNodeCard.tsx
+import { jsx as jsx8, jsxs as jsxs7 } from "react/jsx-runtime";
+function GhostNodeCard({
+  ghostNode,
+  isHovered = false,
+  onHover,
+  onSolidify
+}) {
+  const width = ghostNode.size.width;
+  const height = ghostNode.size.height;
+  const ghostColor = "var(--skipo-ghost, #00d9ff)";
+  return /* @__PURE__ */ jsxs7(
+    "div",
+    {
+      style: {
+        position: "absolute",
+        left: ghostNode.position.x,
+        top: ghostNode.position.y,
+        width,
+        height,
+        pointerEvents: "auto",
+        zIndex: 4,
+        userSelect: "none"
+      },
+      onMouseEnter: () => onHover?.(ghostNode.id),
+      onMouseLeave: () => onHover?.(null),
+      children: [
+        /* @__PURE__ */ jsxs7(
+          "div",
+          {
+            style: {
+              width: "100%",
+              height: "100%",
+              boxSizing: "border-box",
+              backgroundColor: "rgba(20, 25, 30, 0.75)",
+              border: `2px dashed ${ghostColor}`,
+              borderRadius: "8px",
+              opacity: isHovered ? 0.95 : 0.65,
+              display: "flex",
+              flexDirection: "column",
+              position: "relative",
+              transition: "opacity 0.15s ease, box-shadow 0.15s ease",
+              boxShadow: isHovered ? "0 0 14px rgba(0, 217, 255, 0.4)" : "none"
+            },
+            children: [
+              /* @__PURE__ */ jsx8(
+                "div",
+                {
+                  style: {
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    opacity: 0.8
+                  },
+                  children: /* @__PURE__ */ jsx8("svg", { width: "28", height: "28", viewBox: "0 0 24 24", fill: "none", stroke: ghostColor, strokeWidth: "1.8", children: /* @__PURE__ */ jsx8("polygon", { points: "13 2 3 14 12 14 11 22 21 10 12 10 13 2" }) })
+                }
+              ),
+              /* @__PURE__ */ jsxs7(
+                "div",
+                {
+                  style: {
+                    height: "32px",
+                    borderTop: "1px dashed rgba(0, 217, 255, 0.35)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "0 8px",
+                    backgroundColor: "rgba(0, 0, 0, 0.3)"
+                  },
+                  children: [
+                    /* @__PURE__ */ jsx8(
+                      "span",
+                      {
+                        style: {
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          color: ghostColor,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap"
+                        },
+                        children: ghostNode.label
+                      }
+                    ),
+                    onSolidify && /* @__PURE__ */ jsx8(
+                      "button",
+                      {
+                        type: "button",
+                        title: "Solidify Node",
+                        "aria-label": "Solidify Node",
+                        style: {
+                          width: "18px",
+                          height: "18px",
+                          borderRadius: "50%",
+                          backgroundColor: ghostColor,
+                          border: "none",
+                          color: "#0b1318",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          padding: 0,
+                          pointerEvents: "auto"
+                        },
+                        onClick: (e) => {
+                          e.stopPropagation();
+                          onSolidify(ghostNode.id);
+                        },
+                        children: /* @__PURE__ */ jsx8("svg", { width: "10", height: "10", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "3", strokeLinecap: "round", strokeLinejoin: "round", children: /* @__PURE__ */ jsx8("polyline", { points: "20 6 9 17 4 12" }) })
+                      }
+                    )
+                  ]
+                }
+              )
+            ]
+          }
+        ),
+        ghostNode.inputs?.map((s, idx) => /* @__PURE__ */ jsx8(
+          "div",
+          {
+            style: {
+              position: "absolute",
+              left: 0,
+              top: `${(idx + 1) * height / ((ghostNode.inputs?.length ?? 1) + 1)}px`,
+              transform: "translate(-50%, -50%)",
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              backgroundColor: ghostColor,
+              border: "1px solid #14191e"
+            }
+          },
+          s.id
+        )),
+        ghostNode.outputs?.map((s, idx) => /* @__PURE__ */ jsx8(
+          "div",
+          {
+            style: {
+              position: "absolute",
+              left: "100%",
+              top: `${(idx + 1) * height / ((ghostNode.outputs?.length ?? 1) + 1)}px`,
+              transform: "translate(-50%, -50%)",
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              backgroundColor: ghostColor,
+              border: "1px solid #14191e"
+            }
+          },
+          s.id
+        ))
+      ]
+    }
+  );
+}
+
+// src/node-graph/ui/ghost/GhostSolidifyBar.tsx
+import { jsx as jsx9, jsxs as jsxs8 } from "react/jsx-runtime";
+function GhostSolidifyBar({
+  ghostNodes,
+  scenarioIndex,
+  maxScenarios = 3,
+  onCycleScenario,
+  onSolidifyAll,
+  onDismiss
+}) {
+  if (ghostNodes.length === 0) return null;
+  const minX = Math.min(...ghostNodes.map((n) => n.position.x));
+  const minY = Math.min(...ghostNodes.map((n) => n.position.y));
+  const barX = minX;
+  const barY = Math.max(10, minY - 44);
+  const ghostColor = "var(--skipo-ghost, #00d9ff)";
+  return /* @__PURE__ */ jsxs8(
+    "div",
+    {
+      style: {
+        position: "absolute",
+        left: barX,
+        top: barY,
+        zIndex: 5,
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+        padding: "4px 8px",
+        backgroundColor: "rgba(20, 25, 30, 0.92)",
+        border: "1px solid rgba(0, 217, 255, 0.4)",
+        borderRadius: "6px",
+        boxShadow: "0 4px 14px rgba(0, 0, 0, 0.5)",
+        pointerEvents: "auto",
+        userSelect: "none"
+      },
+      onClick: (e) => e.stopPropagation(),
+      children: [
+        /* @__PURE__ */ jsxs8(
+          "button",
+          {
+            type: "button",
+            title: "Cycle Scenario",
+            "aria-label": "Cycle Scenario",
+            style: {
+              background: "none",
+              border: "1px solid rgba(0, 217, 255, 0.3)",
+              borderRadius: "4px",
+              color: ghostColor,
+              padding: "2px 6px",
+              fontSize: "10px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px"
+            },
+            onClick: onCycleScenario,
+            children: [
+              /* @__PURE__ */ jsxs8("span", { children: [
+                "Branch ",
+                scenarioIndex + 1,
+                "/",
+                maxScenarios
+              ] }),
+              /* @__PURE__ */ jsx9("svg", { width: "10", height: "10", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", children: /* @__PURE__ */ jsx9("polyline", { points: "9 18 15 12 9 6" }) })
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsxs8(
+          "button",
+          {
+            type: "button",
+            title: "Solidify All",
+            "aria-label": "Solidify All",
+            style: {
+              backgroundColor: ghostColor,
+              border: "none",
+              borderRadius: "4px",
+              color: "#0b1318",
+              padding: "3px 8px",
+              fontSize: "10px",
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px"
+            },
+            onClick: onSolidifyAll,
+            children: [
+              /* @__PURE__ */ jsx9("svg", { width: "11", height: "11", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "3", children: /* @__PURE__ */ jsx9("polyline", { points: "20 6 9 17 4 12" }) }),
+              /* @__PURE__ */ jsx9("span", { children: "Solidify" })
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsx9(
+          "button",
+          {
+            type: "button",
+            title: "Dismiss",
+            "aria-label": "Dismiss",
+            style: {
+              background: "none",
+              border: "none",
+              color: "#888",
+              cursor: "pointer",
+              padding: "2px 4px",
+              display: "flex",
+              alignItems: "center"
+            },
+            onClick: onDismiss,
+            children: /* @__PURE__ */ jsxs8("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: [
+              /* @__PURE__ */ jsx9("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
+              /* @__PURE__ */ jsx9("line", { x1: "6", y1: "6", x2: "18", y2: "18" })
+            ] })
+          }
+        )
+      ]
+    }
+  );
+}
+
+// src/node-graph/ui/widgets/SolidifyWidget.tsx
+import { jsx as jsx10 } from "react/jsx-runtime";
+function SolidifyWidget({ x, y, onSolidify }) {
+  return /* @__PURE__ */ jsx10(
+    "div",
+    {
+      style: {
+        position: "absolute",
+        left: x,
+        top: y,
+        transform: "translate(-50%, -50%)",
+        zIndex: 7,
+        pointerEvents: "auto"
+      },
+      onClick: (e) => e.stopPropagation(),
+      children: /* @__PURE__ */ jsx10(
+        "button",
+        {
+          type: "button",
+          title: "Solidify Connection",
+          "aria-label": "Solidify Connection",
+          style: {
+            backgroundColor: "var(--skipo-accent, #61afef)",
+            border: "1px solid var(--skipo-border, #61afef)",
+            borderRadius: "50%",
+            width: "22px",
+            height: "22px",
+            color: "var(--skipo-text, #ffffff)",
+            cursor: "pointer",
+            padding: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 2px 6px rgba(0, 0, 0, 0.4)",
+            transition: "transform 0.1s ease"
+          },
+          onClick: onSolidify,
+          children: /* @__PURE__ */ jsx10("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round", strokeLinejoin: "round", children: /* @__PURE__ */ jsx10("polyline", { points: "20 6 9 17 4 12" }) })
+        }
+      )
+    }
+  );
+}
+
+// src/node-graph/ui/widgets/MagneticTraceLayer.tsx
+import { Fragment as Fragment2, jsx as jsx11, jsxs as jsxs9 } from "react/jsx-runtime";
+function MagneticTraceLayer({ traces, onSolidify }) {
+  if (traces.length === 0) return null;
+  return /* @__PURE__ */ jsxs9(Fragment2, { children: [
+    /* @__PURE__ */ jsx11("style", { children: `
+        @keyframes skipo-magnetic-flow {
+          0% { stroke-dashoffset: 24; }
+          100% { stroke-dashoffset: 0; }
+        }
+      ` }),
+    /* @__PURE__ */ jsx11(
+      "svg",
+      {
+        style: {
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          pointerEvents: "none",
+          overflow: "visible",
+          zIndex: 4
+        },
+        children: traces.map((trace) => {
+          return /* @__PURE__ */ jsxs9("g", { style: { pointerEvents: "auto" }, children: [
+            /* @__PURE__ */ jsx11(
+              "path",
+              {
+                d: trace.pathD,
+                fill: "none",
+                stroke: "transparent",
+                strokeWidth: 20,
+                style: { cursor: "pointer" },
+                onClick: () => onSolidify(trace.id)
+              }
+            ),
+            /* @__PURE__ */ jsx11(
+              "path",
+              {
+                d: trace.pathD,
+                fill: "none",
+                stroke: trace.color,
+                strokeWidth: 5,
+                opacity: 0.25
+              }
+            ),
+            /* @__PURE__ */ jsx11(
+              "path",
+              {
+                d: trace.pathD,
+                fill: "none",
+                stroke: trace.color,
+                strokeWidth: 2.2,
+                strokeDasharray: "6,4",
+                opacity: 0.85,
+                style: {
+                  animation: "skipo-magnetic-flow 0.8s linear infinite",
+                  cursor: "pointer"
+                },
+                onClick: () => onSolidify(trace.id)
+              }
+            )
+          ] }, trace.id);
+        })
+      }
+    ),
+    traces.map((trace) => /* @__PURE__ */ jsx11(
+      SolidifyWidget,
+      {
+        x: trace.midpoint.x,
+        y: trace.midpoint.y,
+        onSolidify: () => onSolidify(trace.id)
+      },
+      `widget-${trace.id}`
+    ))
+  ] });
+}
+
 // src/node-graph/NodeGraphCanvas.tsx
-import { jsx as jsx7, jsxs as jsxs7 } from "react/jsx-runtime";
+import { Fragment as Fragment3, jsx as jsx12, jsxs as jsxs10 } from "react/jsx-runtime";
 function NodeGraphCanvas({
   nodes,
   edges,
@@ -1348,13 +2450,32 @@ function NodeGraphCanvas({
   onViewportChange,
   onSelectionChange
 }) {
-  const containerRef = useRef3(null);
-  const [isPanning, setIsPanning] = useState6(false);
-  const [dragNodeId, setDragNodeId] = useState6(null);
-  const nodeMouseDownPos = useRef3(null);
-  const hasDraggedNode = useRef3(false);
-  const animFrameRef = useRef3(null);
-  const smoothPanTo = useCallback2((targetX, targetY) => {
+  const containerRef = useRef4(null);
+  useEffect2(() => {
+    if (!ConnectionRuleStore.isInitialized()) ConnectionRuleStore.initializeDefaults();
+  }, []);
+  const effectiveNodeTypes = availableNodeTypes && availableNodeTypes.length > 0 ? availableNodeTypes : ConnectionRuleStore.listNodeTypes();
+  const magnetic = useMagneticTraces({
+    nodes,
+    edges,
+    config,
+    onEdgesChange
+  });
+  const ghost = useGhostRouting({
+    nodes,
+    edges,
+    selectedNodeIds,
+    config,
+    availableNodeTypes: effectiveNodeTypes,
+    onNodesChange,
+    onEdgesChange
+  });
+  const [isPanning, setIsPanning] = useState7(false);
+  const [dragNodeId, setDragNodeId] = useState7(null);
+  const nodeMouseDownPos = useRef4(null);
+  const hasDraggedNode = useRef4(false);
+  const animFrameRef = useRef4(null);
+  const smoothPanTo = useCallback4((targetX, targetY) => {
     if (!onViewportChange) return;
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     const startX = viewport.panX;
@@ -1378,21 +2499,21 @@ function NodeGraphCanvas({
     };
     animFrameRef.current = requestAnimationFrame(step);
   }, [viewport, onViewportChange]);
-  useEffect(() => {
+  useEffect2(() => {
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
   }, []);
-  const [boxSelection, setBoxSelection] = useState6(null);
-  const [connecting, setConnecting] = useState6(null);
-  const [pickerState, setPickerState] = useState6(null);
-  const [contextMenu, setContextMenu] = useState6(null);
-  const [spawnMenuState, setSpawnMenuState] = useState6(null);
-  const lastMousePos = useRef3({ screenX: 0, screenY: 0 });
-  useEffect(() => {
+  const [boxSelection, setBoxSelection] = useState7(null);
+  const [connecting, setConnecting] = useState7(null);
+  const [pickerState, setPickerState] = useState7(null);
+  const [contextMenu, setContextMenu] = useState7(null);
+  const [spawnMenuState, setSpawnMenuState] = useState7(null);
+  const lastMousePos = useRef4({ screenX: 0, screenY: 0 });
+  useEffect2(() => {
     if (!ConnectionRuleStore.isInitialized()) ConnectionRuleStore.initializeDefaults();
   }, []);
-  useEffect(() => {
+  useEffect2(() => {
     const handleKeyDown = (e) => {
       if (e.key.toLowerCase() === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         const activeEl = document.activeElement;
@@ -1418,16 +2539,23 @@ function NodeGraphCanvas({
           onEdgesChange?.(edges.filter((ed) => !selectedNodeIds.has(ed.source) && !selectedNodeIds.has(ed.target)));
           onSelectionChange?.(/* @__PURE__ */ new Set());
         }
+      } else if (e.key === "Tab" && ghost.isActive) {
+        e.preventDefault();
+        ghost.cycleScenario();
+      } else if (e.key === "Enter" && e.shiftKey && ghost.isActive) {
+        e.preventDefault();
+        ghost.solidifyAll();
       } else if (e.key === "Escape") {
         setContextMenu(null);
         setPickerState(null);
         setSpawnMenuState(null);
         setConnecting(null);
+        ghost.dismiss();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [nodes, edges, selectedNodeIds, viewport, onNodesChange, onEdgesChange, onSelectionChange]);
+  }, [nodes, edges, selectedNodeIds, viewport, ghost, onNodesChange, onEdgesChange, onSelectionChange]);
   const handleWheel = (e) => {
     e.preventDefault();
     if (!onViewportChange) return;
@@ -1501,6 +2629,9 @@ function NodeGraphCanvas({
           smoothPanTo(targetPan.panX, targetPan.panY);
         }
       }
+    }
+    if (hasDraggedNode.current && config?.autoSolidify) {
+      magnetic.solidifyAll();
     }
     nodeMouseDownPos.current = null;
     hasDraggedNode.current = false;
@@ -1588,7 +2719,7 @@ function NodeGraphCanvas({
     }
     setConnecting(null);
   };
-  const handlePickerSelect = useCallback2((selectedTypes) => {
+  const handlePickerSelect = useCallback4((selectedTypes) => {
     if (!pickerState || !onNodesChange) return;
     const { graphX, graphY, sourceHandle } = pickerState;
     const newNodes = [];
@@ -1597,7 +2728,7 @@ function NodeGraphCanvas({
       const id = `node-${Date.now()}-${idx}`;
       const posX = graphX + idx * 200;
       const posY = graphY + idx * 40;
-      const def = availableNodeTypes?.find((d) => d.type === type) || ConnectionRuleStore.getNodeType(type);
+      const def = effectiveNodeTypes.find((d) => d.type === type) || ConnectionRuleStore.getNodeType(type);
       const isSourceOut = sourceHandle.direction === "output";
       const inputs = def?.inputs?.map((i) => ({ id: i.id, label: i.label || i.id, type: "input", dataType: i.dataType })) ?? [{ id: "in-1", label: "In", type: "input", dataType: sourceHandle.dataType || "ANY" }];
       const outputs = def?.outputs?.map((o) => ({ id: o.id, label: o.label || o.id, type: "output", dataType: o.dataType })) ?? [{ id: "out-1", label: "Out", type: "output", dataType: sourceHandle.dataType || "ANY" }];
@@ -1617,7 +2748,7 @@ function NodeGraphCanvas({
     onNodesChange([...nodes, ...newNodes]);
     if (newEdges.length > 0) onEdgesChange?.([...edges, ...newEdges]);
     setPickerState(null);
-  }, [pickerState, nodes, edges, availableNodeTypes, onNodesChange, onEdgesChange]);
+  }, [pickerState, nodes, edges, effectiveNodeTypes, onNodesChange, onEdgesChange]);
   const handleSocketNudgeChange = (nodeId, socketId, nudge) => {
     if (!onNodesChange) return;
     const updatedNodes = nodes.map((n) => {
@@ -1644,7 +2775,7 @@ function NodeGraphCanvas({
     };
     return acc;
   }, {});
-  return /* @__PURE__ */ jsxs7(
+  return /* @__PURE__ */ jsxs10(
     "div",
     {
       ref: containerRef,
@@ -1655,31 +2786,58 @@ function NodeGraphCanvas({
       onMouseUp: handleMouseUp,
       onContextMenu: handleContextMenu,
       children: [
-        /* @__PURE__ */ jsx7(WireRenderer, { edges, nodesData, connecting: connecting ? { startX: connecting.startX, startY: connecting.startY, endX: connecting.endX, endY: connecting.endY } : null }),
-        /* @__PURE__ */ jsx7("div", { style: { position: "absolute", top: 0, left: 0, transformOrigin: "0 0", transform: `translate(${viewport.panX}px, ${viewport.panY}px) scale(${viewport.zoom})` }, children: nodes.map((node) => /* @__PURE__ */ jsx7(
-          NodeCard,
-          {
-            node,
-            selected: selectedNodeIds.has(node.id),
-            onMouseDown: handleNodeMouseDown,
-            onDoubleClick: onNodeDoubleClick,
-            onSocketMouseDown: handleSocketMouseDown,
-            onSocketMouseUp: handleSocketMouseUp,
-            onSocketNudgeChange: handleSocketNudgeChange
-          },
-          node.id
-        )) }),
-        boxSelection && /* @__PURE__ */ jsx7("div", { style: { position: "absolute", left: Math.min(boxSelection.startX, boxSelection.endX), top: Math.min(boxSelection.startY, boxSelection.endY), width: Math.abs(boxSelection.endX - boxSelection.startX), height: Math.abs(boxSelection.endY - boxSelection.startY), backgroundColor: "rgba(97, 175, 239, 0.18)", border: "1px solid var(--skipo-accent, #61afef)", pointerEvents: "none" } }),
-        pickerState && /* @__PURE__ */ jsx7(CompatibleNodePicker, { x: pickerState.x, y: pickerState.y, sourceHandle: pickerState.sourceHandle, availableNodeTypes, onSelect: handlePickerSelect, onClose: () => setPickerState(null) }),
-        contextMenu && /* @__PURE__ */ jsx7(
+        /* @__PURE__ */ jsx12(WireRenderer, { edges, nodesData, connecting: connecting ? { startX: connecting.startX, startY: connecting.startY, endX: connecting.endX, endY: connecting.endY } : null }),
+        /* @__PURE__ */ jsxs10("div", { style: { position: "absolute", top: 0, left: 0, transformOrigin: "0 0", transform: `translate(${viewport.panX}px, ${viewport.panY}px) scale(${viewport.zoom})` }, children: [
+          magnetic.isEnabled && /* @__PURE__ */ jsx12(MagneticTraceLayer, { traces: magnetic.traces, onSolidify: magnetic.solidifyTrace }),
+          ghost.isActive && /* @__PURE__ */ jsxs10(Fragment3, { children: [
+            /* @__PURE__ */ jsx12(GhostTraceLayer, { traces: ghost.activeGhostTraces, hoveredGhostId: ghost.hoveredGhostId }),
+            ghost.activeGhostNodes.map((g) => /* @__PURE__ */ jsx12(
+              GhostNodeCard,
+              {
+                ghostNode: g,
+                isHovered: ghost.hoveredGhostId === g.id,
+                onHover: ghost.setHoveredGhostId,
+                onSolidify: ghost.solidifyOne
+              },
+              g.id
+            )),
+            /* @__PURE__ */ jsx12(
+              GhostSolidifyBar,
+              {
+                ghostNodes: ghost.activeGhostNodes,
+                scenarioIndex: ghost.scenarioIndex,
+                maxScenarios: config?.ghostScenarioCount ?? 3,
+                onCycleScenario: ghost.cycleScenario,
+                onSolidifyAll: ghost.solidifyAll,
+                onDismiss: ghost.dismiss
+              }
+            )
+          ] }),
+          nodes.map((node) => /* @__PURE__ */ jsx12(
+            NodeCard,
+            {
+              node,
+              selected: selectedNodeIds.has(node.id),
+              onMouseDown: handleNodeMouseDown,
+              onDoubleClick: onNodeDoubleClick,
+              onSocketMouseDown: handleSocketMouseDown,
+              onSocketMouseUp: handleSocketMouseUp,
+              onSocketNudgeChange: handleSocketNudgeChange
+            },
+            node.id
+          ))
+        ] }),
+        boxSelection && /* @__PURE__ */ jsx12("div", { style: { position: "absolute", left: Math.min(boxSelection.startX, boxSelection.endX), top: Math.min(boxSelection.startY, boxSelection.endY), width: Math.abs(boxSelection.endX - boxSelection.startX), height: Math.abs(boxSelection.endY - boxSelection.startY), backgroundColor: "rgba(97, 175, 239, 0.18)", border: "1px solid var(--skipo-accent, #61afef)", pointerEvents: "none" } }),
+        pickerState && /* @__PURE__ */ jsx12(CompatibleNodePicker, { x: pickerState.x, y: pickerState.y, sourceHandle: pickerState.sourceHandle, availableNodeTypes: effectiveNodeTypes, onSelect: handlePickerSelect, onClose: () => setPickerState(null) }),
+        contextMenu && /* @__PURE__ */ jsx12(
           CanvasContextMenu,
           {
             x: contextMenu.x,
             y: contextMenu.y,
-            availableNodeTypes,
+            availableNodeTypes: effectiveNodeTypes,
             hasSelection: selectedNodeIds.size > 0,
             onSpawnNode: (type) => {
-              const def = availableNodeTypes?.find((d) => d.type === type) || ConnectionRuleStore.getNodeType(type);
+              const def = effectiveNodeTypes.find((d) => d.type === type) || ConnectionRuleStore.getNodeType(type);
               const id = `node-${Date.now()}`;
               const inputs = def?.inputs?.map((i) => ({ id: i.id, label: i.label || i.id, type: "input", dataType: i.dataType })) ?? [{ id: "in-1", label: "In", type: "input" }];
               const outputs = def?.outputs?.map((o) => ({ id: o.id, label: o.label || o.id, type: "output", dataType: o.dataType })) ?? [{ id: "out-1", label: "Out", type: "output" }];
@@ -1703,14 +2861,14 @@ function NodeGraphCanvas({
             onClose: () => setContextMenu(null)
           }
         ),
-        spawnMenuState && /* @__PURE__ */ jsx7(
+        spawnMenuState && /* @__PURE__ */ jsx12(
           NodeSearchPalette,
           {
             x: spawnMenuState.x,
             y: spawnMenuState.y,
-            availableNodeTypes,
+            availableNodeTypes: effectiveNodeTypes,
             onSpawnNode: (type) => {
-              const def = availableNodeTypes?.find((d) => d.type === type) || ConnectionRuleStore.getNodeType(type);
+              const def = effectiveNodeTypes.find((d) => d.type === type) || ConnectionRuleStore.getNodeType(type);
               const id = `node-${Date.now()}`;
               const inputs = def?.inputs?.map((i) => ({ id: i.id, label: i.label || i.id, type: "input", dataType: i.dataType })) ?? [{ id: "in-1", label: "In", type: "input" }];
               const outputs = def?.outputs?.map((o) => ({ id: o.id, label: o.label || o.id, type: "output", dataType: o.dataType })) ?? [{ id: "out-1", label: "Out", type: "output" }];
@@ -1727,27 +2885,27 @@ function NodeGraphCanvas({
 
 // src/node-graph/NodeDetailsPanel.tsx
 import { FloatingDetailsPanel, BaseInput as BaseInput3, BaseBadge } from "@skipo/ui";
-import { jsx as jsx8, jsxs as jsxs8 } from "react/jsx-runtime";
+import { jsx as jsx13, jsxs as jsxs11 } from "react/jsx-runtime";
 function renderSockets(sockets, type) {
   if (!sockets || sockets.length === 0) return null;
-  return /* @__PURE__ */ jsxs8("div", { style: { marginBottom: "12px" }, children: [
-    /* @__PURE__ */ jsxs8("div", { style: { fontSize: "11px", color: "var(--skipo-text-muted)", marginBottom: "4px", textTransform: "uppercase" }, children: [
+  return /* @__PURE__ */ jsxs11("div", { style: { marginBottom: "12px" }, children: [
+    /* @__PURE__ */ jsxs11("div", { style: { fontSize: "11px", color: "var(--skipo-text-muted)", marginBottom: "4px", textTransform: "uppercase" }, children: [
       type,
       " Sockets (",
       sockets.length,
       ")"
     ] }),
-    /* @__PURE__ */ jsx8("div", { style: { display: "flex", flexDirection: "column", gap: "4px" }, children: sockets.map((s) => /* @__PURE__ */ jsxs8("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 8px", background: "var(--skipo-surface)", borderRadius: "var(--skipo-radius-sm)", fontSize: "12px" }, children: [
-      /* @__PURE__ */ jsx8("span", { children: s.label || s.id }),
-      s.dataType && /* @__PURE__ */ jsx8(BaseBadge, { variant: "neutral", children: s.dataType })
+    /* @__PURE__ */ jsx13("div", { style: { display: "flex", flexDirection: "column", gap: "4px" }, children: sockets.map((s) => /* @__PURE__ */ jsxs11("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 8px", background: "var(--skipo-surface)", borderRadius: "var(--skipo-radius-sm)", fontSize: "12px" }, children: [
+      /* @__PURE__ */ jsx13("span", { children: s.label || s.id }),
+      s.dataType && /* @__PURE__ */ jsx13(BaseBadge, { variant: "neutral", children: s.dataType })
     ] }, s.id)) })
   ] });
 }
 function renderNodeContent(node, onUpdateNode) {
-  return /* @__PURE__ */ jsxs8("div", { style: { display: "flex", flexDirection: "column", gap: "12px" }, children: [
-    /* @__PURE__ */ jsxs8("div", { children: [
-      /* @__PURE__ */ jsx8("label", { style: { display: "block", fontSize: "11px", color: "var(--skipo-text-muted)", marginBottom: "4px" }, children: "Label" }),
-      /* @__PURE__ */ jsx8(
+  return /* @__PURE__ */ jsxs11("div", { style: { display: "flex", flexDirection: "column", gap: "12px" }, children: [
+    /* @__PURE__ */ jsxs11("div", { children: [
+      /* @__PURE__ */ jsx13("label", { style: { display: "block", fontSize: "11px", color: "var(--skipo-text-muted)", marginBottom: "4px" }, children: "Label" }),
+      /* @__PURE__ */ jsx13(
         BaseInput3,
         {
           value: node.label,
@@ -1755,7 +2913,7 @@ function renderNodeContent(node, onUpdateNode) {
         }
       )
     ] }),
-    /* @__PURE__ */ jsx8("div", { style: { display: "flex", gap: "16px", fontSize: "12px", color: "var(--skipo-text-muted)" }, children: /* @__PURE__ */ jsxs8("div", { children: [
+    /* @__PURE__ */ jsx13("div", { style: { display: "flex", gap: "16px", fontSize: "12px", color: "var(--skipo-text-muted)" }, children: /* @__PURE__ */ jsxs11("div", { children: [
       "Position: X: ",
       Math.round(node.position.x),
       ", Y: ",
@@ -1763,9 +2921,9 @@ function renderNodeContent(node, onUpdateNode) {
     ] }) }),
     renderSockets(node.inputs, "Input"),
     renderSockets(node.outputs, "Output"),
-    node.data && Object.keys(node.data).length > 0 && /* @__PURE__ */ jsxs8("div", { children: [
-      /* @__PURE__ */ jsx8("div", { style: { fontSize: "11px", color: "var(--skipo-text-muted)", marginBottom: "4px", textTransform: "uppercase" }, children: "Custom Data" }),
-      /* @__PURE__ */ jsx8("pre", { style: { margin: 0, padding: "8px", background: "var(--skipo-surface)", borderRadius: "var(--skipo-radius-sm)", fontSize: "11px", color: "var(--skipo-text)", overflowX: "auto" }, children: JSON.stringify(node.data, null, 2) })
+    node.data && Object.keys(node.data).length > 0 && /* @__PURE__ */ jsxs11("div", { children: [
+      /* @__PURE__ */ jsx13("div", { style: { fontSize: "11px", color: "var(--skipo-text-muted)", marginBottom: "4px", textTransform: "uppercase" }, children: "Custom Data" }),
+      /* @__PURE__ */ jsx13("pre", { style: { margin: 0, padding: "8px", background: "var(--skipo-surface)", borderRadius: "var(--skipo-radius-sm)", fontSize: "11px", color: "var(--skipo-text)", overflowX: "auto" }, children: JSON.stringify(node.data, null, 2) })
     ] })
   ] });
 }
@@ -1779,7 +2937,7 @@ function NodeDetailsPanel({
   storageKey = "skipo:node-graph:details-panel"
 }) {
   if (!isOpen || !node) return null;
-  return /* @__PURE__ */ jsx8(
+  return /* @__PURE__ */ jsx13(
     FloatingDetailsPanel,
     {
       title: node.label || "Node Details",
@@ -2605,9 +3763,9 @@ var CommandApi = class {
 };
 
 // src/node-graph/ui/widgets/MidpointWidgets.tsx
-import { Fragment as Fragment2, jsx as jsx9, jsxs as jsxs9 } from "react/jsx-runtime";
+import { Fragment as Fragment4, jsx as jsx14, jsxs as jsxs12 } from "react/jsx-runtime";
 function MidpointWidgets({ x, y, locked, onDelete, onInspect, onToggleLock }) {
-  return /* @__PURE__ */ jsxs9(
+  return /* @__PURE__ */ jsxs12(
     "div",
     {
       style: {
@@ -2629,7 +3787,7 @@ function MidpointWidgets({ x, y, locked, onDelete, onInspect, onToggleLock }) {
       },
       onClick: (e) => e.stopPropagation(),
       children: [
-        onToggleLock && /* @__PURE__ */ jsx9(
+        onToggleLock && /* @__PURE__ */ jsx14(
           "button",
           {
             type: "button",
@@ -2644,16 +3802,16 @@ function MidpointWidgets({ x, y, locked, onDelete, onInspect, onToggleLock }) {
               alignItems: "center"
             },
             onClick: onToggleLock,
-            children: /* @__PURE__ */ jsx9("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: locked ? /* @__PURE__ */ jsxs9(Fragment2, { children: [
-              /* @__PURE__ */ jsx9("rect", { x: "3", y: "11", width: "18", height: "11", rx: "2", ry: "2" }),
-              /* @__PURE__ */ jsx9("path", { d: "M7 11V7a5 5 0 0 1 10 0v4" })
-            ] }) : /* @__PURE__ */ jsxs9(Fragment2, { children: [
-              /* @__PURE__ */ jsx9("rect", { x: "3", y: "11", width: "18", height: "11", rx: "2", ry: "2" }),
-              /* @__PURE__ */ jsx9("path", { d: "M7 11V7a5 5 0 0 1 9.9-1" })
+            children: /* @__PURE__ */ jsx14("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: locked ? /* @__PURE__ */ jsxs12(Fragment4, { children: [
+              /* @__PURE__ */ jsx14("rect", { x: "3", y: "11", width: "18", height: "11", rx: "2", ry: "2" }),
+              /* @__PURE__ */ jsx14("path", { d: "M7 11V7a5 5 0 0 1 10 0v4" })
+            ] }) : /* @__PURE__ */ jsxs12(Fragment4, { children: [
+              /* @__PURE__ */ jsx14("rect", { x: "3", y: "11", width: "18", height: "11", rx: "2", ry: "2" }),
+              /* @__PURE__ */ jsx14("path", { d: "M7 11V7a5 5 0 0 1 9.9-1" })
             ] }) })
           }
         ),
-        onInspect && /* @__PURE__ */ jsx9(
+        onInspect && /* @__PURE__ */ jsx14(
           "button",
           {
             type: "button",
@@ -2668,14 +3826,14 @@ function MidpointWidgets({ x, y, locked, onDelete, onInspect, onToggleLock }) {
               alignItems: "center"
             },
             onClick: onInspect,
-            children: /* @__PURE__ */ jsxs9("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: [
-              /* @__PURE__ */ jsx9("circle", { cx: "12", cy: "12", r: "10" }),
-              /* @__PURE__ */ jsx9("line", { x1: "12", y1: "16", x2: "12", y2: "12" }),
-              /* @__PURE__ */ jsx9("line", { x1: "12", y1: "8", x2: "12.01", y2: "8" })
+            children: /* @__PURE__ */ jsxs12("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: [
+              /* @__PURE__ */ jsx14("circle", { cx: "12", cy: "12", r: "10" }),
+              /* @__PURE__ */ jsx14("line", { x1: "12", y1: "16", x2: "12", y2: "12" }),
+              /* @__PURE__ */ jsx14("line", { x1: "12", y1: "8", x2: "12.01", y2: "8" })
             ] })
           }
         ),
-        onDelete && !locked && /* @__PURE__ */ jsx9(
+        onDelete && !locked && /* @__PURE__ */ jsx14(
           "button",
           {
             type: "button",
@@ -2690,9 +3848,9 @@ function MidpointWidgets({ x, y, locked, onDelete, onInspect, onToggleLock }) {
               alignItems: "center"
             },
             onClick: onDelete,
-            children: /* @__PURE__ */ jsxs9("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: [
-              /* @__PURE__ */ jsx9("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
-              /* @__PURE__ */ jsx9("line", { x1: "6", y1: "6", x2: "18", y2: "18" })
+            children: /* @__PURE__ */ jsxs12("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: [
+              /* @__PURE__ */ jsx14("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
+              /* @__PURE__ */ jsx14("line", { x1: "6", y1: "6", x2: "18", y2: "18" })
             ] })
           }
         )
@@ -2701,52 +3859,8 @@ function MidpointWidgets({ x, y, locked, onDelete, onInspect, onToggleLock }) {
   );
 }
 
-// src/node-graph/ui/widgets/SolidifyWidget.tsx
-import { jsx as jsx10 } from "react/jsx-runtime";
-function SolidifyWidget({ x, y, onSolidify }) {
-  return /* @__PURE__ */ jsx10(
-    "div",
-    {
-      style: {
-        position: "absolute",
-        left: x,
-        top: y,
-        transform: "translate(-50%, -50%)",
-        zIndex: 7,
-        pointerEvents: "auto"
-      },
-      onClick: (e) => e.stopPropagation(),
-      children: /* @__PURE__ */ jsx10(
-        "button",
-        {
-          type: "button",
-          title: "Solidify Connection",
-          "aria-label": "Solidify Connection",
-          style: {
-            backgroundColor: "var(--skipo-accent, #61afef)",
-            border: "1px solid var(--skipo-border, #61afef)",
-            borderRadius: "50%",
-            width: "22px",
-            height: "22px",
-            color: "var(--skipo-text, #ffffff)",
-            cursor: "pointer",
-            padding: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            boxShadow: "0 2px 6px rgba(0, 0, 0, 0.4)",
-            transition: "transform 0.1s ease"
-          },
-          onClick: onSolidify,
-          children: /* @__PURE__ */ jsx10("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round", strokeLinejoin: "round", children: /* @__PURE__ */ jsx10("polyline", { points: "20 6 9 17 4 12" }) })
-        }
-      )
-    }
-  );
-}
-
 // src/node-graph/ui/toolbar/GraphToolbar.tsx
-import { jsx as jsx11, jsxs as jsxs10 } from "react/jsx-runtime";
+import { jsx as jsx15, jsxs as jsxs13 } from "react/jsx-runtime";
 function GraphToolbar({
   settings,
   onUpdateSettings,
@@ -2768,7 +3882,7 @@ function GraphToolbar({
     alignItems: "center",
     gap: "4px"
   });
-  return /* @__PURE__ */ jsxs10(
+  return /* @__PURE__ */ jsxs13(
     "div",
     {
       className,
@@ -2784,7 +3898,7 @@ function GraphToolbar({
         zIndex: 25
       },
       children: [
-        /* @__PURE__ */ jsxs10(
+        /* @__PURE__ */ jsxs13(
           "button",
           {
             type: "button",
@@ -2796,7 +3910,7 @@ function GraphToolbar({
             ]
           }
         ),
-        /* @__PURE__ */ jsxs10(
+        /* @__PURE__ */ jsxs13(
           "button",
           {
             type: "button",
@@ -2808,7 +3922,7 @@ function GraphToolbar({
             ]
           }
         ),
-        /* @__PURE__ */ jsx11(
+        /* @__PURE__ */ jsx15(
           "button",
           {
             type: "button",
@@ -2817,7 +3931,7 @@ function GraphToolbar({
             children: "Refresh Traces"
           }
         ),
-        /* @__PURE__ */ jsxs10(
+        /* @__PURE__ */ jsxs13(
           "button",
           {
             type: "button",
@@ -2829,7 +3943,7 @@ function GraphToolbar({
             ]
           }
         ),
-        /* @__PURE__ */ jsx11(
+        /* @__PURE__ */ jsx15(
           "button",
           {
             type: "button",
@@ -2838,8 +3952,8 @@ function GraphToolbar({
             children: "Lock All"
           }
         ),
-        onSaveView && /* @__PURE__ */ jsx11("button", { type: "button", style: btnStyle(false), onClick: onSaveView, children: "Save View" }),
-        onLoadView && /* @__PURE__ */ jsx11("button", { type: "button", style: btnStyle(false), onClick: onLoadView, children: "Load View" })
+        onSaveView && /* @__PURE__ */ jsx15("button", { type: "button", style: btnStyle(false), onClick: onSaveView, children: "Save View" }),
+        onLoadView && /* @__PURE__ */ jsx15("button", { type: "button", style: btnStyle(false), onClick: onLoadView, children: "Load View" })
       ]
     }
   );
@@ -2951,8 +4065,8 @@ var ReactFlowAdapter = class {
 };
 
 // src/node-graph/Viewer2DNodes.tsx
-import { useState as useState7, useRef as useRef4 } from "react";
-import { jsx as jsx12, jsxs as jsxs11 } from "react/jsx-runtime";
+import { useState as useState8, useRef as useRef5 } from "react";
+import { jsx as jsx16, jsxs as jsxs14 } from "react/jsx-runtime";
 function Viewer2DNodes({
   node,
   selected,
@@ -2965,7 +4079,7 @@ function Viewer2DNodes({
   const headerHeight = 36;
   const socketSpacing = 36;
   const centerX = cardWidth / 2;
-  return /* @__PURE__ */ jsxs11(
+  return /* @__PURE__ */ jsxs14(
     "div",
     {
       style: {
@@ -2986,7 +4100,7 @@ function Viewer2DNodes({
       onMouseDown: (e) => onMouseDown?.(e, node.id),
       onDoubleClick: () => onDoubleClick?.(node.id),
       children: [
-        /* @__PURE__ */ jsxs11(
+        /* @__PURE__ */ jsxs14(
           "div",
           {
             style: {
@@ -3001,8 +4115,8 @@ function Viewer2DNodes({
               borderTopRightRadius: "8px"
             },
             children: [
-              /* @__PURE__ */ jsx12("span", { style: { fontSize: "12px", fontWeight: 600, letterSpacing: "0.02em" }, children: node.label }),
-              /* @__PURE__ */ jsx12(
+              /* @__PURE__ */ jsx16("span", { style: { fontSize: "12px", fontWeight: 600, letterSpacing: "0.02em" }, children: node.label }),
+              /* @__PURE__ */ jsx16(
                 "span",
                 {
                   style: {
@@ -3020,12 +4134,12 @@ function Viewer2DNodes({
             ]
           }
         ),
-        /* @__PURE__ */ jsx12("div", { style: { position: "relative", minHeight: "60px", padding: "12px 16px" }, children: node.data && /* @__PURE__ */ jsxs11("div", { style: { fontSize: "11px", color: "#94a3b8" }, children: [
+        /* @__PURE__ */ jsx16("div", { style: { position: "relative", minHeight: "60px", padding: "12px 16px" }, children: node.data && /* @__PURE__ */ jsxs14("div", { style: { fontSize: "11px", color: "#94a3b8" }, children: [
           Object.keys(node.data).length,
           " properties"
         ] }) }),
-        /* @__PURE__ */ jsxs11("div", { style: { position: "absolute", top: headerHeight + 10, left: centerX, width: 0, height: 0 }, children: [
-          node.inputs?.map((socket, idx) => /* @__PURE__ */ jsx12(
+        /* @__PURE__ */ jsxs14("div", { style: { position: "absolute", top: headerHeight + 10, left: centerX, width: 0, height: 0 }, children: [
+          node.inputs?.map((socket, idx) => /* @__PURE__ */ jsx16(
             MovableSocketHandle,
             {
               socket,
@@ -3038,7 +4152,7 @@ function Viewer2DNodes({
             },
             socket.id
           )),
-          node.outputs?.map((socket, idx) => /* @__PURE__ */ jsx12(
+          node.outputs?.map((socket, idx) => /* @__PURE__ */ jsx16(
             MovableSocketHandle,
             {
               socket,
@@ -3065,12 +4179,12 @@ function MovableSocketHandle({
   onSocketMouseDown,
   onSocketNudgeChange
 }) {
-  const [isHovered, setIsHovered] = useState7(false);
-  const [localNudge, setLocalNudge] = useState7(
+  const [isHovered, setIsHovered] = useState8(false);
+  const [localNudge, setLocalNudge] = useState8(
     socket.offset ?? { x: 0, y: 0 }
   );
-  const isDraggingGizmoRef = useRef4(false);
-  const dragStartPosRef = useRef4({
+  const isDraggingGizmoRef = useRef5(false);
+  const dragStartPosRef = useRef5({
     clientX: 0,
     clientY: 0,
     origX: 0,
@@ -3117,7 +4231,7 @@ function MovableSocketHandle({
   const beamShroudPoints = getBeamPoints(nudge, 8, 2.5);
   const socketThemeColor = isOutput ? "#61afef" : "#98c379";
   const gizmoOffsetX = isOutput ? 18 : -18;
-  return /* @__PURE__ */ jsxs11(
+  return /* @__PURE__ */ jsxs14(
     "div",
     {
       style: {
@@ -3128,7 +4242,7 @@ function MovableSocketHandle({
       onMouseEnter: () => setIsHovered(true),
       onMouseLeave: () => setIsHovered(false),
       children: [
-        isDisplaced && /* @__PURE__ */ jsxs11(
+        isDisplaced && /* @__PURE__ */ jsxs14(
           "svg",
           {
             style: {
@@ -3140,7 +4254,7 @@ function MovableSocketHandle({
               zIndex: 1
             },
             children: [
-              /* @__PURE__ */ jsx12(
+              /* @__PURE__ */ jsx16(
                 "polygon",
                 {
                   points: beamShroudPoints,
@@ -3148,7 +4262,7 @@ function MovableSocketHandle({
                   opacity: 0.35
                 }
               ),
-              /* @__PURE__ */ jsx12(
+              /* @__PURE__ */ jsx16(
                 "polygon",
                 {
                   points: beamCorePoints,
@@ -3159,7 +4273,7 @@ function MovableSocketHandle({
             ]
           }
         ),
-        /* @__PURE__ */ jsx12(
+        /* @__PURE__ */ jsx16(
           "div",
           {
             style: {
@@ -3182,7 +4296,7 @@ function MovableSocketHandle({
               e.stopPropagation();
               onSocketMouseDown?.(e, nodeId, socket.id, isOutput ? "output" : "input");
             },
-            children: /* @__PURE__ */ jsx12(
+            children: /* @__PURE__ */ jsx16(
               "div",
               {
                 style: {
@@ -3196,7 +4310,7 @@ function MovableSocketHandle({
             )
           }
         ),
-        (isHovered || isDraggingGizmoRef.current) && /* @__PURE__ */ jsx12(
+        (isHovered || isDraggingGizmoRef.current) && /* @__PURE__ */ jsx16(
           "div",
           {
             title: "Drag to displace socket handle",
@@ -3217,13 +4331,13 @@ function MovableSocketHandle({
               boxShadow: "0 2px 4px rgba(0,0,0,0.5)"
             },
             onMouseDown: handleGizmoMouseDown,
-            children: /* @__PURE__ */ jsxs11("svg", { width: "10", height: "10", viewBox: "0 0 24 24", fill: "none", stroke: "#d4af37", strokeWidth: "2.5", strokeLinecap: "round", strokeLinejoin: "round", children: [
-              /* @__PURE__ */ jsx12("polyline", { points: "5 9 2 12 5 15" }),
-              /* @__PURE__ */ jsx12("polyline", { points: "9 5 12 2 15 5" }),
-              /* @__PURE__ */ jsx12("polyline", { points: "15 19 12 22 9 19" }),
-              /* @__PURE__ */ jsx12("polyline", { points: "19 9 22 12 19 15" }),
-              /* @__PURE__ */ jsx12("line", { x1: "2", y1: "12", x2: "22", y2: "12" }),
-              /* @__PURE__ */ jsx12("line", { x1: "12", y1: "2", x2: "12", y2: "22" })
+            children: /* @__PURE__ */ jsxs14("svg", { width: "10", height: "10", viewBox: "0 0 24 24", fill: "none", stroke: "#d4af37", strokeWidth: "2.5", strokeLinecap: "round", strokeLinejoin: "round", children: [
+              /* @__PURE__ */ jsx16("polyline", { points: "5 9 2 12 5 15" }),
+              /* @__PURE__ */ jsx16("polyline", { points: "9 5 12 2 15 5" }),
+              /* @__PURE__ */ jsx16("polyline", { points: "15 19 12 22 9 19" }),
+              /* @__PURE__ */ jsx16("polyline", { points: "19 9 22 12 19 15" }),
+              /* @__PURE__ */ jsx16("line", { x1: "2", y1: "12", x2: "22", y2: "12" }),
+              /* @__PURE__ */ jsx16("line", { x1: "12", y1: "2", x2: "12", y2: "22" })
             ] })
           }
         )
@@ -3251,10 +4365,22 @@ export {
   HandleTypeRegistry,
   WireTypeRegistry,
   initializeDefaultGraphRules,
+  PRIMITIVE_NODE_DEFINITIONS,
   ConnectionRuleStore,
   CompatibleNodePicker,
   NodeSearchPalette,
   CanvasContextMenu,
+  GhostStore,
+  GhostInferenceEngine,
+  GhostLayoutResolver,
+  GhostTracePathBuilder,
+  useGhostRouting,
+  useMagneticTraces,
+  GhostTraceLayer,
+  GhostNodeCard,
+  GhostSolidifyBar,
+  SolidifyWidget,
+  MagneticTraceLayer,
   NodeGraphCanvas,
   NodeDetailsPanel,
   BaseHandle,
@@ -3281,7 +4407,6 @@ export {
   GraphStore,
   CommandApi,
   MidpointWidgets,
-  SolidifyWidget,
   GraphToolbar,
   ReactFlowAdapter,
   Viewer2DNodes,

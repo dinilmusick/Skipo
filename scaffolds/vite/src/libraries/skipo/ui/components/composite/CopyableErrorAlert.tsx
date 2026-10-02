@@ -60,7 +60,7 @@ export const CopyableErrorAlert: React.FC<CopyableErrorAlertProps> = ({
             {title}
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', shrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexShrink: 0 }}>
           <BaseButton
             size="sm"
             variant={copied ? 'success' : 'secondary'}

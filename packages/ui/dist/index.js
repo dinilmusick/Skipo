@@ -4,6 +4,7 @@ import {
   CodeStyleSchema,
   DEFAULT_DARK_THEME_PACK,
   DEFAULT_LIGHT_THEME_PACK,
+  DEPM_THEME_PACKS,
   DOCUSTACK_CYBERPUNK_PACK,
   DOCUSTACK_DARK_GOLD_PACK,
   DOCUSTACK_WARM_COFFEE_PACK,
@@ -22,9 +23,11 @@ import {
   ThemeTypographySchema,
   ThemeVariantDefinitionSchema,
   UIElementThemeValueSchema,
+  appThemeEngine,
   applyThemePack,
   centralLedger,
   createAppThemeSocket,
+  depmThemeSocket,
   docustack_cyberpunk_neon_default,
   docustack_dark_gold_default,
   docustack_warm_coffee_default,
@@ -40,7 +43,7 @@ import {
   validateModularThemePack,
   validateSocketElements,
   validateThemePack
-} from "./chunk-3MDOQ35C.js";
+} from "./chunk-6QCUHYUF.js";
 
 // src/components/base/BaseButton.tsx
 import { forwardRef } from "react";
@@ -966,7 +969,8 @@ var CopyableErrorAlert = ({
   const [copied, setCopied] = useState8(false);
   if (!error) return null;
   const errorMessage = typeof error === "string" ? error : error.message || String(error);
-  const handleCopy = async () => {
+  const handleCopy = async (e) => {
+    e.stopPropagation();
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard) {
         await navigator.clipboard.writeText(errorMessage);
@@ -989,15 +993,16 @@ var CopyableErrorAlert = ({
         marginBottom: "1rem",
         display: "flex",
         flexDirection: "column",
-        gap: "0.5rem"
+        gap: "0.5rem",
+        position: "relative"
       },
       children: [
         /* @__PURE__ */ jsxs14("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }, children: [
-          /* @__PURE__ */ jsxs14("div", { style: { display: "flex", alignItems: "center", gap: "0.5rem" }, children: [
-            /* @__PURE__ */ jsx27(BaseBadge, { variant: "neutral", style: { background: "var(--skipo-danger, #ef4444)", color: "#fff" }, children: "ERROR" }),
-            /* @__PURE__ */ jsx27("span", { style: { fontWeight: "bold", fontSize: "13px" }, children: title })
+          /* @__PURE__ */ jsxs14("div", { style: { display: "flex", alignItems: "center", gap: "0.5rem", overflow: "hidden" }, children: [
+            /* @__PURE__ */ jsx27(BaseBadge, { variant: "neutral", style: { background: "var(--skipo-danger, #ef4444)", color: "var(--skipo-danger-fg, #ffffff)" }, children: "ERROR" }),
+            /* @__PURE__ */ jsx27("span", { style: { fontWeight: "bold", fontSize: "13px", color: "var(--skipo-text)" }, children: title })
           ] }),
-          /* @__PURE__ */ jsxs14("div", { style: { display: "flex", alignItems: "center", gap: "0.25rem" }, children: [
+          /* @__PURE__ */ jsxs14("div", { style: { display: "flex", alignItems: "center", gap: "0.25rem", flexShrink: 0 }, children: [
             /* @__PURE__ */ jsx27(
               BaseButton,
               {
@@ -1005,10 +1010,25 @@ var CopyableErrorAlert = ({
                 variant: copied ? "success" : "secondary",
                 onClick: handleCopy,
                 type: "button",
-                children: copied ? "COPIED" : "COPY"
+                title: "Copy Error to Clipboard",
+                "aria-label": "Copy Error",
+                style: { fontSize: "10px", height: "24px", padding: "0 8px" },
+                children: copied ? "Copied" : "Copy"
               }
             ),
-            onClear && /* @__PURE__ */ jsx27(BaseButton, { size: "sm", variant: "ghost", onClick: onClear, type: "button", children: "\u2715" })
+            onClear && /* @__PURE__ */ jsx27(
+              BaseButton,
+              {
+                size: "sm",
+                variant: "ghost",
+                onClick: onClear,
+                type: "button",
+                title: "Dismiss",
+                "aria-label": "Dismiss",
+                style: { fontSize: "10px", height: "24px", padding: "0 6px" },
+                children: "\u2715"
+              }
+            )
           ] })
         ] }),
         /* @__PURE__ */ jsx27(
@@ -1019,9 +1039,12 @@ var CopyableErrorAlert = ({
               fontFamily: "var(--skipo-font-mono, monospace)",
               wordBreak: "break-word",
               whiteSpace: "pre-wrap",
-              maxHeight: "120px",
+              maxHeight: "140px",
               overflowY: "auto",
-              color: "var(--skipo-text)"
+              color: "var(--skipo-text)",
+              backgroundColor: "rgba(0, 0, 0, 0.2)",
+              padding: "6px 8px",
+              borderRadius: "4px"
             },
             children: errorMessage
           }
@@ -1176,6 +1199,177 @@ function SearchableList({
   ] });
 }
 
+// src/components/composite/CopyableLogViewer.tsx
+import { useState as useState11, useMemo as useMemo3, useRef as useRef3, useEffect as useEffect6 } from "react";
+import { jsx as jsx29, jsxs as jsxs16 } from "react/jsx-runtime";
+var CopyableLogViewer = ({
+  logs,
+  title = "System Logs",
+  maxHeight = "280px",
+  autoScroll = true,
+  className = "",
+  onClear
+}) => {
+  const [copied, setCopied] = useState11(false);
+  const [filter, setFilter] = useState11("all");
+  const scrollRef = useRef3(null);
+  const normalizedLogs = useMemo3(() => {
+    return logs.map((log, idx) => {
+      if (typeof log === "string") {
+        const isErr = /error|fatal|fail/i.test(log);
+        const isWarn = /warn/i.test(log);
+        return {
+          id: `log-${idx}`,
+          level: isErr ? "error" : isWarn ? "warn" : "info",
+          message: log,
+          timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString()
+        };
+      }
+      return {
+        id: log.id || `log-${idx}`,
+        level: log.level || "info",
+        message: log.message,
+        timestamp: log.timestamp || (/* @__PURE__ */ new Date()).toLocaleTimeString()
+      };
+    });
+  }, [logs]);
+  const filteredLogs = useMemo3(() => {
+    if (filter === "all") return normalizedLogs;
+    return normalizedLogs.filter((l) => l.level === filter);
+  }, [normalizedLogs, filter]);
+  useEffect6(() => {
+    if (autoScroll && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [filteredLogs, autoScroll]);
+  const handleCopyAll = async () => {
+    const text = filteredLogs.map((l) => `[${l.timestamp}] [${l.level?.toUpperCase()}] ${l.message}`).join("\n");
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2e3);
+      }
+    } catch {
+    }
+  };
+  const getLevelColor = (level) => {
+    if (level === "error") return "var(--skipo-danger, #ef4444)";
+    if (level === "warn") return "var(--skipo-warning, #f59e0b)";
+    return "var(--skipo-accent, #61afef)";
+  };
+  return /* @__PURE__ */ jsxs16(
+    BaseCard,
+    {
+      variant: "surface",
+      depth: "sm",
+      className: `skipo-log-viewer ${className}`,
+      style: {
+        border: "1px solid var(--skipo-border-color, #333)",
+        backgroundColor: "var(--skipo-surface, #1e1e24)",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden"
+      },
+      children: [
+        /* @__PURE__ */ jsxs16(
+          "div",
+          {
+            style: {
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "6px 12px",
+              borderBottom: "1px solid var(--skipo-border-color, #333)",
+              backgroundColor: "rgba(0, 0, 0, 0.25)"
+            },
+            children: [
+              /* @__PURE__ */ jsxs16("div", { style: { display: "flex", alignItems: "center", gap: "8px" }, children: [
+                /* @__PURE__ */ jsx29("span", { style: { fontSize: "11px", fontWeight: 700, textTransform: "uppercase", color: "var(--skipo-text)" }, children: title }),
+                /* @__PURE__ */ jsx29(BaseBadge, { variant: "neutral", style: { fontSize: "10px", padding: "1px 6px" }, children: filteredLogs.length })
+              ] }),
+              /* @__PURE__ */ jsxs16("div", { style: { display: "flex", alignItems: "center", gap: "6px" }, children: [
+                /* @__PURE__ */ jsxs16(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: () => setFilter((f) => f === "all" ? "error" : f === "error" ? "warn" : "all"),
+                    style: {
+                      background: "none",
+                      border: "1px solid var(--skipo-border-color, #444)",
+                      borderRadius: "4px",
+                      color: "var(--skipo-text-muted, #888)",
+                      fontSize: "10px",
+                      padding: "2px 6px",
+                      cursor: "pointer"
+                    },
+                    children: [
+                      "Filter: ",
+                      filter.toUpperCase()
+                    ]
+                  }
+                ),
+                /* @__PURE__ */ jsx29(
+                  BaseButton,
+                  {
+                    size: "sm",
+                    variant: copied ? "success" : "secondary",
+                    onClick: handleCopyAll,
+                    type: "button",
+                    title: "Copy Logs",
+                    "aria-label": "Copy Logs",
+                    style: { fontSize: "10px", height: "22px", padding: "0 8px" },
+                    children: copied ? "Copied" : "Copy"
+                  }
+                ),
+                onClear && /* @__PURE__ */ jsx29(
+                  BaseButton,
+                  {
+                    size: "sm",
+                    variant: "ghost",
+                    onClick: onClear,
+                    type: "button",
+                    title: "Clear",
+                    "aria-label": "Clear",
+                    style: { fontSize: "10px", height: "22px", padding: "0 6px" },
+                    children: "\u2715"
+                  }
+                )
+              ] })
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsx29(
+          "div",
+          {
+            ref: scrollRef,
+            style: {
+              maxHeight,
+              overflowY: "auto",
+              padding: "8px 12px",
+              fontFamily: "var(--skipo-font-mono, monospace)",
+              fontSize: "11px",
+              lineHeight: "1.5",
+              backgroundColor: "var(--skipo-bg, #121214)",
+              color: "var(--skipo-text, #f1f5f9)"
+            },
+            children: filteredLogs.length === 0 ? /* @__PURE__ */ jsx29("div", { style: { color: "var(--skipo-text-muted, #666)", fontStyle: "italic", padding: "8px 0" }, children: "No log entries recorded." }) : filteredLogs.map((log) => /* @__PURE__ */ jsxs16("div", { style: { display: "flex", gap: "8px", wordBreak: "break-all" }, children: [
+              /* @__PURE__ */ jsx29("span", { style: { color: "var(--skipo-text-muted, #555)", flexShrink: 0, fontSize: "10px" }, children: log.timestamp }),
+              /* @__PURE__ */ jsxs16("span", { style: { color: getLevelColor(log.level), fontWeight: 700, width: "42px", flexShrink: 0, fontSize: "10px" }, children: [
+                "[",
+                log.level?.toUpperCase(),
+                "]"
+              ] }),
+              /* @__PURE__ */ jsx29("span", { style: { flex: 1 }, children: log.message })
+            ] }, log.id))
+          }
+        )
+      ]
+    }
+  );
+};
+CopyableLogViewer.displayName = "CopyableLogViewer";
+
 // src/components/layout/AppShell.tsx
 import { forwardRef as forwardRef25 } from "react";
 
@@ -1183,7 +1377,7 @@ import { forwardRef as forwardRef25 } from "react";
 import { forwardRef as forwardRef24 } from "react";
 
 // src/components/bottom-strip/StatusLight.tsx
-import { jsx as jsx29 } from "react/jsx-runtime";
+import { jsx as jsx30 } from "react/jsx-runtime";
 var StatusLight = ({
   status = "idle",
   label,
@@ -1210,7 +1404,7 @@ var StatusLight = ({
     warning: "var(--skipo-warning)"
   };
   const currentColor = colorMap[status];
-  return /* @__PURE__ */ jsx29(
+  return /* @__PURE__ */ jsx30(
     "span",
     {
       className: `skipo-status-light skipo-status-light--${status} ${pulse ? "skipo-status-light--pulse" : ""} ${className}`,
@@ -1237,7 +1431,7 @@ var StatusLight = ({
 StatusLight.displayName = "StatusLight";
 
 // src/components/bottom-strip/AutoSaveToggle.tsx
-import { jsx as jsx30, jsxs as jsxs16 } from "react/jsx-runtime";
+import { jsx as jsx31, jsxs as jsxs17 } from "react/jsx-runtime";
 var AutoSaveToggle = ({
   onToggle,
   className = "",
@@ -1251,7 +1445,7 @@ var AutoSaveToggle = ({
     if (props.onClick) props.onClick(e);
   };
   const inspectionLabel = isEnabled ? "AUTO-SAVE: ACTIVE (AUTOMATIC BACKGROUND PERSISTENCE)" : "AUTO-SAVE: PAUSED (CHANGES REQUIRE MANUAL SAVE)";
-  return /* @__PURE__ */ jsx30(
+  return /* @__PURE__ */ jsx31(
     BaseButton,
     {
       variant: "ghost",
@@ -1268,7 +1462,7 @@ var AutoSaveToggle = ({
         color: isEnabled ? "var(--skipo-success)" : "var(--skipo-text-muted)"
       },
       ...props,
-      children: /* @__PURE__ */ jsxs16(
+      children: /* @__PURE__ */ jsxs17(
         "svg",
         {
           width: "14",
@@ -1280,9 +1474,9 @@ var AutoSaveToggle = ({
           strokeLinecap: "round",
           strokeLinejoin: "round",
           children: [
-            /* @__PURE__ */ jsx30("path", { d: "M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" }),
-            /* @__PURE__ */ jsx30("polyline", { points: "17 21 17 13 7 13 7 21" }),
-            /* @__PURE__ */ jsx30("polyline", { points: "7 3 7 8 15 8" })
+            /* @__PURE__ */ jsx31("path", { d: "M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" }),
+            /* @__PURE__ */ jsx31("polyline", { points: "17 21 17 13 7 13 7 21" }),
+            /* @__PURE__ */ jsx31("polyline", { points: "7 3 7 8 15 8" })
           ]
         }
       )
@@ -1292,7 +1486,7 @@ var AutoSaveToggle = ({
 AutoSaveToggle.displayName = "AutoSaveToggle";
 
 // src/components/bottom-strip/ApiCallIndicator.tsx
-import { jsx as jsx31, jsxs as jsxs17 } from "react/jsx-runtime";
+import { jsx as jsx32, jsxs as jsxs18 } from "react/jsx-runtime";
 var ApiCallIndicator = ({
   activeCount,
   className = "",
@@ -1302,7 +1496,7 @@ var ApiCallIndicator = ({
   const count = activeCount !== void 0 ? activeCount : apiActivity.activeCount;
   const isBusy = count > 0;
   const inspectionLabel = isBusy ? `API IN-FLIGHT: ${count} ACTIVE REQUEST(S)${apiActivity.lastEndpoint ? ` (${apiActivity.lastMethod || "REQ"} ${apiActivity.lastEndpoint})` : ""}` : "API NETWORK: IDLE (ZERO PENDING CALLS)";
-  return /* @__PURE__ */ jsxs17(
+  return /* @__PURE__ */ jsxs18(
     "span",
     {
       className: `skipo-api-indicator ${isBusy ? "skipo-api-indicator--busy" : ""} ${className}`,
@@ -1322,7 +1516,7 @@ var ApiCallIndicator = ({
       },
       ...props,
       children: [
-        /* @__PURE__ */ jsx31(
+        /* @__PURE__ */ jsx32(
           "svg",
           {
             width: "13",
@@ -1336,10 +1530,10 @@ var ApiCallIndicator = ({
             style: {
               animation: isBusy ? "skipo-pulse-glow 1.5s infinite ease-in-out" : void 0
             },
-            children: /* @__PURE__ */ jsx31("polyline", { points: "22 12 18 12 15 21 9 3 6 12 2 12" })
+            children: /* @__PURE__ */ jsx32("polyline", { points: "22 12 18 12 15 21 9 3 6 12 2 12" })
           }
         ),
-        isBusy && /* @__PURE__ */ jsx31("span", { style: { fontSize: "10px", fontWeight: 900, fontFamily: "var(--skipo-font-mono)" }, children: count })
+        isBusy && /* @__PURE__ */ jsx32("span", { style: { fontSize: "10px", fontWeight: 900, fontFamily: "var(--skipo-font-mono)" }, children: count })
       ]
     }
   );
@@ -1347,7 +1541,7 @@ var ApiCallIndicator = ({
 ApiCallIndicator.displayName = "ApiCallIndicator";
 
 // src/components/bottom-strip/SystemMessageDisplay.tsx
-import { jsx as jsx32, jsxs as jsxs18 } from "react/jsx-runtime";
+import { jsx as jsx33, jsxs as jsxs19 } from "react/jsx-runtime";
 var SystemMessageDisplay = ({
   className = "",
   ...props
@@ -1363,7 +1557,7 @@ var SystemMessageDisplay = ({
   };
   const currentColor = colorMap[latestMessage.type] || "var(--skipo-text)";
   const inspectionLabel = `SYSTEM [${latestMessage.type.toUpperCase()}]: ${latestMessage.message} (CLICK TO DISMISS)`;
-  return /* @__PURE__ */ jsxs18(
+  return /* @__PURE__ */ jsxs19(
     "div",
     {
       className: `skipo-system-msg-display skipo-system-msg-display--${latestMessage.type} ${className}`,
@@ -1392,7 +1586,7 @@ var SystemMessageDisplay = ({
       },
       ...props,
       children: [
-        /* @__PURE__ */ jsx32(
+        /* @__PURE__ */ jsx33(
           "span",
           {
             style: {
@@ -1404,7 +1598,7 @@ var SystemMessageDisplay = ({
             }
           }
         ),
-        /* @__PURE__ */ jsx32("span", { style: { overflow: "hidden", textOverflow: "ellipsis" }, children: latestMessage.message })
+        /* @__PURE__ */ jsx33("span", { style: { overflow: "hidden", textOverflow: "ellipsis" }, children: latestMessage.message })
       ]
     }
   );
@@ -1412,7 +1606,7 @@ var SystemMessageDisplay = ({
 SystemMessageDisplay.displayName = "SystemMessageDisplay";
 
 // src/components/bottom-strip/BottomStrip.tsx
-import { Fragment as Fragment4, jsx as jsx33, jsxs as jsxs19 } from "react/jsx-runtime";
+import { Fragment as Fragment4, jsx as jsx34, jsxs as jsxs20 } from "react/jsx-runtime";
 var BottomStrip = forwardRef24(({
   leftSlot,
   centerSlot,
@@ -1425,7 +1619,7 @@ var BottomStrip = forwardRef24(({
   const { inspectionText, inspectionDescription, isDKeyPressed } = useBottomStrip();
   const showDescription = Boolean(isDKeyPressed && inspectionDescription);
   const activeText = showDescription ? inspectionDescription : inspectionText;
-  return /* @__PURE__ */ jsxs19(
+  return /* @__PURE__ */ jsxs20(
     "footer",
     {
       ref,
@@ -1449,7 +1643,7 @@ var BottomStrip = forwardRef24(({
       },
       ...props,
       children: [
-        /* @__PURE__ */ jsxs19(
+        /* @__PURE__ */ jsxs20(
           "div",
           {
             className: "skipo-bottom-strip__left",
@@ -1461,15 +1655,15 @@ var BottomStrip = forwardRef24(({
               minWidth: "120px"
             },
             children: [
-              !hideDefaultLeft && /* @__PURE__ */ jsxs19(Fragment4, { children: [
-                /* @__PURE__ */ jsx33(StatusLight, {}),
-                /* @__PURE__ */ jsx33(AutoSaveToggle, {})
+              !hideDefaultLeft && /* @__PURE__ */ jsxs20(Fragment4, { children: [
+                /* @__PURE__ */ jsx34(StatusLight, {}),
+                /* @__PURE__ */ jsx34(AutoSaveToggle, {})
               ] }),
               leftSlot
             ]
           }
         ),
-        /* @__PURE__ */ jsx33(
+        /* @__PURE__ */ jsx34(
           "div",
           {
             className: "skipo-bottom-strip__center",
@@ -1484,7 +1678,7 @@ var BottomStrip = forwardRef24(({
               pointerEvents: "none",
               textAlign: "center"
             },
-            children: centerSlot || /* @__PURE__ */ jsx33(
+            children: centerSlot || /* @__PURE__ */ jsx34(
               "span",
               {
                 className: "skipo-inspection-text",
@@ -1512,7 +1706,7 @@ var BottomStrip = forwardRef24(({
             )
           }
         ),
-        /* @__PURE__ */ jsxs19(
+        /* @__PURE__ */ jsxs20(
           "div",
           {
             className: "skipo-bottom-strip__right",
@@ -1526,9 +1720,9 @@ var BottomStrip = forwardRef24(({
             },
             children: [
               rightSlot,
-              !hideDefaultRight && /* @__PURE__ */ jsxs19(Fragment4, { children: [
-                /* @__PURE__ */ jsx33(ApiCallIndicator, {}),
-                /* @__PURE__ */ jsx33(SystemMessageDisplay, {})
+              !hideDefaultRight && /* @__PURE__ */ jsxs20(Fragment4, { children: [
+                /* @__PURE__ */ jsx34(ApiCallIndicator, {}),
+                /* @__PURE__ */ jsx34(SystemMessageDisplay, {})
               ] })
             ]
           }
@@ -1540,7 +1734,7 @@ var BottomStrip = forwardRef24(({
 BottomStrip.displayName = "BottomStrip";
 
 // src/components/layout/AppShell.tsx
-import { jsx as jsx34, jsxs as jsxs20 } from "react/jsx-runtime";
+import { jsx as jsx35, jsxs as jsxs21 } from "react/jsx-runtime";
 var AppShell = forwardRef25(({
   header,
   sidebar,
@@ -1553,9 +1747,9 @@ var AppShell = forwardRef25(({
   ...props
 }, ref) => {
   if (workspaceGate) {
-    return /* @__PURE__ */ jsx34("div", { className: `skipo-workspace-screen-gate ${className}`, style: { minHeight: "100vh", width: "100vw" }, children: workspaceGate });
+    return /* @__PURE__ */ jsx35("div", { className: `skipo-workspace-screen-gate ${className}`, style: { minHeight: "100vh", width: "100vw" }, children: workspaceGate });
   }
-  return /* @__PURE__ */ jsx34(BottomStripProvider, { children: /* @__PURE__ */ jsxs20(
+  return /* @__PURE__ */ jsx35(BottomStripProvider, { children: /* @__PURE__ */ jsxs21(
     "div",
     {
       ref,
@@ -1572,7 +1766,7 @@ var AppShell = forwardRef25(({
       ...props,
       children: [
         sidebar,
-        /* @__PURE__ */ jsxs20(
+        /* @__PURE__ */ jsxs21(
           "div",
           {
             style: {
@@ -1584,7 +1778,7 @@ var AppShell = forwardRef25(({
             },
             children: [
               header,
-              /* @__PURE__ */ jsx34(
+              /* @__PURE__ */ jsx35(
                 "main",
                 {
                   className: "skipo-app-shell__main",
@@ -1596,7 +1790,7 @@ var AppShell = forwardRef25(({
                   children
                 }
               ),
-              footer !== void 0 ? footer : !disableBottomStrip && /* @__PURE__ */ jsx34(BottomStrip, { ...bottomStripProps })
+              footer !== void 0 ? footer : !disableBottomStrip && /* @__PURE__ */ jsx35(BottomStrip, { ...bottomStripProps })
             ]
           }
         )
@@ -1608,7 +1802,7 @@ AppShell.displayName = "AppShell";
 
 // src/components/layout/HeaderBar.tsx
 import { forwardRef as forwardRef26 } from "react";
-import { jsx as jsx35, jsxs as jsxs21 } from "react/jsx-runtime";
+import { jsx as jsx36, jsxs as jsxs22 } from "react/jsx-runtime";
 var HeaderBar = forwardRef26(({
   title,
   nav,
@@ -1616,34 +1810,34 @@ var HeaderBar = forwardRef26(({
   className = "",
   ...props
 }, ref) => {
-  return /* @__PURE__ */ jsxs21("header", { ref, className: `skipo-header ${className}`, ...props, children: [
-    /* @__PURE__ */ jsxs21("div", { style: { display: "flex", alignItems: "center", gap: "16px" }, children: [
-      title && /* @__PURE__ */ jsx35("strong", { children: title }),
+  return /* @__PURE__ */ jsxs22("header", { ref, className: `skipo-header ${className}`, ...props, children: [
+    /* @__PURE__ */ jsxs22("div", { style: { display: "flex", alignItems: "center", gap: "16px" }, children: [
+      title && /* @__PURE__ */ jsx36("strong", { children: title }),
       nav
     ] }),
-    actions && /* @__PURE__ */ jsx35("div", { children: actions })
+    actions && /* @__PURE__ */ jsx36("div", { children: actions })
   ] });
 });
 HeaderBar.displayName = "HeaderBar";
 
 // src/components/layout/BreadcrumbNav.tsx
-import React29, { forwardRef as forwardRef27 } from "react";
-import { jsx as jsx36, jsxs as jsxs22 } from "react/jsx-runtime";
+import React30, { forwardRef as forwardRef27 } from "react";
+import { jsx as jsx37, jsxs as jsxs23 } from "react/jsx-runtime";
 var BreadcrumbNav = forwardRef27(({
   paths,
   className = "",
   ...props
 }, ref) => {
-  return /* @__PURE__ */ jsx36("nav", { ref, className: `skipo-breadcrumb ${className}`, ...props, children: paths.map((p, i) => /* @__PURE__ */ jsxs22(React29.Fragment, { children: [
-    p.href ? /* @__PURE__ */ jsx36("a", { href: p.href, children: p.label }) : /* @__PURE__ */ jsx36("span", { children: p.label }),
-    i < paths.length - 1 && /* @__PURE__ */ jsx36("span", { children: "/" })
+  return /* @__PURE__ */ jsx37("nav", { ref, className: `skipo-breadcrumb ${className}`, ...props, children: paths.map((p, i) => /* @__PURE__ */ jsxs23(React30.Fragment, { children: [
+    p.href ? /* @__PURE__ */ jsx37("a", { href: p.href, children: p.label }) : /* @__PURE__ */ jsx37("span", { children: p.label }),
+    i < paths.length - 1 && /* @__PURE__ */ jsx37("span", { children: "/" })
   ] }, i)) });
 });
 BreadcrumbNav.displayName = "BreadcrumbNav";
 
 // src/components/layout/TopToolbar.tsx
 import { forwardRef as forwardRef28 } from "react";
-import { jsx as jsx37, jsxs as jsxs23 } from "react/jsx-runtime";
+import { jsx as jsx38, jsxs as jsxs24 } from "react/jsx-runtime";
 var TopToolbar = forwardRef28(({
   title,
   logo,
@@ -1654,7 +1848,7 @@ var TopToolbar = forwardRef28(({
   className = "",
   ...props
 }, ref) => {
-  return /* @__PURE__ */ jsxs23(
+  return /* @__PURE__ */ jsxs24(
     "header",
     {
       ref,
@@ -1676,7 +1870,7 @@ var TopToolbar = forwardRef28(({
       },
       ...props,
       children: [
-        /* @__PURE__ */ jsxs23(
+        /* @__PURE__ */ jsxs24(
           "div",
           {
             className: "skipo-top-toolbar__brand",
@@ -1693,11 +1887,11 @@ var TopToolbar = forwardRef28(({
             },
             children: [
               logo,
-              title && /* @__PURE__ */ jsx37("span", { className: "skipo-top-toolbar__title", children: title })
+              title && /* @__PURE__ */ jsx38("span", { className: "skipo-top-toolbar__title", children: title })
             ]
           }
         ),
-        tabs.length > 0 && /* @__PURE__ */ jsx37(
+        tabs.length > 0 && /* @__PURE__ */ jsx38(
           "nav",
           {
             className: "skipo-top-toolbar__tabs",
@@ -1711,7 +1905,7 @@ var TopToolbar = forwardRef28(({
             },
             children: tabs.map((tab) => {
               const isActive = tab.id === activeTabId;
-              return /* @__PURE__ */ jsx37(BaseTooltip, { content: `SWITCH VIEW: ${tab.label.toUpperCase()}`, children: /* @__PURE__ */ jsxs23(
+              return /* @__PURE__ */ jsx38(BaseTooltip, { content: `SWITCH VIEW: ${tab.label.toUpperCase()}`, children: /* @__PURE__ */ jsxs24(
                 BaseButton,
                 {
                   role: "tab",
@@ -1731,14 +1925,14 @@ var TopToolbar = forwardRef28(({
                   },
                   children: [
                     tab.icon,
-                    /* @__PURE__ */ jsx37("span", { children: tab.label })
+                    /* @__PURE__ */ jsx38("span", { children: tab.label })
                   ]
                 }
               ) }, tab.id);
             })
           }
         ),
-        actions && /* @__PURE__ */ jsx37(
+        actions && /* @__PURE__ */ jsx38(
           "div",
           {
             className: "skipo-top-toolbar__actions",
@@ -1756,6 +1950,224 @@ var TopToolbar = forwardRef28(({
   );
 });
 TopToolbar.displayName = "TopToolbar";
+
+// src/components/settings/ThemeSettingsSection.tsx
+import { jsx as jsx39, jsxs as jsxs25 } from "react/jsx-runtime";
+var AVAILABLE_PACKS = [
+  { id: "skipo-dark-neo", name: "Dark Neo", mode: "dark", pack: DEFAULT_DARK_THEME_PACK },
+  { id: "skipo-light-neo", name: "Light Neo", mode: "light", pack: DEFAULT_LIGHT_THEME_PACK }
+];
+var ACCENT_COLORS = [
+  { name: "Gold", value: "#d4af37" },
+  { name: "Blue", value: "#3b82f6" },
+  { name: "Emerald", value: "#10b981" },
+  { name: "Cyan", value: "#00d9ff" },
+  { name: "Purple", value: "#a855f7" }
+];
+var ThemeSettingsSection = () => {
+  const { theme, themePack, setTheme, setThemePack } = useSkipoTheme();
+  const handleAccentChange = (hex) => {
+    if (typeof document !== "undefined") {
+      document.documentElement.style.setProperty("--skipo-accent", hex);
+      document.documentElement.style.setProperty("--skipo-accent-glow", `0 0 14px ${hex}66`);
+    }
+  };
+  return /* @__PURE__ */ jsxs25(
+    BaseCard,
+    {
+      variant: "surface",
+      depth: "sm",
+      style: {
+        padding: "16px",
+        border: "1px solid var(--skipo-border-color, #333)",
+        display: "flex",
+        flexDirection: "column",
+        gap: "16px"
+      },
+      children: [
+        /* @__PURE__ */ jsxs25("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" }, children: [
+          /* @__PURE__ */ jsxs25("div", { children: [
+            /* @__PURE__ */ jsx39("h3", { style: { margin: 0, fontSize: "13px", fontWeight: 800, textTransform: "uppercase", color: "var(--skipo-text)" }, children: "Appearance & Theming" }),
+            /* @__PURE__ */ jsx39("p", { style: { margin: "2px 0 0", fontSize: "11px", color: "var(--skipo-text-muted)" }, children: "Configure theme packs, display mode, and custom accent highlights." })
+          ] }),
+          /* @__PURE__ */ jsxs25(BaseBadge, { variant: "neutral", style: { fontSize: "10px" }, children: [
+            theme.toUpperCase(),
+            " MODE"
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxs25("div", { children: [
+          /* @__PURE__ */ jsx39("label", { style: { display: "block", fontSize: "11px", fontWeight: 700, marginBottom: "6px", color: "var(--skipo-text)" }, children: "Color Mode" }),
+          /* @__PURE__ */ jsxs25("div", { style: { display: "flex", gap: "8px" }, children: [
+            /* @__PURE__ */ jsx39(
+              BaseButton,
+              {
+                size: "sm",
+                variant: theme === "dark" ? "accent" : "secondary",
+                onClick: () => setTheme("dark"),
+                type: "button",
+                children: "Dark Mode"
+              }
+            ),
+            /* @__PURE__ */ jsx39(
+              BaseButton,
+              {
+                size: "sm",
+                variant: theme === "light" ? "accent" : "secondary",
+                onClick: () => setTheme("light"),
+                type: "button",
+                children: "Light Mode"
+              }
+            )
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxs25("div", { children: [
+          /* @__PURE__ */ jsx39("label", { style: { display: "block", fontSize: "11px", fontWeight: 700, marginBottom: "6px", color: "var(--skipo-text)" }, children: "Theme Pack Preset" }),
+          /* @__PURE__ */ jsx39("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "8px" }, children: AVAILABLE_PACKS.map((p) => {
+            const isSelected = themePack?.metadata?.id === p.id;
+            return /* @__PURE__ */ jsxs25(
+              "div",
+              {
+                onClick: () => setThemePack(p.pack),
+                style: {
+                  padding: "8px 10px",
+                  borderRadius: "6px",
+                  border: isSelected ? "2px solid var(--skipo-accent, #d4af37)" : "1px solid var(--skipo-border-color, #444)",
+                  backgroundColor: isSelected ? "rgba(212, 175, 55, 0.12)" : "var(--skipo-bg, #16181d)",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease"
+                },
+                children: [
+                  /* @__PURE__ */ jsx39("div", { style: { fontSize: "11px", fontWeight: 700, color: isSelected ? "var(--skipo-accent)" : "var(--skipo-text)" }, children: p.name }),
+                  /* @__PURE__ */ jsxs25("div", { style: { fontSize: "9px", color: "var(--skipo-text-muted)", textTransform: "capitalize" }, children: [
+                    p.mode,
+                    " Preset"
+                  ] })
+                ]
+              },
+              p.id
+            );
+          }) })
+        ] }),
+        /* @__PURE__ */ jsxs25("div", { children: [
+          /* @__PURE__ */ jsx39("label", { style: { display: "block", fontSize: "11px", fontWeight: 700, marginBottom: "6px", color: "var(--skipo-text)" }, children: "Accent Highlight" }),
+          /* @__PURE__ */ jsx39("div", { style: { display: "flex", gap: "8px", alignItems: "center" }, children: ACCENT_COLORS.map((c) => /* @__PURE__ */ jsx39(
+            "button",
+            {
+              type: "button",
+              title: c.name,
+              "aria-label": c.name,
+              onClick: () => handleAccentChange(c.value),
+              style: {
+                width: "24px",
+                height: "24px",
+                borderRadius: "50%",
+                backgroundColor: c.value,
+                border: "2px solid rgba(255, 255, 255, 0.8)",
+                cursor: "pointer",
+                boxShadow: "0 2px 4px rgba(0, 0, 0, 0.4)",
+                transition: "transform 0.1s ease"
+              }
+            },
+            c.name
+          )) })
+        ] })
+      ]
+    }
+  );
+};
+ThemeSettingsSection.displayName = "ThemeSettingsSection";
+
+// src/components/settings/SettingsTab.tsx
+import { useState as useState12 } from "react";
+import { jsx as jsx40, jsxs as jsxs26 } from "react/jsx-runtime";
+var SettingsTab = ({
+  appName = "Skipo Application",
+  version = "1.0.0",
+  systemLogs = [
+    "System initialization verified.",
+    "Theme engine loaded default tokens.",
+    "Ready for user operations."
+  ],
+  activeWorkspaceName = "Default Workspace",
+  onResetDefaults
+}) => {
+  const [resetStatus, setResetStatus] = useState12(false);
+  const handleReset = () => {
+    if (onResetDefaults) onResetDefaults();
+    setResetStatus(true);
+    setTimeout(() => setResetStatus(false), 2e3);
+  };
+  return /* @__PURE__ */ jsxs26(
+    "div",
+    {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "20px",
+        padding: "24px",
+        maxWidth: "840px",
+        margin: "0 auto",
+        width: "100%",
+        boxSizing: "border-box"
+      },
+      children: [
+        /* @__PURE__ */ jsxs26("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--skipo-border-color, #333)", paddingBottom: "12px" }, children: [
+          /* @__PURE__ */ jsxs26("div", { children: [
+            /* @__PURE__ */ jsx40("h2", { style: { margin: 0, fontSize: "18px", fontWeight: 900, textTransform: "uppercase", color: "var(--skipo-text)" }, children: "Application Settings" }),
+            /* @__PURE__ */ jsx40("p", { style: { margin: "4px 0 0", fontSize: "12px", color: "var(--skipo-text-muted)" }, children: "Manage appearance themes, workspace diagnostics, and runtime telemetry." })
+          ] }),
+          /* @__PURE__ */ jsxs26("div", { style: { display: "flex", alignItems: "center", gap: "8px" }, children: [
+            /* @__PURE__ */ jsxs26(BaseBadge, { variant: "neutral", children: [
+              "v",
+              version
+            ] }),
+            /* @__PURE__ */ jsx40(BaseButton, { size: "sm", variant: resetStatus ? "success" : "secondary", onClick: handleReset, type: "button", children: resetStatus ? "Reset Done" : "Reset Defaults" })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsx40(ThemeSettingsSection, {}),
+        /* @__PURE__ */ jsxs26(
+          BaseCard,
+          {
+            variant: "surface",
+            depth: "sm",
+            style: {
+              padding: "16px",
+              border: "1px solid var(--skipo-border-color, #333)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px"
+            },
+            children: [
+              /* @__PURE__ */ jsxs26("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" }, children: [
+                /* @__PURE__ */ jsx40("h3", { style: { margin: 0, fontSize: "13px", fontWeight: 800, textTransform: "uppercase", color: "var(--skipo-text)" }, children: "Workspace & Runtime" }),
+                /* @__PURE__ */ jsx40(BaseBadge, { variant: "success", children: "ONLINE" })
+              ] }),
+              /* @__PURE__ */ jsxs26("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", fontSize: "11px" }, children: [
+                /* @__PURE__ */ jsxs26("div", { style: { padding: "8px 10px", backgroundColor: "var(--skipo-bg, #16181d)", borderRadius: "4px", border: "1px solid var(--skipo-border-color, #333)" }, children: [
+                  /* @__PURE__ */ jsx40("span", { style: { color: "var(--skipo-text-muted)", display: "block", marginBottom: "2px" }, children: "App Target" }),
+                  /* @__PURE__ */ jsx40("span", { style: { fontWeight: 700, color: "var(--skipo-text)" }, children: appName })
+                ] }),
+                /* @__PURE__ */ jsxs26("div", { style: { padding: "8px 10px", backgroundColor: "var(--skipo-bg, #16181d)", borderRadius: "4px", border: "1px solid var(--skipo-border-color, #333)" }, children: [
+                  /* @__PURE__ */ jsx40("span", { style: { color: "var(--skipo-text-muted)", display: "block", marginBottom: "2px" }, children: "Active Context" }),
+                  /* @__PURE__ */ jsx40("span", { style: { fontWeight: 700, color: "var(--skipo-accent, #d4af37)" }, children: activeWorkspaceName })
+                ] })
+              ] })
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsx40("div", { children: /* @__PURE__ */ jsx40(
+          CopyableLogViewer,
+          {
+            title: "Runtime Event Logs",
+            logs: systemLogs,
+            maxHeight: "160px"
+          }
+        ) })
+      ]
+    }
+  );
+};
+SettingsTab.displayName = "SettingsTab";
 export {
   ApiCallIndicator,
   AppShell,
@@ -1776,10 +2188,12 @@ export {
   CodeStyleSchema,
   ConfirmDialog,
   CopyableErrorAlert,
+  CopyableLogViewer,
   CredentialField,
   DEFAULT_DARK_THEME_PACK,
   DEFAULT_LIGHT_THEME_PACK,
   DEFAULT_PANEL_GEOMETRY,
+  DEPM_THEME_PACKS,
   DOCUSTACK_CYBERPUNK_PACK,
   DOCUSTACK_DARK_GOLD_PACK,
   DOCUSTACK_WARM_COFFEE_PACK,
@@ -1807,6 +2221,7 @@ export {
   SearchInput,
   SearchableList,
   SectionContainer,
+  SettingsTab,
   SidebarContainer,
   SkipoSemanticTokensSchema,
   SkipoThemeMetadataSchema,
@@ -1818,13 +2233,16 @@ export {
   TabContainer,
   TableStyleSchema,
   ThemeEngine,
+  ThemeSettingsSection,
   ThemeTypographySchema,
   ThemeVariantDefinitionSchema,
   TopToolbar,
   UIElementThemeValueSchema,
+  appThemeEngine,
   applyThemePack,
   centralLedger,
   createAppThemeSocket,
+  depmThemeSocket,
   getAllUIElements,
   getThemeEngineStatus,
   getUIElement,

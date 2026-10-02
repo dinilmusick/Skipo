@@ -15,7 +15,7 @@ import {
   themeTokenSemanticsRule,
   topLevelPurityRule,
   uiInvariantsRule
-} from "./chunk-7I23YNF3.js";
+} from "./chunk-PVJUURKE.js";
 
 // src/index.ts
 function validate(rootDir) {

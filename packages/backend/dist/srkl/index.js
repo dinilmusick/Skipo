@@ -2,7 +2,7 @@ import {
   SrklClient,
   createSrklClient,
   useSrklServices
-} from "../chunk-YTMTTQQ4.js";
+} from "../chunk-RVGJDHKS.js";
 export {
   SrklClient,
   createSrklClient,

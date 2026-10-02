@@ -36,6 +36,48 @@ function renderNodeEmblem(type: string) {
       </svg>
     );
   }
+  if (t.includes('number') || t.includes('math')) {
+    return (
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="var(--skipo-accent, #61afef)" strokeWidth="1.8">
+        <line x1="4" y1="9" x2="20" y2="9" /><line x1="4" y1="15" x2="20" y2="15" /><line x1="10" y1="3" x2="8" y2="21" /><line x1="16" y1="3" x2="14" y2="21" />
+      </svg>
+    );
+  }
+  if (t.includes('string') || t.includes('text')) {
+    return (
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#98c379" strokeWidth="1.8">
+        <polyline points="4 7 4 4 20 4 20 7" /><line x1="9" y1="20" x2="15" y2="20" /><line x1="12" y1="4" x2="12" y2="20" />
+      </svg>
+    );
+  }
+  if (t.includes('bool') || t.includes('toggle')) {
+    return (
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#e5c07b" strokeWidth="1.8">
+        <rect x="1" y="5" width="22" height="14" rx="7" ry="7" /><circle cx="16" cy="12" r="3" fill="#e5c07b" />
+      </svg>
+    );
+  }
+  if (t.includes('vector') || t.includes('vec')) {
+    return (
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#56b6c2" strokeWidth="1.8">
+        <path d="M5 19L19 5" /><polyline points="9 5 19 5 19 15" />
+      </svg>
+    );
+  }
+  if (t.includes('color')) {
+    return (
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#e06c75" strokeWidth="1.8">
+        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+      </svg>
+    );
+  }
+  if (t.includes('display') || t.includes('view') || t.includes('out')) {
+    return (
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#c678dd" strokeWidth="1.8">
+        <rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
+      </svg>
+    );
+  }
   return (
     <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="var(--skipo-accent, #61afef)" strokeWidth="1.8">
       <rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="12" cy="12" r="4" />

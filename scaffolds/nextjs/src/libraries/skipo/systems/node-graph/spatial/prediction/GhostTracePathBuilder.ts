@@ -1,4 +1,4 @@
-import type { GraphNode, Socket } from '../../types.js';
+import type { GraphNode } from '../../types.js';
 import type { GhostNodeRecord, GhostTraceRecord } from './types.js';
 
 export class GhostTracePathBuilder {

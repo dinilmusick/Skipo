@@ -53,12 +53,13 @@ export interface NodeGraphConfig {
   gridSize?: number;     // default 20
   snapToGrid?: boolean;  // default false
   wireStyle?: 'bezier' | 'straight' | 'step';
-  tracingEnabled?: boolean;
-  autoSolidify?: boolean;
-  traceCutoffDistance?: number;
-  ghostRoutingEnabled?: boolean;
-  ghostScenarioCount?: number;
-  ghostDecayMs?: number;
+  tracingEnabled?: boolean;        // default true: magnetic proximity traces
+  magneticTracesEnabled?: boolean;// default true: alias for tracingEnabled
+  autoSolidify?: boolean;         // default false: auto-lock candidate on proximity drop
+  traceCutoffDistance?: number;   // default 220
+  ghostRoutingEnabled?: boolean;  // default true: predictive completion ghost nodes
+  ghostScenarioCount?: number;    // default 3
+  ghostDecayMs?: number;          // default 250
 }
 
 export interface NodeGraphPlugin {

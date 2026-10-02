@@ -1,5 +1,4 @@
 'use client';
-import React from 'react';
 import type { GhostNodeRecord } from '../../spatial/prediction/types.js';
 
 export interface GhostNodeCardProps {

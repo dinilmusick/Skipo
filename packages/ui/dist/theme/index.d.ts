@@ -2245,4 +2245,26 @@ interface ResolvedTypographyCascade {
 }
 declare function resolveTypographyCascade(typo?: ThemeTypographyDefinition, fallbackAccent?: string): ResolvedTypographyCascade;
 
-export { type AppThemeSocket, type BlockquoteStyleDefinition, BlockquoteStyleSchema, CANONICAL_ELEMENTS, type CodeStyleDefinition, CodeStyleSchema, DEFAULT_DARK_THEME_PACK, DEFAULT_LIGHT_THEME_PACK, DOCUSTACK_CYBERPUNK_PACK, DOCUSTACK_DARK_GOLD_PACK, DOCUSTACK_WARM_COFFEE_PACK, DOCUSTACK_CYBERPUNK_PACK as DocuStackCyberpunkPack, DOCUSTACK_DARK_GOLD_PACK as DocuStackDarkGoldPack, DOCUSTACK_WARM_COFFEE_PACK as DocuStackWarmCoffeePack, type ElementStatusReport, type HeadingLevelDefinition, HeadingLevelSchema, HorizontalRuleStyleSchema, type LinkStyleDefinition, LinkStyleSchema, type ListStyleDefinition, ListStyleSchema, type MarkdownSectionStyles, MarkdownSectionStylesSchema, type ModularThemePack, ModularThemePackSchema, type ParagraphStyleDefinition, ParagraphStyleSchema, type ResolvedTypographyCascade, type SkipoSemanticTokens, SkipoSemanticTokensSchema, type SkipoThemeContextValue, type SkipoThemeMetadata, SkipoThemeMetadataSchema, type SkipoThemePack, SkipoThemeProvider, type SkipoThemeProviderProps, type TableStyleDefinition, TableStyleSchema, type ThemeApplicationState, ThemeEngine, type ThemeEngineStatus, type ThemeTypographyDefinition, ThemeTypographySchema, type ThemeVariantDefinition, ThemeVariantDefinitionSchema, type UIElementCategory, type UIElementDefinition, type UIElementThemeValue, UIElementThemeValueSchema, applyThemePack, centralLedger, createAppThemeSocket, getAllUIElements, getThemeEngineStatus, getUIElement, palettes, registerUIElement, resolveTypographyCascade, safeValidateModularThemePack, tokensToCssVariables, useSkipoTheme, validateModularThemePack, validateSocketElements, validateThemePack };
+/**
+ * ASCII Architecture Flowchart: appSocket
+ *
+ *   ┌──────────────────────────────────────────────┐
+ *   │         Initialize App Theme Socket          │
+ *   └──────────────────────────────────────────────┘
+ *                          │
+ *                          ▼
+ *   ┌──────────────────────────────────────────────┐
+ *   │         Validate Elements in Ledger          │
+ *   └──────────────────────────────────────────────┘
+ *                          │
+ *                          ▼
+ *   ┌──────────────────────────────────────────────┐
+ *   │      Instantiate Singleton ThemeEngine       │
+ *   └──────────────────────────────────────────────┘
+ */
+
+declare const DEPM_THEME_PACKS: ModularThemePack[];
+declare const depmThemeSocket: AppThemeSocket;
+declare const appThemeEngine: ThemeEngine;
+
+export { type AppThemeSocket, type BlockquoteStyleDefinition, BlockquoteStyleSchema, CANONICAL_ELEMENTS, type CodeStyleDefinition, CodeStyleSchema, DEFAULT_DARK_THEME_PACK, DEFAULT_LIGHT_THEME_PACK, DEPM_THEME_PACKS, DOCUSTACK_CYBERPUNK_PACK, DOCUSTACK_DARK_GOLD_PACK, DOCUSTACK_WARM_COFFEE_PACK, DOCUSTACK_CYBERPUNK_PACK as DocuStackCyberpunkPack, DOCUSTACK_DARK_GOLD_PACK as DocuStackDarkGoldPack, DOCUSTACK_WARM_COFFEE_PACK as DocuStackWarmCoffeePack, type ElementStatusReport, type HeadingLevelDefinition, HeadingLevelSchema, HorizontalRuleStyleSchema, type LinkStyleDefinition, LinkStyleSchema, type ListStyleDefinition, ListStyleSchema, type MarkdownSectionStyles, MarkdownSectionStylesSchema, type ModularThemePack, ModularThemePackSchema, type ParagraphStyleDefinition, ParagraphStyleSchema, type ResolvedTypographyCascade, type SkipoSemanticTokens, SkipoSemanticTokensSchema, type SkipoThemeContextValue, type SkipoThemeMetadata, SkipoThemeMetadataSchema, type SkipoThemePack, SkipoThemeProvider, type SkipoThemeProviderProps, type TableStyleDefinition, TableStyleSchema, type ThemeApplicationState, ThemeEngine, type ThemeEngineStatus, type ThemeTypographyDefinition, ThemeTypographySchema, type ThemeVariantDefinition, ThemeVariantDefinitionSchema, type UIElementCategory, type UIElementDefinition, type UIElementThemeValue, UIElementThemeValueSchema, appThemeEngine, applyThemePack, centralLedger, createAppThemeSocket, depmThemeSocket, getAllUIElements, getThemeEngineStatus, getUIElement, palettes, registerUIElement, resolveTypographyCascade, safeValidateModularThemePack, tokensToCssVariables, useSkipoTheme, validateModularThemePack, validateSocketElements, validateThemePack };

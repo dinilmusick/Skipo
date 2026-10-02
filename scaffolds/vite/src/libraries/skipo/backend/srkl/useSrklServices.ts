@@ -5,8 +5,8 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { SrklClient, CANONICAL_SRKL_URL } from './SrklClient';
-import { SrklServiceAccount } from './types';
+import { SrklClient, CANONICAL_SRKL_URL } from './SrklClient.js';
+import type { SrklServiceAccount } from './types.js';
 
 export interface UseSrklServicesOptions {
   srklUrl?: string;
@@ -31,9 +31,15 @@ export interface UseSrklServicesResult {
 
 export function useSrklServices(options: UseSrklServicesOptions): UseSrklServicesResult {
   const { declaredTypes, userId, token, workspaceId, autoFetch = true } = options;
-  const initialUrl = options.srklUrl || (typeof window !== 'undefined'
-    ? localStorage.getItem('srkl_endpoint_url') || CANONICAL_SRKL_URL
-    : CANONICAL_SRKL_URL);
+  const getStoredUrl = (): string | null => {
+    try {
+      return (globalThis as any)?.localStorage?.getItem('srkl_endpoint_url') || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const initialUrl = options.srklUrl || getStoredUrl() || CANONICAL_SRKL_URL;
 
   const [srklUrl, setSrklUrlState] = useState<string>(initialUrl);
   const [services, setServices] = useState<SrklServiceAccount[]>([]);
@@ -51,9 +57,9 @@ export function useSrklServices(options: UseSrklServicesOptions): UseSrklService
   const setSrklUrl = useCallback((url: string) => {
     const clean = url.trim().replace(/\/+$/, '');
     setSrklUrlState(clean);
-    if (typeof window !== 'undefined') {
-      try { localStorage.setItem('srkl_endpoint_url', clean); } catch {}
-    }
+    try {
+      (globalThis as any)?.localStorage?.setItem('srkl_endpoint_url', clean);
+    } catch {}
   }, []);
 
   const refetch = useCallback(async (force = false) => {

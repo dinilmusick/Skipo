@@ -5,13 +5,13 @@
  * Strictly adheres to Skipo governance (< 200 lines).
  */
 
-import {
+import type {
   SrklClientOptions,
   SrklServiceAccount,
   SrklEcosystemQueryOptions,
   SrklEcosystemResponse,
   AdaptedStorageConnection,
-} from './types';
+} from './types.js';
 
 export const CANONICAL_SRKL_URL = 'https://srkl-engine.vercel.app';
 
@@ -59,7 +59,7 @@ export class SrklClient {
       });
       const latencyMs = Date.now() - start;
       if (!res.ok) return { ok: false, latencyMs };
-      const data = await res.json();
+      const data = (await res.json()) as any;
       return { ok: true, latencyMs, status: data.status };
     } catch {
       return { ok: false, latencyMs: Date.now() - start };
@@ -86,7 +86,7 @@ export class SrklClient {
       throw new Error(`SRKL service query failed (${res.status}): ${errText}`);
     }
 
-    const data: SrklEcosystemResponse = await res.json();
+    const data = (await res.json()) as SrklEcosystemResponse;
     return data.services || [];
   }
 
@@ -99,7 +99,7 @@ export class SrklClient {
       headers,
     });
     if (!res.ok) throw new Error(`SRKL storage connections query failed (${res.status})`);
-    const data = await res.json();
+    const data = (await res.json()) as any;
     return Array.isArray(data.connections) ? data.connections : [];
   }
 
@@ -110,7 +110,7 @@ export class SrklClient {
       body: JSON.stringify({ keyId, applicationKey }),
     });
     if (!res.ok) throw new Error(`SRKL bucket listing failed (${res.status})`);
-    const data = await res.json();
+    const data = (await res.json()) as any;
     return data.buckets || [];
   }
 

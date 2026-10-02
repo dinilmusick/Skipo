@@ -193,9 +193,67 @@ export class ConnectionRuleStore {{
     this.rules = [
       {{ sourceDataType: 'STRING', targetDataType: 'STRING', allowed: true, wireType: 'STRING' }},
       {{ sourceDataType: 'NUMBER', targetDataType: 'NUMBER', allowed: true, wireType: 'NUMBER' }},
+      {{ sourceDataType: 'BOOLEAN', targetDataType: 'BOOLEAN', allowed: true, wireType: 'BOOLEAN' }},
+      {{ sourceDataType: 'VECTOR2', targetDataType: 'VECTOR2', allowed: true, wireType: 'VECTOR2' }},
+      {{ sourceDataType: 'COLOR', targetDataType: 'COLOR', allowed: true, wireType: 'COLOR' }},
       {{ sourceDataType: 'ANY', targetDataType: '*', allowed: true, wireType: 'DEFAULT' }},
       {{ sourceDataType: '*', targetDataType: 'ANY', allowed: true, wireType: 'DEFAULT' }}
     ];
+
+    // Pre-register standard primitive nodes
+    this.registerNodeType({{
+      type: 'primitive-number',
+      label: 'Number',
+      description: 'Numerical constant or value',
+      inputs: [{{ id: 'in', label: 'Val', category: 'DATA', dataType: 'NUMBER', direction: 'INPUT', connectionMode: 'SINGLE' }}],
+      outputs: [{{ id: 'out', label: 'Num', category: 'DATA', dataType: 'NUMBER', direction: 'OUTPUT', connectionMode: 'MULTI' }}]
+    }});
+    this.registerNodeType({{
+      type: 'primitive-string',
+      label: 'String',
+      description: 'Text string constant',
+      inputs: [{{ id: 'in', label: 'Val', category: 'DATA', dataType: 'STRING', direction: 'INPUT', connectionMode: 'SINGLE' }}],
+      outputs: [{{ id: 'out', label: 'Str', category: 'DATA', dataType: 'STRING', direction: 'OUTPUT', connectionMode: 'MULTI' }}]
+    }});
+    this.registerNodeType({{
+      type: 'primitive-boolean',
+      label: 'Boolean',
+      description: 'Boolean true/false toggle',
+      inputs: [{{ id: 'in', label: 'Toggle', category: 'DATA', dataType: 'BOOLEAN', direction: 'INPUT', connectionMode: 'SINGLE' }}],
+      outputs: [{{ id: 'out', label: 'Bool', category: 'DATA', dataType: 'BOOLEAN', direction: 'OUTPUT', connectionMode: 'MULTI' }}]
+    }});
+    this.registerNodeType({{
+      type: 'primitive-vector2',
+      label: 'Vector2',
+      description: '2D coordinates (X, Y)',
+      inputs: [
+        {{ id: 'x', label: 'X', category: 'DATA', dataType: 'NUMBER', direction: 'INPUT', connectionMode: 'SINGLE' }},
+        {{ id: 'y', label: 'Y', category: 'DATA', dataType: 'NUMBER', direction: 'INPUT', connectionMode: 'SINGLE' }}
+      ],
+      outputs: [{{ id: 'vec', label: 'Vec2', category: 'DATA', dataType: 'VECTOR2', direction: 'OUTPUT', connectionMode: 'MULTI' }}]
+    }});
+    this.registerNodeType({{
+      type: 'primitive-color',
+      label: 'Color',
+      description: 'Color swatch hex/rgb',
+      outputs: [{{ id: 'color', label: 'Color', category: 'DATA', dataType: 'COLOR', direction: 'OUTPUT', connectionMode: 'MULTI' }}]
+    }});
+    this.registerNodeType({{
+      type: 'primitive-math',
+      label: 'Math',
+      description: 'Arithmetic operator on numbers',
+      inputs: [
+        {{ id: 'a', label: 'A', category: 'DATA', dataType: 'NUMBER', direction: 'INPUT', connectionMode: 'SINGLE' }},
+        {{ id: 'b', label: 'B', category: 'DATA', dataType: 'NUMBER', direction: 'INPUT', connectionMode: 'SINGLE' }}
+      ],
+      outputs: [{{ id: 'result', label: 'Out', category: 'DATA', dataType: 'NUMBER', direction: 'OUTPUT', connectionMode: 'MULTI' }}]
+    }});
+    this.registerNodeType({{
+      type: 'primitive-display',
+      label: 'Display',
+      description: 'Realtime output inspector',
+      inputs: [{{ id: 'in', label: 'In', category: 'DATA', dataType: 'ANY', direction: 'INPUT', connectionMode: 'SINGLE' }}]
+    }});
   }}
 
   public static registerNodeType(def: NodeDefinition): void {{
@@ -866,11 +924,19 @@ export function NodeGraphCanvas({{
   nodes,
   edges,
   config,
-  availableNodeTypes = [],
+  availableNodeTypes,
   onNodesChange,
   onEdgesChange,
   onSelectNode
 }}: NodeGraphCanvasProps) {{
+  useEffect(() => {{
+    ConnectionRuleStore.initializeDefaults();
+  }}, []);
+
+  const effectiveNodeTypes = availableNodeTypes && availableNodeTypes.length > 0
+    ? availableNodeTypes
+    : ConnectionRuleStore.listNodeTypes();
+
   const [viewport, setViewport] = useState<ViewportState>({{ panX: 0, panY: 0, zoom: 1 }});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [dragState, setDragState] = useState<{{ nodeId: string; startX: number; startY: number }} | null>(null);
@@ -882,7 +948,7 @@ export function NodeGraphCanvas({{
     edges,
     selectedNodeIds: selectedIds,
     config,
-    availableNodeTypes,
+    availableNodeTypes: effectiveNodeTypes,
     onNodesChange,
     onEdgesChange
   }});
@@ -1013,7 +1079,7 @@ export function NodeGraphCanvas({{
         <CompatibleNodePicker x={{pickerState.x}} y={{pickerState.y}} sourceHandle={{pickerState.handle}} onSelect={{() => setPickerState(null)}} onClose={{() => setPickerState(null)}} />
       )}}
       {{contextMenu && (
-        <CanvasContextMenu x={{contextMenu.x}} y={{contextMenu.y}} nodeTypes={{availableNodeTypes}} onSpawnNode={{(type) => {{ setContextMenu(null); }}}} onSelectAll={{() => setSelectedIds(new Set(nodes.map(n => n.id)))}} onDeleteSelected={{() => onNodesChange?.(nodes.filter(n => !selectedIds.has(n.id)))}} onClose={{() => setContextMenu(null)}} />
+        <CanvasContextMenu x={{contextMenu.x}} y={{contextMenu.y}} nodeTypes={{effectiveNodeTypes}} onSpawnNode={{(type) => {{ setContextMenu(null); }}}} onSelectAll={{() => setSelectedIds(new Set(nodes.map(n => n.id)))}} onDeleteSelected={{() => onNodesChange?.(nodes.filter(n => !selectedIds.has(n.id)))}} onClose={{() => setContextMenu(null)}} />
       )}}
     </div>
   );
