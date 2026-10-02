@@ -34,6 +34,7 @@ import {
   MovableSocketView,
   NodeCard,
   NodeDetailsPanel,
+  NodeEmblem,
   NodeGraphCanvas,
   NodeSearchPalette,
   PRIMITIVE_NODE_DEFINITIONS,
@@ -63,7 +64,7 @@ import {
   useMagneticTraces,
   useNodeGraph,
   zoomAtPoint
-} from "../chunk-A72JIKGQ.js";
+} from "../chunk-3GF7JIWI.js";
 export {
   AttractionEngine,
   AutoSolidify,
@@ -100,6 +101,7 @@ export {
   MovableSocketView,
   NodeCard,
   NodeDetailsPanel,
+  NodeEmblem,
   NodeGraphCanvas,
   NodeSearchPalette,
   PRIMITIVE_NODE_DEFINITIONS,

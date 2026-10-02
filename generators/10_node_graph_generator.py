@@ -716,6 +716,7 @@ export function MovableSocketHandle({{
 import React from 'react';
 import type {{ GraphNode }} from './types.js';
 import {{ MovableSocketHandle }} from './MovableSocketHandle.js';
+import {{ useBottomStrip }} from '@skipo/ui';
 
 export interface NodeCardProps {{
   node: GraphNode;
@@ -725,13 +726,14 @@ export interface NodeCardProps {{
   onSocketMouseDown?: (e: React.MouseEvent, nodeId: string, socketId: string, type: 'input' | 'output') => void;
   onSocketMouseUp?: (e: React.MouseEvent, nodeId: string, socketId: string, type: 'input' | 'output') => void;
   onSocketNudgeChange?: (nodeId: string, socketId: string, nudge: {{ x: number; y: number }}) => void;
+  onToggleMinimize?: (nodeId: string, isMinimized: boolean) => void;
 }}
 
-function renderEmblem(type: string) {{
+function renderEmblem(type: string, size = 36) {{
   const t = (type || '').toLowerCase();
   if (t.includes('entity') || t.includes('system')) {{
     return (
-      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--skipo-accent, #d4af37)" strokeWidth="1.8">
+      <svg width={{size}} height={{size}} viewBox="0 0 24 24" fill="none" stroke="var(--skipo-accent, #d4af37)" strokeWidth="1.8">
         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
         <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
         <line x1="12" y1="22.08" x2="12" y2="12" />
@@ -739,7 +741,7 @@ function renderEmblem(type: string) {{
     );
   }}
   return (
-    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--skipo-accent, #61afef)" strokeWidth="1.8">
+    <svg width={{size}} height={{size}} viewBox="0 0 24 24" fill="none" stroke="var(--skipo-accent, #61afef)" strokeWidth="1.8">
       <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
     </svg>
   );
@@ -752,10 +754,19 @@ export function NodeCard({{
   onDoubleClick,
   onSocketMouseDown,
   onSocketMouseUp,
-  onSocketNudgeChange
+  onSocketNudgeChange,
+  onToggleMinimize
 }}: NodeCardProps) {{
   const cardRef = React.useRef<HTMLDivElement>(null);
-  const [measuredHeight, setMeasuredHeight] = React.useState<number>(node.height ?? 130);
+  const [isMinimized, setIsMinimized] = React.useState<boolean>(node.minimized ?? false);
+  const [measuredHeight, setMeasuredHeight] = React.useState<number>(isMinimized ? 40 : (node.height ?? 130));
+  const {{ setInspectionText }} = useBottomStrip();
+
+  React.useEffect(() => {{
+    if (node.minimized !== undefined && node.minimized !== isMinimized) {{
+      setIsMinimized(node.minimized);
+    }}
+  }}, [node.minimized]);
 
   React.useLayoutEffect(() => {{
     if (cardRef.current) {{
@@ -766,8 +777,15 @@ export function NodeCard({{
     }}
   }});
 
-  const minWidth = node.width ?? 130;
-  const minHeight = node.height ?? 130;
+  const toggleMinimize = (e?: React.MouseEvent) => {{
+    e?.stopPropagation();
+    const next = !isMinimized;
+    setIsMinimized(next);
+    onToggleMinimize?.(node.id, next);
+  }};
+
+  const minWidth = node.width ?? 150;
+  const minHeight = isMinimized ? 40 : (node.height ?? 130);
   const isLong = (node.label || '').length > 11;
 
   return (
@@ -780,11 +798,13 @@ export function NodeCard({{
         minWidth,
         width: node.width ? `${{node.width}}px` : 'max-content',
         minHeight,
-        height: 'auto',
+        height: isMinimized ? '40px' : 'auto',
         userSelect: 'none'
       }}}}
       onMouseDown={{(e) => onMouseDown?.(e, node.id)}}
-      onDoubleClick={{() => onDoubleClick?.(node.id)}}
+      onDoubleClick={{(e) => {{ e.stopPropagation(); toggleMinimize(); onDoubleClick?.(node.id); }}}}
+      onMouseEnter={{() => setInspectionText(node.type, `System: ${{node.type}} • Title: ${{node.label}}`)}}
+      onMouseLeave={{() => setInspectionText(null)}}
     >
       <style>{{`
         @keyframes skipo-marquee-rtl {{
@@ -793,7 +813,7 @@ export function NodeCard({{
         }}
       `}}</style>
 
-      {{/* Perimeter Bounded Node Body: Natural Content-Driven Expansion */}}
+      {{/* Perimeter Bounded Node Body: Expanded vs Minimized (Law L26) */}}
       <div
         style={{{{
           width: '100%',
@@ -801,7 +821,7 @@ export function NodeCard({{
           height: '100%',
           position: 'relative',
           display: 'flex',
-          flexDirection: 'column',
+          flexDirection: isMinimized ? 'row' : 'column',
           backgroundColor: 'var(--skipo-surface, rgba(25, 25, 25, 0.92))',
           border: `2px solid ${{selected ? 'var(--skipo-accent, #d4af37)' : 'var(--skipo-border, #333)'}}`,
           borderRadius: '8px',
@@ -809,54 +829,82 @@ export function NodeCard({{
           boxSizing: 'border-box'
         }}}}
       >
-        {{/* Top Portion: Emblem */}}
-        <div
-          style={{{{
-            flex: '1 0 auto',
-            minHeight: '84px',
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'radial-gradient(circle at center, rgba(255,255,255,0.06) 0%, transparent 72%)',
-            padding: '12px'
-          }}}}
-        >
-          {{renderEmblem(node.type)}}
-        </div>
-
-        {{/* Bottom Content Area: Natural Height Text & Child Info */}}
-        <div
-          style={{{{
-            flex: '0 0 auto',
-            minHeight: '38px',
-            width: '100%',
-            borderTop: '1px solid var(--skipo-border, #333)',
-            backgroundColor: 'rgba(0,0,0,0.35)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '6px 8px',
-            boxSizing: 'border-box'
-          }}}}
-        >
-          <div style={{{{ width: '100%', overflow: 'hidden', display: 'flex', justifyContent: isLong ? 'flex-start' : 'center' }}}}>
+        {{isMinimized ? (
+          /* Minimized View: 1/3 Icon + 2/3 Title (Law L26) */
+          <>
+            <div style={{{{
+              width: '33.333%', flex: '0 0 33.333%', height: '100%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              borderRight: '1px solid var(--skipo-border, #333)', boxSizing: 'border-box'
+            }}}}>
+              {{renderEmblem(node.type, 20)}}
+            </div>
+            <div style={{{{
+              width: '66.667%', flex: '0 0 66.667%', height: '100%',
+              display: 'flex', alignItems: 'center', justifyContent: isLong ? 'flex-start' : 'center',
+              padding: '0 8px', boxSizing: 'border-box', overflow: 'hidden'
+            }}}}>
+              <div style={{{{
+                display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap',
+                fontSize: '11px', fontWeight: 600, color: 'var(--skipo-text, #fff)',
+                animation: isLong ? 'skipo-marquee-rtl 6s linear infinite' : 'none'
+              }}}}>
+                <span>{{node.label}}</span>
+                {{isLong && <span style={{{{ paddingLeft: '16px', opacity: 0.8 }}}}>• {{node.label}}</span>}}
+              </div>
+            </div>
+          </>
+        ) : (
+          /* Expanded View: Full Emblem Top + Bottom Title Strip */
+          <>
             <div
               style={{{{
-                display: 'inline-flex',
-                alignItems: 'center',
-                whiteSpace: 'nowrap',
-                fontSize: '11px',
-                fontWeight: 600,
-                color: 'var(--skipo-text, #fff)',
-                animation: isLong ? 'skipo-marquee-rtl 6s linear infinite' : 'none'
+                flex: '1 0 auto', minHeight: '84px', width: '100%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+                background: 'radial-gradient(circle at center, rgba(255,255,255,0.06) 0%, transparent 72%)',
+                padding: '12px'
               }}}}
             >
-              <span>{{node.label}}</span>
-              {{isLong && <span style={{{{ paddingLeft: '16px', opacity: 0.8 }}}}>• {{node.label}}</span>}}
+              {{renderEmblem(node.type, 36)}}
+              <button
+                type="button"
+                onClick={{toggleMinimize}}
+                title="Minimize Node"
+                style={{{{
+                  position: 'absolute', top: 6, right: 6, width: 18, height: 18,
+                  borderRadius: 4, background: 'rgba(255,255,255,0.08)',
+                  border: '1px solid var(--skipo-border, #444)', color: 'var(--skipo-text-muted, #aaa)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', fontSize: 11, lineHeight: 1, padding: 0
+                }}}}
+              >
+                −
+              </button>
             </div>
-          </div>
-        </div>
+            <div
+              style={{{{
+                flex: '0 0 auto', minHeight: '38px', width: '100%',
+                borderTop: '1px solid var(--skipo-border, #333)',
+                backgroundColor: 'rgba(0,0,0,0.35)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '6px 8px', boxSizing: 'border-box'
+              }}}}
+            >
+              <div style={{{{ width: '100%', overflow: 'hidden', display: 'flex', justifyContent: isLong ? 'flex-start' : 'center' }}}}>
+                <div
+                  style={{{{
+                    display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap',
+                    fontSize: '11px', fontWeight: 600, color: 'var(--skipo-text, #fff)',
+                    animation: isLong ? 'skipo-marquee-rtl 6s linear infinite' : 'none'
+                  }}}}
+                >
+                  <span>{{node.label}}</span>
+                  {{isLong && <span style={{{{ paddingLeft: '16px', opacity: 0.8 }}}}>• {{node.label}}</span>}}
+                </div>
+              </div>
+            </div>
+          </>
+        )}}
       </div>
 
       {{node.inputs?.map((socket, idx) => (

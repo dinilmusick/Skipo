@@ -1,9 +1,4 @@
-import {
-  Tile,
-  TileCreateButton,
-  TileGrid,
-  useTileMenu
-} from "./chunk-SA3JADUG.js";
+import "./chunk-Q5I42UX7.js";
 import {
   AudioInputManager,
   MidiManager
@@ -31,6 +26,15 @@ import {
   SkipoExecutionEngine,
   useCommand
 } from "./chunk-KTIIRFUP.js";
+import {
+  LifecycleCycleError,
+  LifecycleGraph,
+  SKIPO_STATE,
+  SkipoStateEngine,
+  useLifecycleScope,
+  useSkipoBind,
+  useSkipoState
+} from "./chunk-4LKIXKH7.js";
 import {
   AttractionEngine,
   AutoSolidify,
@@ -67,6 +71,7 @@ import {
   MovableSocketView,
   NodeCard,
   NodeDetailsPanel,
+  NodeEmblem,
   NodeGraphCanvas,
   NodeSearchPalette,
   PRIMITIVE_NODE_DEFINITIONS,
@@ -96,17 +101,13 @@ import {
   useMagneticTraces,
   useNodeGraph,
   zoomAtPoint
-} from "./chunk-A72JIKGQ.js";
-import "./chunk-Q5I42UX7.js";
+} from "./chunk-3GF7JIWI.js";
 import {
-  LifecycleCycleError,
-  LifecycleGraph,
-  SKIPO_STATE,
-  SkipoStateEngine,
-  useLifecycleScope,
-  useSkipoBind,
-  useSkipoState
-} from "./chunk-4LKIXKH7.js";
+  Tile,
+  TileCreateButton,
+  TileGrid,
+  useTileMenu
+} from "./chunk-SA3JADUG.js";
 export {
   AttractionEngine,
   AudioInputManager,
@@ -155,6 +156,7 @@ export {
   MovableSocketView,
   NodeCard,
   NodeDetailsPanel,
+  NodeEmblem,
   NodeGraphCanvas,
   NodeSearchPalette,
   PRIMITIVE_NODE_DEFINITIONS,

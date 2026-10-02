@@ -398,7 +398,7 @@ export function NodeGraphCanvas({
       x: p.x,
       y: p.y,
       width: (node.width ?? 150) * viewport.zoom,
-      height: (node.height ?? 100) * viewport.zoom,
+      height: (node.minimized ? 40 : (node.height ?? 100)) * viewport.zoom,
       inputs: node.inputs || [],
       outputs: node.outputs || [],
       zoom: viewport.zoom
@@ -416,7 +416,12 @@ export function NodeGraphCanvas({
       onMouseUp={handleMouseUp}
       onContextMenu={handleContextMenu}
     >
-      <WireRenderer edges={edges} nodesData={nodesData} connecting={connecting ? { startX: connecting.startX, startY: connecting.startY, endX: connecting.endX, endY: connecting.endY } : null} />
+      <WireRenderer
+        edges={edges}
+        nodesData={nodesData}
+        onDeleteEdge={(edgeId) => onEdgesChange?.(edges.filter(e => e.id !== edgeId))}
+        connecting={connecting ? { startX: connecting.startX, startY: connecting.startY, endX: connecting.endX, endY: connecting.endY } : null}
+      />
       <div style={{ position: 'absolute', top: 0, left: 0, transformOrigin: '0 0', transform: `translate(${viewport.panX}px, ${viewport.panY}px) scale(${viewport.zoom})` }}>
         {magnetic.isEnabled && (
           <MagneticTraceLayer traces={magnetic.traces} onSolidify={magnetic.solidifyTrace} />
@@ -453,6 +458,9 @@ export function NodeGraphCanvas({
             onSocketMouseDown={handleSocketMouseDown}
             onSocketMouseUp={handleSocketMouseUp}
             onSocketNudgeChange={handleSocketNudgeChange}
+            onToggleMinimize={(nodeId, isMin) => {
+              onNodesChange?.(nodes.map(n => n.id === nodeId ? { ...n, minimized: isMin } : n));
+            }}
           />
         ))}
       </div>

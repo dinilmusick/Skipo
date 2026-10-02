@@ -31,6 +31,7 @@ export interface BaseNodeProps {
   metadata?: Record<string, unknown>;
   settings?: Record<string, unknown>;
   positionLocked?: boolean;
+  minimized?: boolean;
 }
 
 export abstract class BaseNode {
@@ -44,6 +45,7 @@ export abstract class BaseNode {
   public metadata: Record<string, unknown>;
   public settings: Record<string, unknown>;
   public positionLocked: boolean;
+  public minimized: boolean;
 
   constructor(props: BaseNodeProps) {
     this.id = props.id;
@@ -56,6 +58,7 @@ export abstract class BaseNode {
     this.metadata = props.metadata ? { ...props.metadata } : {};
     this.settings = props.settings ? { ...props.settings } : {};
     this.positionLocked = props.positionLocked ?? false;
+    this.minimized = props.minimized ?? false;
   }
 
   public getHandle(handleId: string): BaseHandle | undefined {

@@ -25,6 +25,7 @@ export interface GraphNode {
   width?: number;
   height?: number;
   positionLocked?: boolean;
+  minimized?: boolean;
   handles?: BaseHandle[];
 }
 

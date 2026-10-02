@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 import type { GraphEdge, NodeGraphConfig } from './types.js';
 
 interface WireRendererProps {
@@ -16,20 +17,24 @@ interface WireRendererProps {
 }
 
 export function WireRenderer({ edges, nodesData, config: _config, onDeleteEdge, connecting }: WireRendererProps) {
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
+
   const getSocketPosition = (nodeId: string, socketId: string, type: 'input' | 'output') => {
     const node = nodesData[nodeId];
     if (!node) return { x: 0, y: 0 };
     
-    // Simplistic socket position calculation for now
     const sockets = type === 'input' ? node.inputs : node.outputs;
     const socket = sockets?.find(s => s.id === socketId);
     const socketIndex = sockets && socket ? sockets.indexOf(socket) : 0;
+    const total = sockets?.length ?? 1;
+    const zoom = (node as any).zoom ?? 1;
+    const nodeHeight = node.height ?? (130 * zoom);
       
-    let x = type === 'input' ? node.x : node.x + (node.width ?? 150);
-    let y = node.y + 40 + (Math.max(0, socketIndex) * 24);
+    let x = type === 'input' ? node.x : node.x + (node.width ?? (150 * zoom));
+    const baseOffset = total === 1 ? (nodeHeight * 0.5) : (nodeHeight * 0.25) + (Math.max(0, socketIndex) * 24 * zoom);
+    let y = node.y + baseOffset;
     
     if (socket?.offset) {
-      const zoom = (node as any).zoom ?? 1;
       x += socket.offset.x * zoom;
       y += socket.offset.y * zoom;
     }
@@ -52,30 +57,42 @@ export function WireRenderer({ edges, nodesData, config: _config, onDeleteEdge, 
         const midX = (start.x + end.x) / 2;
         const midY = (start.y + end.y) / 2;
         const color = edge.color || '#61afef';
+        const isHovered = hoveredEdgeId === edge.id;
 
         return (
-          <g key={edge.id} style={{ pointerEvents: 'auto' }}>
-            {/* Hit area for easier selection/hover if needed */}
+          <g 
+            key={edge.id} 
+            style={{ pointerEvents: 'auto' }}
+            onMouseEnter={() => setHoveredEdgeId(edge.id)}
+            onMouseLeave={() => setHoveredEdgeId(null)}
+          >
+            {/* Generous hit area for easier hover and selection */}
             <path
               d={path}
               fill="none"
               stroke="transparent"
-              strokeWidth={15}
+              strokeWidth={20}
+              style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
             />
             {/* Actual visual wire */}
             <path
               d={path}
               fill="none"
               stroke={color}
-              strokeWidth={3}
-              opacity={0.8}
+              strokeWidth={isHovered ? 3.5 : 3}
+              opacity={isHovered ? 1 : 0.8}
             />
-            {onDeleteEdge && (
+            {/* Midpoint widgets: ONLY visible when mouse hovers over the wire */}
+            {isHovered && onDeleteEdge && (
               <g 
                 transform={`translate(${midX}, ${midY})`} 
-                onClick={() => onDeleteEdge(edge.id)}
-                style={{ cursor: 'pointer' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteEdge(edge.id);
+                }}
+                style={{ cursor: 'pointer', pointerEvents: 'auto' }}
               >
+                <circle r={14} fill="transparent" />
                 <circle r={8} fill="#ff4d4f" />
                 <text x={0} y={0} fontSize={10} fill="white" textAnchor="middle" dominantBaseline="central">✕</text>
               </g>

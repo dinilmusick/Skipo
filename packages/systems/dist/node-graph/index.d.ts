@@ -90,6 +90,7 @@ interface GraphNode {
     width?: number;
     height?: number;
     positionLocked?: boolean;
+    minimized?: boolean;
     handles?: BaseHandle[];
 }
 interface GraphEdge {
@@ -206,8 +207,15 @@ interface NodeCardProps {
         x: number;
         y: number;
     }) => void;
+    onToggleMinimize?: (nodeId: string, isMinimized: boolean) => void;
 }
-declare function NodeCard({ node, selected, onMouseDown, onDoubleClick, onSocketMouseDown, onSocketMouseUp, onSocketNudgeChange }: NodeCardProps): react__default.JSX.Element;
+declare function NodeCard({ node, selected, onMouseDown, onDoubleClick, onSocketMouseDown, onSocketMouseUp, onSocketNudgeChange, onToggleMinimize }: NodeCardProps): react__default.JSX.Element;
+
+interface NodeEmblemProps {
+    type: string;
+    size?: number;
+}
+declare function NodeEmblem({ type, size }: NodeEmblemProps): react.JSX.Element;
 
 interface MovableSocketViewProps {
     nodeId: string;
@@ -291,6 +299,7 @@ interface BaseNodeProps {
     metadata?: Record<string, unknown>;
     settings?: Record<string, unknown>;
     positionLocked?: boolean;
+    minimized?: boolean;
 }
 declare abstract class BaseNode {
     id: string;
@@ -303,6 +312,7 @@ declare abstract class BaseNode {
     metadata: Record<string, unknown>;
     settings: Record<string, unknown>;
     positionLocked: boolean;
+    minimized: boolean;
     constructor(props: BaseNodeProps);
     getHandle(handleId: string): BaseHandle | undefined;
     addHandle(handle: BaseHandle): void;
@@ -1112,4 +1122,4 @@ declare function useGhostRouting({ nodes, edges, selectedNodeIds, config, availa
     dismiss: () => void;
 };
 
-export { AttractionEngine, AutoSolidify, BaseConnection, type BaseConnectionProps, BaseGraph, BaseHandle, type BaseHandleProps, BaseNode, type BaseNodeProps, BaseViewWindow, type BaseViewWindowProps, CanvasContextMenu, type CanvasContextMenuProps, type CaptureGraphSnapshotParams, CommandApi, CompatibilityMatrix, type CompatibilityResolution, type CompatibilityRule, CompatibleNodePicker, type CompatibleNodePickerProps, type ConnectionMode, ConnectionRuleStore, type CreateViewWindowParams, CustomGraph, CustomNode, CustomViewWindow, DEFAULT_GRAPH_SETTINGS, DataHandle, type DynamicState, type GhostCandidate, GhostInferenceEngine, type GhostInferenceOptions, GhostLayoutResolver, GhostNodeCard, type GhostNodeCardProps, type GhostNodeRecord, type GhostSocketMapping, GhostSolidifyBar, type GhostSolidifyBarProps, GhostStore, type GhostStoreListener, GhostTraceLayer, type GhostTraceLayerProps, GhostTracePathBuilder, type GhostTraceRecord, type GraphEdge, type GraphListener, type GraphNode, type GraphSettings, GraphStore, GraphToolbar, type GraphToolbarProps, type GraphView, type Group, GroupSettingsResolver, type HandleCategory, type HandleDefinition, type HandleDescriptor, type HandleDirection, type HandleOffset, type HandlePosition, type HandleTypeDefinition, HandleTypeRegistry, type Landmark, LandmarkManager, MagneticTraceLayer, type MagneticTraceLayerProps, type MagneticTraceRecord, MidpointWidgets, type MidpointWidgetsProps, MovableSocketHandle, MovableSocketView, type MovableSocketViewProps, NodeCard, type NodeCardProps, type NodeDefinition, NodeDetailsPanel, type NodeDetailsPanelProps, NodeGraphCanvas, type NodeGraphCanvasProps, type NodeGraphConfig, type NodeGraphPlugin, type NodePosition, NodeSearchPalette, type NodeSearchPaletteProps, type NodeSize, PRIMITIVE_NODE_DEFINITIONS, ReactFlowAdapter, type ReactFlowEdgeData, type ReactFlowNodeData, type Socket, type SocketCoordOptions, type SocketCoordResult, type SocketType, SolidConnection, type SolidConnectionProps, SolidifyWidget, type SolidifyWidgetProps, SpatialEngine, type Trace, TraceEngine, type UseGhostRoutingParams, type UseMagneticTracesParams, ViewEngine, ViewHandle, ViewLink, type ViewLinkProps, ViewWindowManager, Viewer2DNodes, type Viewer2DNodesProps, type ViewportState, WireRenderer, type WireTypeDefinition, WireTypeRegistry, calculateSocketCoordinates, canvasToScreen, clampZoom, fitToView, getBeamPoints, getCenterPanForNode, getNodesInSelection, initializeDefaultGraphRules, isNodeInCenterDeadZone, screenToCanvas, useGhostRouting, useMagneticTraces, useNodeGraph, zoomAtPoint };
+export { AttractionEngine, AutoSolidify, BaseConnection, type BaseConnectionProps, BaseGraph, BaseHandle, type BaseHandleProps, BaseNode, type BaseNodeProps, BaseViewWindow, type BaseViewWindowProps, CanvasContextMenu, type CanvasContextMenuProps, type CaptureGraphSnapshotParams, CommandApi, CompatibilityMatrix, type CompatibilityResolution, type CompatibilityRule, CompatibleNodePicker, type CompatibleNodePickerProps, type ConnectionMode, ConnectionRuleStore, type CreateViewWindowParams, CustomGraph, CustomNode, CustomViewWindow, DEFAULT_GRAPH_SETTINGS, DataHandle, type DynamicState, type GhostCandidate, GhostInferenceEngine, type GhostInferenceOptions, GhostLayoutResolver, GhostNodeCard, type GhostNodeCardProps, type GhostNodeRecord, type GhostSocketMapping, GhostSolidifyBar, type GhostSolidifyBarProps, GhostStore, type GhostStoreListener, GhostTraceLayer, type GhostTraceLayerProps, GhostTracePathBuilder, type GhostTraceRecord, type GraphEdge, type GraphListener, type GraphNode, type GraphSettings, GraphStore, GraphToolbar, type GraphToolbarProps, type GraphView, type Group, GroupSettingsResolver, type HandleCategory, type HandleDefinition, type HandleDescriptor, type HandleDirection, type HandleOffset, type HandlePosition, type HandleTypeDefinition, HandleTypeRegistry, type Landmark, LandmarkManager, MagneticTraceLayer, type MagneticTraceLayerProps, type MagneticTraceRecord, MidpointWidgets, type MidpointWidgetsProps, MovableSocketHandle, MovableSocketView, type MovableSocketViewProps, NodeCard, type NodeCardProps, type NodeDefinition, NodeDetailsPanel, type NodeDetailsPanelProps, NodeEmblem, type NodeEmblemProps, NodeGraphCanvas, type NodeGraphCanvasProps, type NodeGraphConfig, type NodeGraphPlugin, type NodePosition, NodeSearchPalette, type NodeSearchPaletteProps, type NodeSize, PRIMITIVE_NODE_DEFINITIONS, ReactFlowAdapter, type ReactFlowEdgeData, type ReactFlowNodeData, type Socket, type SocketCoordOptions, type SocketCoordResult, type SocketType, SolidConnection, type SolidConnectionProps, SolidifyWidget, type SolidifyWidgetProps, SpatialEngine, type Trace, TraceEngine, type UseGhostRoutingParams, type UseMagneticTracesParams, ViewEngine, ViewHandle, ViewLink, type ViewLinkProps, ViewWindowManager, Viewer2DNodes, type Viewer2DNodesProps, type ViewportState, WireRenderer, type WireTypeDefinition, WireTypeRegistry, calculateSocketCoordinates, canvasToScreen, clampZoom, fitToView, getBeamPoints, getCenterPanForNode, getNodesInSelection, initializeDefaultGraphRules, isNodeInCenterDeadZone, screenToCanvas, useGhostRouting, useMagneticTraces, useNodeGraph, zoomAtPoint };

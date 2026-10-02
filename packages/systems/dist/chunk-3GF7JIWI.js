@@ -76,18 +76,23 @@ function getCenterPanForNode(node, viewport, containerWidth, containerHeight) {
 }
 
 // src/node-graph/WireRenderer.tsx
+import { useState } from "react";
 import { jsx, jsxs } from "react/jsx-runtime";
 function WireRenderer({ edges, nodesData, config: _config, onDeleteEdge, connecting }) {
+  const [hoveredEdgeId, setHoveredEdgeId] = useState(null);
   const getSocketPosition = (nodeId, socketId, type) => {
     const node = nodesData[nodeId];
     if (!node) return { x: 0, y: 0 };
     const sockets = type === "input" ? node.inputs : node.outputs;
     const socket = sockets?.find((s) => s.id === socketId);
     const socketIndex = sockets && socket ? sockets.indexOf(socket) : 0;
-    let x = type === "input" ? node.x : node.x + (node.width ?? 150);
-    let y = node.y + 40 + Math.max(0, socketIndex) * 24;
+    const total = sockets?.length ?? 1;
+    const zoom = node.zoom ?? 1;
+    const nodeHeight = node.height ?? 130 * zoom;
+    let x = type === "input" ? node.x : node.x + (node.width ?? 150 * zoom);
+    const baseOffset = total === 1 ? nodeHeight * 0.5 : nodeHeight * 0.25 + Math.max(0, socketIndex) * 24 * zoom;
+    let y = node.y + baseOffset;
     if (socket?.offset) {
-      const zoom = node.zoom ?? 1;
       x += socket.offset.x * zoom;
       y += socket.offset.y * zoom;
     }
@@ -105,39 +110,54 @@ function WireRenderer({ edges, nodesData, config: _config, onDeleteEdge, connect
       const midX = (start.x + end.x) / 2;
       const midY = (start.y + end.y) / 2;
       const color = edge.color || "#61afef";
-      return /* @__PURE__ */ jsxs("g", { style: { pointerEvents: "auto" }, children: [
-        /* @__PURE__ */ jsx(
-          "path",
-          {
-            d: path,
-            fill: "none",
-            stroke: "transparent",
-            strokeWidth: 15
-          }
-        ),
-        /* @__PURE__ */ jsx(
-          "path",
-          {
-            d: path,
-            fill: "none",
-            stroke: color,
-            strokeWidth: 3,
-            opacity: 0.8
-          }
-        ),
-        onDeleteEdge && /* @__PURE__ */ jsxs(
-          "g",
-          {
-            transform: `translate(${midX}, ${midY})`,
-            onClick: () => onDeleteEdge(edge.id),
-            style: { cursor: "pointer" },
-            children: [
-              /* @__PURE__ */ jsx("circle", { r: 8, fill: "#ff4d4f" }),
-              /* @__PURE__ */ jsx("text", { x: 0, y: 0, fontSize: 10, fill: "white", textAnchor: "middle", dominantBaseline: "central", children: "\u2715" })
-            ]
-          }
-        )
-      ] }, edge.id);
+      const isHovered = hoveredEdgeId === edge.id;
+      return /* @__PURE__ */ jsxs(
+        "g",
+        {
+          style: { pointerEvents: "auto" },
+          onMouseEnter: () => setHoveredEdgeId(edge.id),
+          onMouseLeave: () => setHoveredEdgeId(null),
+          children: [
+            /* @__PURE__ */ jsx(
+              "path",
+              {
+                d: path,
+                fill: "none",
+                stroke: "transparent",
+                strokeWidth: 20,
+                style: { pointerEvents: "stroke", cursor: "pointer" }
+              }
+            ),
+            /* @__PURE__ */ jsx(
+              "path",
+              {
+                d: path,
+                fill: "none",
+                stroke: color,
+                strokeWidth: isHovered ? 3.5 : 3,
+                opacity: isHovered ? 1 : 0.8
+              }
+            ),
+            isHovered && onDeleteEdge && /* @__PURE__ */ jsxs(
+              "g",
+              {
+                transform: `translate(${midX}, ${midY})`,
+                onClick: (e) => {
+                  e.stopPropagation();
+                  onDeleteEdge(edge.id);
+                },
+                style: { cursor: "pointer", pointerEvents: "auto" },
+                children: [
+                  /* @__PURE__ */ jsx("circle", { r: 14, fill: "transparent" }),
+                  /* @__PURE__ */ jsx("circle", { r: 8, fill: "#ff4d4f" }),
+                  /* @__PURE__ */ jsx("text", { x: 0, y: 0, fontSize: 10, fill: "white", textAnchor: "middle", dominantBaseline: "central", children: "\u2715" })
+                ]
+              }
+            )
+          ]
+        },
+        edge.id
+      );
     }),
     connecting && /* @__PURE__ */ jsx(
       "path",
@@ -154,10 +174,10 @@ function WireRenderer({ edges, nodesData, config: _config, onDeleteEdge, connect
 }
 
 // src/node-graph/NodeCard.tsx
-import { useRef as useRef2, useState as useState2, useLayoutEffect } from "react";
+import { useRef as useRef2, useState as useState3, useLayoutEffect, useEffect } from "react";
 
 // src/node-graph/MovableSocketView.tsx
-import { useState, useRef } from "react";
+import { useState as useState2, useRef } from "react";
 
 // src/node-graph/spatial/socketCoordinates.ts
 function calculateSocketCoordinates(baseY, options) {
@@ -200,7 +220,7 @@ function MovableSocketView({
   onMouseUp,
   onSocketNudgeChange
 }) {
-  const [isHovered, setIsHovered] = useState(false);
+  const [isHovered, setIsHovered] = useState2(false);
   const isDraggingGizmo = useRef(false);
   const dragStart = useRef({ x: 0, y: 0, origX: 0, origY: 0 });
   const nudge = socket.offset ?? { x: 0, y: 0 };
@@ -322,29 +342,30 @@ function MovableSocketView({
   );
 }
 
-// src/node-graph/NodeCard.tsx
+// src/node-graph/NodeEmblem.tsx
 import { jsx as jsx3, jsxs as jsxs3 } from "react/jsx-runtime";
-function renderNodeEmblem(type) {
+function NodeEmblem({ type, size = 38 }) {
   const t = (type || "").toLowerCase();
+  const strokeWidth = 1.8;
   if (t.includes("entity") || t.includes("system")) {
-    return /* @__PURE__ */ jsxs3("svg", { width: "38", height: "38", viewBox: "0 0 24 24", fill: "none", stroke: "var(--skipo-accent, #d4af37)", strokeWidth: "1.8", children: [
+    return /* @__PURE__ */ jsxs3("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "var(--skipo-accent, #d4af37)", strokeWidth, children: [
       /* @__PURE__ */ jsx3("path", { d: "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" }),
       /* @__PURE__ */ jsx3("polyline", { points: "3.27 6.96 12 12.01 20.73 6.96" }),
       /* @__PURE__ */ jsx3("line", { x1: "12", y1: "22.08", x2: "12", y2: "12" })
     ] });
   }
   if (t.includes("func") || t.includes("logic")) {
-    return /* @__PURE__ */ jsx3("svg", { width: "38", height: "38", viewBox: "0 0 24 24", fill: "none", stroke: "var(--skipo-accent, #61afef)", strokeWidth: "1.8", children: /* @__PURE__ */ jsx3("polygon", { points: "13 2 3 14 12 14 11 22 21 10 12 10 13 2" }) });
+    return /* @__PURE__ */ jsx3("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "var(--skipo-accent, #61afef)", strokeWidth, children: /* @__PURE__ */ jsx3("polygon", { points: "13 2 3 14 12 14 11 22 21 10 12 10 13 2" }) });
   }
   if (t.includes("data") || t.includes("state") || t.includes("db")) {
-    return /* @__PURE__ */ jsxs3("svg", { width: "38", height: "38", viewBox: "0 0 24 24", fill: "none", stroke: "#98c379", strokeWidth: "1.8", children: [
+    return /* @__PURE__ */ jsxs3("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "#98c379", strokeWidth, children: [
       /* @__PURE__ */ jsx3("ellipse", { cx: "12", cy: "5", rx: "9", ry: "3" }),
       /* @__PURE__ */ jsx3("path", { d: "M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" }),
       /* @__PURE__ */ jsx3("path", { d: "M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" })
     ] });
   }
   if (t.includes("number") || t.includes("math")) {
-    return /* @__PURE__ */ jsxs3("svg", { width: "38", height: "38", viewBox: "0 0 24 24", fill: "none", stroke: "var(--skipo-accent, #61afef)", strokeWidth: "1.8", children: [
+    return /* @__PURE__ */ jsxs3("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "var(--skipo-accent, #61afef)", strokeWidth, children: [
       /* @__PURE__ */ jsx3("line", { x1: "4", y1: "9", x2: "20", y2: "9" }),
       /* @__PURE__ */ jsx3("line", { x1: "4", y1: "15", x2: "20", y2: "15" }),
       /* @__PURE__ */ jsx3("line", { x1: "10", y1: "3", x2: "8", y2: "21" }),
@@ -352,39 +373,43 @@ function renderNodeEmblem(type) {
     ] });
   }
   if (t.includes("string") || t.includes("text")) {
-    return /* @__PURE__ */ jsxs3("svg", { width: "38", height: "38", viewBox: "0 0 24 24", fill: "none", stroke: "#98c379", strokeWidth: "1.8", children: [
+    return /* @__PURE__ */ jsxs3("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "#98c379", strokeWidth, children: [
       /* @__PURE__ */ jsx3("polyline", { points: "4 7 4 4 20 4 20 7" }),
       /* @__PURE__ */ jsx3("line", { x1: "9", y1: "20", x2: "15", y2: "20" }),
       /* @__PURE__ */ jsx3("line", { x1: "12", y1: "4", x2: "12", y2: "20" })
     ] });
   }
   if (t.includes("bool") || t.includes("toggle")) {
-    return /* @__PURE__ */ jsxs3("svg", { width: "38", height: "38", viewBox: "0 0 24 24", fill: "none", stroke: "#e5c07b", strokeWidth: "1.8", children: [
+    return /* @__PURE__ */ jsxs3("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "#e5c07b", strokeWidth, children: [
       /* @__PURE__ */ jsx3("rect", { x: "1", y: "5", width: "22", height: "14", rx: "7", ry: "7" }),
       /* @__PURE__ */ jsx3("circle", { cx: "16", cy: "12", r: "3", fill: "#e5c07b" })
     ] });
   }
   if (t.includes("vector") || t.includes("vec")) {
-    return /* @__PURE__ */ jsxs3("svg", { width: "38", height: "38", viewBox: "0 0 24 24", fill: "none", stroke: "#56b6c2", strokeWidth: "1.8", children: [
+    return /* @__PURE__ */ jsxs3("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "#56b6c2", strokeWidth, children: [
       /* @__PURE__ */ jsx3("path", { d: "M5 19L19 5" }),
       /* @__PURE__ */ jsx3("polyline", { points: "9 5 19 5 19 15" })
     ] });
   }
   if (t.includes("color")) {
-    return /* @__PURE__ */ jsx3("svg", { width: "38", height: "38", viewBox: "0 0 24 24", fill: "none", stroke: "#e06c75", strokeWidth: "1.8", children: /* @__PURE__ */ jsx3("path", { d: "M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" }) });
+    return /* @__PURE__ */ jsx3("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "#e06c75", strokeWidth, children: /* @__PURE__ */ jsx3("path", { d: "M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" }) });
   }
   if (t.includes("display") || t.includes("view") || t.includes("out")) {
-    return /* @__PURE__ */ jsxs3("svg", { width: "38", height: "38", viewBox: "0 0 24 24", fill: "none", stroke: "#c678dd", strokeWidth: "1.8", children: [
+    return /* @__PURE__ */ jsxs3("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "#c678dd", strokeWidth, children: [
       /* @__PURE__ */ jsx3("rect", { x: "2", y: "3", width: "20", height: "14", rx: "2" }),
       /* @__PURE__ */ jsx3("line", { x1: "8", y1: "21", x2: "16", y2: "21" }),
       /* @__PURE__ */ jsx3("line", { x1: "12", y1: "17", x2: "12", y2: "21" })
     ] });
   }
-  return /* @__PURE__ */ jsxs3("svg", { width: "38", height: "38", viewBox: "0 0 24 24", fill: "none", stroke: "var(--skipo-accent, #61afef)", strokeWidth: "1.8", children: [
+  return /* @__PURE__ */ jsxs3("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "var(--skipo-accent, #61afef)", strokeWidth, children: [
     /* @__PURE__ */ jsx3("rect", { x: "3", y: "3", width: "18", height: "18", rx: "3" }),
     /* @__PURE__ */ jsx3("circle", { cx: "12", cy: "12", r: "4" })
   ] });
 }
+
+// src/node-graph/NodeCard.tsx
+import { useBottomStrip } from "@skipo/ui";
+import { Fragment, jsx as jsx4, jsxs as jsxs4 } from "react/jsx-runtime";
 function NodeCard({
   node,
   selected,
@@ -392,10 +417,18 @@ function NodeCard({
   onDoubleClick,
   onSocketMouseDown,
   onSocketMouseUp,
-  onSocketNudgeChange
+  onSocketNudgeChange,
+  onToggleMinimize
 }) {
   const cardRef = useRef2(null);
-  const [measuredHeight, setMeasuredHeight] = useState2(node.height ?? 130);
+  const [isMinimized, setIsMinimized] = useState3(node.minimized ?? false);
+  const [measuredHeight, setMeasuredHeight] = useState3(isMinimized ? 40 : node.height ?? 130);
+  const { setInspectionText } = useBottomStrip();
+  useEffect(() => {
+    if (node.minimized !== void 0 && node.minimized !== isMinimized) {
+      setIsMinimized(node.minimized);
+    }
+  }, [node.minimized]);
   useLayoutEffect(() => {
     if (cardRef.current) {
       const rect = cardRef.current.getBoundingClientRect();
@@ -404,10 +437,20 @@ function NodeCard({
       }
     }
   });
-  const minWidth = node.width ?? 130;
-  const minHeight = node.height ?? 130;
+  const toggleMinimize = (e) => {
+    e?.stopPropagation();
+    const next = !isMinimized;
+    setIsMinimized(next);
+    onToggleMinimize?.(node.id, next);
+  };
+  const handleMouseEnter = () => {
+    const desc = node.data?.description || `System: ${node.type} \u2022 Title: ${node.label}`;
+    setInspectionText(node.type, desc);
+  };
+  const minWidth = node.width ?? 150;
+  const minHeight = isMinimized ? 40 : node.height ?? 130;
   const isLongText = (node.label || "").length > 11;
-  return /* @__PURE__ */ jsxs3(
+  return /* @__PURE__ */ jsxs4(
     "div",
     {
       ref: cardRef,
@@ -418,16 +461,22 @@ function NodeCard({
         minWidth,
         width: node.width ? `${node.width}px` : "max-content",
         minHeight,
-        height: "auto",
+        height: isMinimized ? "40px" : "auto",
         userSelect: "none"
       },
       onMouseDown: (e) => onMouseDown?.(e, node.id),
-      onDoubleClick: () => onDoubleClick?.(node.id),
+      onDoubleClick: (e) => {
+        e.stopPropagation();
+        toggleMinimize();
+        onDoubleClick?.(node.id);
+      },
+      onMouseEnter: handleMouseEnter,
+      onMouseLeave: () => setInspectionText(null),
       children: [
-        /* @__PURE__ */ jsx3("style", { children: `
+        /* @__PURE__ */ jsx4("style", { children: `
         @keyframes skipo-marquee-rtl { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
       ` }),
-        /* @__PURE__ */ jsxs3(
+        /* @__PURE__ */ jsx4(
           "div",
           {
             style: {
@@ -436,7 +485,7 @@ function NodeCard({
               height: "100%",
               position: "relative",
               display: "flex",
-              flexDirection: "column",
+              flexDirection: isMinimized ? "row" : "column",
               backgroundColor: "var(--skipo-surface, rgba(25, 25, 25, 0.92))",
               backdropFilter: "blur(10px)",
               border: `2px solid ${selected ? "var(--skipo-accent, #d4af37)" : "var(--skipo-border, #333)"}`,
@@ -445,70 +494,126 @@ function NodeCard({
               overflow: "visible",
               boxSizing: "border-box"
             },
-            children: [
-              /* @__PURE__ */ jsx3(
-                "div",
-                {
-                  style: {
-                    flex: "1 0 auto",
-                    minHeight: "84px",
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    position: "relative",
-                    background: "radial-gradient(circle at center, rgba(255,255,255,0.06) 0%, transparent 72%)",
-                    padding: "12px"
-                  },
-                  children: renderNodeEmblem(node.type)
-                }
-              ),
-              /* @__PURE__ */ jsx3(
-                "div",
-                {
-                  style: {
-                    flex: "0 0 auto",
-                    minHeight: "38px",
-                    width: "100%",
-                    borderTop: "1px solid var(--skipo-border, #333)",
-                    backgroundColor: "rgba(0, 0, 0, 0.35)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "6px 8px",
-                    boxSizing: "border-box"
-                  },
-                  children: /* @__PURE__ */ jsx3("div", { style: { width: "100%", overflow: "hidden", display: "flex", justifyContent: isLongText ? "flex-start" : "center" }, children: /* @__PURE__ */ jsxs3(
-                    "div",
+            children: isMinimized ? (
+              /* Minimized View: Exactly 1/3 Icon and 2/3 Title (Custom Name) */
+              /* @__PURE__ */ jsxs4(Fragment, { children: [
+                /* @__PURE__ */ jsx4("div", { style: {
+                  width: "33.333%",
+                  flex: "0 0 33.333%",
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "radial-gradient(circle at center, rgba(255,255,255,0.06) 0%, transparent 72%)",
+                  borderRight: "1px solid var(--skipo-border, #333)",
+                  boxSizing: "border-box"
+                }, children: /* @__PURE__ */ jsx4(NodeEmblem, { type: node.type, size: 20 }) }),
+                /* @__PURE__ */ jsx4("div", { style: {
+                  width: "66.667%",
+                  flex: "0 0 66.667%",
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: isLongText ? "flex-start" : "center",
+                  padding: "0 8px",
+                  boxSizing: "border-box",
+                  overflow: "hidden"
+                }, children: /* @__PURE__ */ jsxs4("div", { style: {
+                  display: "inline-flex",
+                  alignItems: "center",
+                  whiteSpace: "nowrap",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  color: "var(--skipo-text, #fff)",
+                  letterSpacing: "0.02em",
+                  animation: isLongText ? "skipo-marquee-rtl 6s linear infinite" : "none"
+                }, children: [
+                  /* @__PURE__ */ jsx4("span", { children: node.label }),
+                  isLongText && /* @__PURE__ */ jsxs4("span", { style: { paddingLeft: "16px", opacity: 0.8 }, children: [
+                    "\u2022 ",
+                    node.label
+                  ] })
+                ] }) })
+              ] })
+            ) : (
+              /* Expanded View: Full Emblem Top + Bottom Title Strip */
+              /* @__PURE__ */ jsxs4(Fragment, { children: [
+                /* @__PURE__ */ jsxs4("div", { style: {
+                  flex: "1 0 auto",
+                  minHeight: "84px",
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  position: "relative",
+                  background: "radial-gradient(circle at center, rgba(255,255,255,0.06) 0%, transparent 72%)",
+                  padding: "12px",
+                  boxSizing: "border-box"
+                }, children: [
+                  /* @__PURE__ */ jsx4(NodeEmblem, { type: node.type, size: 38 }),
+                  /* @__PURE__ */ jsx4(
+                    "button",
                     {
+                      type: "button",
+                      onClick: toggleMinimize,
+                      title: "Minimize Node",
                       style: {
-                        display: "inline-flex",
+                        position: "absolute",
+                        top: 6,
+                        right: 6,
+                        width: 18,
+                        height: 18,
+                        borderRadius: 4,
+                        background: "rgba(255,255,255,0.08)",
+                        border: "1px solid var(--skipo-border, #444)",
+                        color: "var(--skipo-text-muted, #aaa)",
+                        display: "flex",
                         alignItems: "center",
-                        whiteSpace: "nowrap",
-                        fontSize: "11px",
-                        fontWeight: 600,
-                        color: "var(--skipo-text, #fff)",
-                        letterSpacing: "0.02em",
-                        animation: isLongText ? "skipo-marquee-rtl 6s linear infinite" : "none"
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        fontSize: 11,
+                        lineHeight: 1,
+                        padding: 0
                       },
-                      children: [
-                        /* @__PURE__ */ jsx3("span", { children: node.label }),
-                        isLongText && /* @__PURE__ */ jsxs3("span", { style: { paddingLeft: "16px", opacity: 0.8 }, children: [
-                          "\u2022 ",
-                          node.label
-                        ] })
-                      ]
+                      children: "\u2212"
                     }
-                  ) })
-                }
-              )
-            ]
+                  )
+                ] }),
+                /* @__PURE__ */ jsx4("div", { style: {
+                  flex: "0 0 auto",
+                  minHeight: "38px",
+                  width: "100%",
+                  borderTop: "1px solid var(--skipo-border, #333)",
+                  backgroundColor: "rgba(0, 0, 0, 0.35)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "6px 8px",
+                  boxSizing: "border-box"
+                }, children: /* @__PURE__ */ jsx4("div", { style: { width: "100%", overflow: "hidden", display: "flex", justifyContent: isLongText ? "flex-start" : "center" }, children: /* @__PURE__ */ jsxs4("div", { style: {
+                  display: "inline-flex",
+                  alignItems: "center",
+                  whiteSpace: "nowrap",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  color: "var(--skipo-text, #fff)",
+                  letterSpacing: "0.02em",
+                  animation: isLongText ? "skipo-marquee-rtl 6s linear infinite" : "none"
+                }, children: [
+                  /* @__PURE__ */ jsx4("span", { children: node.label }),
+                  isLongText && /* @__PURE__ */ jsxs4("span", { style: { paddingLeft: "16px", opacity: 0.8 }, children: [
+                    "\u2022 ",
+                    node.label
+                  ] })
+                ] }) }) })
+              ] })
+            )
           }
         ),
         node.inputs?.map((socket, idx) => {
           const total = node.inputs?.length ?? 1;
           const topOffset = total === 1 ? measuredHeight * 0.5 : measuredHeight * 0.25 + idx * 24;
-          return /* @__PURE__ */ jsx3(
+          return /* @__PURE__ */ jsx4(
             MovableSocketView,
             {
               nodeId: node.id,
@@ -524,7 +629,7 @@ function NodeCard({
         node.outputs?.map((socket, idx) => {
           const total = node.outputs?.length ?? 1;
           const topOffset = total === 1 ? measuredHeight * 0.5 : measuredHeight * 0.25 + idx * 24;
-          return /* @__PURE__ */ jsx3(
+          return /* @__PURE__ */ jsx4(
             MovableSocketView,
             {
               nodeId: node.id,
@@ -563,12 +668,12 @@ function getNodesInSelection(startX, startY, endX, endY, nodes, viewport) {
 }
 
 // src/node-graph/useNodeGraph.ts
-import { useState as useState3, useCallback } from "react";
+import { useState as useState4, useCallback } from "react";
 function useNodeGraph(initialNodes = [], initialEdges = []) {
-  const [nodes, setNodes] = useState3(initialNodes);
-  const [edges, setEdges] = useState3(initialEdges);
-  const [viewport, setViewport] = useState3({ panX: 0, panY: 0, zoom: 1 });
-  const [selectedNodeIds, setSelectedNodeIds] = useState3(/* @__PURE__ */ new Set());
+  const [nodes, setNodes] = useState4(initialNodes);
+  const [edges, setEdges] = useState4(initialEdges);
+  const [viewport, setViewport] = useState4({ panX: 0, panY: 0, zoom: 1 });
+  const [selectedNodeIds, setSelectedNodeIds] = useState4(/* @__PURE__ */ new Set());
   const addNode = useCallback((node) => {
     setNodes((prev) => [...prev, node]);
   }, []);
@@ -606,9 +711,9 @@ function useNodeGraph(initialNodes = [], initialEdges = []) {
     setViewport(data.viewport || { panX: 0, panY: 0, zoom: 1 });
     setSelectedNodeIds(/* @__PURE__ */ new Set());
   }, []);
-  const [focusedNodeId, setFocusedNodeId] = useState3(null);
-  const [isDetailsOpen, setIsDetailsOpen] = useState3(false);
-  const [isDetailsPinned, setIsDetailsPinned] = useState3(false);
+  const [focusedNodeId, setFocusedNodeId] = useState4(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState4(false);
+  const [isDetailsPinned, setIsDetailsPinned] = useState4(false);
   const openDetails = useCallback((nodeId) => {
     setFocusedNodeId(nodeId);
     setIsDetailsOpen(true);
@@ -654,10 +759,10 @@ function useNodeGraph(initialNodes = [], initialEdges = []) {
 }
 
 // src/node-graph/NodeGraphCanvas.tsx
-import { useRef as useRef4, useState as useState7, useEffect as useEffect2, useCallback as useCallback4 } from "react";
+import { useRef as useRef4, useState as useState8, useEffect as useEffect3, useCallback as useCallback4 } from "react";
 
 // src/node-graph/ui/widgets/CompatibleNodePicker.tsx
-import { useState as useState4, useMemo } from "react";
+import { useState as useState5, useMemo } from "react";
 
 // src/node-graph/rules/CompatibilityMatrix.ts
 var CompatibilityMatrix = class {
@@ -1024,7 +1129,7 @@ var ConnectionRuleStore = class {
 
 // src/node-graph/ui/widgets/CompatibleNodePicker.tsx
 import { useSearchKeyboardNavigation, BaseButton, BaseInput } from "@skipo/ui";
-import { jsx as jsx4, jsxs as jsxs4 } from "react/jsx-runtime";
+import { jsx as jsx5, jsxs as jsxs5 } from "react/jsx-runtime";
 function CompatibleNodePicker({
   x,
   y,
@@ -1033,8 +1138,8 @@ function CompatibleNodePicker({
   onSelect,
   onClose
 }) {
-  const [selectedTypes, setSelectedTypes] = useState4(/* @__PURE__ */ new Set());
-  const [searchTerm, setSearchTerm] = useState4("");
+  const [selectedTypes, setSelectedTypes] = useState5(/* @__PURE__ */ new Set());
+  const [searchTerm, setSearchTerm] = useState5("");
   const compatibleNodes = useMemo(() => {
     const isOut = sourceHandle.direction === "output";
     return ConnectionRuleStore.getCompatibleNodeTypes(
@@ -1061,7 +1166,7 @@ function CompatibleNodePicker({
       return next;
     });
   };
-  return /* @__PURE__ */ jsxs4(
+  return /* @__PURE__ */ jsxs5(
     "div",
     {
       style: {
@@ -1085,10 +1190,10 @@ function CompatibleNodePicker({
       onClick: (e) => e.stopPropagation(),
       onMouseDown: (e) => e.stopPropagation(),
       children: [
-        /* @__PURE__ */ jsxs4("div", { style: { padding: "8px 12px", borderBottom: "var(--skipo-border)", display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "var(--skipo-matte-bg)" }, children: [
-          /* @__PURE__ */ jsxs4("div", { style: { display: "flex", flexDirection: "column" }, children: [
-            /* @__PURE__ */ jsx4("span", { style: { fontSize: "11px", fontWeight: 600, color: "var(--skipo-accent)" }, children: "Compatible Nodes" }),
-            /* @__PURE__ */ jsxs4("span", { style: { fontSize: "9px", color: "var(--skipo-text-muted)" }, children: [
+        /* @__PURE__ */ jsxs5("div", { style: { padding: "8px 12px", borderBottom: "var(--skipo-border)", display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "var(--skipo-matte-bg)" }, children: [
+          /* @__PURE__ */ jsxs5("div", { style: { display: "flex", flexDirection: "column" }, children: [
+            /* @__PURE__ */ jsx5("span", { style: { fontSize: "11px", fontWeight: 600, color: "var(--skipo-accent)" }, children: "Compatible Nodes" }),
+            /* @__PURE__ */ jsxs5("span", { style: { fontSize: "9px", color: "var(--skipo-text-muted)" }, children: [
               "For ",
               sourceHandle.dataType || "ANY",
               " (",
@@ -1096,13 +1201,13 @@ function CompatibleNodePicker({
               ")"
             ] })
           ] }),
-          /* @__PURE__ */ jsx4(BaseButton, { variant: "ghost", size: "sm", onClick: onClose, "aria-label": "Close picker", style: { padding: "2px 6px" }, children: "\u2715" })
+          /* @__PURE__ */ jsx5(BaseButton, { variant: "ghost", size: "sm", onClick: onClose, "aria-label": "Close picker", style: { padding: "2px 6px" }, children: "\u2715" })
         ] }),
-        /* @__PURE__ */ jsx4("div", { style: { padding: "6px 8px", borderBottom: "var(--skipo-border)" }, children: /* @__PURE__ */ jsx4(BaseInput, { autoFocus: true, placeholder: "Filter nodes... (\u2191\u2193 navigate, \u21B5 spawn)", value: searchTerm, onChange: (e) => setSearchTerm(e.target.value), onKeyDown: handleKeyDown }) }),
-        /* @__PURE__ */ jsx4("div", { ref: listContainerRef, style: { flex: 1, overflowY: "auto", maxHeight: "180px", padding: "4px" }, children: filteredNodes.length === 0 ? /* @__PURE__ */ jsx4("div", { style: { padding: "16px", textAlign: "center", fontSize: "11px", color: "var(--skipo-text-muted)" }, children: "No compatible nodes found" }) : filteredNodes.map((node, idx) => {
+        /* @__PURE__ */ jsx5("div", { style: { padding: "6px 8px", borderBottom: "var(--skipo-border)" }, children: /* @__PURE__ */ jsx5(BaseInput, { autoFocus: true, placeholder: "Filter nodes... (\u2191\u2193 navigate, \u21B5 spawn)", value: searchTerm, onChange: (e) => setSearchTerm(e.target.value), onKeyDown: handleKeyDown }) }),
+        /* @__PURE__ */ jsx5("div", { ref: listContainerRef, style: { flex: 1, overflowY: "auto", maxHeight: "180px", padding: "4px" }, children: filteredNodes.length === 0 ? /* @__PURE__ */ jsx5("div", { style: { padding: "16px", textAlign: "center", fontSize: "11px", color: "var(--skipo-text-muted)" }, children: "No compatible nodes found" }) : filteredNodes.map((node, idx) => {
           const isSelected = selectedTypes.has(node.type);
           const isHighlighted = idx === highlightedIndex;
-          return /* @__PURE__ */ jsxs4(
+          return /* @__PURE__ */ jsxs5(
             "div",
             {
               onMouseEnter: () => setHighlightedIndex(idx),
@@ -1121,22 +1226,22 @@ function CompatibleNodePicker({
                 transition: "background-color 0.1s ease"
               },
               children: [
-                /* @__PURE__ */ jsx4("input", { type: "checkbox", checked: isSelected, onChange: () => toggleSelect(node.type), onClick: (e) => e.stopPropagation(), style: { cursor: "pointer" } }),
-                /* @__PURE__ */ jsxs4("div", { style: { flex: 1, minWidth: 0 }, children: [
-                  /* @__PURE__ */ jsx4("div", { style: { fontSize: "11px", fontWeight: isHighlighted ? 600 : 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: isHighlighted ? "var(--skipo-accent)" : "inherit" }, children: node.label || node.type }),
-                  node.description && /* @__PURE__ */ jsx4("div", { style: { fontSize: "9px", color: "var(--skipo-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: node.description })
+                /* @__PURE__ */ jsx5("input", { type: "checkbox", checked: isSelected, onChange: () => toggleSelect(node.type), onClick: (e) => e.stopPropagation(), style: { cursor: "pointer" } }),
+                /* @__PURE__ */ jsxs5("div", { style: { flex: 1, minWidth: 0 }, children: [
+                  /* @__PURE__ */ jsx5("div", { style: { fontSize: "11px", fontWeight: isHighlighted ? 600 : 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: isHighlighted ? "var(--skipo-accent)" : "inherit" }, children: node.label || node.type }),
+                  node.description && /* @__PURE__ */ jsx5("div", { style: { fontSize: "9px", color: "var(--skipo-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: node.description })
                 ] }),
-                isHighlighted && /* @__PURE__ */ jsx4("span", { style: { fontSize: "8px", fontWeight: 600, color: "var(--skipo-accent)", padding: "1px 4px", borderRadius: "var(--skipo-radius-sm)", backgroundColor: "var(--skipo-matte-bg)", border: "var(--skipo-border)", whiteSpace: "nowrap" }, children: "\u21B5 Enter" })
+                isHighlighted && /* @__PURE__ */ jsx5("span", { style: { fontSize: "8px", fontWeight: 600, color: "var(--skipo-accent)", padding: "1px 4px", borderRadius: "var(--skipo-radius-sm)", backgroundColor: "var(--skipo-matte-bg)", border: "var(--skipo-border)", whiteSpace: "nowrap" }, children: "\u21B5 Enter" })
               ]
             },
             node.type
           );
         }) }),
-        /* @__PURE__ */ jsxs4("div", { style: { padding: "6px 8px", borderTop: "var(--skipo-border)", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "var(--skipo-matte-bg)" }, children: [
-          /* @__PURE__ */ jsx4("span", { style: { fontSize: "10px", color: "var(--skipo-text-muted)" }, children: selectedTypes.size > 0 ? `${selectedTypes.size} selected` : "\u21B5 Spawn top match" }),
-          /* @__PURE__ */ jsxs4("div", { style: { display: "flex", gap: "6px" }, children: [
-            /* @__PURE__ */ jsx4(BaseButton, { variant: "secondary", size: "sm", onClick: onClose, style: { padding: "2px 8px", fontSize: "10px" }, children: "Cancel" }),
-            /* @__PURE__ */ jsx4(
+        /* @__PURE__ */ jsxs5("div", { style: { padding: "6px 8px", borderTop: "var(--skipo-border)", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "var(--skipo-matte-bg)" }, children: [
+          /* @__PURE__ */ jsx5("span", { style: { fontSize: "10px", color: "var(--skipo-text-muted)" }, children: selectedTypes.size > 0 ? `${selectedTypes.size} selected` : "\u21B5 Spawn top match" }),
+          /* @__PURE__ */ jsxs5("div", { style: { display: "flex", gap: "6px" }, children: [
+            /* @__PURE__ */ jsx5(BaseButton, { variant: "secondary", size: "sm", onClick: onClose, style: { padding: "2px 8px", fontSize: "10px" }, children: "Cancel" }),
+            /* @__PURE__ */ jsx5(
               BaseButton,
               {
                 variant: "accent",
@@ -1158,9 +1263,9 @@ function CompatibleNodePicker({
 }
 
 // src/node-graph/ui/widgets/NodeSearchPalette.tsx
-import { useState as useState5, useMemo as useMemo2 } from "react";
+import { useState as useState6, useMemo as useMemo2 } from "react";
 import { useSearchKeyboardNavigation as useSearchKeyboardNavigation2, BaseButton as BaseButton2, BaseInput as BaseInput2 } from "@skipo/ui";
-import { jsx as jsx5, jsxs as jsxs5 } from "react/jsx-runtime";
+import { jsx as jsx6, jsxs as jsxs6 } from "react/jsx-runtime";
 function NodeSearchPalette({
   x,
   y,
@@ -1168,7 +1273,7 @@ function NodeSearchPalette({
   onSpawnNode,
   onClose
 }) {
-  const [query, setQuery] = useState5("");
+  const [query, setQuery] = useState6("");
   const filteredNodes = useMemo2(() => {
     if (!availableNodeTypes || availableNodeTypes.length === 0) {
       return [{ type: "default", label: "Default Node", description: "Standard dual-port node" }];
@@ -1192,7 +1297,7 @@ function NodeSearchPalette({
     },
     onClose
   });
-  return /* @__PURE__ */ jsxs5(
+  return /* @__PURE__ */ jsxs6(
     "div",
     {
       style: {
@@ -1216,7 +1321,7 @@ function NodeSearchPalette({
       onClick: (e) => e.stopPropagation(),
       onMouseDown: (e) => e.stopPropagation(),
       children: [
-        /* @__PURE__ */ jsxs5("div", { style: {
+        /* @__PURE__ */ jsxs6("div", { style: {
           padding: "10px 12px",
           borderBottom: "var(--skipo-border)",
           display: "flex",
@@ -1224,11 +1329,11 @@ function NodeSearchPalette({
           justifyContent: "space-between",
           backgroundColor: "var(--skipo-matte-bg)"
         }, children: [
-          /* @__PURE__ */ jsxs5("div", { style: { display: "flex", alignItems: "center", gap: "6px" }, children: [
-            /* @__PURE__ */ jsx5("span", { style: { fontSize: "11px", fontWeight: 600, color: "var(--skipo-accent)" }, children: "Spawn Node" }),
-            /* @__PURE__ */ jsx5("span", { style: { fontSize: "9px", color: "var(--skipo-text-muted)", fontFamily: "var(--skipo-font-mono)", backgroundColor: "var(--skipo-surface)", padding: "1px 4px", borderRadius: "var(--skipo-radius-sm)" }, children: "hotkey [N]" })
+          /* @__PURE__ */ jsxs6("div", { style: { display: "flex", alignItems: "center", gap: "6px" }, children: [
+            /* @__PURE__ */ jsx6("span", { style: { fontSize: "11px", fontWeight: 600, color: "var(--skipo-accent)" }, children: "Spawn Node" }),
+            /* @__PURE__ */ jsx6("span", { style: { fontSize: "9px", color: "var(--skipo-text-muted)", fontFamily: "var(--skipo-font-mono)", backgroundColor: "var(--skipo-surface)", padding: "1px 4px", borderRadius: "var(--skipo-radius-sm)" }, children: "hotkey [N]" })
           ] }),
-          /* @__PURE__ */ jsx5(
+          /* @__PURE__ */ jsx6(
             BaseButton2,
             {
               variant: "ghost",
@@ -1240,7 +1345,7 @@ function NodeSearchPalette({
             }
           )
         ] }),
-        /* @__PURE__ */ jsx5("div", { style: { padding: "8px", borderBottom: "var(--skipo-border)" }, children: /* @__PURE__ */ jsx5(
+        /* @__PURE__ */ jsx6("div", { style: { padding: "8px", borderBottom: "var(--skipo-border)" }, children: /* @__PURE__ */ jsx6(
           BaseInput2,
           {
             autoFocus: true,
@@ -1250,9 +1355,9 @@ function NodeSearchPalette({
             onKeyDown: handleKeyDown
           }
         ) }),
-        /* @__PURE__ */ jsx5("div", { ref: listContainerRef, style: { flex: 1, overflowY: "auto", maxHeight: "220px", padding: "4px 6px" }, children: filteredNodes.length === 0 ? /* @__PURE__ */ jsx5("div", { style: { padding: "20px", textAlign: "center", fontSize: "11px", color: "var(--skipo-text-muted)" }, children: "No matching nodes" }) : filteredNodes.map((node, idx) => {
+        /* @__PURE__ */ jsx6("div", { ref: listContainerRef, style: { flex: 1, overflowY: "auto", maxHeight: "220px", padding: "4px 6px" }, children: filteredNodes.length === 0 ? /* @__PURE__ */ jsx6("div", { style: { padding: "20px", textAlign: "center", fontSize: "11px", color: "var(--skipo-text-muted)" }, children: "No matching nodes" }) : filteredNodes.map((node, idx) => {
           const isHighlighted = idx === highlightedIndex;
-          return /* @__PURE__ */ jsxs5(
+          return /* @__PURE__ */ jsxs6(
             "div",
             {
               onMouseEnter: () => setHighlightedIndex(idx),
@@ -1273,17 +1378,17 @@ function NodeSearchPalette({
                 transition: "background-color 0.1s ease"
               },
               children: [
-                /* @__PURE__ */ jsxs5("div", { style: { minWidth: 0, flex: 1 }, children: [
-                  /* @__PURE__ */ jsx5("div", { style: { fontSize: "11px", fontWeight: isHighlighted ? 600 : 500, color: isHighlighted ? "var(--skipo-accent)" : "inherit" }, children: node.label || node.type }),
-                  node.description && /* @__PURE__ */ jsx5("div", { style: { fontSize: "9px", color: "var(--skipo-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: node.description })
+                /* @__PURE__ */ jsxs6("div", { style: { minWidth: 0, flex: 1 }, children: [
+                  /* @__PURE__ */ jsx6("div", { style: { fontSize: "11px", fontWeight: isHighlighted ? 600 : 500, color: isHighlighted ? "var(--skipo-accent)" : "inherit" }, children: node.label || node.type }),
+                  node.description && /* @__PURE__ */ jsx6("div", { style: { fontSize: "9px", color: "var(--skipo-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: node.description })
                 ] }),
-                isHighlighted && /* @__PURE__ */ jsx5("span", { style: { fontSize: "9px", fontWeight: 600, color: "var(--skipo-accent)", padding: "2px 5px", borderRadius: "var(--skipo-radius-sm)", backgroundColor: "var(--skipo-matte-bg)", border: "var(--skipo-border)", whiteSpace: "nowrap", marginLeft: "6px" }, children: "\u21B5 Spawn" })
+                isHighlighted && /* @__PURE__ */ jsx6("span", { style: { fontSize: "9px", fontWeight: 600, color: "var(--skipo-accent)", padding: "2px 5px", borderRadius: "var(--skipo-radius-sm)", backgroundColor: "var(--skipo-matte-bg)", border: "var(--skipo-border)", whiteSpace: "nowrap", marginLeft: "6px" }, children: "\u21B5 Spawn" })
               ]
             },
             node.type
           );
         }) }),
-        /* @__PURE__ */ jsxs5("div", { style: {
+        /* @__PURE__ */ jsxs6("div", { style: {
           padding: "6px 10px",
           borderTop: "var(--skipo-border)",
           display: "flex",
@@ -1293,13 +1398,13 @@ function NodeSearchPalette({
           fontSize: "9px",
           color: "var(--skipo-text-muted)"
         }, children: [
-          /* @__PURE__ */ jsxs5("span", { children: [
+          /* @__PURE__ */ jsxs6("span", { children: [
             filteredNodes.length,
             " nodes available"
           ] }),
-          /* @__PURE__ */ jsxs5("span", { children: [
+          /* @__PURE__ */ jsxs6("span", { children: [
             "Press ",
-            /* @__PURE__ */ jsx5("strong", { children: "Enter \u21B5" }),
+            /* @__PURE__ */ jsx6("strong", { children: "Enter \u21B5" }),
             " to spawn"
           ] })
         ] })
@@ -1309,7 +1414,7 @@ function NodeSearchPalette({
 }
 
 // src/node-graph/ui/widgets/CanvasContextMenu.tsx
-import { Fragment, jsx as jsx6, jsxs as jsxs6 } from "react/jsx-runtime";
+import { Fragment as Fragment2, jsx as jsx7, jsxs as jsxs7 } from "react/jsx-runtime";
 function CanvasContextMenu({
   x,
   y,
@@ -1339,7 +1444,7 @@ function CanvasContextMenu({
     color: "var(--skipo-text-muted, #888)",
     fontFamily: "monospace"
   };
-  return /* @__PURE__ */ jsxs6(
+  return /* @__PURE__ */ jsxs7(
     "div",
     {
       style: {
@@ -1358,7 +1463,7 @@ function CanvasContextMenu({
       onClick: (e) => e.stopPropagation(),
       onMouseDown: (e) => e.stopPropagation(),
       children: [
-        onOpenSpawnMenu && /* @__PURE__ */ jsxs6(
+        onOpenSpawnMenu && /* @__PURE__ */ jsxs7(
           "div",
           {
             style: {
@@ -1374,13 +1479,13 @@ function CanvasContextMenu({
               onClose();
             },
             children: [
-              /* @__PURE__ */ jsx6("span", { children: "Spawn Node Menu..." }),
-              /* @__PURE__ */ jsx6("span", { style: shortcutStyle, children: "N" })
+              /* @__PURE__ */ jsx7("span", { children: "Spawn Node Menu..." }),
+              /* @__PURE__ */ jsx7("span", { style: shortcutStyle, children: "N" })
             ]
           }
         ),
-        /* @__PURE__ */ jsx6("div", { style: { padding: "4px 8px", fontSize: "9px", textTransform: "uppercase", color: "var(--skipo-text-muted, #888)", fontWeight: 600 }, children: "Quick Spawn" }),
-        /* @__PURE__ */ jsx6("div", { style: { maxHeight: "140px", overflowY: "auto" }, children: !availableNodeTypes || availableNodeTypes.length === 0 ? /* @__PURE__ */ jsx6(
+        /* @__PURE__ */ jsx7("div", { style: { padding: "4px 8px", fontSize: "9px", textTransform: "uppercase", color: "var(--skipo-text-muted, #888)", fontWeight: 600 }, children: "Quick Spawn" }),
+        /* @__PURE__ */ jsx7("div", { style: { maxHeight: "140px", overflowY: "auto" }, children: !availableNodeTypes || availableNodeTypes.length === 0 ? /* @__PURE__ */ jsx7(
           "div",
           {
             style: itemStyle,
@@ -1388,9 +1493,9 @@ function CanvasContextMenu({
               onSpawnNode("default");
               onClose();
             },
-            children: /* @__PURE__ */ jsx6("span", { children: "Default Node" })
+            children: /* @__PURE__ */ jsx7("span", { children: "Default Node" })
           }
-        ) : availableNodeTypes.map((def) => /* @__PURE__ */ jsx6(
+        ) : availableNodeTypes.map((def) => /* @__PURE__ */ jsx7(
           "div",
           {
             style: itemStyle,
@@ -1400,12 +1505,12 @@ function CanvasContextMenu({
               onSpawnNode(def.type);
               onClose();
             },
-            children: /* @__PURE__ */ jsx6("span", { children: def.label || def.type })
+            children: /* @__PURE__ */ jsx7("span", { children: def.label || def.type })
           },
           def.type
         )) }),
-        /* @__PURE__ */ jsx6("div", { style: { height: "1px", backgroundColor: "var(--skipo-border, #333)", margin: "4px 0" } }),
-        /* @__PURE__ */ jsxs6(
+        /* @__PURE__ */ jsx7("div", { style: { height: "1px", backgroundColor: "var(--skipo-border, #333)", margin: "4px 0" } }),
+        /* @__PURE__ */ jsxs7(
           "div",
           {
             style: itemStyle,
@@ -1416,13 +1521,13 @@ function CanvasContextMenu({
               onClose();
             },
             children: [
-              /* @__PURE__ */ jsx6("span", { children: "Select All" }),
-              /* @__PURE__ */ jsx6("span", { style: shortcutStyle, children: "\u2318A" })
+              /* @__PURE__ */ jsx7("span", { children: "Select All" }),
+              /* @__PURE__ */ jsx7("span", { style: shortcutStyle, children: "\u2318A" })
             ]
           }
         ),
-        hasSelection && /* @__PURE__ */ jsxs6(Fragment, { children: [
-          /* @__PURE__ */ jsxs6(
+        hasSelection && /* @__PURE__ */ jsxs7(Fragment2, { children: [
+          /* @__PURE__ */ jsxs7(
             "div",
             {
               style: { ...itemStyle, color: "#e06c75" },
@@ -1433,12 +1538,12 @@ function CanvasContextMenu({
                 onClose();
               },
               children: [
-                /* @__PURE__ */ jsx6("span", { children: "Delete Selected" }),
-                /* @__PURE__ */ jsx6("span", { style: shortcutStyle, children: "Del" })
+                /* @__PURE__ */ jsx7("span", { children: "Delete Selected" }),
+                /* @__PURE__ */ jsx7("span", { style: shortcutStyle, children: "Del" })
               ]
             }
           ),
-          /* @__PURE__ */ jsx6(
+          /* @__PURE__ */ jsx7(
             "div",
             {
               style: itemStyle,
@@ -1448,7 +1553,7 @@ function CanvasContextMenu({
                 onClearSelection();
                 onClose();
               },
-              children: /* @__PURE__ */ jsx6("span", { children: "Clear Selection" })
+              children: /* @__PURE__ */ jsx7("span", { children: "Clear Selection" })
             }
           )
         ] })
@@ -1458,7 +1563,7 @@ function CanvasContextMenu({
 }
 
 // src/node-graph/useGhostRouting.ts
-import { useEffect, useState as useState6, useCallback as useCallback2, useRef as useRef3 } from "react";
+import { useEffect as useEffect2, useState as useState7, useCallback as useCallback2, useRef as useRef3 } from "react";
 
 // src/node-graph/store/GhostStore.ts
 var GhostStore = class _GhostStore {
@@ -1750,12 +1855,12 @@ function useGhostRouting({
   onEdgesChange
 }) {
   const ghostStore = useRef3(GhostStore.getInstance()).current;
-  const [activeGhostNodes, setActiveGhostNodes] = useState6([]);
-  const [activeGhostTraces, setActiveGhostTraces] = useState6([]);
-  const [scenarioIndex, setScenarioIndex] = useState6(0);
-  const [hoveredGhostId, setHoveredGhostId] = useState6(null);
+  const [activeGhostNodes, setActiveGhostNodes] = useState7([]);
+  const [activeGhostTraces, setActiveGhostTraces] = useState7([]);
+  const [scenarioIndex, setScenarioIndex] = useState7(0);
+  const [hoveredGhostId, setHoveredGhostId] = useState7(null);
   const debounceTimerRef = useRef3(null);
-  useEffect(() => {
+  useEffect2(() => {
     const unsubscribe = ghostStore.subscribe(() => {
       setActiveGhostNodes(ghostStore.getActiveGhostNodes());
       setActiveGhostTraces(ghostStore.getActiveGhostTraces());
@@ -1764,7 +1869,7 @@ function useGhostRouting({
     });
     return () => unsubscribe();
   }, [ghostStore]);
-  useEffect(() => {
+  useEffect2(() => {
     if (config?.ghostRoutingEnabled === false) {
       ghostStore.clear();
       return;
@@ -1997,10 +2102,10 @@ function useMagneticTraces({
 }
 
 // src/node-graph/ui/ghost/GhostTraceLayer.tsx
-import { jsx as jsx7 } from "react/jsx-runtime";
+import { jsx as jsx8 } from "react/jsx-runtime";
 function GhostTraceLayer({ traces, hoveredGhostId }) {
   if (traces.length === 0) return null;
-  return /* @__PURE__ */ jsx7(
+  return /* @__PURE__ */ jsx8(
     "svg",
     {
       style: {
@@ -2016,7 +2121,7 @@ function GhostTraceLayer({ traces, hoveredGhostId }) {
       children: traces.map((trace) => {
         const isHovered = hoveredGhostId === trace.targetGhostNodeId;
         const color = "var(--skipo-ghost, #00d9ff)";
-        return /* @__PURE__ */ jsx7("g", { children: /* @__PURE__ */ jsx7(
+        return /* @__PURE__ */ jsx8("g", { children: /* @__PURE__ */ jsx8(
           "path",
           {
             d: trace.pathD,
@@ -2036,7 +2141,7 @@ function GhostTraceLayer({ traces, hoveredGhostId }) {
 }
 
 // src/node-graph/ui/ghost/GhostNodeCard.tsx
-import { jsx as jsx8, jsxs as jsxs7 } from "react/jsx-runtime";
+import { jsx as jsx9, jsxs as jsxs8 } from "react/jsx-runtime";
 function GhostNodeCard({
   ghostNode,
   isHovered = false,
@@ -2046,7 +2151,7 @@ function GhostNodeCard({
   const width = ghostNode.size.width;
   const height = ghostNode.size.height;
   const ghostColor = "var(--skipo-ghost, #00d9ff)";
-  return /* @__PURE__ */ jsxs7(
+  return /* @__PURE__ */ jsxs8(
     "div",
     {
       style: {
@@ -2062,7 +2167,7 @@ function GhostNodeCard({
       onMouseEnter: () => onHover?.(ghostNode.id),
       onMouseLeave: () => onHover?.(null),
       children: [
-        /* @__PURE__ */ jsxs7(
+        /* @__PURE__ */ jsxs8(
           "div",
           {
             style: {
@@ -2080,7 +2185,7 @@ function GhostNodeCard({
               boxShadow: isHovered ? "0 0 14px rgba(0, 217, 255, 0.4)" : "none"
             },
             children: [
-              /* @__PURE__ */ jsx8(
+              /* @__PURE__ */ jsx9(
                 "div",
                 {
                   style: {
@@ -2090,10 +2195,10 @@ function GhostNodeCard({
                     justifyContent: "center",
                     opacity: 0.8
                   },
-                  children: /* @__PURE__ */ jsx8("svg", { width: "28", height: "28", viewBox: "0 0 24 24", fill: "none", stroke: ghostColor, strokeWidth: "1.8", children: /* @__PURE__ */ jsx8("polygon", { points: "13 2 3 14 12 14 11 22 21 10 12 10 13 2" }) })
+                  children: /* @__PURE__ */ jsx9("svg", { width: "28", height: "28", viewBox: "0 0 24 24", fill: "none", stroke: ghostColor, strokeWidth: "1.8", children: /* @__PURE__ */ jsx9("polygon", { points: "13 2 3 14 12 14 11 22 21 10 12 10 13 2" }) })
                 }
               ),
-              /* @__PURE__ */ jsxs7(
+              /* @__PURE__ */ jsxs8(
                 "div",
                 {
                   style: {
@@ -2106,7 +2211,7 @@ function GhostNodeCard({
                     backgroundColor: "rgba(0, 0, 0, 0.3)"
                   },
                   children: [
-                    /* @__PURE__ */ jsx8(
+                    /* @__PURE__ */ jsx9(
                       "span",
                       {
                         style: {
@@ -2120,7 +2225,7 @@ function GhostNodeCard({
                         children: ghostNode.label
                       }
                     ),
-                    onSolidify && /* @__PURE__ */ jsx8(
+                    onSolidify && /* @__PURE__ */ jsx9(
                       "button",
                       {
                         type: "button",
@@ -2144,7 +2249,7 @@ function GhostNodeCard({
                           e.stopPropagation();
                           onSolidify(ghostNode.id);
                         },
-                        children: /* @__PURE__ */ jsx8("svg", { width: "10", height: "10", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "3", strokeLinecap: "round", strokeLinejoin: "round", children: /* @__PURE__ */ jsx8("polyline", { points: "20 6 9 17 4 12" }) })
+                        children: /* @__PURE__ */ jsx9("svg", { width: "10", height: "10", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "3", strokeLinecap: "round", strokeLinejoin: "round", children: /* @__PURE__ */ jsx9("polyline", { points: "20 6 9 17 4 12" }) })
                       }
                     )
                   ]
@@ -2153,7 +2258,7 @@ function GhostNodeCard({
             ]
           }
         ),
-        ghostNode.inputs?.map((s, idx) => /* @__PURE__ */ jsx8(
+        ghostNode.inputs?.map((s, idx) => /* @__PURE__ */ jsx9(
           "div",
           {
             style: {
@@ -2170,7 +2275,7 @@ function GhostNodeCard({
           },
           s.id
         )),
-        ghostNode.outputs?.map((s, idx) => /* @__PURE__ */ jsx8(
+        ghostNode.outputs?.map((s, idx) => /* @__PURE__ */ jsx9(
           "div",
           {
             style: {
@@ -2193,7 +2298,7 @@ function GhostNodeCard({
 }
 
 // src/node-graph/ui/ghost/GhostSolidifyBar.tsx
-import { jsx as jsx9, jsxs as jsxs8 } from "react/jsx-runtime";
+import { jsx as jsx10, jsxs as jsxs9 } from "react/jsx-runtime";
 function GhostSolidifyBar({
   ghostNodes,
   scenarioIndex,
@@ -2208,7 +2313,7 @@ function GhostSolidifyBar({
   const barX = minX;
   const barY = Math.max(10, minY - 44);
   const ghostColor = "var(--skipo-ghost, #00d9ff)";
-  return /* @__PURE__ */ jsxs8(
+  return /* @__PURE__ */ jsxs9(
     "div",
     {
       style: {
@@ -2229,7 +2334,7 @@ function GhostSolidifyBar({
       },
       onClick: (e) => e.stopPropagation(),
       children: [
-        /* @__PURE__ */ jsxs8(
+        /* @__PURE__ */ jsxs9(
           "button",
           {
             type: "button",
@@ -2249,17 +2354,17 @@ function GhostSolidifyBar({
             },
             onClick: onCycleScenario,
             children: [
-              /* @__PURE__ */ jsxs8("span", { children: [
+              /* @__PURE__ */ jsxs9("span", { children: [
                 "Branch ",
                 scenarioIndex + 1,
                 "/",
                 maxScenarios
               ] }),
-              /* @__PURE__ */ jsx9("svg", { width: "10", height: "10", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", children: /* @__PURE__ */ jsx9("polyline", { points: "9 18 15 12 9 6" }) })
+              /* @__PURE__ */ jsx10("svg", { width: "10", height: "10", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", children: /* @__PURE__ */ jsx10("polyline", { points: "9 18 15 12 9 6" }) })
             ]
           }
         ),
-        /* @__PURE__ */ jsxs8(
+        /* @__PURE__ */ jsxs9(
           "button",
           {
             type: "button",
@@ -2280,12 +2385,12 @@ function GhostSolidifyBar({
             },
             onClick: onSolidifyAll,
             children: [
-              /* @__PURE__ */ jsx9("svg", { width: "11", height: "11", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "3", children: /* @__PURE__ */ jsx9("polyline", { points: "20 6 9 17 4 12" }) }),
-              /* @__PURE__ */ jsx9("span", { children: "Solidify" })
+              /* @__PURE__ */ jsx10("svg", { width: "11", height: "11", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "3", children: /* @__PURE__ */ jsx10("polyline", { points: "20 6 9 17 4 12" }) }),
+              /* @__PURE__ */ jsx10("span", { children: "Solidify" })
             ]
           }
         ),
-        /* @__PURE__ */ jsx9(
+        /* @__PURE__ */ jsx10(
           "button",
           {
             type: "button",
@@ -2301,9 +2406,9 @@ function GhostSolidifyBar({
               alignItems: "center"
             },
             onClick: onDismiss,
-            children: /* @__PURE__ */ jsxs8("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: [
-              /* @__PURE__ */ jsx9("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
-              /* @__PURE__ */ jsx9("line", { x1: "6", y1: "6", x2: "18", y2: "18" })
+            children: /* @__PURE__ */ jsxs9("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: [
+              /* @__PURE__ */ jsx10("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
+              /* @__PURE__ */ jsx10("line", { x1: "6", y1: "6", x2: "18", y2: "18" })
             ] })
           }
         )
@@ -2313,9 +2418,9 @@ function GhostSolidifyBar({
 }
 
 // src/node-graph/ui/widgets/SolidifyWidget.tsx
-import { jsx as jsx10 } from "react/jsx-runtime";
+import { jsx as jsx11 } from "react/jsx-runtime";
 function SolidifyWidget({ x, y, onSolidify }) {
-  return /* @__PURE__ */ jsx10(
+  return /* @__PURE__ */ jsx11(
     "div",
     {
       style: {
@@ -2327,7 +2432,7 @@ function SolidifyWidget({ x, y, onSolidify }) {
         pointerEvents: "auto"
       },
       onClick: (e) => e.stopPropagation(),
-      children: /* @__PURE__ */ jsx10(
+      children: /* @__PURE__ */ jsx11(
         "button",
         {
           type: "button",
@@ -2349,7 +2454,7 @@ function SolidifyWidget({ x, y, onSolidify }) {
             transition: "transform 0.1s ease"
           },
           onClick: onSolidify,
-          children: /* @__PURE__ */ jsx10("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round", strokeLinejoin: "round", children: /* @__PURE__ */ jsx10("polyline", { points: "20 6 9 17 4 12" }) })
+          children: /* @__PURE__ */ jsx11("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round", strokeLinejoin: "round", children: /* @__PURE__ */ jsx11("polyline", { points: "20 6 9 17 4 12" }) })
         }
       )
     }
@@ -2357,17 +2462,17 @@ function SolidifyWidget({ x, y, onSolidify }) {
 }
 
 // src/node-graph/ui/widgets/MagneticTraceLayer.tsx
-import { Fragment as Fragment2, jsx as jsx11, jsxs as jsxs9 } from "react/jsx-runtime";
+import { Fragment as Fragment3, jsx as jsx12, jsxs as jsxs10 } from "react/jsx-runtime";
 function MagneticTraceLayer({ traces, onSolidify }) {
   if (traces.length === 0) return null;
-  return /* @__PURE__ */ jsxs9(Fragment2, { children: [
-    /* @__PURE__ */ jsx11("style", { children: `
+  return /* @__PURE__ */ jsxs10(Fragment3, { children: [
+    /* @__PURE__ */ jsx12("style", { children: `
         @keyframes skipo-magnetic-flow {
           0% { stroke-dashoffset: 24; }
           100% { stroke-dashoffset: 0; }
         }
       ` }),
-    /* @__PURE__ */ jsx11(
+    /* @__PURE__ */ jsx12(
       "svg",
       {
         style: {
@@ -2381,8 +2486,8 @@ function MagneticTraceLayer({ traces, onSolidify }) {
           zIndex: 4
         },
         children: traces.map((trace) => {
-          return /* @__PURE__ */ jsxs9("g", { style: { pointerEvents: "auto" }, children: [
-            /* @__PURE__ */ jsx11(
+          return /* @__PURE__ */ jsxs10("g", { style: { pointerEvents: "auto" }, children: [
+            /* @__PURE__ */ jsx12(
               "path",
               {
                 d: trace.pathD,
@@ -2393,7 +2498,7 @@ function MagneticTraceLayer({ traces, onSolidify }) {
                 onClick: () => onSolidify(trace.id)
               }
             ),
-            /* @__PURE__ */ jsx11(
+            /* @__PURE__ */ jsx12(
               "path",
               {
                 d: trace.pathD,
@@ -2403,7 +2508,7 @@ function MagneticTraceLayer({ traces, onSolidify }) {
                 opacity: 0.25
               }
             ),
-            /* @__PURE__ */ jsx11(
+            /* @__PURE__ */ jsx12(
               "path",
               {
                 d: trace.pathD,
@@ -2423,7 +2528,7 @@ function MagneticTraceLayer({ traces, onSolidify }) {
         })
       }
     ),
-    traces.map((trace) => /* @__PURE__ */ jsx11(
+    traces.map((trace) => /* @__PURE__ */ jsx12(
       SolidifyWidget,
       {
         x: trace.midpoint.x,
@@ -2436,7 +2541,7 @@ function MagneticTraceLayer({ traces, onSolidify }) {
 }
 
 // src/node-graph/NodeGraphCanvas.tsx
-import { Fragment as Fragment3, jsx as jsx12, jsxs as jsxs10 } from "react/jsx-runtime";
+import { Fragment as Fragment4, jsx as jsx13, jsxs as jsxs11 } from "react/jsx-runtime";
 function NodeGraphCanvas({
   nodes,
   edges,
@@ -2451,7 +2556,7 @@ function NodeGraphCanvas({
   onSelectionChange
 }) {
   const containerRef = useRef4(null);
-  useEffect2(() => {
+  useEffect3(() => {
     if (!ConnectionRuleStore.isInitialized()) ConnectionRuleStore.initializeDefaults();
   }, []);
   const effectiveNodeTypes = availableNodeTypes && availableNodeTypes.length > 0 ? availableNodeTypes : ConnectionRuleStore.listNodeTypes();
@@ -2470,8 +2575,8 @@ function NodeGraphCanvas({
     onNodesChange,
     onEdgesChange
   });
-  const [isPanning, setIsPanning] = useState7(false);
-  const [dragNodeId, setDragNodeId] = useState7(null);
+  const [isPanning, setIsPanning] = useState8(false);
+  const [dragNodeId, setDragNodeId] = useState8(null);
   const nodeMouseDownPos = useRef4(null);
   const hasDraggedNode = useRef4(false);
   const animFrameRef = useRef4(null);
@@ -2499,21 +2604,21 @@ function NodeGraphCanvas({
     };
     animFrameRef.current = requestAnimationFrame(step);
   }, [viewport, onViewportChange]);
-  useEffect2(() => {
+  useEffect3(() => {
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
   }, []);
-  const [boxSelection, setBoxSelection] = useState7(null);
-  const [connecting, setConnecting] = useState7(null);
-  const [pickerState, setPickerState] = useState7(null);
-  const [contextMenu, setContextMenu] = useState7(null);
-  const [spawnMenuState, setSpawnMenuState] = useState7(null);
+  const [boxSelection, setBoxSelection] = useState8(null);
+  const [connecting, setConnecting] = useState8(null);
+  const [pickerState, setPickerState] = useState8(null);
+  const [contextMenu, setContextMenu] = useState8(null);
+  const [spawnMenuState, setSpawnMenuState] = useState8(null);
   const lastMousePos = useRef4({ screenX: 0, screenY: 0 });
-  useEffect2(() => {
+  useEffect3(() => {
     if (!ConnectionRuleStore.isInitialized()) ConnectionRuleStore.initializeDefaults();
   }, []);
-  useEffect2(() => {
+  useEffect3(() => {
     const handleKeyDown = (e) => {
       if (e.key.toLowerCase() === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         const activeEl = document.activeElement;
@@ -2768,14 +2873,14 @@ function NodeGraphCanvas({
       x: p.x,
       y: p.y,
       width: (node.width ?? 150) * viewport.zoom,
-      height: (node.height ?? 100) * viewport.zoom,
+      height: (node.minimized ? 40 : node.height ?? 100) * viewport.zoom,
       inputs: node.inputs || [],
       outputs: node.outputs || [],
       zoom: viewport.zoom
     };
     return acc;
   }, {});
-  return /* @__PURE__ */ jsxs10(
+  return /* @__PURE__ */ jsxs11(
     "div",
     {
       ref: containerRef,
@@ -2786,12 +2891,20 @@ function NodeGraphCanvas({
       onMouseUp: handleMouseUp,
       onContextMenu: handleContextMenu,
       children: [
-        /* @__PURE__ */ jsx12(WireRenderer, { edges, nodesData, connecting: connecting ? { startX: connecting.startX, startY: connecting.startY, endX: connecting.endX, endY: connecting.endY } : null }),
-        /* @__PURE__ */ jsxs10("div", { style: { position: "absolute", top: 0, left: 0, transformOrigin: "0 0", transform: `translate(${viewport.panX}px, ${viewport.panY}px) scale(${viewport.zoom})` }, children: [
-          magnetic.isEnabled && /* @__PURE__ */ jsx12(MagneticTraceLayer, { traces: magnetic.traces, onSolidify: magnetic.solidifyTrace }),
-          ghost.isActive && /* @__PURE__ */ jsxs10(Fragment3, { children: [
-            /* @__PURE__ */ jsx12(GhostTraceLayer, { traces: ghost.activeGhostTraces, hoveredGhostId: ghost.hoveredGhostId }),
-            ghost.activeGhostNodes.map((g) => /* @__PURE__ */ jsx12(
+        /* @__PURE__ */ jsx13(
+          WireRenderer,
+          {
+            edges,
+            nodesData,
+            onDeleteEdge: (edgeId) => onEdgesChange?.(edges.filter((e) => e.id !== edgeId)),
+            connecting: connecting ? { startX: connecting.startX, startY: connecting.startY, endX: connecting.endX, endY: connecting.endY } : null
+          }
+        ),
+        /* @__PURE__ */ jsxs11("div", { style: { position: "absolute", top: 0, left: 0, transformOrigin: "0 0", transform: `translate(${viewport.panX}px, ${viewport.panY}px) scale(${viewport.zoom})` }, children: [
+          magnetic.isEnabled && /* @__PURE__ */ jsx13(MagneticTraceLayer, { traces: magnetic.traces, onSolidify: magnetic.solidifyTrace }),
+          ghost.isActive && /* @__PURE__ */ jsxs11(Fragment4, { children: [
+            /* @__PURE__ */ jsx13(GhostTraceLayer, { traces: ghost.activeGhostTraces, hoveredGhostId: ghost.hoveredGhostId }),
+            ghost.activeGhostNodes.map((g) => /* @__PURE__ */ jsx13(
               GhostNodeCard,
               {
                 ghostNode: g,
@@ -2801,7 +2914,7 @@ function NodeGraphCanvas({
               },
               g.id
             )),
-            /* @__PURE__ */ jsx12(
+            /* @__PURE__ */ jsx13(
               GhostSolidifyBar,
               {
                 ghostNodes: ghost.activeGhostNodes,
@@ -2813,7 +2926,7 @@ function NodeGraphCanvas({
               }
             )
           ] }),
-          nodes.map((node) => /* @__PURE__ */ jsx12(
+          nodes.map((node) => /* @__PURE__ */ jsx13(
             NodeCard,
             {
               node,
@@ -2822,14 +2935,17 @@ function NodeGraphCanvas({
               onDoubleClick: onNodeDoubleClick,
               onSocketMouseDown: handleSocketMouseDown,
               onSocketMouseUp: handleSocketMouseUp,
-              onSocketNudgeChange: handleSocketNudgeChange
+              onSocketNudgeChange: handleSocketNudgeChange,
+              onToggleMinimize: (nodeId, isMin) => {
+                onNodesChange?.(nodes.map((n) => n.id === nodeId ? { ...n, minimized: isMin } : n));
+              }
             },
             node.id
           ))
         ] }),
-        boxSelection && /* @__PURE__ */ jsx12("div", { style: { position: "absolute", left: Math.min(boxSelection.startX, boxSelection.endX), top: Math.min(boxSelection.startY, boxSelection.endY), width: Math.abs(boxSelection.endX - boxSelection.startX), height: Math.abs(boxSelection.endY - boxSelection.startY), backgroundColor: "rgba(97, 175, 239, 0.18)", border: "1px solid var(--skipo-accent, #61afef)", pointerEvents: "none" } }),
-        pickerState && /* @__PURE__ */ jsx12(CompatibleNodePicker, { x: pickerState.x, y: pickerState.y, sourceHandle: pickerState.sourceHandle, availableNodeTypes: effectiveNodeTypes, onSelect: handlePickerSelect, onClose: () => setPickerState(null) }),
-        contextMenu && /* @__PURE__ */ jsx12(
+        boxSelection && /* @__PURE__ */ jsx13("div", { style: { position: "absolute", left: Math.min(boxSelection.startX, boxSelection.endX), top: Math.min(boxSelection.startY, boxSelection.endY), width: Math.abs(boxSelection.endX - boxSelection.startX), height: Math.abs(boxSelection.endY - boxSelection.startY), backgroundColor: "rgba(97, 175, 239, 0.18)", border: "1px solid var(--skipo-accent, #61afef)", pointerEvents: "none" } }),
+        pickerState && /* @__PURE__ */ jsx13(CompatibleNodePicker, { x: pickerState.x, y: pickerState.y, sourceHandle: pickerState.sourceHandle, availableNodeTypes: effectiveNodeTypes, onSelect: handlePickerSelect, onClose: () => setPickerState(null) }),
+        contextMenu && /* @__PURE__ */ jsx13(
           CanvasContextMenu,
           {
             x: contextMenu.x,
@@ -2861,7 +2977,7 @@ function NodeGraphCanvas({
             onClose: () => setContextMenu(null)
           }
         ),
-        spawnMenuState && /* @__PURE__ */ jsx12(
+        spawnMenuState && /* @__PURE__ */ jsx13(
           NodeSearchPalette,
           {
             x: spawnMenuState.x,
@@ -2885,27 +3001,27 @@ function NodeGraphCanvas({
 
 // src/node-graph/NodeDetailsPanel.tsx
 import { FloatingDetailsPanel, BaseInput as BaseInput3, BaseBadge } from "@skipo/ui";
-import { jsx as jsx13, jsxs as jsxs11 } from "react/jsx-runtime";
+import { jsx as jsx14, jsxs as jsxs12 } from "react/jsx-runtime";
 function renderSockets(sockets, type) {
   if (!sockets || sockets.length === 0) return null;
-  return /* @__PURE__ */ jsxs11("div", { style: { marginBottom: "12px" }, children: [
-    /* @__PURE__ */ jsxs11("div", { style: { fontSize: "11px", color: "var(--skipo-text-muted)", marginBottom: "4px", textTransform: "uppercase" }, children: [
+  return /* @__PURE__ */ jsxs12("div", { style: { marginBottom: "12px" }, children: [
+    /* @__PURE__ */ jsxs12("div", { style: { fontSize: "11px", color: "var(--skipo-text-muted)", marginBottom: "4px", textTransform: "uppercase" }, children: [
       type,
       " Sockets (",
       sockets.length,
       ")"
     ] }),
-    /* @__PURE__ */ jsx13("div", { style: { display: "flex", flexDirection: "column", gap: "4px" }, children: sockets.map((s) => /* @__PURE__ */ jsxs11("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 8px", background: "var(--skipo-surface)", borderRadius: "var(--skipo-radius-sm)", fontSize: "12px" }, children: [
-      /* @__PURE__ */ jsx13("span", { children: s.label || s.id }),
-      s.dataType && /* @__PURE__ */ jsx13(BaseBadge, { variant: "neutral", children: s.dataType })
+    /* @__PURE__ */ jsx14("div", { style: { display: "flex", flexDirection: "column", gap: "4px" }, children: sockets.map((s) => /* @__PURE__ */ jsxs12("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 8px", background: "var(--skipo-surface)", borderRadius: "var(--skipo-radius-sm)", fontSize: "12px" }, children: [
+      /* @__PURE__ */ jsx14("span", { children: s.label || s.id }),
+      s.dataType && /* @__PURE__ */ jsx14(BaseBadge, { variant: "neutral", children: s.dataType })
     ] }, s.id)) })
   ] });
 }
 function renderNodeContent(node, onUpdateNode) {
-  return /* @__PURE__ */ jsxs11("div", { style: { display: "flex", flexDirection: "column", gap: "12px" }, children: [
-    /* @__PURE__ */ jsxs11("div", { children: [
-      /* @__PURE__ */ jsx13("label", { style: { display: "block", fontSize: "11px", color: "var(--skipo-text-muted)", marginBottom: "4px" }, children: "Label" }),
-      /* @__PURE__ */ jsx13(
+  return /* @__PURE__ */ jsxs12("div", { style: { display: "flex", flexDirection: "column", gap: "12px" }, children: [
+    /* @__PURE__ */ jsxs12("div", { children: [
+      /* @__PURE__ */ jsx14("label", { style: { display: "block", fontSize: "11px", color: "var(--skipo-text-muted)", marginBottom: "4px" }, children: "Label" }),
+      /* @__PURE__ */ jsx14(
         BaseInput3,
         {
           value: node.label,
@@ -2913,7 +3029,7 @@ function renderNodeContent(node, onUpdateNode) {
         }
       )
     ] }),
-    /* @__PURE__ */ jsx13("div", { style: { display: "flex", gap: "16px", fontSize: "12px", color: "var(--skipo-text-muted)" }, children: /* @__PURE__ */ jsxs11("div", { children: [
+    /* @__PURE__ */ jsx14("div", { style: { display: "flex", gap: "16px", fontSize: "12px", color: "var(--skipo-text-muted)" }, children: /* @__PURE__ */ jsxs12("div", { children: [
       "Position: X: ",
       Math.round(node.position.x),
       ", Y: ",
@@ -2921,9 +3037,9 @@ function renderNodeContent(node, onUpdateNode) {
     ] }) }),
     renderSockets(node.inputs, "Input"),
     renderSockets(node.outputs, "Output"),
-    node.data && Object.keys(node.data).length > 0 && /* @__PURE__ */ jsxs11("div", { children: [
-      /* @__PURE__ */ jsx13("div", { style: { fontSize: "11px", color: "var(--skipo-text-muted)", marginBottom: "4px", textTransform: "uppercase" }, children: "Custom Data" }),
-      /* @__PURE__ */ jsx13("pre", { style: { margin: 0, padding: "8px", background: "var(--skipo-surface)", borderRadius: "var(--skipo-radius-sm)", fontSize: "11px", color: "var(--skipo-text)", overflowX: "auto" }, children: JSON.stringify(node.data, null, 2) })
+    node.data && Object.keys(node.data).length > 0 && /* @__PURE__ */ jsxs12("div", { children: [
+      /* @__PURE__ */ jsx14("div", { style: { fontSize: "11px", color: "var(--skipo-text-muted)", marginBottom: "4px", textTransform: "uppercase" }, children: "Custom Data" }),
+      /* @__PURE__ */ jsx14("pre", { style: { margin: 0, padding: "8px", background: "var(--skipo-surface)", borderRadius: "var(--skipo-radius-sm)", fontSize: "11px", color: "var(--skipo-text)", overflowX: "auto" }, children: JSON.stringify(node.data, null, 2) })
     ] })
   ] });
 }
@@ -2937,7 +3053,7 @@ function NodeDetailsPanel({
   storageKey = "skipo:node-graph:details-panel"
 }) {
   if (!isOpen || !node) return null;
-  return /* @__PURE__ */ jsx13(
+  return /* @__PURE__ */ jsx14(
     FloatingDetailsPanel,
     {
       title: node.label || "Node Details",
@@ -3006,6 +3122,7 @@ var BaseNode = class {
   metadata;
   settings;
   positionLocked;
+  minimized;
   constructor(props) {
     this.id = props.id;
     this.type = props.type;
@@ -3017,6 +3134,7 @@ var BaseNode = class {
     this.metadata = props.metadata ? { ...props.metadata } : {};
     this.settings = props.settings ? { ...props.settings } : {};
     this.positionLocked = props.positionLocked ?? false;
+    this.minimized = props.minimized ?? false;
   }
   getHandle(handleId) {
     return this.handles.find((h) => h.id === handleId);
@@ -3763,9 +3881,9 @@ var CommandApi = class {
 };
 
 // src/node-graph/ui/widgets/MidpointWidgets.tsx
-import { Fragment as Fragment4, jsx as jsx14, jsxs as jsxs12 } from "react/jsx-runtime";
+import { Fragment as Fragment5, jsx as jsx15, jsxs as jsxs13 } from "react/jsx-runtime";
 function MidpointWidgets({ x, y, locked, onDelete, onInspect, onToggleLock }) {
-  return /* @__PURE__ */ jsxs12(
+  return /* @__PURE__ */ jsxs13(
     "div",
     {
       style: {
@@ -3787,7 +3905,7 @@ function MidpointWidgets({ x, y, locked, onDelete, onInspect, onToggleLock }) {
       },
       onClick: (e) => e.stopPropagation(),
       children: [
-        onToggleLock && /* @__PURE__ */ jsx14(
+        onToggleLock && /* @__PURE__ */ jsx15(
           "button",
           {
             type: "button",
@@ -3802,16 +3920,16 @@ function MidpointWidgets({ x, y, locked, onDelete, onInspect, onToggleLock }) {
               alignItems: "center"
             },
             onClick: onToggleLock,
-            children: /* @__PURE__ */ jsx14("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: locked ? /* @__PURE__ */ jsxs12(Fragment4, { children: [
-              /* @__PURE__ */ jsx14("rect", { x: "3", y: "11", width: "18", height: "11", rx: "2", ry: "2" }),
-              /* @__PURE__ */ jsx14("path", { d: "M7 11V7a5 5 0 0 1 10 0v4" })
-            ] }) : /* @__PURE__ */ jsxs12(Fragment4, { children: [
-              /* @__PURE__ */ jsx14("rect", { x: "3", y: "11", width: "18", height: "11", rx: "2", ry: "2" }),
-              /* @__PURE__ */ jsx14("path", { d: "M7 11V7a5 5 0 0 1 9.9-1" })
+            children: /* @__PURE__ */ jsx15("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: locked ? /* @__PURE__ */ jsxs13(Fragment5, { children: [
+              /* @__PURE__ */ jsx15("rect", { x: "3", y: "11", width: "18", height: "11", rx: "2", ry: "2" }),
+              /* @__PURE__ */ jsx15("path", { d: "M7 11V7a5 5 0 0 1 10 0v4" })
+            ] }) : /* @__PURE__ */ jsxs13(Fragment5, { children: [
+              /* @__PURE__ */ jsx15("rect", { x: "3", y: "11", width: "18", height: "11", rx: "2", ry: "2" }),
+              /* @__PURE__ */ jsx15("path", { d: "M7 11V7a5 5 0 0 1 9.9-1" })
             ] }) })
           }
         ),
-        onInspect && /* @__PURE__ */ jsx14(
+        onInspect && /* @__PURE__ */ jsx15(
           "button",
           {
             type: "button",
@@ -3826,14 +3944,14 @@ function MidpointWidgets({ x, y, locked, onDelete, onInspect, onToggleLock }) {
               alignItems: "center"
             },
             onClick: onInspect,
-            children: /* @__PURE__ */ jsxs12("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: [
-              /* @__PURE__ */ jsx14("circle", { cx: "12", cy: "12", r: "10" }),
-              /* @__PURE__ */ jsx14("line", { x1: "12", y1: "16", x2: "12", y2: "12" }),
-              /* @__PURE__ */ jsx14("line", { x1: "12", y1: "8", x2: "12.01", y2: "8" })
+            children: /* @__PURE__ */ jsxs13("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: [
+              /* @__PURE__ */ jsx15("circle", { cx: "12", cy: "12", r: "10" }),
+              /* @__PURE__ */ jsx15("line", { x1: "12", y1: "16", x2: "12", y2: "12" }),
+              /* @__PURE__ */ jsx15("line", { x1: "12", y1: "8", x2: "12.01", y2: "8" })
             ] })
           }
         ),
-        onDelete && !locked && /* @__PURE__ */ jsx14(
+        onDelete && !locked && /* @__PURE__ */ jsx15(
           "button",
           {
             type: "button",
@@ -3848,9 +3966,9 @@ function MidpointWidgets({ x, y, locked, onDelete, onInspect, onToggleLock }) {
               alignItems: "center"
             },
             onClick: onDelete,
-            children: /* @__PURE__ */ jsxs12("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: [
-              /* @__PURE__ */ jsx14("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
-              /* @__PURE__ */ jsx14("line", { x1: "6", y1: "6", x2: "18", y2: "18" })
+            children: /* @__PURE__ */ jsxs13("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: [
+              /* @__PURE__ */ jsx15("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
+              /* @__PURE__ */ jsx15("line", { x1: "6", y1: "6", x2: "18", y2: "18" })
             ] })
           }
         )
@@ -3860,7 +3978,7 @@ function MidpointWidgets({ x, y, locked, onDelete, onInspect, onToggleLock }) {
 }
 
 // src/node-graph/ui/toolbar/GraphToolbar.tsx
-import { jsx as jsx15, jsxs as jsxs13 } from "react/jsx-runtime";
+import { jsx as jsx16, jsxs as jsxs14 } from "react/jsx-runtime";
 function GraphToolbar({
   settings,
   onUpdateSettings,
@@ -3882,7 +4000,7 @@ function GraphToolbar({
     alignItems: "center",
     gap: "4px"
   });
-  return /* @__PURE__ */ jsxs13(
+  return /* @__PURE__ */ jsxs14(
     "div",
     {
       className,
@@ -3898,7 +4016,7 @@ function GraphToolbar({
         zIndex: 25
       },
       children: [
-        /* @__PURE__ */ jsxs13(
+        /* @__PURE__ */ jsxs14(
           "button",
           {
             type: "button",
@@ -3910,7 +4028,7 @@ function GraphToolbar({
             ]
           }
         ),
-        /* @__PURE__ */ jsxs13(
+        /* @__PURE__ */ jsxs14(
           "button",
           {
             type: "button",
@@ -3922,7 +4040,7 @@ function GraphToolbar({
             ]
           }
         ),
-        /* @__PURE__ */ jsx15(
+        /* @__PURE__ */ jsx16(
           "button",
           {
             type: "button",
@@ -3931,7 +4049,7 @@ function GraphToolbar({
             children: "Refresh Traces"
           }
         ),
-        /* @__PURE__ */ jsxs13(
+        /* @__PURE__ */ jsxs14(
           "button",
           {
             type: "button",
@@ -3943,7 +4061,7 @@ function GraphToolbar({
             ]
           }
         ),
-        /* @__PURE__ */ jsx15(
+        /* @__PURE__ */ jsx16(
           "button",
           {
             type: "button",
@@ -3952,8 +4070,8 @@ function GraphToolbar({
             children: "Lock All"
           }
         ),
-        onSaveView && /* @__PURE__ */ jsx15("button", { type: "button", style: btnStyle(false), onClick: onSaveView, children: "Save View" }),
-        onLoadView && /* @__PURE__ */ jsx15("button", { type: "button", style: btnStyle(false), onClick: onLoadView, children: "Load View" })
+        onSaveView && /* @__PURE__ */ jsx16("button", { type: "button", style: btnStyle(false), onClick: onSaveView, children: "Save View" }),
+        onLoadView && /* @__PURE__ */ jsx16("button", { type: "button", style: btnStyle(false), onClick: onLoadView, children: "Load View" })
       ]
     }
   );
@@ -4065,8 +4183,8 @@ var ReactFlowAdapter = class {
 };
 
 // src/node-graph/Viewer2DNodes.tsx
-import { useState as useState8, useRef as useRef5 } from "react";
-import { jsx as jsx16, jsxs as jsxs14 } from "react/jsx-runtime";
+import { useState as useState9, useRef as useRef5 } from "react";
+import { jsx as jsx17, jsxs as jsxs15 } from "react/jsx-runtime";
 function Viewer2DNodes({
   node,
   selected,
@@ -4079,7 +4197,7 @@ function Viewer2DNodes({
   const headerHeight = 36;
   const socketSpacing = 36;
   const centerX = cardWidth / 2;
-  return /* @__PURE__ */ jsxs14(
+  return /* @__PURE__ */ jsxs15(
     "div",
     {
       style: {
@@ -4100,7 +4218,7 @@ function Viewer2DNodes({
       onMouseDown: (e) => onMouseDown?.(e, node.id),
       onDoubleClick: () => onDoubleClick?.(node.id),
       children: [
-        /* @__PURE__ */ jsxs14(
+        /* @__PURE__ */ jsxs15(
           "div",
           {
             style: {
@@ -4115,8 +4233,8 @@ function Viewer2DNodes({
               borderTopRightRadius: "8px"
             },
             children: [
-              /* @__PURE__ */ jsx16("span", { style: { fontSize: "12px", fontWeight: 600, letterSpacing: "0.02em" }, children: node.label }),
-              /* @__PURE__ */ jsx16(
+              /* @__PURE__ */ jsx17("span", { style: { fontSize: "12px", fontWeight: 600, letterSpacing: "0.02em" }, children: node.label }),
+              /* @__PURE__ */ jsx17(
                 "span",
                 {
                   style: {
@@ -4134,12 +4252,12 @@ function Viewer2DNodes({
             ]
           }
         ),
-        /* @__PURE__ */ jsx16("div", { style: { position: "relative", minHeight: "60px", padding: "12px 16px" }, children: node.data && /* @__PURE__ */ jsxs14("div", { style: { fontSize: "11px", color: "#94a3b8" }, children: [
+        /* @__PURE__ */ jsx17("div", { style: { position: "relative", minHeight: "60px", padding: "12px 16px" }, children: node.data && /* @__PURE__ */ jsxs15("div", { style: { fontSize: "11px", color: "#94a3b8" }, children: [
           Object.keys(node.data).length,
           " properties"
         ] }) }),
-        /* @__PURE__ */ jsxs14("div", { style: { position: "absolute", top: headerHeight + 10, left: centerX, width: 0, height: 0 }, children: [
-          node.inputs?.map((socket, idx) => /* @__PURE__ */ jsx16(
+        /* @__PURE__ */ jsxs15("div", { style: { position: "absolute", top: headerHeight + 10, left: centerX, width: 0, height: 0 }, children: [
+          node.inputs?.map((socket, idx) => /* @__PURE__ */ jsx17(
             MovableSocketHandle,
             {
               socket,
@@ -4152,7 +4270,7 @@ function Viewer2DNodes({
             },
             socket.id
           )),
-          node.outputs?.map((socket, idx) => /* @__PURE__ */ jsx16(
+          node.outputs?.map((socket, idx) => /* @__PURE__ */ jsx17(
             MovableSocketHandle,
             {
               socket,
@@ -4179,8 +4297,8 @@ function MovableSocketHandle({
   onSocketMouseDown,
   onSocketNudgeChange
 }) {
-  const [isHovered, setIsHovered] = useState8(false);
-  const [localNudge, setLocalNudge] = useState8(
+  const [isHovered, setIsHovered] = useState9(false);
+  const [localNudge, setLocalNudge] = useState9(
     socket.offset ?? { x: 0, y: 0 }
   );
   const isDraggingGizmoRef = useRef5(false);
@@ -4231,7 +4349,7 @@ function MovableSocketHandle({
   const beamShroudPoints = getBeamPoints(nudge, 8, 2.5);
   const socketThemeColor = isOutput ? "#61afef" : "#98c379";
   const gizmoOffsetX = isOutput ? 18 : -18;
-  return /* @__PURE__ */ jsxs14(
+  return /* @__PURE__ */ jsxs15(
     "div",
     {
       style: {
@@ -4242,7 +4360,7 @@ function MovableSocketHandle({
       onMouseEnter: () => setIsHovered(true),
       onMouseLeave: () => setIsHovered(false),
       children: [
-        isDisplaced && /* @__PURE__ */ jsxs14(
+        isDisplaced && /* @__PURE__ */ jsxs15(
           "svg",
           {
             style: {
@@ -4254,7 +4372,7 @@ function MovableSocketHandle({
               zIndex: 1
             },
             children: [
-              /* @__PURE__ */ jsx16(
+              /* @__PURE__ */ jsx17(
                 "polygon",
                 {
                   points: beamShroudPoints,
@@ -4262,7 +4380,7 @@ function MovableSocketHandle({
                   opacity: 0.35
                 }
               ),
-              /* @__PURE__ */ jsx16(
+              /* @__PURE__ */ jsx17(
                 "polygon",
                 {
                   points: beamCorePoints,
@@ -4273,7 +4391,7 @@ function MovableSocketHandle({
             ]
           }
         ),
-        /* @__PURE__ */ jsx16(
+        /* @__PURE__ */ jsx17(
           "div",
           {
             style: {
@@ -4296,7 +4414,7 @@ function MovableSocketHandle({
               e.stopPropagation();
               onSocketMouseDown?.(e, nodeId, socket.id, isOutput ? "output" : "input");
             },
-            children: /* @__PURE__ */ jsx16(
+            children: /* @__PURE__ */ jsx17(
               "div",
               {
                 style: {
@@ -4310,7 +4428,7 @@ function MovableSocketHandle({
             )
           }
         ),
-        (isHovered || isDraggingGizmoRef.current) && /* @__PURE__ */ jsx16(
+        (isHovered || isDraggingGizmoRef.current) && /* @__PURE__ */ jsx17(
           "div",
           {
             title: "Drag to displace socket handle",
@@ -4331,13 +4449,13 @@ function MovableSocketHandle({
               boxShadow: "0 2px 4px rgba(0,0,0,0.5)"
             },
             onMouseDown: handleGizmoMouseDown,
-            children: /* @__PURE__ */ jsxs14("svg", { width: "10", height: "10", viewBox: "0 0 24 24", fill: "none", stroke: "#d4af37", strokeWidth: "2.5", strokeLinecap: "round", strokeLinejoin: "round", children: [
-              /* @__PURE__ */ jsx16("polyline", { points: "5 9 2 12 5 15" }),
-              /* @__PURE__ */ jsx16("polyline", { points: "9 5 12 2 15 5" }),
-              /* @__PURE__ */ jsx16("polyline", { points: "15 19 12 22 9 19" }),
-              /* @__PURE__ */ jsx16("polyline", { points: "19 9 22 12 19 15" }),
-              /* @__PURE__ */ jsx16("line", { x1: "2", y1: "12", x2: "22", y2: "12" }),
-              /* @__PURE__ */ jsx16("line", { x1: "12", y1: "2", x2: "12", y2: "22" })
+            children: /* @__PURE__ */ jsxs15("svg", { width: "10", height: "10", viewBox: "0 0 24 24", fill: "none", stroke: "#d4af37", strokeWidth: "2.5", strokeLinecap: "round", strokeLinejoin: "round", children: [
+              /* @__PURE__ */ jsx17("polyline", { points: "5 9 2 12 5 15" }),
+              /* @__PURE__ */ jsx17("polyline", { points: "9 5 12 2 15 5" }),
+              /* @__PURE__ */ jsx17("polyline", { points: "15 19 12 22 9 19" }),
+              /* @__PURE__ */ jsx17("polyline", { points: "19 9 22 12 19 15" }),
+              /* @__PURE__ */ jsx17("line", { x1: "2", y1: "12", x2: "22", y2: "12" }),
+              /* @__PURE__ */ jsx17("line", { x1: "12", y1: "2", x2: "12", y2: "22" })
             ] })
           }
         )
@@ -4358,6 +4476,7 @@ export {
   calculateSocketCoordinates,
   getBeamPoints,
   MovableSocketView,
+  NodeEmblem,
   NodeCard,
   getNodesInSelection,
   useNodeGraph,

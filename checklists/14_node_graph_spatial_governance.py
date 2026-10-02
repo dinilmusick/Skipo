@@ -99,6 +99,29 @@ def validate_node_graph_governance(root_dir: Path) -> ChecklistResult:
                         suggestion="Remove tracingEnabled: false or magneticTracesEnabled: false to keep magnetic traces enabled."
                     ))
 
+        # 3. Law L26: NodeCard must route system name to bottom bar on hover & support minimized view
+        if fname == "NodeCard.tsx":
+            if "useBottomStrip" not in content and "setInspectionText" not in content:
+                violations.append(Violation(
+                    rule_id="node-card-missing-bottom-strip-hover",
+                    severity="error",
+                    message=f"NodeCard in '{fname}' missing bottom bar hover inspection (Law L26).",
+                    file_path=str(rel_path),
+                    line=1,
+                    snippet="export function NodeCard",
+                    suggestion="Import useBottomStrip from '@skipo/ui' and emit node.type onMouseEnter."
+                ))
+            if "minimized" not in content.lower():
+                violations.append(Violation(
+                    rule_id="node-card-missing-minimized-view",
+                    severity="error",
+                    message=f"NodeCard in '{fname}' does not support minimized view (Law L26).",
+                    file_path=str(rel_path),
+                    line=1,
+                    snippet="export function NodeCard",
+                    suggestion="Add isMinimized state and render 1/3 icon + 2/3 title proportional view."
+                ))
+
     errors = sum(1 for v in violations if v.severity == "error")
     return ChecklistResult(
         aspect_id=ASPECT_ID,
