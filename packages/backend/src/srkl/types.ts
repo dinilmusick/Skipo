@@ -1,10 +1,56 @@
 /**
  * @file types.ts
- * @description Type definitions for SRKL Ecosystem Service Broker integration.
- * Enables client applications to declare service requirements, query SRKL vaults,
- * and adapt credentials for storage/compute/AI usage.
+ * @description Standardized Skipo Ecosystem Account Manifest & Broker Integration.
+ * Defines the canonical contract for ecosystem apps to declare account requirements
+ * and for SRKL to fulfill them across deployment, storage, and AI service categories.
  * Strictly adheres to Skipo governance (< 200 lines).
  */
+
+export type EcosystemServiceCategory =
+  | 'deployment'
+  | 'storage'
+  | 'database'
+  | 'ai'
+  | 'vcs'
+  | 'general';
+
+export interface AppAccountManifest {
+  appId: string;
+  appName: string;
+  categories?: EcosystemServiceCategory[];
+  requiredServices?: string[];
+}
+
+export interface EcosystemAccount {
+  id: string;
+  serviceId: string;
+  provider: string;
+  category: EcosystemServiceCategory;
+  name: string;
+  emailOrSlug?: string;
+  status: string;
+  credentials: Record<string, any>;
+  groupIds?: string[];
+  metadata?: Record<string, any>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface EcosystemAccountsRequest {
+  manifest: AppAccountManifest;
+  userId?: string;
+  workspaceId?: string;
+}
+
+export interface EcosystemAccountsResponse {
+  success: boolean;
+  appId: string;
+  userId: string;
+  workspaceId?: string;
+  count: number;
+  accounts: EcosystemAccount[];
+  error?: string;
+}
 
 export interface SrklServiceAccount {
   id: string;

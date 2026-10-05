@@ -1,3 +1,5 @@
+import type * as React from 'react';
+
 export interface Transform {
   x: number;
   y: number;

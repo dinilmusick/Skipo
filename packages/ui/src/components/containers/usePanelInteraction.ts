@@ -1,5 +1,4 @@
-'use client';
-import { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { PanelGeometry } from './usePanelGeometry.js';
 import type { ResizeDirection } from './ResizeHandles.js';
 

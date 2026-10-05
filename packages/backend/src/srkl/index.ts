@@ -6,10 +6,15 @@
  * Strictly adheres to Skipo governance (< 200 lines).
  */
 
-export { SrklClient, createSrklClient } from './SrklClient.js';
+export { SrklClient, createSrklClient, CANONICAL_SRKL_URL } from './SrklClient.js';
 export { useSrklServices } from './useSrklServices.js';
 export type { UseSrklServicesOptions, UseSrklServicesResult } from './useSrklServices.js';
 export type {
+  EcosystemServiceCategory,
+  AppAccountManifest,
+  EcosystemAccount,
+  EcosystemAccountsRequest,
+  EcosystemAccountsResponse,
   SrklServiceAccount,
   SrklClientOptions,
   SrklEcosystemQueryOptions,

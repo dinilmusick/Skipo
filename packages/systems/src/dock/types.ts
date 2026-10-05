@@ -1,3 +1,5 @@
+import type * as React from 'react';
+
 export type DockPosition = 'top' | 'bottom' | 'left' | 'right';
 
 export interface DockItemConfig {

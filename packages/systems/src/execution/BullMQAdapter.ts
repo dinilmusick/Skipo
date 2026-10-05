@@ -4,7 +4,7 @@
  * Implements priority scheduling, retry policy, and concurrency control.
  */
 
-import { Queue, Worker } from 'bullmq';
+import type { Queue, Worker } from 'bullmq';
 import { ExecutionJob, ExecutionQueueAdapter, ExecutionResult, JobPriority, JobStatus } from './types.js';
 
 export interface BullMQAdapterOptions {
@@ -15,19 +15,23 @@ export interface BullMQAdapterOptions {
 }
 
 export class BullMQAdapter implements ExecutionQueueAdapter {
-  private queue?: Queue;
-  private worker?: Worker;
+  private queue?: any;
+  private worker?: any;
   private inMemoryJobs = new Map<string, ExecutionJob<any>>();
   private inMemoryResults = new Map<string, ExecutionResult<any>>();
   private inMemoryListeners = new Map<string, Array<(res: ExecutionResult<any>) => void>>();
   private isInMemory = false;
 
   constructor(options: BullMQAdapterOptions) {
-    if (options.useInMemory || !options.connection) {
-      this.isInMemory = true;
-    } else {
+    this.isInMemory = true;
+    if (typeof window === 'undefined' && !options.useInMemory && options.connection) {
       try {
-        this.queue = new Queue(options.queueName, { connection: options.connection });
+        const req = typeof require !== 'undefined' ? require : null;
+        if (req) {
+          const { Queue } = req('bullmq');
+          this.queue = new Queue(options.queueName, { connection: options.connection });
+          this.isInMemory = false;
+        }
       } catch {
         this.isInMemory = true;
       }
