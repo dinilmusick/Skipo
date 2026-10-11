@@ -1,10 +1,45 @@
 /**
  * @file types.ts
- * @description Type definitions for SRKL Ecosystem Service Broker integration.
- * Enables client applications to declare service requirements, query SRKL vaults,
- * and adapt credentials for storage/compute/AI usage.
+ * @description Standardized Skipo Ecosystem Account Manifest & Broker Integration.
+ * Defines the canonical contract for ecosystem apps to declare account requirements
+ * and for SRKL to fulfill them across deployment, storage, and AI service categories.
  * Strictly adheres to Skipo governance (< 200 lines).
  */
+type EcosystemServiceCategory = 'deployment' | 'storage' | 'database' | 'ai' | 'vcs' | 'general';
+interface AppAccountManifest {
+    appId: string;
+    appName: string;
+    categories?: EcosystemServiceCategory[];
+    requiredServices?: string[];
+}
+interface EcosystemAccount {
+    id: string;
+    serviceId: string;
+    provider: string;
+    category: EcosystemServiceCategory;
+    name: string;
+    emailOrSlug?: string;
+    status: string;
+    credentials: Record<string, any>;
+    groupIds?: string[];
+    metadata?: Record<string, any>;
+    createdAt?: string;
+    updatedAt?: string;
+}
+interface EcosystemAccountsRequest {
+    manifest: AppAccountManifest;
+    userId?: string;
+    workspaceId?: string;
+}
+interface EcosystemAccountsResponse {
+    success: boolean;
+    appId: string;
+    userId: string;
+    workspaceId?: string;
+    count: number;
+    accounts: EcosystemAccount[];
+    error?: string;
+}
 interface SrklServiceAccount {
     id: string;
     serviceId: string;
@@ -69,6 +104,7 @@ interface AdaptedStorageConnection {
  * Strictly adheres to Skipo governance (< 200 lines).
  */
 
+declare const CANONICAL_SRKL_URL = "https://srkl-engine.vercel.app";
 declare class SrklClient {
     private baseUrl;
     private userId;
@@ -84,6 +120,14 @@ declare class SrklClient {
         latencyMs: number;
         status?: string;
     }>;
+    /**
+     * Standardized Skipo Ecosystem Accounts Discovery Protocol.
+     * Consumes an AppAccountManifest and returns uniform EcosystemAccount[] matching the app's requirements.
+     */
+    fetchEcosystemAccounts(manifest: AppAccountManifest, options?: {
+        workspaceId?: string;
+        timeoutMs?: number;
+    }): Promise<EcosystemAccount[]>;
     getServices(types?: string[], options?: SrklEcosystemQueryOptions): Promise<SrklServiceAccount[]>;
     getStorageConnections(userIdOverride?: string): Promise<any[]>;
     getBackblazeBuckets(keyId: string, applicationKey: string): Promise<any[]>;
@@ -91,6 +135,31 @@ declare class SrklClient {
     static adaptToStorageConnection(account: SrklServiceAccount): AdaptedStorageConnection;
 }
 declare function createSrklClient(options?: SrklClientOptions): SrklClient;
+
+/**
+ * @file SrklDiscoveryService.ts
+ * @description Universal SRKL Service Discovery and Backblaze B2 account federation.
+ * Runs identically in Node.js, Vercel Serverless, and Cloudflare Workers (< 200 lines).
+ */
+declare function getPrimarySrklDeploymentUrl(queryDb?: (sql: string, params?: unknown[]) => Promise<{
+    rows: any[];
+}>): Promise<string>;
+declare function getSrklAccounts(userId: string, service?: string, queryDb?: (sql: string, params?: unknown[]) => Promise<{
+    rows: any[];
+}>): Promise<{
+    success: boolean;
+    deploymentUrl: string;
+    accounts: any[];
+    count: number;
+    error?: string;
+}>;
+declare function srklListBackblazeBuckets(keyId?: string, applicationKey?: string, _bucketId?: string, _bucketName?: string, userId?: string, queryDb?: (sql: string, params?: unknown[]) => Promise<{
+    rows: any[];
+}>): Promise<{
+    success: boolean;
+    buckets: any[];
+    error?: string;
+}>;
 
 /**
  * @file useSrklServices.ts
@@ -119,4 +188,4 @@ interface UseSrklServicesResult {
 }
 declare function useSrklServices(options: UseSrklServicesOptions): UseSrklServicesResult;
 
-export { type AdaptedStorageConnection, type AppServiceDeclaration, SrklClient, type SrklClientOptions, type SrklEcosystemQueryOptions, type SrklEcosystemResponse, type SrklServiceAccount, type UseSrklServicesOptions, type UseSrklServicesResult, createSrklClient, useSrklServices };
+export { type AdaptedStorageConnection, type AppAccountManifest, type AppServiceDeclaration, CANONICAL_SRKL_URL, type EcosystemAccount, type EcosystemAccountsRequest, type EcosystemAccountsResponse, type EcosystemServiceCategory, SrklClient, type SrklClientOptions, type SrklEcosystemQueryOptions, type SrklEcosystemResponse, type SrklServiceAccount, type UseSrklServicesOptions, type UseSrklServicesResult, createSrklClient, getPrimarySrklDeploymentUrl, getSrklAccounts, srklListBackblazeBuckets, useSrklServices };

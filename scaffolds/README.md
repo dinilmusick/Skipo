@@ -1,65 +1,55 @@
-# Skipo App Scaffolds for Google AI Studio
+# Skipo App Scaffolds
 
-Production-ready, zero-boilerplate starter templates designed for instant copy-pasting into Google AI Studio, Project IDX, or fresh repositories.
-
-## Available Templates
-
-| Directory | Framework | Description | Target Clouds |
-|---|---|---|---|
-| [`vite/`](./vite) | **Vite + React 19 + Express** | Fast, lightweight SPA with bundled Express server and Cloudflare Workers API adapter. | Vercel, Cloudflare Workers |
-| [`nextjs/`](./nextjs) | **Next.js 15/16 App Router** | Fullstack Next.js with unified build script and Cloudflare Workers API adapter. | Vercel, Cloudflare Workers |
+Production-ready, zero-boilerplate starter templates designed for instant deployment, AI Studio ingestion, and local development.
 
 ---
 
-## What Comes Pre-Wired in Every Scaffold
+## Workspace Storage Architectural Models
 
-Both scaffolds share the **Zero-Drift Unified Core Architecture** (Skipo Law L23):
-1. **Unified Database (`src/backend/services/core/unifiedDb.ts`)**:
-   - Isomorphic Neon HTTP driver.
-   - Runs identically in Node.js, Vercel Serverless, and Cloudflare Workers with zero native binary crashes.
-2. **Universal Authentication (`src/backend/services/core/authCore.ts`)**:
-   - User login and registration using the shared `"ultrst-users"` table.
-   - System administrator credentials verification.
-3. **Workspace Management (`src/backend/services/core/workspaceCore.ts`)**:
-   - Multi-tenant workspace CRUD stored in user profiles.
-4. **Cloud Storage Engine (`src/backend/services/core/storageCore.ts`)**:
-   - Pre-wired connections for Backblaze B2, Supabase Storage, and AWS S3.
-5. **Universal Protocol Adapter (`src/backend/adapters/httpsAdapter.ts`)**:
-   - Exposes all core routes and delegates non-API requests to static asset delivery (`env.ASSETS.fetch(request)`).
-6. **Unified UI & Theming (`src/libraries/skipo/ui/`)**:
-   - Full Skipo design token system (`--skipo-*`), `SkipoThemeProvider`, and Neo-Brutalist base components.
-7. **Frontend Auth Portal (`src/frontend/components/auth/UserAuthPage/`)**:
-   - Production-ready Sign In / Register UI with client-side state management (`appStore.ts`).
-8. **Automated Renaming (`Skipo/scripts/rename_app.py`)**:
-   - Single command to rename all template tokens across the codebase.
-9. **Full Governance Kernel (`Skipo/`)**:
-   - Embedded `AGENTS.md`, validators (`checklists/`), generators (`generators/`), and architecture skills (`architecture/`).
-   - Cleaned of any heavy folders (`node_modules/`, `packages/`, `dist/`).
+Skipo explicitly formalizes two distinct workspace storage paradigms based on application runtime I/O requirements:
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                   ARCHITECTURAL SELECTION MATRIX                       │
+├───────────────────────────────┬────────────────────────────────────────┤
+│ Architecture Model            │ Target Use Cases & I/O Characteristics │
+├───────────────────────────────┼────────────────────────────────────────┤
+│ 1. Direct-Vault               │ Document managers, knowledge bases,    │
+│    (scaffolds/*-direct-vault) │ low-frequency runtime I/O (e.g.        │
+│                               │ DocuStack-Engine, Depm-Engine).        │
+│                               │ Direct vault operations, zero local    │
+│                               │ ./workspace cache folder required.     │
+├───────────────────────────────┼────────────────────────────────────────┤
+│ 2. Working-Workspace          │ Audio engines, DSP, graph compilers,  │
+│    (scaffolds/*-working-ws)   │ high-frequency runtime I/O (e.g.       │
+│                               │ Qwnsr-Engine, Loky-Engine).            │
+│                               │ Fast local ./workspace working cache   │
+│                               │ with timestamped sync to Primary Vault │
+│                               │ and secondary backup clone mirroring.  │
+└───────────────────────────────┴────────────────────────────────────────┘
+```
 
 ---
 
-## Quickstart
+## Available Scaffolds
 
-### 1. Copy the Chosen Template
-Copy either `scaffolds/vite/` or `scaffolds/nextjs/` into your destination directory or Google AI Studio project root.
+### 1. Direct-Vault Architecture (Zero-Cache, Direct Storage Engine)
+* **`scaffolds/vite-direct-vault/`**: Vite + React 19 + Express + Cloudflare Worker adapter. Direct I/O to Primary Storage Vault (`ultrst_<app>_<user>_<ws>`) or remote B2 bucket with Secondary Redundant Clones.
+* **`scaffolds/nextjs-direct-vault/`**: Next.js 15/16 App Router. Direct I/O to storage backends.
 
-### 2. Rename the Application
-Run the automated rename script:
-```bash
-python3 Skipo/scripts/rename_app.py "YourAppName"
-```
-This updates:
-- Facade file: `src/backend/AppBackend.ts` → `src/backend/YourAppNameBackend.ts`
-- Imports, config files, `wrangler.toml`, `package.json`, `index.html`, and `metadata.json`.
+### 2. Working-Workspace Architecture (Fast Local Working Directory + Vault Sync)
+* **`scaffolds/vite-working-workspace/`**: Vite + React 19 + Express with active `./workspace` working directory, bi-directional timestamp sync (`workspaceSyncEngine.ts`), and redundant clone mirroring (`workspaceCloneSyncCore.ts`).
+* **`scaffolds/nextjs-working-workspace/`**: Next.js 15/16 App Router with working workspace cache support.
 
-### 3. Install & Run
-```bash
-# Install dependencies
-npm install
+---
 
-# Start local development server
-npm run dev
-
-# Build both fullstack and worker targets
-npm run build:all
-```
+## Shared Foundation in All Scaffolds
+1. **Strict Neon System Database Authentication**:
+   - Zero offline dummy fallbacks or fake admin accounts.
+   - Verification against `ultrst-users` and `ultrst-credentials` using `SYSTEM_DATABASE_URL_1..3`.
+2. **SRKL Backblaze B2 Auto-Discovery**:
+   - Discovers provisioned Backblaze B2 accounts dynamically from user profiles.
+3. **Secondary Redundant Storage Clones**:
+   - Support for multiple clone destinations (`backblaze_b2`, `local_fs`) with one-click replication.
+4. **Law L9 Compliance**:
+   - Every file strictly $\le 200$ lines.

@@ -166,4 +166,21 @@ declare class StorageAdapterFactory {
     static create(config: StorageConfig): BaseStorageAdapter;
 }
 
-export { BackblazeB2Adapter, BaseStorageAdapter, type ConnectionTestResult, type DeleteFolderResult, type FileInfo, LocalFSAdapter, type RenameFolderResult, S3Adapter, StorageAdapterFactory, type StorageConfig, type StorageMode, type StorageProviderType, SupabaseStorageAdapter, type UploadResult, ensureS3DirectoryMarker, isSecretMasked, normalizeBackblazeCredentials, permanentDeleteS3Folder, permanentDeleteS3Object, renameS3Folder, resolveBackblazeEndpoint };
+/**
+ * @file B2DirectClient.ts
+ * @description Zero-dependency Web Standard Fetch client for Backblaze B2 Direct REST API.
+ * Identical across Node.js, Vercel Serverless, and Cloudflare Workers (< 200 lines).
+ */
+interface B2AuthToken {
+    authorizationToken: string;
+    apiUrl: string;
+    downloadUrl: string;
+    accountId: string;
+}
+declare function authorizeB2(keyId: string, applicationKey: string): Promise<B2AuthToken>;
+declare function b2ListBuckets(keyId: string, applicationKey: string): Promise<any[]>;
+declare function b2ListFileNames(keyId: string, applicationKey: string, bucketName: string, prefix?: string): Promise<any[]>;
+declare function b2UploadFile(keyId: string, applicationKey: string, bucketName: string, fileName: string, content: Uint8Array | string, contentType?: string): Promise<any>;
+declare function b2DownloadFile(keyId: string, applicationKey: string, bucketName: string, fileName: string): Promise<Uint8Array | null>;
+
+export { type B2AuthToken, BackblazeB2Adapter, BaseStorageAdapter, type ConnectionTestResult, type DeleteFolderResult, type FileInfo, LocalFSAdapter, type RenameFolderResult, S3Adapter, StorageAdapterFactory, type StorageConfig, type StorageMode, type StorageProviderType, SupabaseStorageAdapter, type UploadResult, authorizeB2, b2DownloadFile, b2ListBuckets, b2ListFileNames, b2UploadFile, ensureS3DirectoryMarker, isSecretMasked, normalizeBackblazeCredentials, permanentDeleteS3Folder, permanentDeleteS3Object, renameS3Folder, resolveBackblazeEndpoint };

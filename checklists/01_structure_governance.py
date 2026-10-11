@@ -34,13 +34,13 @@ ASPECT_TITLE = "Project Architecture & Structural Governance"
 
 CODE_EXTENSIONS = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
 ALLOWED_ROOT_CODE_CONFIGS = {
-    "next.config.js", "next.config.mjs", "next.config.ts",
+    "next.config.js", "next.config.mjs", "next.config.ts", "next-env.d.ts",
     "vite.config.js", "vite.config.ts", "electron.vite.config.ts",
     "tailwind.config.js", "tailwind.config.ts", "postcss.config.js",
     "postcss.config.mjs", "turbo.json", "tsup.config.ts", "server.ts"
 }
 ALLOWED_TOP_CODE_DIRS = {
-    "src", "packages", "scripts", "backend", "components", "hooks", "lib",
+    "src", "packages", "scripts", "backend", "public", "components", "hooks", "lib",
     "api", "standalone", "features", "data", "database",
     "skipo-audio-midi-engine", "checklists", "generators", "mutators",
     "scaffolds", "scaffold", "app"

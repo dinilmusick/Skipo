@@ -87,4 +87,31 @@ declare class AdminGuard extends SkipoBase {
     static verifyUser(authHeaderOrToken: string | null | undefined, provider: BaseAccountProvider): Promise<AuthSession>;
 }
 
-export { AdminGuard, type AuthCredentials, type AuthSession, BaseAccountProvider, type CreateUserData, LocalAccountProvider, PasswordHasher, RateLimiter, SessionManager, type SignupInput, type User, type UserRole };
+/**
+ * @file UnifiedAuthCore.ts
+ * @description Strict Universal Authentication against "ultrst-users" and "ultrst-credentials".
+ * Zero offline dummy fallbacks. Runs across Node.js, Vercel, and Cloudflare Workers (< 200 lines).
+ */
+interface SystemUser {
+    id: string;
+    email: string;
+    username: string;
+    name: string;
+    role: string;
+    status: string;
+    appProfiles?: Record<string, any>;
+}
+declare function loginSystemUser(email: string, rawPass: string, isAdmin: boolean, queryDb: (sql: string, params?: unknown[]) => Promise<{
+    rows: any[];
+}>): Promise<{
+    success: boolean;
+    status: number;
+    token?: string;
+    user?: SystemUser;
+    error?: string;
+}>;
+declare function resolveUserFromToken(tokenOrUserId: string, queryDb: (sql: string, params?: unknown[]) => Promise<{
+    rows: any[];
+}>): Promise<SystemUser | null>;
+
+export { AdminGuard, type AuthCredentials, type AuthSession, BaseAccountProvider, type CreateUserData, LocalAccountProvider, PasswordHasher, RateLimiter, SessionManager, type SignupInput, type SystemUser, type User, type UserRole, loginSystemUser, resolveUserFromToken };

@@ -10,8 +10,10 @@ import {
   LocalAccountProvider,
   PasswordHasher,
   RateLimiter,
-  SessionManager
-} from "./chunk-DKN5GP4J.js";
+  SessionManager,
+  loginSystemUser,
+  resolveUserFromToken
+} from "./chunk-XA6CMP6N.js";
 import {
   BackendProvider,
   useBackend,
@@ -52,10 +54,14 @@ import {
   JobScheduler
 } from "./chunk-XI5PEFAO.js";
 import {
+  CANONICAL_SRKL_URL,
   SrklClient,
   createSrklClient,
+  getPrimarySrklDeploymentUrl,
+  getSrklAccounts,
+  srklListBackblazeBuckets,
   useSrklServices
-} from "./chunk-RVGJDHKS.js";
+} from "./chunk-MN54ZIKZ.js";
 import {
   BackblazeB2Adapter,
   BaseStorageAdapter,
@@ -70,7 +76,14 @@ import {
   permanentDeleteS3Object,
   renameS3Folder,
   resolveBackblazeEndpoint
-} from "./chunk-MKILCGOP.js";
+} from "./chunk-BXC5MZE5.js";
+import {
+  authorizeB2,
+  b2DownloadFile,
+  b2ListBuckets,
+  b2ListFileNames,
+  b2UploadFile
+} from "./chunk-4QEMALXF.js";
 
 // src/workspace/WorkspaceCanonical.ts
 function formatCanonicalWorkspaceFolderName(appName, userName, workspaceName) {
@@ -171,11 +184,42 @@ var SyncEngine = class extends SkipoBase2 {
   }
 };
 
+// src/workspace/WorkspaceCloneSyncEngine.ts
+import { SkipoBase as SkipoBase3 } from "@skipo/core";
+var WorkspaceCloneSyncEngine = class extends SkipoBase3 {
+  constructor() {
+    super({ name: "WorkspaceCloneSyncEngine" });
+  }
+  async replicateToClones(files, clones, uploadFn) {
+    const results = [];
+    let totalSynced = 0;
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    for (const clone of clones) {
+      try {
+        let count = 0;
+        for (const file of files) {
+          await uploadFn(clone, file.relPath, file.content, file.contentType);
+          count++;
+        }
+        clone.lastSyncedAt = nowIso;
+        clone.filesSynced = count;
+        clone.status = "SYNCED";
+        results.push({ cloneId: clone.id, label: clone.label, provider: clone.provider, filesSynced: count, status: "SYNCED" });
+        totalSynced += count;
+      } catch (err) {
+        clone.status = "ERROR";
+        results.push({ cloneId: clone.id, label: clone.label, provider: clone.provider, filesSynced: 0, status: "ERROR", error: err.message });
+      }
+    }
+    return { results, totalSynced };
+  }
+};
+
 // src/control-plane/AuditLogger.ts
 import { promises as fs } from "fs";
 import path from "path";
-import { SkipoBase as SkipoBase3 } from "@skipo/core";
-var AuditLogger = class extends SkipoBase3 {
+import { SkipoBase as SkipoBase4 } from "@skipo/core";
+var AuditLogger = class extends SkipoBase4 {
   logFile;
   constructor(logFile = ".skipo/audit.jsonl") {
     super();
@@ -214,8 +258,8 @@ var AuditLogger = class extends SkipoBase3 {
 };
 
 // src/control-plane/DatabaseClusterManager.ts
-import { SkipoBase as SkipoBase4 } from "@skipo/core";
-var DatabaseClusterManager = class extends SkipoBase4 {
+import { SkipoBase as SkipoBase5 } from "@skipo/core";
+var DatabaseClusterManager = class extends SkipoBase5 {
   config;
   health = /* @__PURE__ */ new Map();
   constructor(config) {
@@ -247,8 +291,8 @@ var DatabaseClusterManager = class extends SkipoBase4 {
 };
 
 // src/control-plane/ControlPlaneManager.ts
-import { SkipoBase as SkipoBase5 } from "@skipo/core";
-var ControlPlaneManager = class extends SkipoBase5 {
+import { SkipoBase as SkipoBase6 } from "@skipo/core";
+var ControlPlaneManager = class extends SkipoBase6 {
   auth;
   audit;
   cluster;
@@ -261,8 +305,8 @@ var ControlPlaneManager = class extends SkipoBase5 {
 };
 
 // src/data/BaseDataProvider.ts
-import { SkipoBase as SkipoBase6 } from "@skipo/core";
-var BaseDataProvider = class extends SkipoBase6 {
+import { SkipoBase as SkipoBase7 } from "@skipo/core";
+var BaseDataProvider = class extends SkipoBase7 {
 };
 
 // src/data/FunctionalityTable.ts
@@ -339,6 +383,7 @@ export {
   BaseApiRoute,
   BaseDataProvider,
   BaseStorageAdapter,
+  CANONICAL_SRKL_URL,
   CallbackRegistry,
   ConcurrencyConflictError,
   ConcurrencyManager,
@@ -372,7 +417,13 @@ export {
   SyncEngine,
   WebSocketTransport,
   WorkerExecutionBoundary,
+  WorkspaceCloneSyncEngine,
   WorkspaceFS,
+  authorizeB2,
+  b2DownloadFile,
+  b2ListBuckets,
+  b2ListFileNames,
+  b2UploadFile,
   createBackendClient,
   createEmptyContract,
   createOperationComponent,
@@ -380,13 +431,18 @@ export {
   createSrklClient,
   ensureS3DirectoryMarker,
   formatCanonicalWorkspaceFolderName,
+  getPrimarySrklDeploymentUrl,
+  getSrklAccounts,
   isSecretMasked,
+  loginSystemUser,
   normalizeBackblazeCredentials,
   permanentDeleteS3Folder,
   permanentDeleteS3Object,
   renameS3Folder,
   resolveBackblazeEndpoint,
+  resolveUserFromToken,
   sanitizeWorkspaceName,
+  srklListBackblazeBuckets,
   useBackend,
   useBackendClient,
   useSrklServices,

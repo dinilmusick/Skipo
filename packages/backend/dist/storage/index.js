@@ -12,7 +12,14 @@ import {
   permanentDeleteS3Object,
   renameS3Folder,
   resolveBackblazeEndpoint
-} from "../chunk-MKILCGOP.js";
+} from "../chunk-BXC5MZE5.js";
+import {
+  authorizeB2,
+  b2DownloadFile,
+  b2ListBuckets,
+  b2ListFileNames,
+  b2UploadFile
+} from "../chunk-4QEMALXF.js";
 export {
   BackblazeB2Adapter,
   BaseStorageAdapter,
@@ -20,6 +27,11 @@ export {
   S3Adapter,
   StorageAdapterFactory,
   SupabaseStorageAdapter,
+  authorizeB2,
+  b2DownloadFile,
+  b2ListBuckets,
+  b2ListFileNames,
+  b2UploadFile,
   ensureS3DirectoryMarker,
   isSecretMasked,
   normalizeBackblazeCredentials,

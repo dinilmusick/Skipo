@@ -1,6 +1,7 @@
 export { AppThemeSocket, BlockquoteStyleDefinition, BlockquoteStyleSchema, CANONICAL_ELEMENTS, CodeStyleDefinition, CodeStyleSchema, DEFAULT_DARK_THEME_PACK, DEFAULT_LIGHT_THEME_PACK, DEPM_THEME_PACKS, DOCUSTACK_CYBERPUNK_PACK, DOCUSTACK_DARK_GOLD_PACK, DOCUSTACK_WARM_COFFEE_PACK, DOCUSTACK_CYBERPUNK_PACK as DocuStackCyberpunkPack, DOCUSTACK_DARK_GOLD_PACK as DocuStackDarkGoldPack, DOCUSTACK_WARM_COFFEE_PACK as DocuStackWarmCoffeePack, ElementStatusReport, HeadingLevelDefinition, HeadingLevelSchema, HorizontalRuleStyleSchema, LinkStyleDefinition, LinkStyleSchema, ListStyleDefinition, ListStyleSchema, MarkdownSectionStyles, MarkdownSectionStylesSchema, ModularThemePack, ModularThemePackSchema, ParagraphStyleDefinition, ParagraphStyleSchema, ResolvedTypographyCascade, SkipoSemanticTokens, SkipoSemanticTokensSchema, SkipoThemeContextValue, SkipoThemeMetadata, SkipoThemeMetadataSchema, SkipoThemePack, SkipoThemeProvider, SkipoThemeProviderProps, TableStyleDefinition, TableStyleSchema, ThemeApplicationState, ThemeEngine, ThemeEngineStatus, ThemeTypographyDefinition, ThemeTypographySchema, ThemeVariantDefinition, ThemeVariantDefinitionSchema, UIElementCategory, UIElementDefinition, UIElementThemeValue, UIElementThemeValueSchema, appThemeEngine, applyThemePack, centralLedger, createAppThemeSocket, depmThemeSocket, getAllUIElements, getThemeEngineStatus, getUIElement, palettes, registerUIElement, resolveTypographyCascade, safeValidateModularThemePack, tokensToCssVariables, useSkipoTheme, validateModularThemePack, validateSocketElements, validateThemePack } from './theme/index.js';
-import * as React$1 from 'react';
+import * as React from 'react';
 import React__default from 'react';
+import { WorkspaceSecondaryClone } from '@skipo/backend';
 import 'zod';
 
 interface BaseButtonProps extends React__default.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -160,8 +161,8 @@ declare function ResizeHandles({ onStartResize }: ResizeHandlesProps): React__de
 
 declare function usePanelInteraction(geometry: PanelGeometry, updateGeometry: (next: Partial<PanelGeometry> | ((prev: PanelGeometry) => PanelGeometry)) => void, minWidth: number, minHeight: number): {
     isInteracting: boolean;
-    handleMouseDownHeader: (e: React.MouseEvent) => void;
-    handleStartResize: (dir: ResizeDirection, e: React.MouseEvent) => void;
+    handleMouseDownHeader: (e: React__default.MouseEvent) => void;
+    handleStartResize: (dir: ResizeDirection, e: React__default.MouseEvent) => void;
 };
 
 interface IconOnlyButtonProps extends React__default.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -186,7 +187,7 @@ interface ConfirmDialogProps {
     onCancel: () => void;
     danger?: boolean;
 }
-declare const ConfirmDialog: React$1.ForwardRefExoticComponent<ConfirmDialogProps & React$1.RefAttributes<HTMLDivElement>>;
+declare const ConfirmDialog: React.ForwardRefExoticComponent<ConfirmDialogProps & React.RefAttributes<HTMLDivElement>>;
 
 interface StatusIndicatorProps extends React__default.HTMLAttributes<HTMLDivElement> {
     status: 'online' | 'offline' | 'syncing' | 'error';
@@ -393,4 +394,100 @@ interface SettingsTabProps {
 }
 declare const SettingsTab: React__default.FC<SettingsTabProps>;
 
-export { ApiCallIndicator, type ApiCallIndicatorProps, AppShell, type AppShellProps, type AutoSaveStatus, AutoSaveToggle, type AutoSaveToggleProps, BaseBadge, type BaseBadgeProps, BaseButton, type BaseButtonProps, BaseCard, type BaseCardProps, BaseInput, type BaseInputProps, BaseSelect, type BaseSelectProps, BaseTextarea, type BaseTextareaProps, BaseToggle, type BaseToggleProps, BaseTooltip, type BaseTooltipProps, BottomStrip, type BottomStripContextValue, type BottomStripProps, BottomStripProvider, type BottomStripProviderProps, BreadcrumbNav, type BreadcrumbNavProps, ConfirmDialog, type ConfirmDialogProps, CopyableErrorAlert, type CopyableErrorAlertProps, CopyableLogViewer, type CopyableLogViewerProps, CredentialField, type CredentialFieldProps, DEFAULT_PANEL_GEOMETRY, DrawerContainer, type DrawerContainerProps, EmptyState, type EmptyStateProps, FloatingDetailsPanel, type FloatingDetailsPanelProps, HeaderBar, type HeaderBarProps, IconOnlyButton, type IconOnlyButtonProps, KNOWN_CREDENTIAL_URLS, LoadingOverlay, type LogEntry, ModalContainer, type ModalContainerProps, PageContainer, type PageContainerProps, PanelContainer, type PanelGeometry, type ResizeDirection, ResizeHandles, type ResizeHandlesProps, SearchInput, SearchableList, type SearchableListProps, SectionContainer, type SectionContainerProps, SettingsTab, type SettingsTabProps, SidebarContainer, type SidebarContainerProps, SplitContainer, type SplitContainerProps, StatusIndicator, type StatusIndicatorProps, StatusLight, type StatusLightProps, type SystemMessage, SystemMessageDisplay, type SystemMessageDisplayProps, type SystemMessageType, TabContainer, type TabContainerProps, ThemeSettingsSection, TopToolbar, type TopToolbarProps, type TopToolbarTab, type UseSearchKeyboardNavigationOptions, useBottomStrip, usePanelGeometry, usePanelInteraction, useSearchKeyboardNavigation };
+interface LoginModalProps {
+    appName?: string;
+    onSuccess: (user: any, token: string) => void;
+    defaultEmail?: string;
+}
+declare const LoginModal: React__default.FC<LoginModalProps>;
+
+interface Props$4 {
+    conn: any;
+    isSelected: boolean;
+    onSelect: (conn: any) => void;
+}
+declare const StoragePresetTile: React__default.FC<Props$4>;
+
+interface SrklBackblazeAccount {
+    id: string;
+    name: string;
+    provider: string;
+    credentials?: {
+        keyId?: string;
+        b2KeyId?: string;
+        applicationKey?: string;
+        b2ApplicationKey?: string;
+        bucketName?: string;
+        region?: string;
+        endpoint?: string;
+    };
+}
+interface Props$3 {
+    account: SrklBackblazeAccount;
+    selectedBucketName?: string;
+    isSelectedAccount: boolean;
+    onSelectBucket: (account: SrklBackblazeAccount, bucketName: string) => void;
+    userId?: string;
+}
+declare const SrklBackblazeTile: React__default.FC<Props$3>;
+
+interface StorageSelection {
+    provider: 'local_fs' | 'backblaze_b2';
+    connectionId?: string;
+    localFolderName?: string;
+    localFolderKey?: string;
+    b2BucketName?: string;
+    b2Endpoint?: string;
+    b2Region?: string;
+}
+interface Props$2 {
+    currentUser?: {
+        id: string;
+        email: string;
+        name?: string;
+    } | null;
+    selectedProvider?: string;
+    selectedConnectionId?: string;
+    onSelectStorage: (selection: StorageSelection) => void;
+}
+declare const StorageOptionTiles: React__default.FC<Props$2>;
+
+interface Props$1 {
+    workspace: any;
+}
+declare const WorkspaceStorageReadonlyPanel: React__default.FC<Props$1>;
+
+interface Props {
+    workspace: any;
+    onClonesUpdated?: () => void;
+    onClose?: () => void;
+}
+declare const WorkspaceSecondaryClonesPanel: React__default.FC<Props>;
+
+interface WorkspaceRecord {
+    id: string;
+    name: string;
+    storageProvider?: string;
+    localFolderName?: string;
+    b2BucketName?: string;
+    secondaryClones?: WorkspaceSecondaryClone[];
+    createdAt?: string;
+    updatedAt?: string;
+}
+interface WorkspaceTilesMenuProps {
+    workspaces: WorkspaceRecord[];
+    activeWorkspaceId: string | null;
+    onSelectWorkspace: (workspace: WorkspaceRecord) => void;
+    onCreateWorkspace: (name: string, storage: StorageSelection) => Promise<void>;
+    onDeleteWorkspace?: (workspaceId: string) => Promise<void>;
+    appName?: string;
+    currentUser?: {
+        id: string;
+        email: string;
+        name?: string;
+    } | null;
+    mode?: 'direct-vault' | 'working-workspace';
+}
+declare const WorkspaceTilesMenu: React__default.FC<WorkspaceTilesMenuProps>;
+
+export { ApiCallIndicator, type ApiCallIndicatorProps, AppShell, type AppShellProps, type AutoSaveStatus, AutoSaveToggle, type AutoSaveToggleProps, BaseBadge, type BaseBadgeProps, BaseButton, type BaseButtonProps, BaseCard, type BaseCardProps, BaseInput, type BaseInputProps, BaseSelect, type BaseSelectProps, BaseTextarea, type BaseTextareaProps, BaseToggle, type BaseToggleProps, BaseTooltip, type BaseTooltipProps, BottomStrip, type BottomStripContextValue, type BottomStripProps, BottomStripProvider, type BottomStripProviderProps, BreadcrumbNav, type BreadcrumbNavProps, ConfirmDialog, type ConfirmDialogProps, CopyableErrorAlert, type CopyableErrorAlertProps, CopyableLogViewer, type CopyableLogViewerProps, CredentialField, type CredentialFieldProps, DEFAULT_PANEL_GEOMETRY, DrawerContainer, type DrawerContainerProps, EmptyState, type EmptyStateProps, FloatingDetailsPanel, type FloatingDetailsPanelProps, HeaderBar, type HeaderBarProps, IconOnlyButton, type IconOnlyButtonProps, KNOWN_CREDENTIAL_URLS, LoadingOverlay, type LogEntry, LoginModal, type LoginModalProps, ModalContainer, type ModalContainerProps, PageContainer, type PageContainerProps, PanelContainer, type PanelGeometry, type ResizeDirection, ResizeHandles, type ResizeHandlesProps, SearchInput, SearchableList, type SearchableListProps, SectionContainer, type SectionContainerProps, SettingsTab, type SettingsTabProps, SidebarContainer, type SidebarContainerProps, SplitContainer, type SplitContainerProps, type SrklBackblazeAccount, SrklBackblazeTile, StatusIndicator, type StatusIndicatorProps, StatusLight, type StatusLightProps, StorageOptionTiles, StoragePresetTile, type StorageSelection, type SystemMessage, SystemMessageDisplay, type SystemMessageDisplayProps, type SystemMessageType, TabContainer, type TabContainerProps, ThemeSettingsSection, TopToolbar, type TopToolbarProps, type TopToolbarTab, type UseSearchKeyboardNavigationOptions, type WorkspaceRecord, WorkspaceSecondaryClonesPanel, WorkspaceStorageReadonlyPanel, WorkspaceTilesMenu, type WorkspaceTilesMenuProps, useBottomStrip, usePanelGeometry, usePanelInteraction, useSearchKeyboardNavigation };

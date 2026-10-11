@@ -7,6 +7,7 @@
  */
 
 export { SrklClient, createSrklClient, CANONICAL_SRKL_URL } from './SrklClient.js';
+export { getPrimarySrklDeploymentUrl, getSrklAccounts, srklListBackblazeBuckets } from './SrklDiscoveryService.js';
 export { useSrklServices } from './useSrklServices.js';
 export type { UseSrklServicesOptions, UseSrklServicesResult } from './useSrklServices.js';
 export type {

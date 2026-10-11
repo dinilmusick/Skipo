@@ -1821,14 +1821,14 @@ var HeaderBar = forwardRef26(({
 HeaderBar.displayName = "HeaderBar";
 
 // src/components/layout/BreadcrumbNav.tsx
-import React30, { forwardRef as forwardRef27 } from "react";
+import React31, { forwardRef as forwardRef27 } from "react";
 import { jsx as jsx37, jsxs as jsxs23 } from "react/jsx-runtime";
 var BreadcrumbNav = forwardRef27(({
   paths,
   className = "",
   ...props
 }, ref) => {
-  return /* @__PURE__ */ jsx37("nav", { ref, className: `skipo-breadcrumb ${className}`, ...props, children: paths.map((p, i) => /* @__PURE__ */ jsxs23(React30.Fragment, { children: [
+  return /* @__PURE__ */ jsx37("nav", { ref, className: `skipo-breadcrumb ${className}`, ...props, children: paths.map((p, i) => /* @__PURE__ */ jsxs23(React31.Fragment, { children: [
     p.href ? /* @__PURE__ */ jsx37("a", { href: p.href, children: p.label }) : /* @__PURE__ */ jsx37("span", { children: p.label }),
     i < paths.length - 1 && /* @__PURE__ */ jsx37("span", { children: "/" })
   ] }, i)) });
@@ -2168,6 +2168,702 @@ var SettingsTab = ({
   );
 };
 SettingsTab.displayName = "SettingsTab";
+
+// src/components/auth/LoginModal.tsx
+import { useState as useState13 } from "react";
+import { ArrowRight, ShieldCheck, AlertCircle } from "lucide-react";
+import { jsx as jsx41, jsxs as jsxs27 } from "react/jsx-runtime";
+var LoginModal = ({
+  appName = "Ecosystem App",
+  onSuccess,
+  defaultEmail = ""
+}) => {
+  const [email, setEmail] = useState13(defaultEmail);
+  const [password, setPassword] = useState13("");
+  const [isRegister, setIsRegister] = useState13(false);
+  const [name, setName] = useState13("");
+  const [loading, setLoading] = useState13(false);
+  const [error, setError] = useState13(null);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const endpoint = isRegister ? "/api/auth/register" : "/api/auth/login";
+      const payload = isRegister ? { email, password, name } : { email, password };
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success || !data.user) {
+        throw new Error(data.error || "Authentication failed. Please verify credentials.");
+      }
+      const token = data.token || `usr_${Date.now()}`;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("skipo_auth_token", token);
+        localStorage.setItem("skipo_user", JSON.stringify(data.user));
+      }
+      onSuccess(data.user, token);
+    } catch (err) {
+      setError(err.message || "Server error. Authentication failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  return /* @__PURE__ */ jsx41(
+    "div",
+    {
+      className: "fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs font-mono p-4",
+      onWheel: (e) => e.stopPropagation(),
+      onPointerDown: (e) => e.stopPropagation(),
+      children: /* @__PURE__ */ jsxs27("div", { className: "w-full max-w-md p-6 border-2 border-[var(--skipo-border-color)] bg-[var(--skipo-surface)] text-[var(--skipo-text)] shadow-2xl rounded-lg space-y-4", children: [
+        /* @__PURE__ */ jsxs27("div", { className: "flex items-center justify-between pb-3 border-b border-[var(--skipo-border-color)]", children: [
+          /* @__PURE__ */ jsxs27("div", { className: "flex items-center gap-2", children: [
+            /* @__PURE__ */ jsx41("div", { className: "w-7 h-7 bg-[var(--skipo-accent)] text-black font-black flex items-center justify-center text-xs rounded", children: "\u25B2" }),
+            /* @__PURE__ */ jsxs27("span", { className: "font-black text-sm tracking-wider uppercase text-[var(--skipo-text)]", children: [
+              appName,
+              " Authentication"
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxs27("span", { className: "text-[9px] px-2 py-0.5 border border-emerald-500/50 bg-emerald-500/10 text-emerald-300 font-bold rounded flex items-center gap-1", children: [
+            /* @__PURE__ */ jsx41(ShieldCheck, { size: 10 }),
+            " SYSTEM DB"
+          ] })
+        ] }),
+        error && /* @__PURE__ */ jsxs27("div", { className: "p-3 border border-red-500/60 bg-red-500/10 text-red-300 text-xs rounded flex items-start gap-2", children: [
+          /* @__PURE__ */ jsx41(AlertCircle, { size: 14, className: "shrink-0 mt-0.5" }),
+          /* @__PURE__ */ jsx41("span", { children: error })
+        ] }),
+        /* @__PURE__ */ jsxs27("form", { onSubmit: handleSubmit, className: "space-y-3", children: [
+          isRegister && /* @__PURE__ */ jsxs27("div", { children: [
+            /* @__PURE__ */ jsx41("label", { className: "block text-[10px] font-black uppercase mb-1", children: "Full Name *" }),
+            /* @__PURE__ */ jsx41(
+              BaseInput,
+              {
+                type: "text",
+                value: name,
+                onChange: (e) => setName(e.target.value),
+                placeholder: "Developer Name",
+                required: isRegister
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsxs27("div", { children: [
+            /* @__PURE__ */ jsx41("label", { className: "block text-[10px] font-black uppercase mb-1", children: "Email Address *" }),
+            /* @__PURE__ */ jsx41(
+              BaseInput,
+              {
+                type: "email",
+                value: email,
+                onChange: (e) => setEmail(e.target.value),
+                placeholder: "user@example.com",
+                required: true
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsxs27("div", { children: [
+            /* @__PURE__ */ jsx41("label", { className: "block text-[10px] font-black uppercase mb-1", children: "Password *" }),
+            /* @__PURE__ */ jsx41(
+              BaseInput,
+              {
+                type: "password",
+                value: password,
+                onChange: (e) => setPassword(e.target.value),
+                placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
+                required: true
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsx41("div", { className: "pt-2", children: /* @__PURE__ */ jsxs27(
+            BaseButton,
+            {
+              variant: "accent",
+              size: "md",
+              type: "submit",
+              disabled: loading,
+              className: "w-full flex items-center justify-center gap-2",
+              children: [
+                /* @__PURE__ */ jsx41("span", { children: loading ? "AUTHENTICATING..." : isRegister ? "REGISTER & ENTER" : "SIGN IN" }),
+                /* @__PURE__ */ jsx41(ArrowRight, { size: 14 })
+              ]
+            }
+          ) })
+        ] }),
+        /* @__PURE__ */ jsxs27("div", { className: "pt-2 border-t border-[var(--skipo-border-color)]/60 flex items-center justify-between text-[11px]", children: [
+          /* @__PURE__ */ jsx41(
+            "button",
+            {
+              type: "button",
+              onClick: () => {
+                setIsRegister(!isRegister);
+                setError(null);
+              },
+              className: "text-[var(--skipo-accent)] hover:underline cursor-pointer",
+              children: isRegister ? "Already have an account? Sign In" : "Create new account"
+            }
+          ),
+          /* @__PURE__ */ jsx41("span", { className: "text-[10px] text-[var(--skipo-text-muted)]", children: "ULTRST Identity" })
+        ] })
+      ] })
+    }
+  );
+};
+
+// src/components/workspace/StoragePresetTile.tsx
+import { HardDrive, CheckCircle2 } from "lucide-react";
+import { jsx as jsx42, jsxs as jsxs28 } from "react/jsx-runtime";
+var StoragePresetTile = ({ conn, isSelected, onSelect }) => {
+  return /* @__PURE__ */ jsxs28(
+    "div",
+    {
+      onClick: () => onSelect(conn),
+      className: `p-3 border-2 rounded transition-all font-mono select-none cursor-pointer flex items-center justify-between ${isSelected ? "border-emerald-500 bg-emerald-500/10 shadow-[0_0_15px_rgba(16,185,129,0.2)]" : "border-[var(--skipo-border-color)] bg-[var(--skipo-bg)] hover:border-emerald-500/60"}`,
+      children: [
+        /* @__PURE__ */ jsxs28("div", { className: "flex items-center gap-2.5", children: [
+          /* @__PURE__ */ jsx42("div", { className: `p-1.5 rounded border ${isSelected ? "bg-emerald-500 text-black border-emerald-500" : "bg-[var(--skipo-surface)] text-emerald-400 border-[var(--skipo-border-color)]"}`, children: /* @__PURE__ */ jsx42(HardDrive, { size: 16 }) }),
+          /* @__PURE__ */ jsxs28("div", { children: [
+            /* @__PURE__ */ jsx42("span", { className: "text-xs font-black uppercase text-[var(--skipo-text)] block", children: conn.label || conn.localFolderName || "Local Workstation Vault" }),
+            /* @__PURE__ */ jsxs28("span", { className: "text-[10px] text-[var(--skipo-text-muted)] block", children: [
+              "Directory: ./",
+              conn.localFolderName || "workspace",
+              " (Deterministic local storage)"
+            ] })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsx42("div", { className: "flex items-center gap-1.5", children: isSelected && /* @__PURE__ */ jsxs28("span", { className: "text-[9px] font-black uppercase px-2 py-0.5 border border-emerald-500/50 bg-emerald-500/20 text-emerald-300 rounded flex items-center gap-1", children: [
+          /* @__PURE__ */ jsx42(CheckCircle2, { size: 10 }),
+          " SELECTED"
+        ] }) })
+      ]
+    }
+  );
+};
+
+// src/components/workspace/SrklBackblazeTile.tsx
+import { useState as useState14, useEffect as useEffect7 } from "react";
+import { Cloud, CheckCircle2 as CheckCircle22, RefreshCw } from "lucide-react";
+import { jsx as jsx43, jsxs as jsxs29 } from "react/jsx-runtime";
+var SrklBackblazeTile = ({
+  account,
+  selectedBucketName,
+  isSelectedAccount,
+  onSelectBucket,
+  userId
+}) => {
+  const [buckets, setBuckets] = useState14([]);
+  const [loading, setLoading] = useState14(false);
+  const fetchBuckets = async () => {
+    setLoading(true);
+    try {
+      const creds = account.credentials || account.metadata?.credentials || {};
+      const keyId = creds.keyId || creds.b2KeyId || "";
+      const applicationKey = creds.applicationKey || creds.b2ApplicationKey || "";
+      const defaultBucket = creds.bucketName || "ultrst-apps";
+      const res = await fetch("/api/srkl/backblaze/buckets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keyId, applicationKey, userId, bucketName: defaultBucket })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.success && Array.isArray(data.buckets)) {
+        setBuckets(data.buckets);
+      } else {
+        setBuckets([{ bucketId: "default", bucketName: defaultBucket }]);
+      }
+    } catch {
+      setBuckets([{ bucketId: "default", bucketName: "ultrst-apps" }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect7(() => {
+    fetchBuckets();
+  }, [account.id]);
+  return /* @__PURE__ */ jsxs29("div", { className: `p-3 border-2 rounded transition-all font-mono select-none ${isSelectedAccount ? "border-amber-400 bg-amber-400/10 shadow-[0_0_15px_rgba(251,191,36,0.2)]" : "border-[var(--skipo-border-color)] bg-[var(--skipo-bg)] hover:border-amber-400/60"}`, children: [
+    /* @__PURE__ */ jsxs29("div", { className: "flex items-center justify-between pb-2 border-b border-[var(--skipo-border-color)]/60", children: [
+      /* @__PURE__ */ jsxs29("div", { className: "flex items-center gap-2", children: [
+        /* @__PURE__ */ jsx43(Cloud, { size: 16, className: "text-amber-400" }),
+        /* @__PURE__ */ jsx43("span", { className: "text-xs font-black uppercase text-[var(--skipo-text)] truncate max-w-[180px]", children: account.name })
+      ] }),
+      /* @__PURE__ */ jsx43(
+        "button",
+        {
+          type: "button",
+          onClick: fetchBuckets,
+          disabled: loading,
+          className: "p-1 text-[var(--skipo-text-muted)] hover:text-amber-300 rounded cursor-pointer",
+          title: "Refresh buckets",
+          children: /* @__PURE__ */ jsx43(RefreshCw, { size: 11, className: loading ? "animate-spin text-amber-400" : "" })
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxs29("div", { className: "mt-2 space-y-1.5", children: [
+      /* @__PURE__ */ jsx43("span", { className: "text-[9px] font-bold uppercase text-[var(--skipo-text-muted)] block", children: "Select Target B2 Bucket:" }),
+      /* @__PURE__ */ jsx43("div", { className: "flex flex-wrap gap-1.5", children: buckets.map((b) => {
+        const bName = b.bucketName || b.name || "ultrst-apps";
+        const isSelected = isSelectedAccount && selectedBucketName === bName;
+        return /* @__PURE__ */ jsxs29(
+          "button",
+          {
+            type: "button",
+            onClick: () => onSelectBucket(account, bName),
+            className: `px-2 py-1 text-[10px] font-bold rounded flex items-center gap-1 border transition-all cursor-pointer ${isSelected ? "border-amber-400 bg-amber-400 text-black shadow-sm font-black" : "border-[var(--skipo-border-color)] bg-[var(--skipo-surface)] hover:border-amber-400/80 text-[var(--skipo-text)]"}`,
+            children: [
+              isSelected && /* @__PURE__ */ jsx43(CheckCircle22, { size: 10 }),
+              /* @__PURE__ */ jsx43("span", { children: bName })
+            ]
+          },
+          b.bucketId || bName
+        );
+      }) })
+    ] })
+  ] });
+};
+
+// src/components/workspace/StorageOptionTiles.tsx
+import { useState as useState15, useEffect as useEffect8, useCallback as useCallback5 } from "react";
+import { HardDrive as HardDrive2, Cloud as Cloud2, RefreshCw as RefreshCw2 } from "lucide-react";
+import { jsx as jsx44, jsxs as jsxs30 } from "react/jsx-runtime";
+var StorageOptionTiles = ({
+  currentUser,
+  selectedConnectionId,
+  onSelectStorage
+}) => {
+  const [activeId, setActiveId] = useState15(selectedConnectionId || "local_default");
+  const [selectedBucket, setSelectedBucket] = useState15("");
+  const [srklAccounts, setSrklAccounts] = useState15([]);
+  const [loadingSrkl, setLoadingSrkl] = useState15(false);
+  const fetchSrklAccounts = useCallback5(async () => {
+    if (!currentUser?.id) return;
+    setLoadingSrkl(true);
+    try {
+      const uId = encodeURIComponent(currentUser.id);
+      const res = await fetch(`/api/srkl/accounts?service=backblaze&userId=${uId}`);
+      const data = await res.json().catch(() => ({}));
+      if (data.success && Array.isArray(data.accounts)) {
+        setSrklAccounts(data.accounts);
+      }
+    } catch {
+    } finally {
+      setLoadingSrkl(false);
+    }
+  }, [currentUser?.id]);
+  useEffect8(() => {
+    fetchSrklAccounts();
+  }, [fetchSrklAccounts]);
+  const handleSelectLocal = (conn) => {
+    setActiveId(conn.id);
+    setSelectedBucket("");
+    onSelectStorage({
+      provider: "local_fs",
+      connectionId: conn.id,
+      localFolderName: conn.localFolderName || "Local-Vault",
+      localFolderKey: conn.localFolderKey
+    });
+  };
+  const handleSelectSrklBucket = (account, bucketName) => {
+    setActiveId(account.id);
+    setSelectedBucket(bucketName);
+    const creds = account.credentials || {};
+    onSelectStorage({
+      provider: "backblaze_b2",
+      connectionId: account.id,
+      b2BucketName: bucketName,
+      b2Endpoint: creds.endpoint,
+      b2Region: creds.region || "us-east-005"
+    });
+  };
+  const defaultLocalConn = {
+    id: "local_default",
+    label: "Local Workstation Vault",
+    localFolderName: "Local-Vault",
+    provider: "local_fs"
+  };
+  return /* @__PURE__ */ jsxs30("div", { className: "space-y-4 font-mono select-none", children: [
+    /* @__PURE__ */ jsxs30("div", { className: "space-y-2", children: [
+      /* @__PURE__ */ jsxs30("span", { className: "text-[9px] font-black uppercase text-[var(--skipo-text-muted)] flex items-center gap-1", children: [
+        /* @__PURE__ */ jsx44(HardDrive2, { size: 11 }),
+        " 1. Local Filesystem (Workstation Vault)"
+      ] }),
+      /* @__PURE__ */ jsx44(
+        StoragePresetTile,
+        {
+          conn: defaultLocalConn,
+          isSelected: activeId === defaultLocalConn.id && !selectedBucket,
+          onSelect: handleSelectLocal
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxs30("div", { className: "space-y-2 pt-1 border-t border-[var(--skipo-border-color)]/60", children: [
+      /* @__PURE__ */ jsxs30("div", { className: "flex items-center justify-between", children: [
+        /* @__PURE__ */ jsxs30("span", { className: "text-[9px] font-black uppercase text-amber-300 flex items-center gap-1", children: [
+          /* @__PURE__ */ jsx44(Cloud2, { size: 11 }),
+          " 2. Backblaze B2 (Federated from SRKL)"
+        ] }),
+        /* @__PURE__ */ jsx44(
+          "button",
+          {
+            type: "button",
+            onClick: fetchSrklAccounts,
+            disabled: loadingSrkl,
+            className: "p-1 rounded text-[var(--skipo-text-muted)] hover:text-amber-300 cursor-pointer",
+            title: "Refresh SRKL Accounts",
+            children: /* @__PURE__ */ jsx44(RefreshCw2, { size: 11, className: loadingSrkl ? "animate-spin text-amber-300" : "" })
+          }
+        )
+      ] }),
+      srklAccounts.length === 0 && !loadingSrkl && /* @__PURE__ */ jsx44("div", { className: "p-3 border border-dashed border-[var(--skipo-border-color)] text-[11px] text-[var(--skipo-text-muted)] rounded", children: "No Backblaze B2 accounts linked in your SRKL profile. Configure Backblaze in SRKL to pick buckets here." }),
+      srklAccounts.map((account) => /* @__PURE__ */ jsx44(
+        SrklBackblazeTile,
+        {
+          account,
+          selectedBucketName: selectedBucket,
+          isSelectedAccount: account.id === activeId,
+          onSelectBucket: handleSelectSrklBucket,
+          userId: currentUser?.id
+        },
+        account.id
+      ))
+    ] })
+  ] });
+};
+
+// src/components/workspace/WorkspaceStorageReadonlyPanel.tsx
+import { useState as useState16 } from "react";
+import { Lock, Cloud as Cloud3, HardDrive as HardDrive3, ShieldCheck as ShieldCheck2, Copy, Check } from "lucide-react";
+import { jsx as jsx45, jsxs as jsxs31 } from "react/jsx-runtime";
+var WorkspaceStorageReadonlyPanel = ({ workspace }) => {
+  const [copied, setCopied] = useState16(false);
+  const isB2 = workspace.storageProvider === "backblaze_b2";
+  const target = isB2 ? workspace.b2BucketName || "ultrst-apps" : workspace.localFolderName || workspace.name;
+  const handleCopy = () => {
+    navigator.clipboard?.writeText(target);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2e3);
+  };
+  return /* @__PURE__ */ jsxs31("div", { className: "space-y-3 font-mono select-none", children: [
+    /* @__PURE__ */ jsxs31("div", { className: "flex items-center justify-between pb-1 border-b border-[var(--skipo-border-color)]", children: [
+      /* @__PURE__ */ jsxs31("span", { className: "text-[10px] font-black uppercase text-[var(--skipo-text)] flex items-center gap-1.5", children: [
+        /* @__PURE__ */ jsx45(Lock, { size: 12, className: "text-amber-400" }),
+        /* @__PURE__ */ jsx45("span", { children: "CONNECTED STORAGE VAULT" })
+      ] }),
+      /* @__PURE__ */ jsx45("span", { className: "text-[9px] px-2 py-0.5 border border-amber-500/50 bg-amber-500/10 text-amber-300 font-bold rounded", children: "READ ONLY \xB7 LOCKED PRIMARY" })
+    ] }),
+    /* @__PURE__ */ jsxs31("div", { className: "p-3.5 border-2 border-[var(--skipo-border-color)] bg-[var(--skipo-bg)] rounded-lg space-y-2.5", children: [
+      /* @__PURE__ */ jsxs31("div", { className: "flex items-center justify-between", children: [
+        /* @__PURE__ */ jsxs31("div", { className: "flex items-center gap-2", children: [
+          /* @__PURE__ */ jsx45("div", { className: "p-2 rounded border border-[var(--skipo-border-color)] bg-[var(--skipo-surface)] text-[var(--skipo-accent)]", children: isB2 ? /* @__PURE__ */ jsx45(Cloud3, { size: 18, className: "text-amber-400" }) : /* @__PURE__ */ jsx45(HardDrive3, { size: 18 }) }),
+          /* @__PURE__ */ jsxs31("div", { children: [
+            /* @__PURE__ */ jsx45("span", { className: "text-xs font-black uppercase text-[var(--skipo-text)] block", children: isB2 ? "Backblaze B2 Cloud Vault" : "Local Workstation Vault" }),
+            /* @__PURE__ */ jsxs31("span", { className: "text-[10px] text-[var(--skipo-text-muted)] block", children: [
+              "Target: ",
+              target
+            ] })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxs31(
+          "button",
+          {
+            type: "button",
+            onClick: handleCopy,
+            className: "px-2 py-1 text-[10px] border border-[var(--skipo-border-color)] bg-[var(--skipo-surface)] hover:border-[var(--skipo-accent)] text-[var(--skipo-text)] rounded flex items-center gap-1 cursor-pointer",
+            title: "Copy target",
+            children: [
+              copied ? /* @__PURE__ */ jsx45(Check, { size: 11, className: "text-emerald-400" }) : /* @__PURE__ */ jsx45(Copy, { size: 11 }),
+              /* @__PURE__ */ jsx45("span", { children: copied ? "COPIED" : "COPY" })
+            ]
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxs31("div", { className: "border border-[var(--skipo-border-color)]/70 rounded bg-[var(--skipo-surface)] divide-y divide-[var(--skipo-border-color)]/60 text-[10px]", children: [
+        /* @__PURE__ */ jsxs31("div", { className: "px-3 py-1.5 flex justify-between", children: [
+          /* @__PURE__ */ jsx45("span", { className: "text-[var(--skipo-text-muted)]", children: "Storage Provider:" }),
+          /* @__PURE__ */ jsx45("span", { className: "font-bold text-white uppercase font-mono", children: workspace.storageProvider || "local_fs" })
+        ] }),
+        /* @__PURE__ */ jsxs31("div", { className: "px-3 py-1.5 flex justify-between", children: [
+          /* @__PURE__ */ jsx45("span", { className: "text-[var(--skipo-text-muted)]", children: "Canonical Vault Path:" }),
+          /* @__PURE__ */ jsx45("span", { className: "font-mono text-emerald-400 truncate max-w-[240px]", children: workspace.workspacePath || target })
+        ] })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxs31("div", { className: "p-2.5 border border-dashed border-[var(--skipo-border-color)] bg-[var(--skipo-surface)]/50 rounded text-[10px] text-[var(--skipo-text-muted)] leading-relaxed space-y-1", children: [
+      /* @__PURE__ */ jsxs31("div", { className: "flex items-center gap-1 text-[var(--skipo-text)] font-bold", children: [
+        /* @__PURE__ */ jsx45(ShieldCheck2, { size: 12, className: "text-emerald-400" }),
+        /* @__PURE__ */ jsx45("span", { children: "Storage Immutability Protocol:" })
+      ] }),
+      /* @__PURE__ */ jsx45("p", { children: "Primary storage cannot be mutated post-creation. Add secondary redundant clones below to replicate and back up files across cloud buckets and local disks." })
+    ] })
+  ] });
+};
+
+// src/components/workspace/WorkspaceSecondaryClonesPanel.tsx
+import { useState as useState17 } from "react";
+import { RefreshCw as RefreshCw3, Trash2, Plus, ShieldCheck as ShieldCheck3, Cloud as Cloud4, HardDrive as HardDrive4 } from "lucide-react";
+import { jsx as jsx46, jsxs as jsxs32 } from "react/jsx-runtime";
+var WorkspaceSecondaryClonesPanel = ({ workspace, onClonesUpdated, onClose }) => {
+  const [clones, setClones] = useState17(workspace.secondaryClones || []);
+  const [syncing, setSyncing] = useState17(null);
+  const [addingClone, setAddingClone] = useState17(false);
+  const [newLabel, setNewLabel] = useState17("");
+  const [newBucket, setNewBucket] = useState17("");
+  const [newProvider, setNewProvider] = useState17("backblaze_b2");
+  const [statusMsg, setStatusMsg] = useState17(null);
+  const handleSync = async (cloneId) => {
+    setSyncing(cloneId || "all");
+    try {
+      const res = await fetch(`/api/workspaces/${encodeURIComponent(workspace.id)}/sync-clones`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cloneIds: cloneId ? [cloneId] : void 0 })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Replication failed");
+      setStatusMsg(`\u2713 Replicated ${data.totalFilesSynced} files.`);
+      onClonesUpdated?.();
+    } catch (err) {
+      setStatusMsg(`\u26A0 Error: ${err.message}`);
+    } finally {
+      setSyncing(null);
+    }
+  };
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    if (!newLabel.trim()) return;
+    try {
+      const res = await fetch(`/api/workspaces/${encodeURIComponent(workspace.id)}/clones`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: newLabel.trim(),
+          provider: newProvider,
+          b2BucketName: newProvider === "backblaze_b2" ? newBucket.trim() || "ultrst-apps" : void 0,
+          localFolderName: newProvider === "local_fs" ? newLabel.trim() : void 0
+        })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      setClones(data.clones || []);
+      setAddingClone(false);
+      setNewLabel("");
+      setNewBucket("");
+      onClonesUpdated?.();
+    } catch (err) {
+      setStatusMsg(`\u26A0 Error: ${err.message}`);
+    }
+  };
+  const handleDelete = async (cloneId) => {
+    if (!confirm("Remove this secondary clone?")) return;
+    try {
+      const res = await fetch(`/api/workspaces/${encodeURIComponent(workspace.id)}/clones/${encodeURIComponent(cloneId)}`, {
+        method: "DELETE"
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      setClones(data.clones || []);
+      onClonesUpdated?.();
+    } catch (err) {
+      setStatusMsg(`\u26A0 Error: ${err.message}`);
+    }
+  };
+  return /* @__PURE__ */ jsxs32("div", { className: "space-y-3 font-mono pt-3 border-t border-[var(--skipo-border-color)]", children: [
+    /* @__PURE__ */ jsxs32("div", { className: "flex items-center justify-between", children: [
+      /* @__PURE__ */ jsxs32("div", { className: "flex items-center gap-1.5", children: [
+        /* @__PURE__ */ jsx46(ShieldCheck3, { size: 14, className: "text-sky-400" }),
+        /* @__PURE__ */ jsxs32("span", { className: "text-[11px] font-black uppercase text-[var(--skipo-text)]", children: [
+          "CLONES (",
+          clones.length,
+          ")"
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxs32("div", { className: "flex items-center gap-2", children: [
+        clones.length > 0 && /* @__PURE__ */ jsxs32("button", { type: "button", disabled: Boolean(syncing), onClick: () => handleSync(), className: "px-2 py-1 text-[9px] font-bold border border-sky-500/50 bg-sky-500/20 text-sky-300 rounded flex items-center gap-1", children: [
+          /* @__PURE__ */ jsx46(RefreshCw3, { size: 10, className: syncing === "all" ? "animate-spin" : "" }),
+          " SYNC ALL"
+        ] }),
+        /* @__PURE__ */ jsxs32("button", { type: "button", onClick: () => setAddingClone(!addingClone), className: "px-2 py-1 text-[9px] font-bold border rounded flex items-center gap-1", children: [
+          /* @__PURE__ */ jsx46(Plus, { size: 10 }),
+          " ADD"
+        ] }),
+        onClose && /* @__PURE__ */ jsx46("button", { type: "button", onClick: onClose, className: "px-2 py-1 text-[9px] border rounded", children: "BACK" })
+      ] })
+    ] }),
+    statusMsg && /* @__PURE__ */ jsx46("div", { className: "p-2 border border-sky-500/40 bg-sky-950/20 text-[10px] text-sky-200 rounded", children: statusMsg }),
+    clones.length > 0 ? /* @__PURE__ */ jsx46("div", { className: "grid grid-cols-1 sm:grid-cols-2 gap-2", children: clones.map((c) => /* @__PURE__ */ jsxs32("div", { className: "p-2 border border-sky-500/30 rounded flex flex-col justify-between", children: [
+      /* @__PURE__ */ jsxs32("div", { className: "flex items-center justify-between", children: [
+        /* @__PURE__ */ jsxs32("span", { className: "text-[11px] font-bold flex items-center gap-1", children: [
+          c.provider === "backblaze_b2" ? /* @__PURE__ */ jsx46(Cloud4, { size: 11, className: "text-amber-400" }) : /* @__PURE__ */ jsx46(HardDrive4, { size: 11, className: "text-emerald-400" }),
+          " ",
+          c.label
+        ] }),
+        /* @__PURE__ */ jsx46("button", { type: "button", onClick: () => handleDelete(c.id), className: "text-red-400 p-1", children: /* @__PURE__ */ jsx46(Trash2, { size: 10 }) })
+      ] }),
+      /* @__PURE__ */ jsxs32("div", { className: "text-[9px] text-[var(--skipo-text-muted)] truncate", children: [
+        "Target: ",
+        c.b2BucketName || c.localFolderName || "Backup"
+      ] }),
+      /* @__PURE__ */ jsxs32("div", { className: "pt-1 flex items-center justify-between", children: [
+        /* @__PURE__ */ jsx46("span", { className: "text-[8px] font-bold uppercase text-sky-300", children: c.status || "CONNECTED" }),
+        /* @__PURE__ */ jsxs32("button", { type: "button", disabled: Boolean(syncing), onClick: () => handleSync(c.id), className: "px-2 py-0.5 text-[9px] border rounded", children: [
+          /* @__PURE__ */ jsx46(RefreshCw3, { size: 9, className: syncing === c.id ? "animate-spin" : "" }),
+          " SYNC"
+        ] })
+      ] })
+    ] }, c.id)) }) : /* @__PURE__ */ jsx46("div", { className: "p-2 border border-dashed text-[10px] text-center text-[var(--skipo-text-muted)]", children: "No secondary clones configured." }),
+    addingClone && /* @__PURE__ */ jsxs32("form", { onSubmit: handleAdd, className: "p-3 border rounded space-y-2", children: [
+      /* @__PURE__ */ jsx46("input", { type: "text", required: true, value: newLabel, onChange: (e) => setNewLabel(e.target.value), placeholder: "Clone Label", className: "w-full border rounded px-2 py-1 text-xs bg-transparent" }),
+      /* @__PURE__ */ jsxs32("select", { value: newProvider, onChange: (e) => setNewProvider(e.target.value), className: "w-full border rounded px-2 py-1 text-xs bg-transparent", children: [
+        /* @__PURE__ */ jsx46("option", { value: "backblaze_b2", children: "Backblaze B2" }),
+        /* @__PURE__ */ jsx46("option", { value: "local_fs", children: "Local Disk Folder" })
+      ] }),
+      newProvider === "backblaze_b2" && /* @__PURE__ */ jsx46("input", { type: "text", value: newBucket, onChange: (e) => setNewBucket(e.target.value), placeholder: "Bucket Name", className: "w-full border rounded px-2 py-1 text-xs bg-transparent" }),
+      /* @__PURE__ */ jsxs32("div", { className: "flex justify-end gap-2", children: [
+        /* @__PURE__ */ jsx46("button", { type: "button", onClick: () => setAddingClone(false), className: "px-2 py-1 text-[9px] border rounded", children: "CANCEL" }),
+        /* @__PURE__ */ jsx46("button", { type: "submit", className: "px-2 py-1 text-[9px] font-bold bg-sky-500 text-black rounded", children: "SAVE" })
+      ] })
+    ] })
+  ] });
+};
+
+// src/components/workspace/WorkspaceTilesMenu.tsx
+import React39 from "react";
+import { jsx as jsx47, jsxs as jsxs33 } from "react/jsx-runtime";
+var WorkspaceTilesMenu = ({
+  workspaces,
+  activeWorkspaceId,
+  onSelectWorkspace,
+  onCreateWorkspace,
+  onDeleteWorkspace,
+  appName = "app",
+  currentUser = null,
+  mode = "working-workspace"
+}) => {
+  const [isCreating, setIsCreating] = React39.useState(false);
+  const [newWsName, setNewWsName] = React39.useState("");
+  const [storageConfig, setStorageConfig] = React39.useState({
+    provider: "backblaze_b2",
+    b2BucketName: "ultrst-apps"
+  });
+  const [activeTab, setActiveTab] = React39.useState("workspaces");
+  const [activeWorkspaceForClones, setActiveWorkspaceForClones] = React39.useState(null);
+  const activeWs = workspaces.find((w) => w.id === activeWorkspaceId);
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (!newWsName.trim()) return;
+    await onCreateWorkspace(newWsName.trim(), storageConfig);
+    setNewWsName("");
+    setIsCreating(false);
+  };
+  return /* @__PURE__ */ jsxs33("div", { style: { display: "flex", flexDirection: "column", height: "100%", background: "var(--skipo-bg-app, #0f172a)", color: "var(--skipo-text-primary, #f8fafc)", padding: "24px" }, children: [
+    /* @__PURE__ */ jsxs33("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }, children: [
+      /* @__PURE__ */ jsxs33("div", { children: [
+        /* @__PURE__ */ jsxs33("h2", { style: { fontSize: "18px", fontWeight: 600, margin: 0 }, children: [
+          "Workspaces (",
+          mode,
+          ")"
+        ] }),
+        /* @__PURE__ */ jsxs33("span", { style: { fontSize: "12px", color: "var(--skipo-text-muted, #94a3b8)" }, children: [
+          currentUser?.email || "user",
+          " \u2022 ",
+          appName
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxs33("div", { style: { display: "flex", gap: "8px" }, children: [
+        /* @__PURE__ */ jsx47(
+          "button",
+          {
+            onClick: () => setActiveTab("workspaces"),
+            style: { padding: "6px 14px", borderRadius: "6px", border: "1px solid #334155", background: activeTab === "workspaces" ? "#38bdf8" : "transparent", color: activeTab === "workspaces" ? "#0f172a" : "inherit", cursor: "pointer" },
+            children: "List"
+          }
+        ),
+        activeWs && /* @__PURE__ */ jsxs33(
+          "button",
+          {
+            onClick: () => {
+              setActiveWorkspaceForClones(activeWs);
+              setActiveTab("clones");
+            },
+            style: { padding: "6px 14px", borderRadius: "6px", border: "1px solid #334155", background: activeTab === "clones" ? "#38bdf8" : "transparent", color: activeTab === "clones" ? "#0f172a" : "inherit", cursor: "pointer" },
+            children: [
+              "Clones (",
+              activeWs.secondaryClones?.length || 0,
+              ")"
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsx47(
+          "button",
+          {
+            onClick: () => setIsCreating(!isCreating),
+            style: { padding: "6px 14px", borderRadius: "6px", border: "1px solid #38bdf8", background: isCreating ? "transparent" : "#38bdf8", color: isCreating ? "#38bdf8" : "#0f172a", cursor: "pointer" },
+            children: isCreating ? "Cancel" : "+ New Workspace"
+          }
+        )
+      ] })
+    ] }),
+    isCreating ? /* @__PURE__ */ jsxs33("form", { onSubmit: handleCreate, style: { display: "flex", flexDirection: "column", gap: "16px", background: "#1e293b", padding: "20px", borderRadius: "8px" }, children: [
+      /* @__PURE__ */ jsxs33("div", { children: [
+        /* @__PURE__ */ jsx47("label", { style: { display: "block", fontSize: "12px", marginBottom: "6px", color: "#94a3b8" }, children: "Workspace Name" }),
+        /* @__PURE__ */ jsx47(
+          "input",
+          {
+            type: "text",
+            value: newWsName,
+            onChange: (e) => setNewWsName(e.target.value),
+            placeholder: "e.g. Production Vault",
+            style: { width: "100%", padding: "8px 12px", background: "#0f172a", border: "1px solid #334155", borderRadius: "6px", color: "#fff" },
+            autoFocus: true
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsx47(StorageOptionTiles, { currentUser, onSelectStorage: setStorageConfig }),
+      /* @__PURE__ */ jsx47("button", { type: "submit", style: { padding: "10px", background: "#38bdf8", color: "#0f172a", border: "none", borderRadius: "6px", fontWeight: 600, cursor: "pointer" }, children: "Create Workspace" })
+    ] }) : activeTab === "clones" && activeWorkspaceForClones ? /* @__PURE__ */ jsx47(
+      WorkspaceSecondaryClonesPanel,
+      {
+        workspace: activeWorkspaceForClones,
+        onClose: () => setActiveTab("workspaces")
+      }
+    ) : /* @__PURE__ */ jsx47("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px", overflowY: "auto" }, children: workspaces.map((ws) => {
+      const isActive = ws.id === activeWorkspaceId;
+      return /* @__PURE__ */ jsxs33(
+        "div",
+        {
+          onClick: () => onSelectWorkspace(ws),
+          style: { padding: "16px", borderRadius: "8px", background: isActive ? "rgba(56, 189, 248, 0.08)" : "#1e293b", border: isActive ? "1px solid #38bdf8" : "1px solid #334155", cursor: "pointer" },
+          children: [
+            /* @__PURE__ */ jsxs33("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [
+              /* @__PURE__ */ jsx47("span", { style: { fontWeight: 600, fontSize: "14px" }, children: ws.name }),
+              /* @__PURE__ */ jsxs33("div", { style: { display: "flex", gap: "6px" }, children: [
+                ws.secondaryClones && ws.secondaryClones.length > 0 && /* @__PURE__ */ jsxs33("span", { style: { fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "rgba(56, 189, 248, 0.2)", color: "#38bdf8" }, children: [
+                  "+",
+                  ws.secondaryClones.length,
+                  " CLONES"
+                ] }),
+                isActive && /* @__PURE__ */ jsx47("span", { style: { fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "#38bdf8", color: "#0f172a", fontWeight: 600 }, children: "ACTIVE" })
+              ] })
+            ] }),
+            /* @__PURE__ */ jsx47("div", { style: { marginTop: "10px" }, children: /* @__PURE__ */ jsx47(WorkspaceStorageReadonlyPanel, { workspace: ws }) }),
+            onDeleteWorkspace && /* @__PURE__ */ jsx47("div", { style: { display: "flex", justifyContent: "flex-end", marginTop: "12px" }, children: /* @__PURE__ */ jsx47(
+              "button",
+              {
+                onClick: (e) => {
+                  e.stopPropagation();
+                  if (confirm(`Delete workspace "${ws.name}"?`)) onDeleteWorkspace(ws.id);
+                },
+                style: { background: "transparent", border: "none", color: "#f87171", fontSize: "11px", cursor: "pointer" },
+                children: "Delete"
+              }
+            ) })
+          ]
+        },
+        ws.id
+      );
+    }) })
+  ] });
+};
 export {
   ApiCallIndicator,
   AppShell,
@@ -2211,6 +2907,7 @@ export {
   LinkStyleSchema,
   ListStyleSchema,
   LoadingOverlay,
+  LoginModal,
   MarkdownSectionStylesSchema,
   ModalContainer,
   ModularThemePackSchema,
@@ -2227,8 +2924,11 @@ export {
   SkipoThemeMetadataSchema,
   SkipoThemeProvider,
   SplitContainer,
+  SrklBackblazeTile,
   StatusIndicator,
   StatusLight,
+  StorageOptionTiles,
+  StoragePresetTile,
   SystemMessageDisplay,
   TabContainer,
   TableStyleSchema,
@@ -2238,6 +2938,9 @@ export {
   ThemeVariantDefinitionSchema,
   TopToolbar,
   UIElementThemeValueSchema,
+  WorkspaceSecondaryClonesPanel,
+  WorkspaceStorageReadonlyPanel,
+  WorkspaceTilesMenu,
   appThemeEngine,
   applyThemePack,
   centralLedger,

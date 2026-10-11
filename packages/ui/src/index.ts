@@ -5,3 +5,5 @@ export * from './components/composite/index.js';
 export * from './components/layout/index.js';
 export * from './components/bottom-strip/index.js';
 export * from './components/settings/index.js';
+export * from './components/auth/index.js';
+export * from './components/workspace/index.js';

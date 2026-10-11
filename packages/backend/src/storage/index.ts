@@ -7,4 +7,5 @@ export * from './b2Endpoint.js';
 export * from './s3Purge.js';
 export * from './SupabaseStorageAdapter.js';
 export * from './StorageAdapterFactory.js';
+export * from './B2DirectClient.js';
 
