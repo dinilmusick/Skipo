@@ -7,5 +7,15 @@ export * from './data/index.js';
 export * from './connectivity/index.js';
 export * from './client/index.js';
 export * from './srkl/index.js';
-export * from './architecture/types.js';
+export type {
+  Runtime,
+  Deployment,
+  FunctionSet,
+  ServiceFacade,
+  OrchestrationFn,
+  BackendFacade,
+  ServiceRegistryRecord,
+} from './architecture/types.js';
+export { validateServiceDefinition } from './architecture/types.js';
 export * from './execution/index.js';
+export * from './services/index.js';

@@ -1,4 +1,19 @@
 import {
+  BackblazeB2Adapter,
+  BaseStorageAdapter,
+  LocalFSAdapter,
+  S3Adapter,
+  StorageAdapterFactory,
+  SupabaseStorageAdapter,
+  ensureS3DirectoryMarker,
+  isSecretMasked,
+  normalizeBackblazeCredentials,
+  permanentDeleteS3Folder,
+  permanentDeleteS3Object,
+  renameS3Folder,
+  resolveBackblazeEndpoint
+} from "./chunk-BXC5MZE5.js";
+import {
   BaseApiRoute,
   createSSEResponse,
   withAuth,
@@ -54,6 +69,14 @@ import {
   JobScheduler
 } from "./chunk-XI5PEFAO.js";
 import {
+  CompositeBackend,
+  EndpointGenerator,
+  createBackend,
+  createCompositeService,
+  createLocalService,
+  createRemoteService
+} from "./chunk-5IJ4YJLK.js";
+import {
   CANONICAL_SRKL_URL,
   SrklClient,
   createSrklClient,
@@ -62,21 +85,6 @@ import {
   srklListBackblazeBuckets,
   useSrklServices
 } from "./chunk-MN54ZIKZ.js";
-import {
-  BackblazeB2Adapter,
-  BaseStorageAdapter,
-  LocalFSAdapter,
-  S3Adapter,
-  StorageAdapterFactory,
-  SupabaseStorageAdapter,
-  ensureS3DirectoryMarker,
-  isSecretMasked,
-  normalizeBackblazeCredentials,
-  permanentDeleteS3Folder,
-  permanentDeleteS3Object,
-  renameS3Folder,
-  resolveBackblazeEndpoint
-} from "./chunk-BXC5MZE5.js";
 import {
   authorizeB2,
   b2DownloadFile,
@@ -385,10 +393,12 @@ export {
   BaseStorageAdapter,
   CANONICAL_SRKL_URL,
   CallbackRegistry,
+  CompositeBackend,
   ConcurrencyConflictError,
   ConcurrencyManager,
   ControlPlaneManager,
   DatabaseClusterManager,
+  EndpointGenerator,
   EventBus,
   ExecutableBackendFacade,
   FrontendSession,
@@ -424,9 +434,13 @@ export {
   b2ListBuckets,
   b2ListFileNames,
   b2UploadFile,
+  createBackend,
   createBackendClient,
+  createCompositeService,
   createEmptyContract,
+  createLocalService,
   createOperationComponent,
+  createRemoteService,
   createSSEResponse,
   createSrklClient,
   ensureS3DirectoryMarker,

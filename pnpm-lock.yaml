@@ -32,6 +32,9 @@ importers:
       '@aws-sdk/lib-storage':
         specifier: ^3.600.0
         version: 3.1126.0(@aws-sdk/client-s3@3.1126.0)
+      '@dinilmusick/krnl':
+        specifier: file:../../../../Javascript/KrnlTS
+        version: file:../KrnlTS
       '@neondatabase/serverless':
         specifier: ^0.10.0
         version: 0.10.4
@@ -292,6 +295,10 @@ packages:
   '@aws/lambda-invoke-store@0.3.0':
     resolution: {integrity: sha512-sl4Bm6yiMNYrZKkqqDFWN0UfnWhlS8ivKxrYl+6t0gCLrqr8y3B2IqZZbFRkfaVVp7C/baApyh71P+LeE1A2sQ==}
     engines: {node: '>=18.0.0'}
+
+  '@dinilmusick/krnl@file:../KrnlTS':
+    resolution: {directory: ../KrnlTS, type: directory}
+    hasBin: true
 
   '@dnd-kit/accessibility@3.1.1':
     resolution: {integrity: sha512-2P+YgaXF+gRsIihwwY1gCsQSYnu9Zyj2py8kY5fFvUM1qm2WA2u639R6YNVfU4GWr+ZM5mqEsfHZZLoRONbemw==}
@@ -2113,6 +2120,8 @@ snapshots:
       tslib: 2.8.1
 
   '@aws/lambda-invoke-store@0.3.0': {}
+
+  '@dinilmusick/krnl@file:../KrnlTS': {}
 
   '@dnd-kit/accessibility@3.1.1(react@19.2.8)':
     dependencies:

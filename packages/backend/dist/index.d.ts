@@ -11,6 +11,8 @@ export { I as IdempotencyManager } from './IdempotencyManager-B5MjK871.js';
 export { BackendClientInstance, BackendProvider, BackendProviderProps, useBackend, useBackendClient } from './client/index.js';
 export { AdaptedStorageConnection, AppAccountManifest, AppServiceDeclaration, CANONICAL_SRKL_URL, EcosystemAccount, EcosystemAccountsRequest, EcosystemAccountsResponse, EcosystemServiceCategory, SrklClient, SrklClientOptions, SrklEcosystemQueryOptions, SrklEcosystemResponse, SrklServiceAccount, UseSrklServicesOptions, UseSrklServicesResult, createSrklClient, getPrimarySrklDeploymentUrl, getSrklAccounts, srklListBackblazeBuckets, useSrklServices } from './srkl/index.js';
 export { BackendCommand, DomainService, ExecutableBackendFacade, ExecutionContext, JobDependencyGraph, NormalizedResult, OperationComponent, ResultFlowBridge, ServiceDispatcher, StateUpdateEvent, WorkerExecutionBoundary, createOperationComponent } from './execution/index.js';
+export { CompositeBackend, EndpointGenerator, GeneratedEndpointSummary, LocalService, RemoteServiceProxy, createBackend, createCompositeService, createLocalService, createRemoteService } from './services/index.js';
+export { EndpointDescriptor, IService, ProtocolAdapter, ServiceDefinition } from '@dinilmusick/krnl';
 import 'react';
 
 interface WorkspaceDescriptor {
@@ -211,14 +213,6 @@ declare class FunctionalityTable<T extends {
 type Runtime = 'client' | 'server';
 type Deployment = 'local' | 'remote';
 type FunctionSet = Record<string, (...args: any[]) => any>;
-interface ServiceDefinition<T extends FunctionSet = FunctionSet> {
-    name: string;
-    version?: string;
-    runtime: Runtime;
-    deployment: Deployment;
-    facade: T;
-    metadata?: Record<string, unknown>;
-}
 interface ServiceFacade<T extends FunctionSet = FunctionSet> {
     runtime: Runtime;
     deployment: Deployment;
@@ -257,4 +251,4 @@ interface ServiceRegistryRecord {
     metadata?: Record<string, unknown>;
 }
 
-export { type AuditEvent, AuditLogger, type BackendFacade, BaseAccountProvider, BaseDataProvider, BaseStorageAdapter, type CloneReplicationResult, type ClusterConfig, type ConflictPolicy, ControlPlaneManager, DatabaseClusterManager, type Deployment, FileInfo, type FunctionSet, FunctionalityTable, type HealthStatus, type IDataProvider, type OrchestrationFn, type QueryFilter, type Runtime, type ServiceDefinition, type ServiceFacade, type ServiceRegistryRecord, type SortOrder, SyncEngine, type SyncState, WorkspaceCloneSyncEngine, type WorkspaceConfig, type WorkspaceDescriptor, WorkspaceFS, type WorkspaceSecondaryClone, type WorkspaceSyncSummary, formatCanonicalWorkspaceFolderName, sanitizeWorkspaceName, validateServiceDefinition };
+export { type AuditEvent, AuditLogger, type BackendFacade, BaseAccountProvider, BaseDataProvider, BaseStorageAdapter, type CloneReplicationResult, type ClusterConfig, type ConflictPolicy, ControlPlaneManager, DatabaseClusterManager, type Deployment, FileInfo, type FunctionSet, FunctionalityTable, type HealthStatus, type IDataProvider, type OrchestrationFn, type QueryFilter, type Runtime, type ServiceFacade, type ServiceRegistryRecord, type SortOrder, SyncEngine, type SyncState, WorkspaceCloneSyncEngine, type WorkspaceConfig, type WorkspaceDescriptor, WorkspaceFS, type WorkspaceSecondaryClone, type WorkspaceSyncSummary, formatCanonicalWorkspaceFolderName, sanitizeWorkspaceName, validateServiceDefinition };
