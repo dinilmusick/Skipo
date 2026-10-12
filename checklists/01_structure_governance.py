@@ -43,7 +43,7 @@ ALLOWED_TOP_CODE_DIRS = {
     "src", "packages", "scripts", "backend", "public", "components", "hooks", "lib",
     "api", "standalone", "features", "data", "database",
     "skipo-audio-midi-engine", "checklists", "generators", "mutators",
-    "scaffolds", "scaffold", "app"
+    "scaffolds", "scaffold", "app", "tests", "test"
 }
 VALID_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_\-\.\[\]@]+$")
 
@@ -163,25 +163,17 @@ def validate_structure(root_dir: Path) -> ChecklistResult:
                     suggestion="Add a README.md explaining the directory's architectural role, layer, and manifest."
                 ))
 
-    # 7. Direct Root Skipo Import Ban (Law L20)
-    direct_skipo_import_re = re.compile(
-        r"""(?:from|import)\s+['"](?:@/|\.{1,2}/)*Skipo(?:/|['"])(?:packages/)?([^'"]*)['"]"""
-    )
-    for file_path in all_code_files:
-        rel = file_path.relative_to(root_dir)
-        if "src" in rel.parts and "Skipo" not in rel.parts:
-            try:
-                content = file_path.read_text(encoding="utf-8")
-                if direct_skipo_import_re.search(content):
-                    violations.append(Violation(
-                        rule_id="forbidden-direct-skipo-import",
-                        severity="error",
-                        message=f"File '{rel}' imports directly from the root Skipo/ directory (violates Law L20).",
-                        file_path=str(rel),
-                        suggestion="Run 'python3 Skipo/scripts/sync_to_libraries.py --auto-fix' to hydrate assets into 'src/libraries/skipo/' and import from '@/libraries/skipo' instead."
-                    ))
-            except Exception:
-                pass
+    # 7. Package Source Duplication Ban (No copied Kloks/Floks/Skipo packages in src/libraries/)
+    for forbidden_copied_dir in ("skipo", "kloks", "floks"):
+        copied_lib = root_dir / "src" / "libraries" / forbidden_copied_dir
+        if copied_lib.exists() and copied_lib.is_dir():
+            violations.append(Violation(
+                rule_id="forbidden-package-source-duplication",
+                severity="error",
+                message=f"Duplicated package source directory 'src/libraries/{forbidden_copied_dir}' detected.",
+                file_path=f"src/libraries/{forbidden_copied_dir}",
+                suggestion="Never copy Kloks/Floks/Skipo source into src/libraries/. Consume '@kloks/*' and '@floks/*' via package.json and node_modules/."
+            ))
 
     duration_ms = (time.time() - start_time) * 1000
     errors = sum(1 for v in violations if v.severity == "error")

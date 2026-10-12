@@ -1,46 +1,30 @@
 #!/usr/bin/env python3
 """
-scaffold_app_structure.py - Scaffolds the canonical 4-plane APP_ARCHITECTURE_SPEC tree.
-Features an AGGRESSIVE VALIDATION & AUTO-DELETE LOOP:
-- Scaffolds src/frontend, src/backend, src/libraries, src/frontend-state with READMEs and barrel files.
-- Automatically executes sync_to_libraries.py to hydrate src/libraries/skipo/.
-- Runs Aspect 01 Structure and Aspect 10 App Arch Spec validators.
-- IF VALIDATION FAILS: Immediately rolls back and deletes generated directories to enforce clean re-creation.
+scaffold_app_structure.py - Scaffolds the extreme-minimal Skipo application composition structure.
+Consumes @kloks/* and @floks/* via package.json (node_modules/) with ZERO package source duplication.
 """
 
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import List, Tuple
 import argparse
-import os
-import shutil
+import json
 import subprocess
 import sys
-import time
 
 HERE = Path(__file__).resolve().parent
 SKIPO_ROOT = HERE.parent
 
 def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
-    """Generates the full 4-plane directory tree with READMEs and barrels."""
+    """Generates the minimal Skipo composition tree consuming @kloks/* and @floks/* packages."""
     pascal = app_name[:1].upper() + app_name[1:]
     camel = app_name[:1].lower() + app_name[1:]
     created: List[Path] = []
 
     planes = [
-        ("src/frontend/components", "Pure client presentation and modular UI components."),
-        ("src/frontend/shell", "Application shell, TopToolbar (44px), and BottomStrip (30px)."),
-        ("src/frontend/views", "Top-level views and screen containers."),
-        ("src/backend/adapters", "Protocol adapters (HTTP, WS, MCP) translating external wire protocols."),
-        ("src/backend/gateway", "Remote service gateway, registry, and transport encoders."),
-        ("src/backend/orchestrations", "Client-side backend coordinators sequencing multiple domain services."),
-        ("src/backend/services", "Modular domain services with runtime and deployment facades."),
-        ("src/libraries/constants", "Environment-neutral constants, configuration tokens, and enums."),
-        ("src/libraries/data", "Environment-neutral pure data models and Zod schemas."),
-        ("src/libraries/functions", "Environment-neutral pure algorithms and deterministic calculations."),
-        ("src/libraries/types", "Environment-neutral TypeScript type definitions and interfaces."),
-        ("src/libraries/utilities", "Environment-neutral string, array, and formatting utilities."),
-        ("src/frontend-state/stores", "Zustand UI state stores and reactive bindings."),
-        ("src/frontend-state/events", "State transition and domain lifecycle events.")
+        ("src/frontend", "Application UI composition entrypoint importing @floks/* packages."),
+        ("src/backend", "Application backend facade importing @kloks/* services and orchestrators."),
+        ("src/libraries", "Application-specific custom code ONLY (never copy @kloks/* or @floks/* source)."),
+        ("src/frontend-state", "Application-specific reactive UI stores and events.")
     ]
 
     for rel_path, desc in planes:
@@ -51,87 +35,136 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
             readme_file.write_text(f"# {dir_path.name}\n\n{desc}\n", encoding="utf-8")
             created.append(readme_file)
 
-    # 1. src/backend/<AppName>Backend.ts
+    # 1. package.json declaring @kloks/*, @floks/*, and @dinilmusick/krnl
+    pkg_json_file = target_root / "package.json"
+    if not pkg_json_file.exists():
+        pkg_data = {
+            "name": app_name.lower(),
+            "version": "1.0.0",
+            "private": True,
+            "type": "module",
+            "dependencies": {
+                "@dinilmusick/krnl": "^1.0.0",
+                "@kloks/services": "^1.0.0",
+                "@kloks/orchestrations": "^1.0.0",
+                "@kloks/functions": "^1.0.0",
+                "@kloks/audio-midi": "^1.0.0",
+                "@kloks/backend": "^1.0.0",
+                "@kloks/state-graph": "^1.0.0",
+                "@floks/ui": "^1.0.0",
+                "@floks/canvas-ui": "^1.0.0",
+                "react": "^19.0.1",
+                "react-dom": "^19.0.1"
+            }
+        }
+        pkg_json_file.write_text(json.dumps(pkg_data, indent=2) + "\n", encoding="utf-8")
+        created.append(pkg_json_file)
+
+    # 2. src/backend/<AppName>Backend.ts
     backend_file = target_root / "src" / "backend" / f"{pascal}Backend.ts"
     if not backend_file.exists():
         backend_content = f"""/**
  * @file {pascal}Backend.ts
- * @description Single Frontend-Backend Entrypoint Facade with WorkerExecutionBoundary.
- * Conforms to APP_ARCHITECTURE_SPEC and SKIPO::STATE_EXECUTION_ARCHITECTURE.
+ * @description Primary application backend entrypoint composing @kloks/* services & orchestrators.
  */
 
-import {{ ExecutableBackendFacade, WorkerExecutionBoundary }} from '@skipo/backend';
+import {{
+  ServiceAFacade,
+  ServiceBFacade,
+}} from '@kloks/services';
+import {{
+  OrchestratorAFacade,
+}} from '@kloks/orchestrations';
+import {{
+  AudioHardwareServiceFacade,
+  MidiServiceFacade,
+  AudioMidiOrchestratorFacade,
+}} from '@kloks/audio-midi';
+import {{
+  AuthServiceFacade,
+  StorageServiceFacade,
+  WorkspaceServiceFacade,
+  ExecutableBackendFacade,
+  WorkerExecutionBoundary,
+}} from '@kloks/backend';
 
 export const {camel}BackendFacade = new ExecutableBackendFacade('{pascal}Backend');
 export const {camel}Worker = new WorkerExecutionBoundary('{pascal}Worker', {camel}BackendFacade);
 
 export const {pascal}Backend = {{
-  services: {{}},
-  orchestrations: {{}},
+  services: {{
+    serviceA: ServiceAFacade,
+    serviceB: ServiceBFacade,
+    audioHardware: AudioHardwareServiceFacade,
+    midi: MidiServiceFacade,
+    auth: AuthServiceFacade,
+    storage: StorageServiceFacade,
+    workspace: WorkspaceServiceFacade,
+  }},
+  orchestrations: {{
+    orchestratorA: OrchestratorAFacade,
+    audioMidi: AudioMidiOrchestratorFacade,
+  }},
   worker: {camel}Worker,
   WorkerExecutionBoundary: {camel}Worker,
 }};
+
+export default {pascal}Backend;
 """
         backend_file.write_text(backend_content, encoding="utf-8")
         created.append(backend_file)
 
-    # 2. src/libraries/index.ts
+    # 3. src/frontend/App.tsx
+    app_tsx = target_root / "src" / "frontend" / "App.tsx"
+    if not app_tsx.exists():
+        app_content = f"""/**
+ * @file App.tsx
+ * @description Primary application UI composition entrypoint importing @floks/* components.
+ */
+
+import React from 'react';
+import {{ AppShell, TopToolbar, BottomStrip, BaseCard }} from '@floks/ui';
+import {{ InfiniteCanvas }} from '@floks/canvas-ui';
+
+export function App() {{
+  return (
+    <AppShell
+      header={{<TopToolbar title="{pascal}" />}}
+      footer={{<BottomStrip centerText="{pascal}" />}}
+    >
+      <BaseCard>
+        <InfiniteCanvas />
+      </BaseCard>
+    </AppShell>
+  );
+}}
+
+export default App;
+"""
+        app_tsx.write_text(app_content, encoding="utf-8")
+        created.append(app_tsx)
+
+    # 4. src/libraries/index.ts (Skipo-specific custom code only)
     lib_index = target_root / "src" / "libraries" / "index.ts"
     if not lib_index.exists():
-        lib_content = """export * from './types/index';
-export * from './functions/index';
-export * from './data/index';
-export * from './constants/index';
-export * from './utilities/index';
-export * from './skipo/index';
-"""
-        lib_index.write_text(lib_content, encoding="utf-8")
+        lib_index.write_text("// Application-specific custom libraries only (never duplicate @kloks/* or @floks/*)\nexport {};\n", encoding="utf-8")
         created.append(lib_index)
-
-    # 3. Barrels for libraries
-    for sub in ("types", "functions", "data", "constants", "utilities"):
-        barrel = target_root / "src" / "libraries" / sub / "index.ts"
-        if not barrel.exists():
-            barrel.write_text("// Pure library exports\nexport {};\n", encoding="utf-8")
-            created.append(barrel)
-
-    # 4. Frontend state barrels
-    stores_barrel = target_root / "src" / "frontend-state" / "stores" / "index.ts"
-    if not stores_barrel.exists():
-        stores_barrel.write_text("import { SKIPO_STATE, useSkipoState } from '@skipo/systems/state';\nexport { SKIPO_STATE, useSkipoState };\n", encoding="utf-8")
-        created.append(stores_barrel)
-
-    exec_barrel = target_root / "src" / "frontend-state" / "execution" / "index.ts"
-    exec_barrel.parent.mkdir(parents=True, exist_ok=True)
-    if not exec_barrel.exists():
-        exec_barrel.write_text("import { SKIPO_EXECUTION, useCommand } from '@skipo/systems/execution';\nexport { SKIPO_EXECUTION, useCommand };\n", encoding="utf-8")
-        created.append(exec_barrel)
-
-    events_barrel = target_root / "src" / "frontend-state" / "events" / "index.ts"
-    if not events_barrel.exists():
-        events_barrel.write_text("// Frontend state events\nexport {};\n", encoding="utf-8")
-        created.append(events_barrel)
 
     return created
 
 def run_validators(target_root: Path) -> Tuple[bool, str]:
-    """Validates structural compliance."""
     errors: List[str] = []
-
-    # Aspect 01: Structure Governance
     val_01 = SKIPO_ROOT / "checklists" / "01_structure_governance.py"
     if val_01.exists():
         res = subprocess.run(["python3", str(val_01), str(target_root)], capture_output=True, text=True)
         if res.returncode != 0:
             errors.append(f"[ASPECT 01 VIOLATION]\n{res.stdout or res.stderr}")
-
     return len(errors) == 0, "\n\n".join(errors)
 
 def main():
-    parser = argparse.ArgumentParser(description="Scaffold canonical 4-plane Skipo app structure")
+    parser = argparse.ArgumentParser(description="Scaffold minimal Skipo app composition structure")
     parser.add_argument("target", nargs="?", default="", help="Target root directory")
     parser.add_argument("--name", "-n", default="", help="Application name")
-    parser.add_argument("--no-sync", action="store_true", help="Skip synchronizing Skipo base assets")
     parser.add_argument("--no-delete-on-fail", action="store_true", help="Do not delete on validation failure")
     args = parser.parse_args()
 
@@ -139,44 +172,25 @@ def main():
     app_name = args.name or target_root.name.replace("-", " ").title().replace(" ", "") or "SkipoApp"
 
     print("=" * 80)
-    print(f"  SKIPO APP STRUCTURE SCAFFOLDING LOOP")
+    print(f"  SKIPO MINIMAL PACKAGE-COMPOSITION SCAFFOLD")
     print(f"  Target Root:  {target_root}")
     print(f"  App Name:     {app_name}")
     print("=" * 80)
 
-    # 1. Scaffold files
     created = scaffold_structure(target_root, app_name)
-    print(f"  ✔ Created {len(created)} canonical structure files across 4 planes")
+    print(f"  ✔ Created {len(created)} minimal composition files consuming @kloks/* and @floks/*")
 
-    # 2. Hydrate Skipo libraries
-    if not args.no_sync:
-        print("\n  📦 Hydrating Skipo base assets into src/libraries/skipo/...")
-        sync_script = HERE / "sync_to_libraries.py"
-        sync_res = subprocess.run(["python3", str(sync_script), str(target_root)], capture_output=True, text=True)
-        print(sync_res.stdout)
-
-    # 3. AGGRESSIVE VALIDATION LOOP
-    print("  🔍 Running verification gate...")
     passed, error_output = run_validators(target_root)
-
     if passed:
-        print("  🎉 VALIDATION PASSED: 100% compliant with Skipo 4-Plane Architecture!")
+        print("  🎉 VALIDATION PASSED: 100% compliant with Skipo Package Composition Architecture!")
         print("=" * 80 + "\n")
         sys.exit(0)
     else:
-        print("\n" + "!" * 80)
-        print("  🚨 STRUCTURE VALIDATION FAILED DURING SCAFFOLDING LOOP")
-        print("!" * 80)
         print(error_output)
-
         if not args.no_delete_on_fail:
-            print("\n  🗑️ AGGRESSIVE AUTO-DELETE ACTIVATED: Purging non-compliant scaffold...")
             for f in created:
                 if f.exists():
                     f.unlink()
-            print(f"  ❌ Removed {len(created)} non-compliant generated files.")
-            print("  💡 Agent Instruction: Fix the reported structural constraints before re-scaffolding.")
-        print("=" * 80 + "\n")
         sys.exit(1)
 
 if __name__ == "__main__":

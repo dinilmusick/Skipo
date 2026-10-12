@@ -31,7 +31,16 @@
     "tailwindcss": "^4.1.14",
     "@xyflow/react": "^12.11.1",
     "zod": "^3.23.8",
-    "zustand": "^5.0.15"
+    "zustand": "^5.0.15",
+    "@dinilmusick/krnl": "^1.0.0",
+    "@kloks/services": "^1.0.0",
+    "@kloks/orchestrations": "^1.0.0",
+    "@kloks/functions": "^1.0.0",
+    "@kloks/audio-midi": "^1.0.0",
+    "@kloks/backend": "^1.0.0",
+    "@kloks/state-graph": "^1.0.0",
+    "@floks/ui": "^1.0.0",
+    "@floks/canvas-ui": "^1.0.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",

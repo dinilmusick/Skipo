@@ -2,25 +2,35 @@
   "name": "skipo",
   "version": "1.0.0",
   "private": true,
-  "description": "Skipo — Standalone App Factory with Reusable Code Components, Base Classes, and Infrastructure",
+  "type": "module",
+  "description": "Skipo — Application Builder & Composition Layer consuming @kloks/* and @floks/* packages",
   "scripts": {
-    "build": "turbo run build",
-    "test": "turbo run test",
-    "lint": "turbo run lint",
-    "validate": "turbo run validate",
-    "validate:checklists": "node checklists/runner.mjs .",
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "validate": "python3 checklists/full_system_validator.py .",
     "assistant": "python3 assistant.py",
-    "generate": "node generators/runner.mjs",
-    "mutate": "node mutators/runner.mjs",
-    "clean": "turbo run clean && rm -rf node_modules",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dinilmusick/krnl": "file:../KrnlTS",
+    "@kloks/services": "file:../Kloks/packages/services",
+    "@kloks/orchestrations": "file:../Kloks/packages/orchestrations",
+    "@kloks/functions": "file:../Kloks/packages/functions",
+    "@kloks/audio-midi": "file:../Kloks/packages/audio-midi",
+    "@kloks/backend": "file:../Kloks/packages/backend",
+    "@kloks/state-graph": "file:../Kloks/packages/state-graph",
+    "@floks/ui": "file:../Floks/packages/ui",
+    "@floks/canvas-ui": "file:../Floks/packages/canvas-ui",
+    "lucide-react": "^1.55.0",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1"
   },
   "devDependencies": {
-    "turbo": "^2.4.0",
-    "typescript": "^5.7.0",
-    "tsup": "^8.4.0",
-    "vitest": "^3.1.0",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.1.0"
   },
   "packageManager": "pnpm@9.15.0",
   "engines": {

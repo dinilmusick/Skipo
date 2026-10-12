@@ -299,18 +299,9 @@ def handle_mutate(args: argparse.Namespace) -> None:
     sys.exit(exit_code)
 
 def handle_sync_libraries(args: argparse.Namespace) -> None:
-    sync_script = HERE / "scripts/sync_to_libraries.py"
-    cmd = ["python3", str(sync_script)]
-    if args.target:
-        cmd.append(args.target)
-    if args.dry_run:
-        cmd.append("--dry-run")
-    if args.auto_fix:
-        cmd.append("--auto-fix")
-    if args.strict:
-        cmd.append("--strict")
-    exit_code = run_command(cmd, HERE)
-    sys.exit(exit_code)
+    print(red("  [DEPRECATED] Source copying into src/libraries/skipo is forbidden."))
+    print("  Import reusable backend packages from '@kloks/*' and UI packages from '@floks/*' via package.json.")
+    sys.exit(0)
 
 def handle_validate(args: argparse.Namespace) -> None:
     val_script = HERE / "checklists/full_system_validator.py"

@@ -1,40 +1,36 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// MYAPP BACKEND FACADE (§0 UNIVERSAL BACKEND ENTRYPOINT)
-// Single source of truth for all backend operations (Law L7, Law L23)
+// 1. MINIMAL BACKEND FACADE (@kloks/* COMPOSITION)
 // ══════════════════════════════════════════════════════════════════════════════
 
-import * as authCore from './services/core/authCore';
-import * as storageCore from './services/core/storageCore';
-import * as workspaceCore from './services/core/workspaceCore';
-import * as unifiedDb from './services/core/unifiedDb';
-import * as credentialVaultCore from './services/core/credentialVaultCore';
-import * as workspaceFileCore from './services/core/workspaceFileCore';
-import * as srklCore from './services/core/srklCore';
-import { ExecutableBackendFacade } from '../libraries/skipo/backend/execution/BackendFacade';
-import { WorkerExecutionBoundary } from '../libraries/skipo/backend/execution/WorkerExecutionBoundary';
+import { ServiceAFacade, ServiceBFacade } from '@kloks/services';
+import { OrchestratorAFacade } from '@kloks/orchestrations';
+import { AudioHardwareServiceFacade, MidiServiceFacade, AudioMidiOrchestratorFacade } from '@kloks/audio-midi';
+import { AuthServiceFacade, StorageServiceFacade, WorkspaceServiceFacade } from '@kloks/backend/krnl-services';
+import { ExecutableBackendFacade, WorkerExecutionBoundary } from '@kloks/backend/execution';
 
 export const services = {
-  auth: authCore,
-  storage: storageCore,
-  workspace: workspaceCore,
-  db: unifiedDb,
-  vault: credentialVaultCore,
-  workspaceFile: workspaceFileCore,
-  srkl: srklCore,
+  serviceA: ServiceAFacade,
+  serviceB: ServiceBFacade,
+  audioHardware: AudioHardwareServiceFacade,
+  midi: MidiServiceFacade,
+  auth: AuthServiceFacade,
+  storage: StorageServiceFacade,
+  workspace: WorkspaceServiceFacade,
 };
 
-export const orchestrations = {};
+export const orchestrations = {
+  orchestratorA: OrchestratorAFacade,
+  audioMidi: AudioMidiOrchestratorFacade,
+};
 
 export const executableFacade = new ExecutableBackendFacade('AppBackend');
 export const appWorkerBoundary = new WorkerExecutionBoundary('app_worker_main', executableFacade);
 
-export const appBackend = {
+export const AppBackend = {
   services,
   orchestrations,
   worker: appWorkerBoundary,
   WorkerExecutionBoundary: appWorkerBoundary,
-  isWorkerContext: true,
 };
 
-export const AppBackend = appBackend;
-export default appBackend;
+export default AppBackend;
