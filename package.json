@@ -3,24 +3,28 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Skipo — Application Builder & Composition Layer consuming @kloks/* and @floks/* packages",
+  "description": "Skipo — Application Builder, Installer & Composition Engine consuming @kloks/* and @floks/* packages",
+  "bin": {
+    "skipo": "./bin/skipo.js"
+  },
   "scripts": {
     "build": "tsc --noEmit",
     "test": "vitest run",
     "validate": "python3 checklists/full_system_validator.py .",
     "assistant": "python3 assistant.py",
+    "skipo": "python3 scripts/skipo_builder.py",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@dinilmusick/krnl": "file:../KrnlTS",
-    "@kloks/services": "file:../Kloks/packages/services",
-    "@kloks/orchestrations": "file:../Kloks/packages/orchestrations",
-    "@kloks/functions": "file:../Kloks/packages/functions",
-    "@kloks/audio-midi": "file:../Kloks/packages/audio-midi",
-    "@kloks/backend": "file:../Kloks/packages/backend",
-    "@kloks/state-graph": "file:../Kloks/packages/state-graph",
-    "@floks/ui": "file:../Floks/packages/ui",
-    "@floks/canvas-ui": "file:../Floks/packages/canvas-ui",
+    "@dinilmusick/krnl": "^1.0.0",
+    "@kloks/services": "^1.0.0",
+    "@kloks/orchestrations": "^1.0.0",
+    "@kloks/functions": "^1.0.0",
+    "@kloks/audio-midi": "^1.0.0",
+    "@kloks/backend": "^1.0.0",
+    "@kloks/state-graph": "^1.0.0",
+    "@floks/ui": "^1.0.0",
+    "@floks/canvas-ui": "^1.0.0",
     "lucide-react": "^1.55.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1"
@@ -31,6 +35,19 @@
     "@types/react-dom": "^19.0.0",
     "typescript": "^5.7.3",
     "vitest": "^3.1.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@dinilmusick/krnl": "file:../KrnlTS",
+      "@kloks/services": "file:../Kloks/packages/services",
+      "@kloks/orchestrations": "file:../Kloks/packages/orchestrations",
+      "@kloks/functions": "file:../Kloks/packages/functions",
+      "@kloks/audio-midi": "file:../Kloks/packages/audio-midi",
+      "@kloks/backend": "file:../Kloks/packages/backend",
+      "@kloks/state-graph": "file:../Kloks/packages/state-graph",
+      "@floks/ui": "file:../Floks/packages/ui",
+      "@floks/canvas-ui": "file:../Floks/packages/canvas-ui"
+    }
   },
   "packageManager": "pnpm@9.15.0",
   "engines": {

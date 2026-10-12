@@ -424,6 +424,26 @@ def main():
     mut_p.add_argument("--json", action="store_true", help="Output JSON summary")
     mut_p.add_argument("--verbose", "-v", action="store_true", help="Show full diffs")
 
+    # list (builder discovery)
+    list_p = subparsers.add_parser("list", help="Discover available Kloks services, Floks components, or orchestrations")
+    list_p.add_argument("item", choices=["services", "components", "orchestrations", "all"], help="Item type to list")
+    list_p.add_argument("--json", action="store_true", help="Machine-readable JSON output")
+
+    # install (builder composition)
+    inst_p = subparsers.add_parser("install", help="Install and compose a package into backend or fullstack")
+    inst_p.add_argument("item_type", choices=["service", "component"], help="Target type")
+    inst_p.add_argument("id", help="Service or component ID")
+    inst_p.add_argument("--mode", choices=["backend", "fullstack"], default="backend", help="Installation mode")
+    inst_p.add_argument("--dry-run", action="store_true", help="Preview composition changes without writing")
+    inst_p.add_argument("--json", action="store_true", help="Machine-readable JSON output")
+
+    # add (builder orchestration)
+    add_p = subparsers.add_parser("add", help="Add an orchestrator to BackendFacade")
+    add_p.add_argument("item_type", choices=["orchestration"], help="Item type")
+    add_p.add_argument("id", help="Orchestration ID")
+    add_p.add_argument("--dry-run", action="store_true", help="Preview composition changes without writing")
+    add_p.add_argument("--json", action="store_true", help="Machine-readable JSON output")
+
     # validate
     val_p = subparsers.add_parser("validate", help="Validate compliance against 12 Architectural Pillars")
     val_p.add_argument("target", nargs="?", default=".", help="Target directory to scan")
@@ -469,6 +489,20 @@ def main():
 
     if not args.subcommand or args.subcommand == "status":
         handle_status(HERE)
+    elif args.subcommand == "list":
+        cmd = ["python3", str(HERE / "scripts/skipo_builder.py"), "list", args.item]
+        if args.json: cmd.append("--json")
+        sys.exit(run_command(cmd, HERE))
+    elif args.subcommand == "install":
+        cmd = ["python3", str(HERE / "scripts/skipo_builder.py"), "install", args.item_type, args.id, "--mode", args.mode]
+        if args.dry_run: cmd.append("--dry-run")
+        if args.json: cmd.append("--json")
+        sys.exit(run_command(cmd, HERE))
+    elif args.subcommand == "add":
+        cmd = ["python3", str(HERE / "scripts/skipo_builder.py"), "add", args.item_type, args.id]
+        if args.dry_run: cmd.append("--dry-run")
+        if args.json: cmd.append("--json")
+        sys.exit(run_command(cmd, HERE))
     elif args.subcommand == "sync-libraries":
         handle_sync_libraries(args)
     elif args.subcommand == "generate":
