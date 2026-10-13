@@ -368,7 +368,51 @@ def handle_cleanup(args: argparse.Namespace) -> None:
         cmd.append("--scan-similar")
     if args.json:
         cmd.append("--json")
-    sys.exit(run_command(cmd, HERE))
+def handle_contract(args: argparse.Namespace) -> None:
+    action = args.action or "check"
+    target = Path(args.target or ".").resolve()
+
+    if action == "check":
+        cmd = ["python3", str(HERE / "checklists/15_contract_boundary_enforcement.py"), str(target)]
+        sys.exit(run_command(cmd, HERE))
+    elif action == "snapshot":
+        # Create or update .skipo/contracts/ in target
+        contracts_dir = target / ".skipo" / "contracts"
+        contracts_dir.mkdir(parents=True, exist_ok=True)
+        kloks_snap_path = HERE.parent / "Kloks/.kloks/contract-snapshot.json"
+        if kloks_snap_path.exists():
+            dest = contracts_dir / "kloks.json"
+            dest.write_text(kloks_snap_path.read_text(encoding="utf-8"), encoding="utf-8")
+            print(green(f"✔ Contract snapshot written to {dest}"))
+        else:
+            print(yellow(f"⚠ Kloks snapshot not found at {kloks_snap_path}"))
+        sys.exit(0)
+    elif action == "diff":
+        contracts_dir = target / ".skipo" / "contracts"
+        kloks_snap_path = HERE.parent / "Kloks/.kloks/contract-snapshot.json"
+        installed_snap_path = contracts_dir / "kloks.json"
+        if not installed_snap_path.exists():
+            print(red(f"✘ No installed contract snapshot at {installed_snap_path}"))
+            sys.exit(1)
+        if not kloks_snap_path.exists():
+            print(red(f"✘ No latest Kloks snapshot found at {kloks_snap_path}"))
+            sys.exit(1)
+        prev = json.loads(installed_snap_path.read_text(encoding="utf-8"))
+        curr = json.loads(kloks_snap_path.read_text(encoding="utf-8"))
+        prev_syms = set(prev.get("publicSymbols", []))
+        curr_syms = set(curr.get("publicSymbols", []))
+        removed = list(prev_syms - curr_syms)
+        added = list(curr_syms - prev_syms)
+        if removed:
+            print(red(f"✘ BREAKING CHANGES ({len(removed)} removed symbols): MAJOR upgrade required."))
+        elif added:
+            print(yellow(f"⚠ ADDITIVE CHANGES ({len(added)} added symbols): MINOR upgrade required."))
+        else:
+            print(green("✔ Contract surfaces are identical. PATCH compatible."))
+        sys.exit(0 if not removed else 1)
+    elif action == "verify":
+        cmd = ["python3", str(HERE / "checklists/15_contract_boundary_enforcement.py"), str(target)]
+        sys.exit(run_command(cmd, HERE))
 
 def handle_status(root: Path) -> None:
     info = detect_environment(root)
@@ -485,6 +529,11 @@ def main():
     clean_p.add_argument("--scan-similar", action="store_true", help="Scan only for similar/redundant candidate code clones")
     clean_p.add_argument("--json", action="store_true", help="Machine-readable JSON output")
 
+    # contract: boundary enforcement, snapshot, diff and upgrade verify
+    cntr_p = subparsers.add_parser("contract", help="Contract boundary enforcement, snapshotting, and diffing")
+    cntr_p.add_argument("action", nargs="?", default="check", choices=["snapshot", "diff", "check", "verify"], help="Contract action")
+    cntr_p.add_argument("target", nargs="?", default=".", help="Target directory to scan or configure")
+
     args = parser.parse_args()
 
     if not args.subcommand or args.subcommand == "status":
@@ -520,6 +569,8 @@ def main():
         handle_edit(args)
     elif args.subcommand == "cleanup":
         handle_cleanup(args)
+    elif args.subcommand == "contract":
+        handle_contract(args)
 
 
 if __name__ == "__main__":

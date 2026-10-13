@@ -5,7 +5,7 @@
 import { ServiceAFacade, ServiceBFacade } from '@kloks/services';
 import { OrchestratorAFacade } from '@kloks/orchestrations';
 import { AudioHardwareServiceFacade, MidiServiceFacade, AudioMidiOrchestratorFacade } from '@kloks/audio-midi';
-import { AuthServiceFacade, StorageServiceFacade, WorkspaceServiceFacade } from '@kloks/backend/krnl-services';
+import { AuthServiceFacade, StorageServiceFacade, WorkspaceServiceFacade } from '@kloks/backend';
 import { ExecutableBackendFacade, WorkerExecutionBoundary } from '@kloks/backend/execution';
 
 export const services = {
