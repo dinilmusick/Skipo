@@ -4,37 +4,24 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@dinilmusick/krnl': file:../KrnlTS
+  '@ultrst-armada/kloks': file:../Kloks
+  '@ultrst-armada/floks': file:../Floks
+
 importers:
 
   .:
     dependencies:
       '@dinilmusick/krnl':
         specifier: file:../KrnlTS
-        version: file:../KrnlTS
-      '@floks/canvas-ui':
-        specifier: file:../Floks/packages/canvas-ui
-        version: file:../Floks/packages/canvas-ui(lucide-react@1.55.0(@types/react@19.3.0)(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@floks/ui':
-        specifier: file:../Floks/packages/ui
-        version: file:../Floks/packages/ui(lucide-react@1.55.0(@types/react@19.3.0)(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@kloks/audio-midi':
-        specifier: file:../Kloks/packages/audio-midi
-        version: file:../Kloks/packages/audio-midi
-      '@kloks/backend':
-        specifier: file:../Kloks/packages/backend
-        version: file:../Kloks/packages/backend(react@19.3.0)(zod@3.25.76)
-      '@kloks/functions':
-        specifier: file:../Kloks/packages/functions
-        version: file:../Kloks/packages/functions
-      '@kloks/orchestrations':
-        specifier: file:../Kloks/packages/orchestrations
-        version: file:../Kloks/packages/orchestrations
-      '@kloks/services':
-        specifier: file:../Kloks/packages/services
-        version: file:../Kloks/packages/services
-      '@kloks/state-graph':
-        specifier: file:../Kloks/packages/state-graph
-        version: file:../Kloks/packages/state-graph(@types/react@19.3.0)(react@19.3.0)
+        version: '@ultrst-armada/krnl@file:../KrnlTS'
+      '@ultrst-armada/floks':
+        specifier: file:../Floks
+        version: file:../Floks(@ultrst-armada/kloks@file:../Kloks(@types/react@19.3.0)(react@19.3.0))(lucide-react@1.55.0(@types/react@19.3.0)(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@ultrst-armada/kloks':
+        specifier: file:../Kloks
+        version: file:../Kloks(@types/react@19.3.0)(react@19.3.0)
       lucide-react:
         specifier: ^1.55.0
         version: 1.55.0(@types/react@19.3.0)(react@19.3.0)
@@ -62,10 +49,6 @@ importers:
         version: 3.2.7(@types/node@22.20.5)
 
 packages:
-
-  '@dinilmusick/krnl@file:../KrnlTS':
-    resolution: {directory: ../KrnlTS, type: directory}
-    hasBin: true
 
   '@esbuild/aix-ppc64@0.28.2':
     resolution: {integrity: sha512-XExcO+dvLKvVtNTibSTBej1NCAbaGhWn9Ww1ZPx80qsahhPFe/8jgWP0IchNe0F3HwkU7n8ejhH8bjonqht8mQ==}
@@ -223,83 +206,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@floks/canvas-ui@file:../Floks/packages/canvas-ui':
-    resolution: {directory: ../Floks/packages/canvas-ui, type: directory}
-    peerDependencies:
-      '@dnd-kit/core': ^6.0.0
-      '@dnd-kit/sortable': ^8.0.0 || ^9.0.0
-      '@dnd-kit/utilities': ^3.0.0
-      monaco-editor: ^0.50.0
-      react: ^18.0.0 || ^19.0.0
-      react-dom: ^18.0.0 || ^19.0.0
-    peerDependenciesMeta:
-      '@dnd-kit/core':
-        optional: true
-      '@dnd-kit/sortable':
-        optional: true
-      '@dnd-kit/utilities':
-        optional: true
-      monaco-editor:
-        optional: true
-
-  '@floks/ui@file:../Floks/packages/ui':
-    resolution: {directory: ../Floks/packages/ui, type: directory}
-    peerDependencies:
-      lucide-react: '>=0.300.0'
-      react: ^18.0.0 || ^19.0.0
-      react-dom: ^18.0.0 || ^19.0.0
-
   '@jridgewell/sourcemap-codec@1.6.0':
     resolution: {integrity: sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw==}
-
-  '@kloks/audio-midi@file:../Kloks/packages/audio-midi':
-    resolution: {directory: ../Kloks/packages/audio-midi, type: directory}
-
-  '@kloks/backend@file:../Kloks/packages/backend':
-    resolution: {directory: ../Kloks/packages/backend, type: directory}
-    peerDependencies:
-      '@aws-sdk/client-s3': ^3.600.0
-      '@aws-sdk/lib-storage': ^3.600.0
-      '@neondatabase/serverless': ^0.10.0
-      '@supabase/supabase-js': ^2.45.0
-      bcryptjs: ^2.4.3
-      better-sqlite3: ^11.0.0
-      react: ^18.0.0 || ^19.0.0
-      zod: ^3.22.0
-    peerDependenciesMeta:
-      '@aws-sdk/client-s3':
-        optional: true
-      '@aws-sdk/lib-storage':
-        optional: true
-      '@neondatabase/serverless':
-        optional: true
-      '@supabase/supabase-js':
-        optional: true
-      bcryptjs:
-        optional: true
-      better-sqlite3:
-        optional: true
-      react:
-        optional: true
-      zod:
-        optional: true
-
-  '@kloks/functions@file:../Kloks/packages/functions':
-    resolution: {directory: ../Kloks/packages/functions, type: directory}
-
-  '@kloks/orchestrations@file:../Kloks/packages/orchestrations':
-    resolution: {directory: ../Kloks/packages/orchestrations, type: directory}
-
-  '@kloks/services@file:../Kloks/packages/services':
-    resolution: {directory: ../Kloks/packages/services, type: directory}
-
-  '@kloks/state-graph@file:../Kloks/packages/state-graph':
-    resolution: {directory: ../Kloks/packages/state-graph, type: directory}
-    peerDependencies:
-      react: ^18.0.0 || ^19.0.0
-    peerDependenciesMeta:
-      react:
-        optional: true
 
   '@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.4':
     resolution: {integrity: sha512-LCkGo6JDfaBhgST7UpPWgNgLINpcpabaHfyz5OBx75nUYxBsaEPxjnyNjWpeb/xBup/682QnBfRBy2/LvPutZQ==}
@@ -481,6 +389,21 @@ packages:
 
   '@types/react@19.3.0':
     resolution: {integrity: sha512-N0rFCuH9YoxG9/m61l9MfpJKfmLOVU0em7ipIz6TRgSSkvReLB9vL85GB+yr8Bs5leqpvg96JSwF4ZS1s4viQg==}
+
+  '@ultrst-armada/floks@file:../Floks':
+    resolution: {directory: ../Floks, type: directory}
+    peerDependencies:
+      '@ultrst-armada/kloks': file:/Users/dinil/Desktop/Projects/Javascript/Kloks
+      lucide-react: '>=0.300.0'
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+
+  '@ultrst-armada/kloks@file:../Kloks':
+    resolution: {directory: ../Kloks, type: directory}
+
+  '@ultrst-armada/krnl@file:../KrnlTS':
+    resolution: {directory: ../KrnlTS, type: directory}
+    hasBin: true
 
   '@vitest/expect@3.2.7':
     resolution: {integrity: sha512-E8eBXaKibuvH2pSZErOjdVb5vF4PbKYcrnluBTYxEk1l/VhhwZg1kZQsdtjq+CsF5CFydf2Rdkz7jDHKSisi3w==}
@@ -832,8 +755,6 @@ packages:
 
 snapshots:
 
-  '@dinilmusick/krnl@file:../KrnlTS': {}
-
   '@esbuild/aix-ppc64@0.28.2':
     optional: true
 
@@ -912,65 +833,7 @@ snapshots:
   '@esbuild/win32-x64@0.28.2':
     optional: true
 
-  '@floks/canvas-ui@file:../Floks/packages/canvas-ui(lucide-react@1.55.0(@types/react@19.3.0)(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
-    dependencies:
-      '@floks/ui': file:../Floks/packages/ui(lucide-react@1.55.0(@types/react@19.3.0)(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      react: 19.3.0
-      react-dom: 19.3.0(react@19.3.0)
-    transitivePeerDependencies:
-      - lucide-react
-
-  '@floks/ui@file:../Floks/packages/ui(lucide-react@1.55.0(@types/react@19.3.0)(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
-    dependencies:
-      lucide-react: 1.55.0(@types/react@19.3.0)(react@19.3.0)
-      react: 19.3.0
-      react-dom: 19.3.0(react@19.3.0)
-      zod: 3.25.76
-
   '@jridgewell/sourcemap-codec@1.6.0': {}
-
-  '@kloks/audio-midi@file:../Kloks/packages/audio-midi':
-    dependencies:
-      '@dinilmusick/krnl': file:../KrnlTS
-
-  '@kloks/backend@file:../Kloks/packages/backend(react@19.3.0)(zod@3.25.76)':
-    dependencies:
-      '@dinilmusick/krnl': file:../KrnlTS
-      '@kloks/functions': file:../Kloks/packages/functions
-    optionalDependencies:
-      react: 19.3.0
-      zod: 3.25.76
-
-  '@kloks/functions@file:../Kloks/packages/functions':
-    dependencies:
-      '@dinilmusick/krnl': file:../KrnlTS
-      zod: 3.25.76
-
-  '@kloks/orchestrations@file:../Kloks/packages/orchestrations':
-    dependencies:
-      '@dinilmusick/krnl': file:../KrnlTS
-      '@kloks/services': file:../Kloks/packages/services
-
-  '@kloks/services@file:../Kloks/packages/services':
-    dependencies:
-      '@dinilmusick/krnl': file:../KrnlTS
-
-  '@kloks/state-graph@file:../Kloks/packages/state-graph(@types/react@19.3.0)(react@19.3.0)':
-    dependencies:
-      '@dinilmusick/krnl': file:../KrnlTS
-      '@kloks/functions': file:../Kloks/packages/functions
-      bullmq: 6.3.13
-      zustand: 5.0.15(@types/react@19.3.0)(react@19.3.0)
-    optionalDependencies:
-      react: 19.3.0
-    transitivePeerDependencies:
-      - '@types/react'
-      - bullmq-otel
-      - immer
-      - ioredis
-      - pg
-      - redis
-      - use-sync-external-store
 
   '@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.4':
     optional: true
@@ -1088,6 +951,31 @@ snapshots:
   '@types/react@19.3.0':
     dependencies:
       csstype: 3.2.3
+
+  '@ultrst-armada/floks@file:../Floks(@ultrst-armada/kloks@file:../Kloks(@types/react@19.3.0)(react@19.3.0))(lucide-react@1.55.0(@types/react@19.3.0)(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+    dependencies:
+      '@ultrst-armada/kloks': file:../Kloks(@types/react@19.3.0)(react@19.3.0)
+      lucide-react: 1.55.0(@types/react@19.3.0)(react@19.3.0)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      zod: 3.25.76
+
+  '@ultrst-armada/kloks@file:../Kloks(@types/react@19.3.0)(react@19.3.0)':
+    dependencies:
+      bullmq: 6.3.13
+      zod: 3.25.76
+      zustand: 5.0.15(@types/react@19.3.0)(react@19.3.0)
+    transitivePeerDependencies:
+      - '@types/react'
+      - bullmq-otel
+      - immer
+      - ioredis
+      - pg
+      - react
+      - redis
+      - use-sync-external-store
+
+  '@ultrst-armada/krnl@file:../KrnlTS': {}
 
   '@vitest/expect@3.2.7':
     dependencies:

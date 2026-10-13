@@ -75,7 +75,7 @@ class PackageCatalog:
                 for c in data.get("components", []):
                     c_id = c.get("id")
                     if c_id:
-                        c["package"] = data.get("package", "@floks/ui")
+                        c["package"] = data.get("package", "@ultrst-armada/floks/ui")
                         components[c_id] = c
             except Exception:
                 continue
@@ -109,7 +109,7 @@ class CodeComposer:
     def compose_service_backend(self, service: Dict[str, Any]) -> List[CodeOperation]:
         facade_file, facade_name = self.detect_backend_facade()
         backend_info = service.get("backend", {})
-        pkg = backend_info.get("package", "@kloks/backend")
+        pkg = backend_info.get("package", "@ultrst-armada/kloks/backend")
         subpath = backend_info.get("subpath")
         facade_export = backend_info.get("export") or backend_info.get("facade", "ServiceFacade")
         import_path = f"{pkg}/{subpath}" if subpath else pkg
@@ -141,7 +141,7 @@ class CodeComposer:
             return []
 
         app_file = "src/frontend/App.tsx"
-        ui_pkg = ui_info.get("package", "@floks/ui")
+        ui_pkg = ui_info.get("package", "@ultrst-armada/floks/ui")
         components = ui_info.get("components", [])
         ops: List[CodeOperation] = []
 
@@ -362,7 +362,7 @@ class SkipoBuilder:
 
         orch = orchestrations[orch_id]
         facade_file, facade_name = self.composer.detect_backend_facade()
-        pkg = orch.get("package", "@kloks/orchestrations")
+        pkg = orch.get("package", "@ultrst-armada/kloks/orchestrations")
         export_name = orch.get("export")
         key = orch_id.replace("-", "")
 

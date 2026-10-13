@@ -35,7 +35,7 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
             readme_file.write_text(f"# {dir_path.name}\n\n{desc}\n", encoding="utf-8")
             created.append(readme_file)
 
-    # 1. package.json declaring @kloks/*, @floks/*, and @dinilmusick/krnl
+    # 1. package.json declaring unified @ultrst-armada/kloks, @ultrst-armada/floks
     pkg_json_file = target_root / "package.json"
     if not pkg_json_file.exists():
         pkg_data = {
@@ -45,16 +45,16 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
             "type": "module",
             "dependencies": {
                 "@dinilmusick/krnl": "^1.0.0",
-                "@kloks/services": "^1.0.0",
-                "@kloks/orchestrations": "^1.0.0",
-                "@kloks/functions": "^1.0.0",
-                "@kloks/audio-midi": "^1.0.0",
-                "@kloks/backend": "^1.0.0",
-                "@kloks/state-graph": "^1.0.0",
-                "@floks/ui": "^1.0.0",
-                "@floks/canvas-ui": "^1.0.0",
+                "@ultrst-armada/kloks": "^1.0.0",
+                "@ultrst-armada/floks": "^1.1.0",
                 "react": "^19.0.1",
                 "react-dom": "^19.0.1"
+            },
+            "pnpm": {
+                "overrides": {
+                    "@ultrst-armada/kloks": "file:../Kloks",
+                    "@ultrst-armada/floks": "file:../Floks"
+                }
             }
         }
         pkg_json_file.write_text(json.dumps(pkg_data, indent=2) + "\n", encoding="utf-8")
@@ -65,28 +65,28 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
     if not backend_file.exists():
         backend_content = f"""/**
  * @file {pascal}Backend.ts
- * @description Primary application backend entrypoint composing @kloks/* services & orchestrators.
+ * @description Primary application backend entrypoint composing @ultrst-armada/kloks services & orchestrators.
  */
 
 import {{
   ServiceAFacade,
   ServiceBFacade,
-}} from '@kloks/services';
+}} from '@ultrst-armada/kloks/services';
 import {{
   OrchestratorAFacade,
-}} from '@kloks/orchestrations';
+}} from '@ultrst-armada/kloks/orchestrations';
 import {{
   AudioHardwareServiceFacade,
   MidiServiceFacade,
   AudioMidiOrchestratorFacade,
-}} from '@kloks/audio-midi';
+}} from '@ultrst-armada/kloks/audio-midi';
 import {{
   AuthServiceFacade,
   StorageServiceFacade,
   WorkspaceServiceFacade,
   ExecutableBackendFacade,
   WorkerExecutionBoundary,
-}} from '@kloks/backend';
+}} from '@ultrst-armada/kloks/backend';
 
 export const {camel}BackendFacade = new ExecutableBackendFacade('{pascal}Backend');
 export const {camel}Worker = new WorkerExecutionBoundary('{pascal}Worker', {camel}BackendFacade);
@@ -119,21 +119,27 @@ export default {pascal}Backend;
     if not app_tsx.exists():
         app_content = f"""/**
  * @file App.tsx
- * @description Primary application UI composition entrypoint importing @floks/* components.
+ * @description Primary application UI composition entrypoint importing @ultrst-armada/floks components.
  */
 
-import React from 'react';
-import {{ AppShell, TopToolbar, BottomStrip, BaseCard }} from '@floks/ui';
-import {{ InfiniteCanvas }} from '@floks/canvas-ui';
+import React, {{ useState }} from 'react';
+import {{ AppShell, TopToolbar, BottomStrip, BaseCard }} from '@ultrst-armada/floks/ui';
+import {{ InfiniteCanvas, CanvasTransform }} from '@ultrst-armada/floks/canvas-ui';
 
 export function App() {{
+  const [transform, setTransform] = useState<CanvasTransform>({{ x: 0, y: 0, scale: 1 }});
+
   return (
     <AppShell
-      header={{<TopToolbar title="{pascal}" />}}
-      footer={{<BottomStrip centerText="{pascal}" />}}
+      header={{<TopToolbar title="{pascal}" actions={{<div />}} />}}
+      footer={{<BottomStrip centerSlot={{<span>{pascal}</span>}} />}}
     >
       <BaseCard>
-        <InfiniteCanvas />
+        <InfiniteCanvas
+          items={{[]}}
+          transform={{transform}}
+          onTransformChange={{setTransform}}
+        />
       </BaseCard>
     </AppShell>
   );
@@ -147,7 +153,7 @@ export default App;
     # 4. src/libraries/index.ts (Skipo-specific custom code only)
     lib_index = target_root / "src" / "libraries" / "index.ts"
     if not lib_index.exists():
-        lib_index.write_text("// Application-specific custom libraries only (never duplicate @kloks/* or @floks/*)\nexport {};\n", encoding="utf-8")
+        lib_index.write_text("// Application-specific custom libraries only (never duplicate @ultrst-armada/kloks or @ultrst-armada/floks)\nexport {};\n", encoding="utf-8")
         created.append(lib_index)
 
     return created
@@ -159,6 +165,20 @@ def run_validators(target_root: Path) -> Tuple[bool, str]:
         res = subprocess.run(["python3", str(val_01), str(target_root)], capture_output=True, text=True)
         if res.returncode != 0:
             errors.append(f"[ASPECT 01 VIOLATION]\n{res.stdout or res.stderr}")
+
+    val_15 = SKIPO_ROOT / "checklists" / "15_contract_boundary_enforcement.py"
+    if val_15.exists():
+        res = subprocess.run(["python3", str(val_15), str(target_root)], capture_output=True, text=True)
+        if res.returncode != 0:
+            errors.append(f"[ASPECT 15 VIOLATION]\n{res.stdout or res.stderr}")
+
+    # If tsconfig.json and node_modules exist, run TypeScript typecheck
+    tsconfig = target_root / "tsconfig.json"
+    if tsconfig.exists() and (target_root / "node_modules").exists():
+        res = subprocess.run(["pnpm", "exec", "tsc", "--noEmit"], cwd=str(target_root), capture_output=True, text=True)
+        if res.returncode != 0:
+            errors.append(f"[TYPECHECK VIOLATION]\n{res.stdout or res.stderr}")
+
     return len(errors) == 0, "\n\n".join(errors)
 
 def main():

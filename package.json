@@ -17,14 +17,8 @@
   },
   "dependencies": {
     "@dinilmusick/krnl": "^1.0.0",
-    "@kloks/services": "^1.0.0",
-    "@kloks/orchestrations": "^1.0.0",
-    "@kloks/functions": "^1.0.0",
-    "@kloks/audio-midi": "^1.0.0",
-    "@kloks/backend": "^1.0.0",
-    "@kloks/state-graph": "^1.0.0",
-    "@floks/ui": "^1.0.0",
-    "@floks/canvas-ui": "^1.0.0",
+    "@ultrst-armada/kloks": "^1.1.0",
+    "@ultrst-armada/floks": "^1.1.0",
     "lucide-react": "^1.55.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1"
@@ -39,14 +33,8 @@
   "pnpm": {
     "overrides": {
       "@dinilmusick/krnl": "file:../KrnlTS",
-      "@kloks/services": "file:../Kloks/packages/services",
-      "@kloks/orchestrations": "file:../Kloks/packages/orchestrations",
-      "@kloks/functions": "file:../Kloks/packages/functions",
-      "@kloks/audio-midi": "file:../Kloks/packages/audio-midi",
-      "@kloks/backend": "file:../Kloks/packages/backend",
-      "@kloks/state-graph": "file:../Kloks/packages/state-graph",
-      "@floks/ui": "file:../Floks/packages/ui",
-      "@floks/canvas-ui": "file:../Floks/packages/canvas-ui"
+      "@ultrst-armada/kloks": "file:../Kloks",
+      "@ultrst-armada/floks": "file:../Floks"
     }
   },
   "packageManager": "pnpm@9.15.0",

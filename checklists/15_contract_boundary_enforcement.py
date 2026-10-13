@@ -76,6 +76,7 @@ VALID_KLOKS_SUBPATHS = {
     "services",
     "backend",
     "backend/execution",
+    "backend/krnl-services",
     "orchestrations",
     "contracts",
 }
@@ -92,9 +93,9 @@ IMPORT_REGEX = re.compile(
     re.MULTILINE
 )
 
-# Pattern detecting local definitions of canonical types/classes/functions
-LOCAL_SHIM_REGEX = re.compile(
-    r"""^\s*(?:export\s+)?(?:interface|type|class|function|const)\s+([A-Za-z0-9_]+)\b""",
+# Pattern detecting actual local declarations (interface Foo {, type Foo =, class Foo {, const Foo =, etc.)
+LOCAL_DECL_REGEX = re.compile(
+    r"""^\s*(?:export\s+)?(?:interface\s+([A-Za-z0-9_]+)\s*(?:\{|<|extends)|type\s+([A-Za-z0-9_]+)\s*(?:<[^=]*>)?\s*=|class\s+([A-Za-z0-9_]+)\s*(?:\{|<|extends|implements)|function\s+([A-Za-z0-9_]+)\s*(?:<|\()|const\s+([A-Za-z0-9_]+)\s*(?::|=))""",
     re.MULTILINE
 )
 
@@ -104,6 +105,24 @@ def validate_contract_boundaries(target: Path) -> ChecklistResult:
     files_scanned = 0
 
     target = target.resolve()
+    is_kloks = False
+    is_floks = False
+    target_pkg = target / "package.json"
+    if target_pkg.exists():
+        try:
+            pkg_data = json.loads(target_pkg.read_text(encoding="utf-8"))
+            p_name = pkg_data.get("name", "")
+            if "@ultrst-armada/kloks" in p_name or p_name == "kloks":
+                is_kloks = True
+            elif "@ultrst-armada/floks" in p_name or p_name == "floks":
+                is_floks = True
+        except Exception:
+            pass
+    if "Kloks" in target.parts:
+        is_kloks = True
+    if "Floks" in target.parts:
+        is_floks = True
+
     if target.is_file():
         code_files = [target]
     else:
@@ -146,17 +165,22 @@ def validate_contract_boundaries(target: Path) -> ChecklistResult:
                         suggestion="Import from canonical package export surface instead of internal path."
                     ))
 
-                # Ban 2: raw source path imports across packages
-                if re.search(r"@(?:ultrst-armada/)?(?:kloks|floks)/.*/src/", import_src) or "/packages/" in import_src:
-                    violations.append(Violation(
-                        rule_id="15.1-raw-src-import-banned",
-                        severity="error",
-                        message=f"Forbidden raw source/package import '{import_src}'.",
-                        file_path=rel_path,
-                        line=idx,
-                        snippet=line.strip(),
-                        suggestion="Use canonical package subpath without /src/ or /packages/."
-                    ))
+                # Ban 2: raw source path imports across packages (importing another package's /src/ or ../<Package>/src/)
+                is_internal_pkg_ref = (is_kloks and ("/packages/" in import_src or import_src.startswith("./") or import_src.startswith("../"))) or \
+                                      (is_floks and ("/packages/" in import_src or import_src.startswith("./") or import_src.startswith("../")))
+                if not is_internal_pkg_ref:
+                    if re.search(r"@(?:ultrst-armada/)?(?:kloks|floks)/.*/src/", import_src) or \
+                       re.search(r"\.\./(?:Floks|Kloks|Theta|Skipo|Qwnsr)/.*src/", import_src) or \
+                       (not (is_kloks or is_floks) and "/packages/" in import_src):
+                        violations.append(Violation(
+                            rule_id="15.6-raw-src-import-banned",
+                            severity="error",
+                            message=f"Forbidden raw source/package import '{import_src}'.",
+                            file_path=rel_path,
+                            line=idx,
+                            snippet=line.strip(),
+                            suggestion="Use canonical package subpath without /src/ or /packages/."
+                        ))
 
                 # Ban 3: invalid subpaths on @ultrst-armada/kloks
                 if import_src.startswith("@ultrst-armada/kloks/") or import_src.startswith("@kloks/"):
@@ -188,19 +212,31 @@ def validate_contract_boundaries(target: Path) -> ChecklistResult:
                             suggestion=f"Valid subpaths are: {', '.join(sorted(VALID_FLOKS_SUBPATHS))}"
                         ))
 
-        # Check 2: Local canonical symbol shim detection
-        # Ignore files that are re-exporting canonical symbols
+        # Check 2: Local canonical symbol shim detection & Export authorization
+        in_reexport_block = False
         for idx, line in enumerate(lines, 1):
-            # Skip import lines and export { ... } from lines
             stripped = line.strip()
+
+            if "export {" in stripped and " from " not in stripped:
+                in_reexport_block = True
+            if in_reexport_block:
+                if "} from " in stripped or "};" in stripped:
+                    in_reexport_block = False
+                continue
+
             if stripped.startswith("import ") or " from " in stripped:
                 continue
 
-            match = LOCAL_SHIM_REGEX.match(line)
+            match = LOCAL_DECL_REGEX.match(line)
             if match:
-                sym = match.group(1)
-                if sym in CANONICAL_LIBRARY_SYMBOLS:
+                # Find which group captured the symbol name
+                sym = next((g for g in match.groups() if g is not None), None)
+                if sym and sym in CANONICAL_LIBRARY_SYMBOLS:
                     canonical_src = CANONICAL_LIBRARY_SYMBOLS[sym]
+                    if is_kloks and canonical_src.startswith("@ultrst-armada/kloks"):
+                        continue
+                    if is_floks and canonical_src.startswith("@ultrst-armada/floks"):
+                        continue
                     violations.append(Violation(
                         rule_id="15.2-local-canonical-shim-detected",
                         severity="error",
@@ -211,7 +247,7 @@ def validate_contract_boundaries(target: Path) -> ChecklistResult:
                         suggestion=f"Delete local definition and import '{sym}' from canonical library '{canonical_src}'."
                     ))
 
-    # Check 3: Installed Contract vs Consumer Requirements
+    # Check 3: Installed Contract vs Consumer Requirements & Export Authorization
     skipo_contracts_dir = target / ".skipo" / "contracts"
     if skipo_contracts_dir.is_dir():
         for req_file in skipo_contracts_dir.glob("*.json"):
@@ -228,8 +264,71 @@ def validate_contract_boundaries(target: Path) -> ChecklistResult:
                             file_path=str(req_file.relative_to(target)),
                             suggestion="Upgrade library or reconcile required symbol names."
                         ))
+
+                # Export authorization check:
+                approved_exports = set(data.get("approvedExports", []))
+                exported_symbols = data.get("exportedSymbols", [])
+                if approved_exports and exported_symbols:
+                    for sym in exported_symbols:
+                        if sym not in approved_exports:
+                            violations.append(Violation(
+                                rule_id="15.5-unauthorized-symbol-export",
+                                severity="error",
+                                message=f"Package exports unauthorized symbol '{sym}' not in approved public contract.",
+                                file_path=str(req_file.relative_to(target)),
+                                suggestion="Remove symbol export or add it to approved public contract manifest."
+                            ))
             except Exception:
                 pass
+
+    # Check 4: Filesystem escapes in tsconfig.json and vite.config.ts
+    tsconfig_file = target / "tsconfig.json"
+    if tsconfig_file.exists():
+        try:
+            ts_content = tsconfig_file.read_text(encoding="utf-8")
+            if re.search(r'"\.\./(?:Floks|Kloks|Theta|Skipo|Qwnsr)', ts_content):
+                violations.append(Violation(
+                    rule_id="15.7-filesystem-escape-detected",
+                    severity="error",
+                    message="Filesystem escape detected in tsconfig.json: references sibling package directory directly.",
+                    file_path="tsconfig.json",
+                    suggestion="Use canonical package names installed in node_modules."
+                ))
+        except Exception:
+            pass
+
+    vite_file = target / "vite.config.ts"
+    if vite_file.exists():
+        try:
+            vite_content = vite_file.read_text(encoding="utf-8")
+            if re.search(r'resolve\([^)]*"\.\./(?:Floks|Kloks|Theta|Skipo|Qwnsr)', vite_content) or re.search(r'"\.\./(?:Floks|Kloks|Theta|Skipo|Qwnsr)', vite_content):
+                violations.append(Violation(
+                    rule_id="15.7-filesystem-escape-detected",
+                    severity="error",
+                    message="Filesystem escape detected in vite.config.ts: references sibling package directory directly.",
+                    file_path="vite.config.ts",
+                    suggestion="Use canonical package names installed in node_modules."
+                ))
+        except Exception:
+            pass
+
+    # Check 5: Disaggregated package names in package.json
+    if target_pkg.exists():
+        try:
+            pkg_data = json.loads(target_pkg.read_text(encoding="utf-8"))
+            for dep_type in ("dependencies", "devDependencies", "peerDependencies"):
+                deps = pkg_data.get(dep_type, {})
+                for dep_name in deps.keys():
+                    if dep_name.startswith("@kloks/") or dep_name.startswith("@floks/"):
+                        violations.append(Violation(
+                            rule_id="15.8-disaggregated-package-name-detected",
+                            severity="error",
+                            message=f"Disaggregated package name '{dep_name}' declared in {dep_type}. Must use canonical unified package identity '@ultrst-armada/kloks' or '@ultrst-armada/floks'.",
+                            file_path="package.json",
+                            suggestion="Replace with '@ultrst-armada/kloks' or '@ultrst-armada/floks'."
+                        ))
+        except Exception:
+            pass
 
     duration = (time.time() - start_time) * 1000.0
     passed = len(violations) == 0

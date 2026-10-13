@@ -7,32 +7,32 @@ import {
   ServiceBFacade,
   ServiceCFacade,
   ServiceDFacade,
-} from '@kloks/services';
+} from '@ultrst-armada/kloks/services';
 import {
   OrchestratorAFacade,
   OrchestratorBFacade,
-} from '@kloks/orchestrations';
+} from '@ultrst-armada/kloks/orchestrations';
 import {
   AudioHardwareServiceFacade,
   MidiServiceFacade,
   AudioMidiOrchestratorFacade,
-} from '@kloks/audio-midi';
-import { FunctionsServiceFacade } from '@kloks/functions';
+} from '@ultrst-armada/kloks/audio-midi';
+import { FunctionsServiceFacade } from '@ultrst-armada/kloks/functions';
 import {
   AuthServiceFacade,
   StorageServiceFacade,
   WorkspaceServiceFacade,
   ControlPlaneServiceFacade,
   ExecutionServiceFacade,
-} from '@kloks/backend/krnl-services';
+} from '@ultrst-armada/kloks/backend/krnl-services';
 import {
   ExecutableBackendFacade,
   WorkerExecutionBoundary,
-} from '@kloks/backend/execution';
+} from '@ultrst-armada/kloks/backend/execution';
 import {
   StateLifecycleServiceFacade,
   NodeGraphEngineServiceFacade,
-} from '@kloks/state-graph';
+} from '@ultrst-armada/kloks/state-graph';
 
 /**
  * ──────────────────────────────────────────────────────────────────────────────

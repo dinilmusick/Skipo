@@ -2,7 +2,7 @@
 // 1. IMPORTS & EXTERNAL DEPENDENCIES (@floks/* PACKAGES)
 // ══════════════════════════════════════════════════════════════════════════════
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   AppShell,
   TopToolbar,
@@ -11,8 +11,8 @@ import {
   BaseCard,
   WorkspaceTilesMenu,
   type WorkspaceRecord,
-} from '@floks/ui';
-import { InfiniteCanvas, DockBar } from '@floks/canvas-ui';
+} from '@ultrst-armada/floks/ui';
+import { InfiniteCanvas, DockBar } from '@ultrst-armada/floks/canvas-ui';
 import { SkipoBackend } from '../backend/SkipoBackend.js';
 
 /**
@@ -31,6 +31,7 @@ export function App() {
   const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([
     { id: 'ws-default', name: 'Primary Workspace', storageProvider: 'local_fs' },
   ]);
+  const [canvasTransform, setCanvasTransform] = useState({ x: 0, y: 0, scale: 1 });
 
   if (!activeWorkspace) {
     return (
@@ -64,19 +65,22 @@ export function App() {
       header={
         <TopToolbar
           title={activeWorkspace.name}
-          rightContent={
+          actions={
             <BaseButton onClick={() => setActiveWorkspace(null)}>
               Switch Workspace
             </BaseButton>
           }
         />
       }
-      footer={<BottomStrip centerText={activeWorkspace.name} />}
+      footer={<BottomStrip centerSlot={<span>{activeWorkspace.name}</span>} />}
     >
       <BaseCard>
-        <InfiniteCanvas>
-          <DockBar items={[]} />
-        </InfiniteCanvas>
+        <InfiniteCanvas
+          items={[]}
+          transform={canvasTransform}
+          onTransformChange={setCanvasTransform}
+        />
+        <DockBar items={[]} />
       </BaseCard>
     </AppShell>
   );
