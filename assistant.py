@@ -379,37 +379,54 @@ def handle_contract(args: argparse.Namespace) -> None:
         # Create or update .skipo/contracts/ in target
         contracts_dir = target / ".skipo" / "contracts"
         contracts_dir.mkdir(parents=True, exist_ok=True)
-        kloks_snap_path = HERE.parent / "Kloks/.kloks/contract-snapshot.json"
-        if kloks_snap_path.exists():
-            dest = contracts_dir / "kloks.json"
-            dest.write_text(kloks_snap_path.read_text(encoding="utf-8"), encoding="utf-8")
-            print(green(f"✔ Contract snapshot written to {dest}"))
-        else:
-            print(yellow(f"⚠ Kloks snapshot not found at {kloks_snap_path}"))
-        sys.exit(0)
+        libraries = [
+            ("Kloks", HERE.parent / "Kloks/.kloks/contract-snapshot.json", "kloks.json"),
+            ("Floks", HERE.parent / "Floks/.floks/contract-snapshot.json", "floks.json"),
+        ]
+        written = 0
+        for name, snap_path, dest_name in libraries:
+            if snap_path.exists():
+                dest = contracts_dir / dest_name
+                dest.write_text(snap_path.read_text(encoding="utf-8"), encoding="utf-8"),
+                print(green(f"✔ {name} contract snapshot written to {dest}"))
+                written += 1
+            else:
+                print(yellow(f"⚠ {name} snapshot not found at {snap_path}"))
+        sys.exit(0 if written > 0 else 1)
     elif action == "diff":
         contracts_dir = target / ".skipo" / "contracts"
-        kloks_snap_path = HERE.parent / "Kloks/.kloks/contract-snapshot.json"
-        installed_snap_path = contracts_dir / "kloks.json"
-        if not installed_snap_path.exists():
-            print(red(f"✘ No installed contract snapshot at {installed_snap_path}"))
+        libraries = [
+            ("Kloks", HERE.parent / "Kloks/.kloks/contract-snapshot.json", "kloks.json"),
+            ("Floks", HERE.parent / "Floks/.floks/contract-snapshot.json", "floks.json"),
+        ]
+        any_breaking = False
+        any_diff_run = False
+        for name, snap_path, dest_name in libraries:
+            installed_snap_path = contracts_dir / dest_name
+            if not installed_snap_path.exists():
+                continue
+            if not snap_path.exists():
+                print(yellow(f"⚠ No latest {name} snapshot found at {snap_path}"))
+                continue
+            any_diff_run = True
+            prev = json.loads(installed_snap_path.read_text(encoding="utf-8"))
+            curr = json.loads(snap_path.read_text(encoding="utf-8"))
+            prev_syms = set(prev.get("publicSymbols", []))
+            curr_syms = set(curr.get("publicSymbols", []))
+            removed = list(prev_syms - curr_syms)
+            added = list(curr_syms - prev_syms)
+            print(bold(f"Contract diff for {name}:"))
+            if removed:
+                print(red(f"  ✘ BREAKING CHANGES ({len(removed)} removed symbols): MAJOR upgrade required."))
+                any_breaking = True
+            elif added:
+                print(yellow(f"  ⚠ ADDITIVE CHANGES ({len(added)} added symbols): MINOR upgrade required."))
+            else:
+                print(green("  ✔ Contract surfaces are identical. PATCH compatible."))
+        if not any_diff_run:
+            print(red(f"✘ No installed contract snapshots found in {contracts_dir}"))
             sys.exit(1)
-        if not kloks_snap_path.exists():
-            print(red(f"✘ No latest Kloks snapshot found at {kloks_snap_path}"))
-            sys.exit(1)
-        prev = json.loads(installed_snap_path.read_text(encoding="utf-8"))
-        curr = json.loads(kloks_snap_path.read_text(encoding="utf-8"))
-        prev_syms = set(prev.get("publicSymbols", []))
-        curr_syms = set(curr.get("publicSymbols", []))
-        removed = list(prev_syms - curr_syms)
-        added = list(curr_syms - prev_syms)
-        if removed:
-            print(red(f"✘ BREAKING CHANGES ({len(removed)} removed symbols): MAJOR upgrade required."))
-        elif added:
-            print(yellow(f"⚠ ADDITIVE CHANGES ({len(added)} added symbols): MINOR upgrade required."))
-        else:
-            print(green("✔ Contract surfaces are identical. PATCH compatible."))
-        sys.exit(0 if not removed else 1)
+        sys.exit(1 if any_breaking else 0)
     elif action == "verify":
         cmd = ["python3", str(HERE / "checklists/15_contract_boundary_enforcement.py"), str(target)]
         sys.exit(run_command(cmd, HERE))
