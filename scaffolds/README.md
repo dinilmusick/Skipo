@@ -1,55 +1,81 @@
-# Skipo App Scaffolds
+# SKIPO App Scaffolds
 
-Production-ready, zero-boilerplate starter templates designed for instant deployment, AI Studio ingestion, and local development.
+SKIPO maintains one scaffold per frontend framework. Workspace strategy is selected through the application's KLOKS backend composition and is not represented by separate scaffold variants.
 
----
+## Canonical Scaffolds
 
-## Workspace Storage Architectural Models
+- `scaffolds/nextjs/` — Next.js application scaffold
+- `scaffolds/vite/` — Vite + React application scaffold
 
-Skipo explicitly formalizes two distinct workspace storage paradigms based on application runtime I/O requirements:
+## Workspace Strategy
+
+Both scaffolds support either KLOKS workspace implementation:
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                   ARCHITECTURAL SELECTION MATRIX                       │
-├───────────────────────────────┬────────────────────────────────────────┤
-│ Architecture Model            │ Target Use Cases & I/O Characteristics │
-├───────────────────────────────┼────────────────────────────────────────┤
-│ 1. Direct-Vault               │ Document managers, knowledge bases,    │
-│    (scaffolds/*-direct-vault) │ low-frequency runtime I/O (e.g.        │
-│                               │ DocuStack-Engine, Depm-Engine).        │
-│                               │ Direct vault operations, zero local    │
-│                               │ ./workspace cache folder required.     │
-├───────────────────────────────┼────────────────────────────────────────┤
-│ 2. Working-Workspace          │ Audio engines, DSP, graph compilers,  │
-│    (scaffolds/*-working-ws)   │ high-frequency runtime I/O (e.g.       │
-│                               │ Qwnsr-Engine, Loky-Engine).            │
-│                               │ Fast local ./workspace working cache   │
-│                               │ with timestamped sync to Primary Vault │
-│                               │ and secondary backup clone mirroring.  │
-└───────────────────────────────┴────────────────────────────────────────┘
+Application Backend Facade
+        ↓
+WorkspaceService
+   ┌────┴────┐
+   ↓         ↓
+Remote    Working
+Workspace Workspace
 ```
 
----
+### Remote-first
 
-## Available Scaffolds
+Used by applications such as DEPM.
 
-### 1. Direct-Vault Architecture (Zero-Cache, Direct Storage Engine)
-* **`scaffolds/vite-direct-vault/`**: Vite + React 19 + Express + Cloudflare Worker adapter. Direct I/O to Primary Storage Vault (`ultrst_<app>_<user>_<ws>`) or remote B2 bucket with Secondary Redundant Clones.
-* **`scaffolds/nextjs-direct-vault/`**: Next.js 15/16 App Router. Direct I/O to storage backends.
+- authoritative reads/writes go directly to the remote workspace/storage
+- no local working-copy requirement
 
-### 2. Working-Workspace Architecture (Fast Local Working Directory + Vault Sync)
-* **`scaffolds/vite-working-workspace/`**: Vite + React 19 + Express with active `./workspace` working directory, bi-directional timestamp sync (`workspaceSyncEngine.ts`), and redundant clone mirroring (`workspaceCloneSyncCore.ts`).
-* **`scaffolds/nextjs-working-workspace/`**: Next.js 15/16 App Router with working workspace cache support.
+### Local working workspace
 
----
+Used by applications such as QWNSR.
 
-## Shared Foundation in All Scaffolds
-1. **Strict Neon System Database Authentication**:
-   - Zero offline dummy fallbacks or fake admin accounts.
-   - Verification against `ultrst-users` and `ultrst-credentials` using `SYSTEM_DATABASE_URL_1..3`.
-2. **SRKL Backblaze B2 Auto-Discovery**:
-   - Discovers provisioned Backblaze B2 accounts dynamically from user profiles.
-3. **Secondary Redundant Storage Clones**:
-   - Support for multiple clone destinations (`backblaze_b2`, `local_fs`) with one-click replication.
-4. **Law L9 Compliance**:
-   - Every file strictly $\le 200$ lines.
+- reads/writes use the local working workspace
+- synchronization persists changes to the authoritative remote workspace
+- synchronization/conflict behavior belongs to the workspace implementation
+
+## Scaffold Rule
+
+Do NOT create:
+
+- `nextjs-direct-vault`
+- `nextjs-working-workspace`
+- `vite-direct-vault`
+- `vite-working-workspace`
+
+as independent architectural variants.
+
+Legacy variants are migration sources only. Their required behavior must be consolidated into the canonical framework scaffold and delegated to KLOKS workspace services.
+
+## Generated Execution Path
+
+```
+FLOKS component
+→ SKIPO event/action
+→ SKIPO command
+→ browser execution client
+→ queue gateway
+→ BullMQ
+→ worker
+→ application backend facade
+→ service
+→ operation
+```
+
+Frontend generated code must not import backend services, database adapters, server BullMQ/Redis, provider implementations, credentials, or Node-only modules.
+
+## Validation
+
+Every canonical scaffold must pass:
+
+1. typecheck
+2. build
+3. SKIPO architecture validation
+4. generated-project validation
+5. browser dependency-closure checks
+6. execution-path tests
+7. workspace strategy integration tests
+
+Law L9 remains applicable to generated source files.
