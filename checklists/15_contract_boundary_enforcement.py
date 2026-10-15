@@ -84,6 +84,8 @@ CANONICAL_LIBRARY_SYMBOLS = {
 
 VALID_KLOKS_SUBPATHS = {
     "",
+    "client",
+    "shared",
     "functions",
     "state-graph",
     "state-graph/state",
@@ -95,10 +97,34 @@ VALID_KLOKS_SUBPATHS = {
     "audio-midi",
     "services",
     "backend",
+    "backend/client",
+    "backend/worker",
     "backend/execution",
     "backend/krnl-services",
     "orchestrations",
     "contracts",
+}
+
+DATABASE_PACKAGES = {
+    "better-sqlite3", "sqlite3", "pg", "mysql", "mysql2",
+    "@neondatabase/serverless", "@supabase/supabase-js",
+    "typeorm", "prisma", "@prisma/client", "drizzle-orm"
+}
+DATABASE_PREFIXES = ("@aws-sdk/", "@google-cloud/", "firebase-admin")
+
+SERVER_PACKAGES = {"bullmq", "ioredis", "redis"}
+NODE_BUILTINS = {
+    "fs", "node:fs", "path", "node:path", "crypto", "node:crypto",
+    "child_process", "node:child_process", "net", "node:net",
+    "os", "node:os", "http", "node:http", "https", "node:https",
+    "stream", "node:stream", "cluster", "node:cluster",
+    "worker_threads", "node:worker_threads"
+}
+BACKEND_ONLY_SYMBOLS = {
+    "SrklCredentialRegistry", "globalCredentialRegistry", "nodeGraphPersistence",
+    "RemoteWorkspaceService", "WorkingWorkspaceService", "BackendFacade",
+    "WorkerExecutionBoundary", "backendFacade", "workerExecutionBoundary",
+    "ExecutableBackendFacade"
 }
 
 VALID_FLOKS_SUBPATHS = {
@@ -166,6 +192,29 @@ def validate_contract_boundaries(target: Path) -> ChecklistResult:
         except Exception:
             continue
 
+        rel_posix = rel_path.replace("\\", "/")
+        is_fixture = "fixture" in rel_posix.lower() or "temp" in rel_posix.lower() or "skipo_fixture" in str(fpath).lower()
+        is_test_file = any(t in rel_posix for t in [".test.", ".spec.", "__tests__/"]) and not is_fixture
+
+        is_ui = (not is_kloks and not is_floks and not is_test_file) and (
+            "src/frontend/" in rel_posix or
+            "/frontend/" in rel_posix or
+            "/components/" in rel_posix or
+            "/canvas-ui/" in rel_posix or
+            "/ui/" in rel_posix or
+            "scaffolds/nextjs/app/" in rel_posix or
+            "scaffolds/vite/app/" in rel_posix or
+            (fpath.suffix in {".tsx", ".jsx"} and not any(k in rel_posix for k in ["backend/", "worker/", "api/", "server/"]))
+        )
+
+        is_worker = (not is_kloks and not is_floks and not is_test_file) and (
+            "/worker/" in rel_posix or
+            "/workers/" in rel_posix or
+            "worker." in fpath.name.lower() or
+            fpath.name.lower().endswith("worker.ts") or
+            fpath.name.lower().endswith("worker.js")
+        )
+
         lines = content.splitlines()
 
         # Check 1: Forbidden internal imports
@@ -231,6 +280,91 @@ def validate_contract_boundaries(target: Path) -> ChecklistResult:
                             snippet=line.strip(),
                             suggestion=f"Valid subpaths are: {', '.join(sorted(VALID_FLOKS_SUBPATHS))}"
                         ))
+
+                # Ban 5: UI execution boundary violations
+                if is_ui:
+                    # UI -> backend implementation
+                    is_kloks_backend = (
+                        import_src == "@ultrst-armada/kloks/backend" or
+                        (import_src.startswith("@ultrst-armada/kloks/backend/") and import_src != "@ultrst-armada/kloks/backend/client") or
+                        import_src == "@kloks/backend" or
+                        (import_src.startswith("@kloks/backend/") and import_src != "@kloks/backend/client") or
+                        import_src.startswith("@ultrst-armada/kloks/services") or
+                        import_src.startswith("@kloks/services")
+                    )
+                    is_direct_backend_rel = (
+                        re.search(r"(?:^\.\./|\./).*/backend(?:/.*)?$", import_src) is not None or
+                        import_src.endswith("Backend")
+                    )
+                    has_backend_symbol = any(sym in line for sym in BACKEND_ONLY_SYMBOLS)
+
+                    if is_kloks_backend or is_direct_backend_rel or (has_backend_symbol and ("backend" in import_src or "services" in import_src)):
+                        violations.append(Violation(
+                            rule_id="15.9-ui-backend-import-forbidden",
+                            severity="error",
+                            message=f"UI component directly imports backend implementation '{import_src}'. Frontend must only import '@ultrst-armada/kloks/client' or route through API.",
+                            file_path=rel_path,
+                            line=idx,
+                            snippet=line.strip(),
+                            suggestion="Move backend operations behind an authenticated API endpoint or use client-safe contract imports."
+                        ))
+
+                    # UI -> database/provider
+                    if import_src in DATABASE_PACKAGES or any(import_src.startswith(p) for p in DATABASE_PREFIXES):
+                        violations.append(Violation(
+                            rule_id="15.10-ui-database-provider-forbidden",
+                            severity="error",
+                            message=f"UI component directly imports database or provider SDK '{import_src}'.",
+                            file_path=rel_path,
+                            line=idx,
+                            snippet=line.strip(),
+                            suggestion="Database and cloud provider interactions must reside strictly in server/backend services."
+                        ))
+
+                    # UI -> BullMQ / Node builtins
+                    if import_src in SERVER_PACKAGES or import_src in NODE_BUILTINS:
+                        violations.append(Violation(
+                            rule_id="15.11-ui-server-builtin-forbidden",
+                            severity="error",
+                            message=f"UI component imports server queue or Node builtin module '{import_src}'.",
+                            file_path=rel_path,
+                            line=idx,
+                            snippet=line.strip(),
+                            suggestion="Frontend code must be pure and browser-safe. Remove server-only modules."
+                        ))
+
+                # Ban 6: Worker direct service bypass
+                if is_worker:
+                    if "@ultrst-armada/kloks/services" in import_src or "@kloks/services" in import_src or "/services/" in import_src:
+                        violations.append(Violation(
+                            rule_id="15.12-worker-direct-service-forbidden",
+                            severity="error",
+                            message=f"Worker directly imports domain service '{import_src}' bypassing BackendFacade.",
+                            file_path=rel_path,
+                            line=idx,
+                            snippet=line.strip(),
+                            suggestion="Dispatch operations through BackendFacade or WorkerExecutionBoundary instead of direct service invocation."
+                        ))
+
+        # Check 1.1: Worker must route through BackendFacade / WorkerExecutionBoundary
+        if is_worker:
+            has_facade = any(k in content for k in [
+                "BackendFacade",
+                "WorkerExecutionBoundary",
+                "backendFacade",
+                "workerExecutionBoundary",
+                "ExecutableBackendFacade"
+            ])
+            if not has_facade:
+                violations.append(Violation(
+                    rule_id="15.13-worker-missing-facade",
+                    severity="error",
+                    message=f"Worker entrypoint '{rel_path}' does not route execution through BackendFacade / WorkerExecutionBoundary.",
+                    file_path=rel_path,
+                    line=1,
+                    snippet="",
+                    suggestion="Worker must process jobs strictly through WorkerExecutionBoundary and BackendFacade."
+                ))
 
         # Check 2: Local canonical symbol shim detection & Export authorization
         in_reexport_block = False

@@ -171,5 +171,90 @@ class BoundaryFixturesTest(unittest.TestCase):
         self.assertTrue(res.passed, f"Positive control should pass, got violations: {res.violations}")
         self.assertEqual(len(res.violations), 0)
 
+    def test_fixture_08_ui_to_backend_implementation(self):
+        """FIXTURE_08: UI imports @ultrst-armada/kloks/backend directly -> REJECTED."""
+        code_file = self.temp_dir / "src" / "frontend" / "Consumer.ts"
+        code_file.parent.mkdir(parents=True, exist_ok=True)
+        code_file.write_text(
+            "import { SrklCredentialRegistry } from '@ultrst-armada/kloks/backend';\n"
+            "export const reg = SrklCredentialRegistry;\n",
+            encoding="utf-8"
+        )
+        res = validate_contract_boundaries(self.temp_dir)
+        self.assertFalse(res.passed, "FIXTURE_08 must fail UI -> backend import check")
+        rule_ids = [v.rule_id for v in res.violations]
+        self.assertIn("15.9-ui-backend-import-forbidden", rule_ids)
+
+    def test_fixture_09_ui_to_database_provider(self):
+        """FIXTURE_09: UI imports database/cloud provider directly -> REJECTED."""
+        code_file = self.temp_dir / "src" / "frontend" / "Consumer.tsx"
+        code_file.parent.mkdir(parents=True, exist_ok=True)
+        code_file.write_text(
+            "import { neon } from '@neondatabase/serverless';\n"
+            "export const db = neon('postgresql://...');\n",
+            encoding="utf-8"
+        )
+        res = validate_contract_boundaries(self.temp_dir)
+        self.assertFalse(res.passed, "FIXTURE_09 must fail UI -> database check")
+        rule_ids = [v.rule_id for v in res.violations]
+        self.assertIn("15.10-ui-database-provider-forbidden", rule_ids)
+
+    def test_fixture_10_ui_to_server_builtin(self):
+        """FIXTURE_10: UI imports BullMQ or Node builtins -> REJECTED."""
+        code_file = self.temp_dir / "src" / "frontend" / "Consumer.ts"
+        code_file.parent.mkdir(parents=True, exist_ok=True)
+        code_file.write_text(
+            "import { Queue } from 'bullmq';\n"
+            "import fs from 'node:fs';\n"
+            "export const q = Queue;\n",
+            encoding="utf-8"
+        )
+        res = validate_contract_boundaries(self.temp_dir)
+        self.assertFalse(res.passed, "FIXTURE_10 must fail UI -> server/Node check")
+        rule_ids = [v.rule_id for v in res.violations]
+        self.assertIn("15.11-ui-server-builtin-forbidden", rule_ids)
+
+    def test_fixture_11_worker_direct_service_forbidden(self):
+        """FIXTURE_11: Worker directly imports domain services instead of routing through BackendFacade -> REJECTED."""
+        code_file = self.temp_dir / "src" / "worker" / "ExecutionWorker.ts"
+        code_file.parent.mkdir(parents=True, exist_ok=True)
+        code_file.write_text(
+            "import { AudioHardwareService } from '@ultrst-armada/kloks/services/AudioHardwareService';\n"
+            "export const svc = AudioHardwareService;\n",
+            encoding="utf-8"
+        )
+        res = validate_contract_boundaries(self.temp_dir)
+        self.assertFalse(res.passed, "FIXTURE_11 must fail worker direct service check")
+        rule_ids = [v.rule_id for v in res.violations]
+        self.assertIn("15.12-worker-direct-service-forbidden", rule_ids)
+
+    def test_fixture_12_worker_missing_facade(self):
+        """FIXTURE_12: Worker does not route execution through BackendFacade / WorkerExecutionBoundary -> REJECTED."""
+        code_file = self.temp_dir / "src" / "worker" / "ExecutionWorker.ts"
+        code_file.parent.mkdir(parents=True, exist_ok=True)
+        code_file.write_text(
+            "export function runJob(job: any) {\n"
+            "  console.log('Running job directly without facade', job);\n"
+            "}\n",
+            encoding="utf-8"
+        )
+        res = validate_contract_boundaries(self.temp_dir)
+        self.assertFalse(res.passed, "FIXTURE_12 must fail worker missing facade check")
+        rule_ids = [v.rule_id for v in res.violations]
+        self.assertIn("15.13-worker-missing-facade", rule_ids)
+
+    def test_fixture_13_worker_with_facade_passes(self):
+        """FIXTURE_13: Worker routes through BackendFacade / WorkerExecutionBoundary -> PASSES."""
+        code_file = self.temp_dir / "src" / "worker" / "ExecutionWorker.ts"
+        code_file.parent.mkdir(parents=True, exist_ok=True)
+        code_file.write_text(
+            "import { WorkerExecutionBoundary, BackendFacade } from '@ultrst-armada/kloks/backend';\n"
+            "export const boundary = WorkerExecutionBoundary;\n"
+            "export const facade = BackendFacade;\n",
+            encoding="utf-8"
+        )
+        res = validate_contract_boundaries(self.temp_dir)
+        self.assertTrue(res.passed, f"Worker with facade should pass, got violations: {res.violations}")
+
 if __name__ == "__main__":
     unittest.main()
