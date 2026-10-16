@@ -1,18 +1,9 @@
 #!/usr/bin/env python3
-"""
-Aspect 14: Package Export Boundary & Sub-Path Validator
-Spec: ECOSYSTEM-TIGHTENING-PLAN §14, KRUSBL-PLAN-PATCH §7, §13
-Enforces:
-- HARD_FAIL: Private deep imports into packages (e.g. @ultrst-armada/floks/src/* or @ultrst-armada/floks/packages/*).
-- HARD_FAIL: Subpaths not declared in package exports map.
-- HARD_FAIL: Stale private package paths.
-- PASS: Standard public package export paths (@ultrst-armada/floks/ui, @ultrst-armada/kloks/services, etc.).
-"""
+"""Aspect 14: Package Export Boundary & Sub-Path Validator
+Spec: ECOSYSTEM-TIGHTENING-PLAN §14, KRUSBL-PLAN-PATCH §7, §13 (< 200 lines)."""
 
 from pathlib import Path
-import re
-import sys
-import time
+import json, re, sys, time
 from typing import List, Dict, Any, Set
 
 try:
@@ -29,17 +20,43 @@ except ImportError:
 ASPECT_ID = "aspect_14_package_export"
 ASPECT_TITLE = "Package Export Boundary & Sub-Path Governance"
 
-APPROVED_EXPORTS = {
+APPROVED_EXPORTS: Dict[str, Set[str]] = {
     "@ultrst-armada/floks": {"ui", "canvas-ui", "contracts"},
     "@ultrst-armada/kloks": {"services", "contracts", "backend", "client", "audio-midi", "functions", "orchestrations", "state-graph"},
     "@ultrst-armada/krnl": set(),
 }
 
+def load_package_exports(root_dir: Path) -> Dict[str, Set[str]]:
+    approved: Dict[str, Set[str]] = {k: set(v) for k, v in APPROVED_EXPORTS.items()}
+    search_dirs = [
+        root_dir / "node_modules/@ultrst-armada",
+        Path(__file__).resolve().parent.parent.parent,
+    ]
+    for base in search_dirs:
+        if not base.exists():
+            continue
+        for pkg_json_path in base.glob("*/package.json"):
+            try:
+                data = json.loads(pkg_json_path.read_text())
+                pkg_name = data.get("name", "")
+                if "@ultrst-armada/" in pkg_name:
+                    base_pkg = "/".join(pkg_name.split("/")[:2])
+                    raw_exports = data.get("exports", {})
+                    if isinstance(raw_exports, dict):
+                        if base_pkg not in approved:
+                            approved[base_pkg] = set()
+                        for subpath in raw_exports.keys():
+                            clean = subpath.replace("./", "").replace(".", "").strip()
+                            if clean:
+                                approved[base_pkg].add(clean.split("/")[0])
+            except Exception:
+                pass
+    return approved
+
 def validate_package_exports(root_dir: Path) -> ChecklistResult:
     start_time = time.time()
     violations: List[Violation] = []
-    files_scanned = 0
-
+    approved_exports = load_package_exports(root_dir)
     all_files = scan_files(root_dir, extensions=[".ts", ".tsx", ".js", ".jsx"])
     files_scanned = len(all_files)
 
@@ -55,7 +72,6 @@ def validate_package_exports(root_dir: Path) -> ChecklistResult:
 
             matches = deep_import_pattern.findall(line)
             for pkg_name, subpath in matches:
-                # 1. Ban direct src or internal packages navigation
                 if subpath.startswith("src") or subpath.startswith("packages") or subpath.startswith("dist"):
                     violations.append(Violation(
                         rule_id="banned-private-deep-package-import",
@@ -68,10 +84,8 @@ def validate_package_exports(root_dir: Path) -> ChecklistResult:
                     ))
                     continue
 
-                # 2. Verify subpath is in approved exports
-                if pkg_name in APPROVED_EXPORTS:
-                    valid_subpaths = APPROVED_EXPORTS[pkg_name]
-                    # Top-level subpath
+                if pkg_name in approved_exports:
+                    valid_subpaths = approved_exports[pkg_name]
                     primary_subpath = subpath.split("/")[0]
                     if valid_subpaths and primary_subpath not in valid_subpaths:
                         violations.append(Violation(
@@ -85,20 +99,17 @@ def validate_package_exports(root_dir: Path) -> ChecklistResult:
                         ))
 
     passed = not any(v.severity == "error" for v in violations)
-    duration_ms = round((time.time() - start_time) * 1000, 2)
-
     return ChecklistResult(
         aspect_id=ASPECT_ID,
         aspect_title=ASPECT_TITLE,
         passed=passed,
         violations=violations,
         files_scanned=files_scanned,
-        duration_ms=duration_ms
+        duration_ms=round((time.time() - start_time) * 1000, 2)
     )
 
 if __name__ == "__main__":
     args = parse_standard_args("Validate Package Export Boundaries")
-    target = Path(args.path).resolve()
-    res = validate_package_exports(target)
+    res = validate_package_exports(Path(args.path).resolve())
     print_checklist_report(res)
     sys.exit(0 if res.passed else 1)

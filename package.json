@@ -17,8 +17,8 @@
   },
   "dependencies": {
     "@dinilmusick/krnl": "^1.0.0",
-    "@ultrst-armada/kloks": "^1.4.0",
-    "@ultrst-armada/floks": "^1.2.0",
+    "@ultrst-armada/kloks": "^1.4.2",
+    "@ultrst-armada/floks": "^1.2.4",
     "lucide-react": "^1.55.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1"

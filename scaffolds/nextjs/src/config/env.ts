@@ -29,15 +29,4 @@ export function getAppEnv(): AppEnv {
   };
 }
 
-export function resolveSystemDatabaseUrl(env: AppEnv = getAppEnv()): string {
-  const url = env.SYSTEM_DATABASE_URL_1 || env.SYSTEM_DATABASE_URL_2 || env.SYSTEM_DATABASE_URL_3;
-  if (!url) {
-    throw new Error(
-      '[SKIPO DATABASE_INVARIANT] Missing system database configuration.\n' +
-      '  Set SYSTEM_DATABASE_URL_1 (primary), SYSTEM_DATABASE_URL_2 (fallback #1),\n' +
-      '  or SYSTEM_DATABASE_URL_3 (fallback #2).\n' +
-      '  Generic DATABASE_URL is obsolete and strictly forbidden in this architecture.'
-    );
-  }
-  return url;
-}
+export { resolveSystemDatabaseUrl } from '@ultrst-armada/kloks/backend';

@@ -1,42 +1,32 @@
 #!/usr/bin/env python3
-"""
-Aspect 13: Deterministic Service UI Composition & Provenance Generator
-Spec: ECOSYSTEM-TIGHTENING-PLAN §6-§7, KRUSBL-PLAN-PATCH §1-§8
-Generates:
-- Complete Service UI Section suite ([ServiceName]Section.tsx)
-- Embeds strict provenance comment blocks (@skipo:service, @skipo:schema, @skipo:package, etc.)
-- Resolves public FLOKS exports (@ultrst-armada/floks/ui)
-- Emits fully editable React/TypeScript source (< 200 lines).
-"""
-
+"""Aspect 13: Deterministic Service UI Composition & Provenance Generator
+Spec: ECOSYSTEM-TIGHTENING-PLAN §6-§7, KRUSBL-PLAN-PATCH §1-§8 (< 200 lines)."""
 from pathlib import Path
 from typing import List, Dict, Any
-import time
+import json, time
 
 try:
     from .common import (
         GeneratedFile, GeneratorResult, section_header,
-        generate_ascii_flowchart, emit_directory, parse_generator_args,
-        print_generator_report
+        emit_directory, parse_generator_args, print_generator_report
     )
 except ImportError:
     from common import (
         GeneratedFile, GeneratorResult, section_header,
-        generate_ascii_flowchart, emit_directory, parse_generator_args,
-        print_generator_report
+        emit_directory, parse_generator_args, print_generator_report
     )
 
 GENERATOR_ID = "13_service_ui_generator"
 GENERATOR_TITLE = "Deterministic Service UI Composition & Provenance Generator"
 
-CANONICAL_UI_REGISTRY = {
+CANONICAL_UI_REGISTRY: Dict[str, Dict[str, Any]] = {
     "auth": {
         "service_id": "kloks.service.auth",
         "schema_id": "kloks.service.auth.ui",
         "schema_version": "1.0.0",
         "requirement_mode": "required",
         "package_id": "@ultrst-armada/floks",
-        "package_version": "^1.2.3",
+        "package_version": "^1.2.4",
         "export_path": "ui",
         "page_name": "Auth.ui",
         "section_name": "Auth.ui.LoginSection",
@@ -49,7 +39,7 @@ CANONICAL_UI_REGISTRY = {
         "schema_version": "1.0.0",
         "requirement_mode": "optional",
         "package_id": "@ultrst-armada/floks",
-        "package_version": "^1.2.3",
+        "package_version": "^1.2.4",
         "export_path": "ui",
         "page_name": "Storage.ui",
         "section_name": "Storage.ui.TilesSection",
@@ -58,19 +48,44 @@ CANONICAL_UI_REGISTRY = {
     },
 }
 
-def generate_service_ui_suite(target_dir: Path, params: Dict[str, Any]) -> GeneratorResult:
-    start_time = time.time()
-    files: List[GeneratedFile] = []
-
-    raw_name = params.get("name") or "Auth"
-    lookup_key = raw_name.lower().replace("service", "").replace("section", "")
-    config = CANONICAL_UI_REGISTRY.get(lookup_key) or {
-        "service_id": f"kloks.service.{lookup_key}",
-        "schema_id": f"kloks.service.{lookup_key}.ui",
+def resolve_service_ui_config(target_dir: Path, raw_name: str) -> Dict[str, Any]:
+    key = raw_name.lower().replace("service", "").replace("section", "")
+    manifest_paths = [
+        target_dir / "node_modules/@ultrst-armada/kloks/packages/services/kloks.manifest.json",
+        target_dir.parent / "node_modules/@ultrst-armada/kloks/packages/services/kloks.manifest.json",
+        Path(__file__).resolve().parent.parent.parent / "Kloks/packages/services/kloks.manifest.json",
+    ]
+    for p in manifest_paths:
+        if p.exists():
+            try:
+                data = json.loads(p.read_text())
+                for s in data.get("services", []):
+                    sid = str(s.get("id", "")).lower()
+                    if key in sid or key in str(s.get("name", "")).lower():
+                        u = s.get("ui", {})
+                        if u and u.get("requirementMode") != "none":
+                            return {
+                                "service_id": s.get("id"),
+                                "schema_id": u.get("schema", f"{s.get('id')}.ui"),
+                                "schema_version": s.get("version", "1.0.0"),
+                                "requirement_mode": u.get("requirementMode", "optional"),
+                                "package_id": u.get("package", "@ultrst-armada/floks"),
+                                "package_version": "^1.2.4",
+                                "export_path": u.get("export", "ui"),
+                                "page_name": u.get("page", f"{raw_name}.ui"),
+                                "section_name": u.get("section", f"{raw_name}.ui.MainSection"),
+                                "component_name": u.get("component", f"{raw_name}Component"),
+                                "title": f"{raw_name}Section",
+                            }
+            except Exception:
+                pass
+    return CANONICAL_UI_REGISTRY.get(key) or {
+        "service_id": f"kloks.service.{key}",
+        "schema_id": f"kloks.service.{key}.ui",
         "schema_version": "1.0.0",
         "requirement_mode": "optional",
         "package_id": "@ultrst-armada/floks",
-        "package_version": "^1.2.3",
+        "package_version": "^1.2.4",
         "export_path": "ui",
         "page_name": f"{raw_name}.ui",
         "section_name": f"{raw_name}.ui.MainSection",
@@ -78,10 +93,15 @@ def generate_service_ui_suite(target_dir: Path, params: Dict[str, Any]) -> Gener
         "title": f"{raw_name}Section",
     }
 
+def generate_service_ui_suite(target_dir: Path, params: Dict[str, Any]) -> GeneratorResult:
+    start_time = time.time()
+    files: List[GeneratedFile] = []
+    raw_name = params.get("name") or "Auth"
+    lookup_key = raw_name.lower().replace("service", "").replace("section", "")
+    config = resolve_service_ui_config(target_dir, raw_name)
     comp_name = config["title"]
     floks_comp = config["component_name"]
 
-    # 1. Section Component with Provenance
     section_code = f"""// @skipo:service   {config['service_id']}
 // @skipo:schema    {config['schema_id']}@{config['schema_version']}
 // @skipo:package   {config['package_id']}@{config['package_version']}
@@ -142,17 +162,12 @@ export default {comp_name};
         description=f"Deterministic React composition for {config['section_name']} backed by {config['package_id']}."
     ))
 
-    # 2. Barrel index.ts
-    index_code = f"""export * from './{comp_name}';
-export {{ default }} from './{comp_name}';
-"""
     files.append(GeneratedFile(
         relative_path="index.ts",
-        content=index_code,
+        content=f"export * from './{comp_name}';\nexport {{ default }} from './{comp_name}';\n",
         description=f"Barrel export for {comp_name} suite."
     ))
 
-    # Emit files to target directory
     emit_directory(target_dir, files, dry_run=params.get("dry_run", False), force=params.get("force", False))
 
     messages = [

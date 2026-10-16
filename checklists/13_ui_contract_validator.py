@@ -1,20 +1,9 @@
 #!/usr/bin/env python3
-"""
-Aspect 13: Service UI Contract & Provenance Governance Validator
-Spec: ECOSYSTEM-TIGHTENING-PLAN §6-§14, KRUSBL-PLAN-PATCH §1, §13, §19
-Enforces:
-- HARD_FAIL: Service with requirementMode: 'required' imported without consuming canonical UI.
-- HARD_FAIL: Stale '@floks/ui' imports (must use '@ultrst-armada/floks/ui').
-- HARD_FAIL: Local duplicate implementations of canonical FLOKS Auth/Workspace components.
-- HARD_FAIL: False package provenance tags claiming package ownership without valid AST imports.
-- WARN: Service with requirementMode: 'optional' imported without consuming UI.
-- PASS: Canonical FLOKS AuthPage & WorkspaceTilesMenu wired properly.
-"""
+"""Aspect 13: Service UI Contract & Provenance Governance Validator
+Spec: ECOSYSTEM-TIGHTENING-PLAN §6-§14, KRUSBL-PLAN-PATCH §1, §13, §19 (< 200 lines)."""
 
 from pathlib import Path
-import re
-import sys
-import time
+import json, re, sys, time
 from typing import List, Dict, Any, Set
 
 try:
@@ -31,7 +20,7 @@ except ImportError:
 ASPECT_ID = "aspect_13_ui_contract"
 ASPECT_TITLE = "Service UI Contract & Provenance Governance"
 
-KNOWN_SERVICES = {
+KNOWN_SERVICES: Dict[str, Dict[str, Any]] = {
     "auth": {
         "service_id": "kloks.service.auth",
         "symbols": ["AuthService", "AuthClientServiceFacade", "authService", "AuthBackend"],
@@ -55,11 +44,40 @@ KNOWN_SERVICES = {
     },
 }
 
+def load_services(root_dir: Path) -> Dict[str, Dict[str, Any]]:
+    services = dict(KNOWN_SERVICES)
+    manifest_paths = [
+        root_dir / "node_modules/@ultrst-armada/kloks/packages/services/kloks.manifest.json",
+        root_dir / "kloks.manifest.json",
+        Path(__file__).resolve().parent.parent.parent / "Kloks/packages/services/kloks.manifest.json",
+    ]
+    for p in manifest_paths:
+        if p.exists():
+            try:
+                data = json.loads(p.read_text())
+                for s in data.get("services", []):
+                    sid, name = s.get("id", ""), s.get("name", "")
+                    backend, ui = s.get("backend", {}), s.get("ui", {})
+                    facade = backend.get("facade", name)
+                    req_mode = ui.get("requirementMode", "none") if ui else "none"
+                    comp = ui.get("component") if ui else None
+                    exp = f"{ui.get('package', '@ultrst-armada/floks')}/{ui.get('export', 'ui')}" if comp else None
+                    key = sid.replace("kloks.service.", "")
+                    services[key] = {
+                        "service_id": sid,
+                        "symbols": [facade, name, f"{key}Service"],
+                        "requirement_mode": req_mode,
+                        "canonical_component": comp,
+                        "canonical_export": exp,
+                    }
+            except Exception:
+                pass
+    return services
+
 def validate_ui_contracts(root_dir: Path) -> ChecklistResult:
     start_time = time.time()
     violations: List[Violation] = []
-    files_scanned = 0
-
+    active_services = load_services(root_dir)
     all_files = scan_files(root_dir, extensions=[".ts", ".tsx", ".js", ".jsx"])
     files_scanned = len(all_files)
 
@@ -71,7 +89,6 @@ def validate_ui_contracts(root_dir: Path) -> ChecklistResult:
         rel_path = str(file_path.relative_to(root_dir))
         content = read_text_safe(file_path)
 
-        # 1. HARD_FAIL: Stale @floks/ui import check
         if "@floks/ui" in content:
             for idx, line in enumerate(content.splitlines(), start=1):
                 if "@floks/ui" in line and not line.strip().startswith("//"):
@@ -85,21 +102,18 @@ def validate_ui_contracts(root_dir: Path) -> ChecklistResult:
                         suggestion="Replace from '@floks/ui' with from '@ultrst-armada/floks/ui'"
                     ))
 
-        # 2. Track imported services
-        for svc_key, svc_info in KNOWN_SERVICES.items():
+        for svc_key, svc_info in active_services.items():
             for sym in svc_info["symbols"]:
                 if sym in content:
                     imported_services.add(svc_key)
                     break
 
-        # 3. Track UI component usage
         if "@ultrst-armada/floks" in content:
-            if "AuthPage" in content:
-                used_ui_components.add("AuthPage")
-            if "WorkspaceTilesMenu" in content:
-                used_ui_components.add("WorkspaceTilesMenu")
+            for svc_info in active_services.values():
+                comp = svc_info.get("canonical_component")
+                if comp and comp in content:
+                    used_ui_components.add(comp)
 
-        # 4. Track provenance comment blocks
         if "@skipo:service" in content:
             for line in content.splitlines():
                 if "@skipo:service" in line:
@@ -107,8 +121,6 @@ def validate_ui_contracts(root_dir: Path) -> ChecklistResult:
                     if len(parts) > 1:
                         used_provenance_services.add(parts[1].strip())
 
-        # 5. HARD_FAIL: Local duplicate of canonical FLOKS Auth/Workspace
-        # Disallow re-defining local AuthPage or WorkspaceTilesMenu interfaces/classes if not importing from FLOKS
         if ("export const AuthPage" in content or "export function AuthPage" in content) and "@ultrst-armada/floks" not in content:
             violations.append(Violation(
                 rule_id="duplicate-canonical-auth-page",
@@ -126,22 +138,20 @@ def validate_ui_contracts(root_dir: Path) -> ChecklistResult:
                 suggestion="Import canonical WorkspaceTilesMenu from '@ultrst-armada/floks/ui' instead of redefining locally."
             ))
 
-    # 6. Evaluate Service UI requirement rules
     for svc_key in imported_services:
-        svc_info = KNOWN_SERVICES[svc_key]
+        svc_info = active_services[svc_key]
         mode = svc_info["requirement_mode"]
         comp = svc_info["canonical_component"]
         svc_id = svc_info["service_id"]
-
         is_consumed = (comp in used_ui_components) or (svc_id in used_provenance_services)
 
         if mode == "required" and not is_consumed:
             violations.append(Violation(
                 rule_id="required-service-ui-unused",
                 severity="error",
-                message=f"Service '{svc_id}' has requirementMode: REQUIRED, but its canonical UI '{comp}' is not consumed in the frontend.",
+                message=f"Service '{svc_id}' has requirementMode: REQUIRED, but its canonical UI '{comp}' is not consumed.",
                 file_path="src/frontend",
-                suggestion=f"Import '{comp}' from '{svc_info['canonical_export']}' or generate via 'python3 assistant.py generate service-ui src/frontend/sections --name {svc_key}'."
+                suggestion=f"Import '{comp}' from '{svc_info['canonical_export']}'."
             ))
         elif mode == "optional" and not is_consumed:
             violations.append(Violation(
@@ -149,24 +159,21 @@ def validate_ui_contracts(root_dir: Path) -> ChecklistResult:
                 severity="warning",
                 message=f"Service '{svc_id}' has requirementMode: OPTIONAL, and its UI '{comp}' is unused.",
                 file_path="src/frontend",
-                suggestion=f"Consider importing '{comp}' from '{svc_info['canonical_export']}' if UI interaction is needed."
+                suggestion=f"Consider importing '{comp}' from '{svc_info['canonical_export']}'."
             ))
 
     passed = not any(v.severity == "error" for v in violations)
-    duration_ms = round((time.time() - start_time) * 1000, 2)
-
     return ChecklistResult(
         aspect_id=ASPECT_ID,
         aspect_title=ASPECT_TITLE,
         passed=passed,
         violations=violations,
         files_scanned=files_scanned,
-        duration_ms=duration_ms
+        duration_ms=round((time.time() - start_time) * 1000, 2)
     )
 
 if __name__ == "__main__":
     args = parse_standard_args("Validate Service UI Contracts & Provenance")
-    target = Path(args.path).resolve()
-    res = validate_ui_contracts(target)
+    res = validate_ui_contracts(Path(args.path).resolve())
     print_checklist_report(res)
     sys.exit(0 if res.passed else 1)
