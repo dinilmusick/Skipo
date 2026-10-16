@@ -56,6 +56,7 @@ mod_09 = _load_module("mod_09", "09_companion_test_generator.py")
 mod_10 = _load_module("mod_10", "10_node_graph_generator.py")
 mod_11 = _load_module("mod_11", "11_app_architecture_generator.py")
 mod_12 = _load_module("mod_12", "12_multi_target_build_generator.py")
+mod_13 = _load_module("mod_13", "13_service_ui_generator.py")
 
 GENERATOR_REGISTRY = {
     "structure": (mod_01.generate_structure, "Aspect 01: Plane Structure & Scaffolding"),
@@ -91,7 +92,9 @@ GENERATOR_REGISTRY = {
     "11": (mod_11.generate_app_architecture, "Aspect 11: APP_ARCHITECTURE_SPEC Canonical Suite"),
     "adapter": (mod_12.generate_multi_target_suite, "Aspect 12: MULTI_TARGET_BUILD_SPEC & Protocol Adapters"),
     "multi-target": (mod_12.generate_multi_target_suite, "Aspect 12: MULTI_TARGET_BUILD_SPEC & Protocol Adapters"),
-    "12": (mod_12.generate_multi_target_suite, "Aspect 12: MULTI_TARGET_BUILD_SPEC & Protocol Adapters")
+    "12": (mod_12.generate_multi_target_suite, "Aspect 12: MULTI_TARGET_BUILD_SPEC & Protocol Adapters"),
+    "service-ui": (mod_13.generate_service_ui_suite, "Aspect 13: Deterministic Service UI Composition & Provenance"),
+    "13": (mod_13.generate_service_ui_suite, "Aspect 13: Deterministic Service UI Composition & Provenance")
 }
 
 def generate_full_subapp(target_dir: Path, params: Dict[str, Any]) -> GeneratorResult:

@@ -53,6 +53,8 @@ mod_12 = _load_aspect_module("mod_12", "12_serverless_deployment_limits.py")
 mod_13 = _load_aspect_module("mod_13", "13_state_execution_governance.py")
 mod_14 = _load_aspect_module("mod_14", "14_node_graph_spatial_governance.py")
 mod_15 = _load_aspect_module("mod_15", "15_contract_boundary_enforcement.py")
+mod_16 = _load_aspect_module("mod_16", "13_ui_contract_validator.py")
+mod_17 = _load_aspect_module("mod_17", "14_package_export_validator.py")
 
 ASPECT_RUNNERS = [
     ("aspect_01", "Structure & Governance", mod_01.validate_structure),
@@ -69,7 +71,9 @@ ASPECT_RUNNERS = [
     ("aspect_12", "Serverless Deployment Size Limits", mod_12.validate_serverless_code_size),
     ("aspect_13", "State & Execution Architecture", mod_13.validate_state_execution),
     ("aspect_14", "Node Graph Spatial Governance", mod_14.validate_node_graph_governance),
-    ("aspect_15", "Contract Boundary Enforcement", mod_15.validate_contract_boundaries)
+    ("aspect_15", "Contract Boundary Enforcement", mod_15.validate_contract_boundaries),
+    ("aspect_16", "Service UI Contracts & Provenance", mod_16.validate_ui_contracts),
+    ("aspect_17", "Package Export Boundaries", mod_17.validate_package_exports)
 ]
 
 def detect_validation_profile(root_dir: Path, requested: str) -> str:

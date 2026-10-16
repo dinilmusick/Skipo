@@ -108,7 +108,8 @@ export interface Env {{
   ENVIRONMENT?: string;
   APP_NAME?: string;
   SYSTEM_DATABASE_URL_1?: string;
-  DATABASE_URL?: string;
+  SYSTEM_DATABASE_URL_2?: string;
+  SYSTEM_DATABASE_URL_3?: string;
   ASSETS?: {{ fetch: (request: Request) => Promise<Response> }};
   [key: string]: unknown;
 }}
@@ -339,15 +340,14 @@ export function cleanDbUrl(url?: unknown): string {{
 export function getUnifiedDbUrl(env?: Record<string, unknown>): string {{
   const fromEnv =
     cleanDbUrl(env?.SYSTEM_DATABASE_URL_1) ||
-    cleanDbUrl(env?.DATABASE_URL) ||
-    cleanDbUrl(env?.SYSTEM_DATABASE_URL_2);
+    cleanDbUrl(env?.SYSTEM_DATABASE_URL_2) ||
+    cleanDbUrl(env?.SYSTEM_DATABASE_URL_3);
 
   if (fromEnv) return fromEnv;
 
   if (typeof process !== 'undefined' && process.env) {{
     return (
       cleanDbUrl(process.env.SYSTEM_DATABASE_URL_1) ||
-      cleanDbUrl(process.env.DATABASE_URL) ||
       cleanDbUrl(process.env.SYSTEM_DATABASE_URL_2) ||
       cleanDbUrl(process.env.SYSTEM_DATABASE_URL_3) ||
       ''

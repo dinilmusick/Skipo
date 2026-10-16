@@ -13,7 +13,8 @@ export interface Env {
   APP_NAME?: string;
   DEPM_GATEWAY_DOMAIN?: string;
   SYSTEM_DATABASE_URL_1?: string;
-  DATABASE_URL?: string;
+  SYSTEM_DATABASE_URL_2?: string;
+  SYSTEM_DATABASE_URL_3?: string;
   ASSETS?: { fetch: (request: Request) => Promise<Response> };
   [key: string]: unknown;
 }

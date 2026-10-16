@@ -96,6 +96,22 @@ def validate_backend_storage(root_dir: Path) -> ChecklistResult:
                 suggestion="Separate Control Plane authentication from Data Plane storage transfers."
             ))
 
+        # 4. Invariant §16: Generic DATABASE_URL Obsolete Ban
+        if "DATABASE_URL" in content and not rel_str.endswith(".md"):
+            for line_idx, line in enumerate(lines, 1):
+                raw = line.strip()
+                if "DATABASE_URL" in line and "SYSTEM_DATABASE_URL" not in line and "NEON_DATABASE_URL" not in line:
+                    if not raw.startswith("//") and not raw.startswith("#") and not raw.startswith("*") and "forbidden" not in raw.lower() and "obsolete" not in raw.lower():
+                        violations.append(Violation(
+                            rule_id="banned-generic-database-url",
+                            severity="error",
+                            message="Obsolete generic 'DATABASE_URL' reference detected. Must use SYSTEM_DATABASE_URL_1/2/3.",
+                            file_path=rel_str,
+                            line=line_idx,
+                            snippet=raw[:100],
+                            suggestion="Replace with SYSTEM_DATABASE_URL_1 (primary), SYSTEM_DATABASE_URL_2, or SYSTEM_DATABASE_URL_3."
+                        ))
+
     duration_ms = (time.time() - start_time) * 1000
     errors = sum(1 for v in violations if v.severity == "error")
     score = max(0.0, 100.0 - (errors * 20.0) - (len(violations) - errors) * 5.0)
