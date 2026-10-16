@@ -20,37 +20,41 @@ except ImportError:
 ASPECT_ID = "aspect_14_package_export"
 ASPECT_TITLE = "Package Export Boundary & Sub-Path Governance"
 
-APPROVED_EXPORTS: Dict[str, Set[str]] = {
+# Optional bootstrap fallback only if package metadata cannot be located on disk
+BOOTSTRAP_FALLBACK_EXPORTS: Dict[str, Set[str]] = {
     "@ultrst-armada/floks": {"ui", "canvas-ui", "contracts"},
     "@ultrst-armada/kloks": {"services", "contracts", "backend", "client", "audio-midi", "functions", "orchestrations", "state-graph"},
     "@ultrst-armada/krnl": set(),
 }
 
 def load_package_exports(root_dir: Path) -> Dict[str, Set[str]]:
-    approved: Dict[str, Set[str]] = {k: set(v) for k, v in APPROVED_EXPORTS.items()}
+    approved: Dict[str, Set[str]] = {}
     search_dirs = [
         root_dir / "node_modules/@ultrst-armada",
+        root_dir / "node_modules",
         Path(__file__).resolve().parent.parent.parent,
     ]
     for base in search_dirs:
         if not base.exists():
             continue
-        for pkg_json_path in base.glob("*/package.json"):
+        for pkg_json_path in list(base.glob("*/package.json")) + list(base.glob("@*/*/package.json")):
             try:
                 data = json.loads(pkg_json_path.read_text())
                 pkg_name = data.get("name", "")
-                if "@ultrst-armada/" in pkg_name:
-                    base_pkg = "/".join(pkg_name.split("/")[:2])
+                if pkg_name:
                     raw_exports = data.get("exports", {})
                     if isinstance(raw_exports, dict):
-                        if base_pkg not in approved:
-                            approved[base_pkg] = set()
+                        if pkg_name not in approved:
+                            approved[pkg_name] = set()
                         for subpath in raw_exports.keys():
                             clean = subpath.replace("./", "").replace(".", "").strip()
                             if clean:
-                                approved[base_pkg].add(clean.split("/")[0])
+                                approved[pkg_name].add(clean.split("/")[0])
             except Exception:
                 pass
+    for pkg_name, default_subpaths in BOOTSTRAP_FALLBACK_EXPORTS.items():
+        if pkg_name not in approved or not approved[pkg_name]:
+            approved[pkg_name] = set(default_subpaths)
     return approved
 
 def validate_package_exports(root_dir: Path) -> ChecklistResult:
@@ -60,7 +64,7 @@ def validate_package_exports(root_dir: Path) -> ChecklistResult:
     all_files = scan_files(root_dir, extensions=[".ts", ".tsx", ".js", ".jsx"])
     files_scanned = len(all_files)
 
-    deep_import_pattern = re.compile(r"""from\s+['"](@ultrst-armada/[^/'"]+)/([^'"]+)['"]""")
+    deep_import_pattern = re.compile(r"""from\s+['"](@[a-zA-Z0-9_\-]+/[^/'"]+)/([^'"]+)['"]""")
 
     for file_path in all_files:
         rel_path = str(file_path.relative_to(root_dir))

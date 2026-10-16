@@ -21,32 +21,28 @@ GENERATOR_TITLE = "Deterministic Service UI Composition & Provenance Generator"
 
 CANONICAL_UI_REGISTRY: Dict[str, Dict[str, Any]] = {
     "auth": {
-        "service_id": "kloks.service.auth",
-        "schema_id": "kloks.service.auth.ui",
-        "schema_version": "1.0.0",
-        "requirement_mode": "required",
-        "package_id": "@ultrst-armada/floks",
-        "package_version": "^1.2.4",
-        "export_path": "ui",
-        "page_name": "Auth.ui",
-        "section_name": "Auth.ui.LoginSection",
-        "component_name": "AuthPage",
-        "title": "AuthSection",
+        "service_id": "kloks.service.auth", "schema_id": "kloks.service.auth.ui", "schema_version": "1.0.0",
+        "requirement_mode": "required", "package_id": "@ultrst-armada/floks", "export_path": "ui",
+        "page_name": "Auth.ui", "section_name": "Auth.ui.LoginSection", "component_name": "AuthPage", "title": "AuthSection",
     },
     "storage": {
-        "service_id": "kloks.service.storage",
-        "schema_id": "kloks.service.storage.ui",
-        "schema_version": "1.0.0",
-        "requirement_mode": "optional",
-        "package_id": "@ultrst-armada/floks",
-        "package_version": "^1.2.4",
-        "export_path": "ui",
-        "page_name": "Storage.ui",
-        "section_name": "Storage.ui.TilesSection",
-        "component_name": "WorkspaceTilesMenu",
-        "title": "StorageSection",
+        "service_id": "kloks.service.storage", "schema_id": "kloks.service.storage.ui", "schema_version": "1.0.0",
+        "requirement_mode": "optional", "package_id": "@ultrst-armada/floks", "export_path": "ui",
+        "page_name": "Storage.ui", "section_name": "Storage.ui.TilesSection", "component_name": "WorkspaceTilesMenu", "title": "StorageSection",
     },
 }
+
+def get_pkg_version(target_dir: Path, pkg: str) -> str:
+    name = pkg.split('/')[-1]
+    for p in [target_dir / "node_modules" / pkg / "package.json",
+              Path(__file__).resolve().parent.parent.parent / name.capitalize() / "package.json",
+              Path(__file__).resolve().parent.parent.parent / name / "package.json"]:
+        if p.exists():
+            try:
+                v = json.loads(p.read_text()).get("version")
+                if v: return f"^{v}"
+            except Exception: pass
+    return "^1.0.0"
 
 def resolve_service_ui_config(target_dir: Path, raw_name: str) -> Dict[str, Any]:
     key = raw_name.lower().replace("service", "").replace("section", "")
@@ -64,32 +60,35 @@ def resolve_service_ui_config(target_dir: Path, raw_name: str) -> Dict[str, Any]
                     if key in sid or key in str(s.get("name", "")).lower():
                         u = s.get("ui", {})
                         if u and u.get("requirementMode") != "none":
+                            pkg_id = u.get("package", "@ultrst-armada/floks")
                             return {
                                 "service_id": s.get("id"),
                                 "schema_id": u.get("schema", f"{s.get('id')}.ui"),
                                 "schema_version": s.get("version", "1.0.0"),
                                 "requirement_mode": u.get("requirementMode", "optional"),
-                                "package_id": u.get("package", "@ultrst-armada/floks"),
-                                "package_version": "^1.2.4",
+                                "package_id": pkg_id,
+                                "package_version": get_pkg_version(target_dir, pkg_id),
                                 "export_path": u.get("export", "ui"),
                                 "page_name": u.get("page", f"{raw_name}.ui"),
                                 "section_name": u.get("section", f"{raw_name}.ui.MainSection"),
                                 "component_name": u.get("component", f"{raw_name}Component"),
                                 "title": f"{raw_name}Section",
                             }
-            except Exception:
-                pass
-    return CANONICAL_UI_REGISTRY.get(key) or {
-        "service_id": f"kloks.service.{key}",
-        "schema_id": f"kloks.service.{key}.ui",
+            except Exception: pass
+    cfg = CANONICAL_UI_REGISTRY.get(key)
+    pkg_id = cfg["package_id"] if cfg else "@ultrst-armada/floks"
+    ver = get_pkg_version(target_dir, pkg_id)
+    return {
+        "service_id": cfg.get("service_id", f"kloks.service.{key}") if cfg else f"kloks.service.{key}",
+        "schema_id": cfg.get("schema_id", f"kloks.service.{key}.ui") if cfg else f"kloks.service.{key}.ui",
         "schema_version": "1.0.0",
-        "requirement_mode": "optional",
-        "package_id": "@ultrst-armada/floks",
-        "package_version": "^1.2.4",
-        "export_path": "ui",
-        "page_name": f"{raw_name}.ui",
-        "section_name": f"{raw_name}.ui.MainSection",
-        "component_name": f"{raw_name}Component",
+        "requirement_mode": cfg.get("requirement_mode", "optional") if cfg else "optional",
+        "package_id": pkg_id,
+        "package_version": ver,
+        "export_path": cfg.get("export_path", "ui") if cfg else "ui",
+        "page_name": cfg.get("page_name", f"{raw_name}.ui") if cfg else f"{raw_name}.ui",
+        "section_name": cfg.get("section_name", f"{raw_name}.ui.MainSection") if cfg else f"{raw_name}.ui.MainSection",
+        "component_name": cfg.get("component_name", f"{raw_name}Component") if cfg else f"{raw_name}Component",
         "title": f"{raw_name}Section",
     }
 

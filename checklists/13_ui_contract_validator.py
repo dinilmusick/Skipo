@@ -20,32 +20,14 @@ except ImportError:
 ASPECT_ID = "aspect_13_ui_contract"
 ASPECT_TITLE = "Service UI Contract & Provenance Governance"
 
-KNOWN_SERVICES: Dict[str, Dict[str, Any]] = {
-    "auth": {
-        "service_id": "kloks.service.auth",
-        "symbols": ["AuthService", "AuthClientServiceFacade", "authService", "AuthBackend"],
-        "requirement_mode": "required",
-        "canonical_component": "AuthPage",
-        "canonical_export": "@ultrst-armada/floks/ui",
-    },
-    "storage": {
-        "service_id": "kloks.service.storage",
-        "symbols": ["StorageService", "StorageClientServiceFacade", "storageService", "StorageBackend"],
-        "requirement_mode": "optional",
-        "canonical_component": "WorkspaceTilesMenu",
-        "canonical_export": "@ultrst-armada/floks/ui",
-    },
-    "systemDb": {
-        "service_id": "kloks.service.systemDb",
-        "symbols": ["SystemDbService", "SystemDbClientServiceFacade", "systemDbService"],
-        "requirement_mode": "none",
-        "canonical_component": None,
-        "canonical_export": None,
-    },
+BOOTSTRAP_SERVICES: Dict[str, Dict[str, Any]] = {
+    "auth": {"service_id": "kloks.service.auth", "package": "@ultrst-armada/kloks", "symbols": ["AuthService", "AuthClientServiceFacade"], "requirement_mode": "required", "canonical_component": "AuthPage", "canonical_export": "@ultrst-armada/floks/ui"},
+    "storage": {"service_id": "kloks.service.storage", "package": "@ultrst-armada/kloks", "symbols": ["StorageService", "StorageClientServiceFacade"], "requirement_mode": "optional", "canonical_component": "WorkspaceTilesMenu", "canonical_export": "@ultrst-armada/floks/ui"},
+    "systemDb": {"service_id": "kloks.service.systemDb", "package": "@ultrst-armada/kloks", "symbols": ["SystemDbService"], "requirement_mode": "none", "canonical_component": None, "canonical_export": None},
 }
 
 def load_services(root_dir: Path) -> Dict[str, Dict[str, Any]]:
-    services = dict(KNOWN_SERVICES)
+    services: Dict[str, Dict[str, Any]] = {}
     manifest_paths = [
         root_dir / "node_modules/@ultrst-armada/kloks/packages/services/kloks.manifest.json",
         root_dir / "kloks.manifest.json",
@@ -55,6 +37,7 @@ def load_services(root_dir: Path) -> Dict[str, Dict[str, Any]]:
         if p.exists():
             try:
                 data = json.loads(p.read_text())
+                pkg_name = data.get("package", "@ultrst-armada/kloks")
                 for s in data.get("services", []):
                     sid, name = s.get("id", ""), s.get("name", "")
                     backend, ui = s.get("backend", {}), s.get("ui", {})
@@ -64,15 +47,33 @@ def load_services(root_dir: Path) -> Dict[str, Dict[str, Any]]:
                     exp = f"{ui.get('package', '@ultrst-armada/floks')}/{ui.get('export', 'ui')}" if comp else None
                     key = sid.replace("kloks.service.", "")
                     services[key] = {
-                        "service_id": sid,
-                        "symbols": [facade, name, f"{key}Service"],
-                        "requirement_mode": req_mode,
-                        "canonical_component": comp,
-                        "canonical_export": exp,
+                        "service_id": sid, "package": pkg_name, "symbols": [facade, name, f"{key}Service"],
+                        "export_path": backend.get("export"), "requirement_mode": req_mode,
+                        "canonical_component": comp, "canonical_export": exp,
                     }
             except Exception:
                 pass
-    return services
+    return services if services else dict(BOOTSTRAP_SERVICES)
+
+def extract_imports(content: str) -> List[tuple]:
+    results = []
+    clean = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+    for line in clean.splitlines():
+        trimmed = line.strip()
+        if trimmed.startswith('//'): continue
+        m = re.search(r"""(?:import|export)\s+(?:type\s+)?(?:([\w$]+)\s*,?\s*)?(?:(?:\*\s+as\s+[\w$]+)|\{([^}]+)\})?\s*from\s*['"]([^'"]+)['"]""", trimmed)
+        if m:
+            default_spec, named_specs, source = m.group(1), m.group(2), m.group(3)
+            specs = set()
+            if default_spec: specs.add(default_spec)
+            if named_specs:
+                for part in named_specs.split(','):
+                    c = part.strip()
+                    if c:
+                        nm = re.search(r"""(?:[\w$]+\s+as\s+)?([\w$]+)""", c)
+                        if nm: specs.add(nm.group(1))
+            results.append((specs, source))
+    return results
 
 def validate_ui_contracts(root_dir: Path) -> ChecklistResult:
     start_time = time.time()
@@ -93,30 +94,28 @@ def validate_ui_contracts(root_dir: Path) -> ChecklistResult:
             for idx, line in enumerate(content.splitlines(), start=1):
                 if "@floks/ui" in line and not line.strip().startswith("//"):
                     violations.append(Violation(
-                        rule_id="banned-stale-floks-alias",
-                        severity="error",
+                        rule_id="banned-stale-floks-alias", severity="error",
                         message="Stale '@floks/ui' import path detected. Must use canonical '@ultrst-armada/floks/ui'.",
-                        file_path=rel_path,
-                        line=idx,
-                        snippet=line.strip(),
+                        file_path=rel_path, line=idx, snippet=line.strip(),
                         suggestion="Replace from '@floks/ui' with from '@ultrst-armada/floks/ui'"
                     ))
 
-        for svc_key, svc_info in active_services.items():
-            for sym in svc_info["symbols"]:
-                if sym in content:
-                    imported_services.add(svc_key)
-                    break
-
-        if "@ultrst-armada/floks" in content:
-            for svc_info in active_services.values():
+        # AST import resolution for services and UI components
+        file_imports = extract_imports(content)
+        for specs, source in file_imports:
+            for svc_key, svc_info in active_services.items():
+                svc_pkg = svc_info.get("package", "@ultrst-armada/kloks")
+                if source.startswith(svc_pkg) or "kloks" in source:
+                    symbols = set(svc_info.get("symbols", []))
+                    if any(s in specs for s in symbols) or (svc_info.get("export_path") and svc_info["export_path"] in source):
+                        imported_services.add(svc_key)
                 comp = svc_info.get("canonical_component")
-                if comp and comp in content:
+                if comp and comp in specs and ("floks" in source or "@ultrst-armada/floks" in source):
                     used_ui_components.add(comp)
 
         if "@skipo:service" in content:
             for line in content.splitlines():
-                if "@skipo:service" in line:
+                if "@skipo:service" in line and not line.strip().startswith("/*"):
                     parts = line.split("@skipo:service")
                     if len(parts) > 1:
                         used_provenance_services.add(parts[1].strip())
