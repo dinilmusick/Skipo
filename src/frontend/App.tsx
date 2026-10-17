@@ -14,6 +14,8 @@ import {
 } from '@ultrst-armada/floks/ui';
 import { InfiniteCanvas, DockBar } from '@ultrst-armada/floks/canvas-ui';
 import { SkipoBackend } from '../backend/SkipoBackend.js';
+import { FrnlComposite, FrnlSlot } from '@dinilmusick/frnlts/react';
+import { skipoFrnlStore } from '../frontend-state/store.js';
 
 /**
  * ──────────────────────────────────────────────────────────────────────────────
