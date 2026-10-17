@@ -21,7 +21,8 @@
     "@ultrst-armada/floks": "^1.2.4",
     "lucide-react": "^1.55.0",
     "react": "^19.0.1",
-    "react-dom": "^19.0.1"
+    "react-dom": "^19.0.1",
+    "@dinilmusick/frnlts": "^0.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -34,7 +35,8 @@
     "overrides": {
       "@dinilmusick/krnl": "file:../KrnlTS",
       "@ultrst-armada/kloks": "file:../Kloks",
-      "@ultrst-armada/floks": "file:../Floks"
+      "@ultrst-armada/floks": "file:../Floks",
+      "@dinilmusick/frnlts": "file:../FrnlTS"
     }
   },
   "packageManager": "pnpm@9.15.0",
