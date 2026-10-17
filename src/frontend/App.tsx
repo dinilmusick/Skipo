@@ -31,9 +31,9 @@ export function App() {
             address="Skipo.workspaceGate.menu"
             occupantId="workspace-menu"
             occupantKind="composite"
-            store={skipoFrnlStore}
-          >
-            <WorkspaceTilesMenu
+            occupants={{
+              'workspace-menu': (
+                <WorkspaceTilesMenu
               workspaces={workspaces}
               activeWorkspaceId={null}
               onSelectWorkspace={(ws) => setActiveWorkspace(ws)}
@@ -54,7 +54,10 @@ export function App() {
                 setWorkspaces((prev) => [...prev, created]);
                 setActiveWorkspace(created);
               }}
-            />
+                />
+              ),
+            }}
+          />
           </FrnlSlot>
         }
       />
@@ -71,9 +74,9 @@ export function App() {
           address="Skipo.application.shell"
           occupantId="app-shell"
           occupantKind="composite"
-          store={skipoFrnlStore}
-        >
-          <AppShell
+          occupants={{
+            'app-shell': (
+              <AppShell
             header={
               <TopToolbar
                 title={activeWorkspace.name}
@@ -94,7 +97,10 @@ export function App() {
               />
               <DockBar items={[]} />
             </BaseCard>
-          </AppShell>
+              </AppShell>
+            ),
+          }}
+        />
         </FrnlSlot>
       }
     />
