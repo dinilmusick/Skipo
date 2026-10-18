@@ -5,7 +5,6 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@dinilmusick/krnl': file:../KrnlTS
   '@dinilmusick/frnlts': file:../FrnlTS
   '@ultrst-armada/krnl': file:../KrnlTS
   '@ultrst-armada/kloks': file:../Kloks
@@ -18,9 +17,6 @@ importers:
       '@dinilmusick/frnlts':
         specifier: file:../FrnlTS
         version: file:../FrnlTS(@types/react@19.3.0)(react@19.3.0)
-      '@dinilmusick/krnl':
-        specifier: file:../KrnlTS
-        version: '@ultrst-armada/krnl@file:../KrnlTS'
       '@ultrst-armada/floks':
         specifier: file:../Floks
         version: file:../Floks(@ultrst-armada/kloks@file:../Kloks(@types/react@19.3.0)(react@19.3.0))(lucide-react@1.55.0(@types/react@19.3.0)(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -42,6 +38,9 @@ importers:
       react-dom:
         specifier: ^19.0.1
         version: 19.3.0(react@19.3.0)
+      zustand:
+        specifier: ^5.0.3
+        version: 5.0.15(@types/react@19.3.0)(react@19.3.0)
     devDependencies:
       '@types/node':
         specifier: ^22.0.0

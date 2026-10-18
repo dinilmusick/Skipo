@@ -84,16 +84,24 @@ function assertServiceTarget(target: unknown): void {
     throw new Error('[ServiceOrchestration] Invariant Violation: Service target cannot be null or undefined.');
   }
 
+  if (typeof target === 'function') {
+    throw new Error(
+      '[ServiceOrchestration] Invariant Violation: ServiceOrchestration composes independent services via ServiceFacade, NOT raw functionality functions or quad-units.'
+    );
+  }
+
   if (typeof target === 'object') {
     const obj = target as Record<string, unknown>;
     if (
       obj._isFunctionality === true ||
       obj.type === 'functionality' ||
       obj.kind === 'functionality' ||
-      obj.isFunctionality === true
+      obj.isFunctionality === true ||
+      obj.isQuadUnit === true ||
+      ('atom' in obj && !('call' in obj))
     ) {
       throw new Error(
-        '[ServiceOrchestration] Invariant Violation: ServiceOrchestration composes independent services, NOT internal functionalities.'
+        '[ServiceOrchestration] Invariant Violation: ServiceOrchestration composes independent services, NOT internal functionalities or raw quad-units.'
       );
     }
   }

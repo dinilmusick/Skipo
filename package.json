@@ -16,7 +16,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@dinilmusick/krnl": "^1.0.0",
     "@dinilmusick/frnlts": "file:../FrnlTS",
     "@ultrst-armada/krnl": "file:../KrnlTS",
     "@ultrst-armada/kloks": "^1.4.2",
@@ -25,7 +24,6 @@
     "lucide-react": "^1.55.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
-    "@dinilmusick/frnlts": "^0.1.0",
     "zustand": "^5.0.3"
   },
   "devDependencies": {
@@ -37,12 +35,10 @@
   },
   "pnpm": {
     "overrides": {
-      "@dinilmusick/krnl": "file:../KrnlTS",
       "@dinilmusick/frnlts": "file:../FrnlTS",
       "@ultrst-armada/krnl": "file:../KrnlTS",
       "@ultrst-armada/kloks": "file:../Kloks",
-      "@ultrst-armada/floks": "file:../Floks",
-      "@dinilmusick/frnlts": "file:../FrnlTS"
+      "@ultrst-armada/floks": "file:../Floks"
     }
   },
   "packageManager": "pnpm@9.15.0",

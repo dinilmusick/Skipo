@@ -35,7 +35,7 @@ $$\text{ZeroServer}: \text{SubApp} \cap \{\text{http.createServer}, \text{expres
 
 ```typescript
 import { z } from "zod";
-import type { SubAppRegistrationContext, SubAppRegistration } from "@dinilmusick/krnl";
+import type { SubAppRegistrationContext, SubAppRegistration } from "@ultrst-armada/krnl";
 import { CoreEngine } from "./engine/CoreEngine.js";
 
 export function register(context: SubAppRegistrationContext): SubAppRegistration {
