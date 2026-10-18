@@ -606,7 +606,7 @@ export class ServiceOrchestration<TInitialInput = unknown, TFinalOutput = unknow
         }
       }
 
-      return {
+      const resultObj: ServiceOrchestrationExecutionResult<TFinalOutput> = {
         success: isSuccess,
         status: rawResult.status,
         data: rawResult.output,
@@ -617,6 +617,21 @@ export class ServiceOrchestration<TInitialInput = unknown, TFinalOutput = unknow
         stepResults: rawResult.stepResults,
         rawResult,
       };
+
+      // Merge step outputs so consumers can inspect specific step artifacts directly on the result (e.g. res.midiEvent)
+      if (rawResult.stepResults) {
+        for (const stepRes of Object.values(rawResult.stepResults)) {
+          if (stepRes.output && typeof stepRes.output === 'object' && !Array.isArray(stepRes.output)) {
+            for (const [key, val] of Object.entries(stepRes.output)) {
+              if (!(key in resultObj)) {
+                (resultObj as any)[key] = val;
+              }
+            }
+          }
+        }
+      }
+
+      return resultObj;
     } finally {
       if (cancellationHandler && options.abortSignal) {
         options.abortSignal.removeEventListener('abort', cancellationHandler);

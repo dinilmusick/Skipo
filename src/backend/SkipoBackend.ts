@@ -9,13 +9,13 @@ import {
   ServiceDFacade,
 } from '@ultrst-armada/kloks/services';
 import {
-  OrchestratorAFacade,
-  OrchestratorBFacade,
+  OrchestratorADefinition,
+  OrchestratorBDefinition,
 } from '@ultrst-armada/kloks/orchestrations';
 import {
   AudioHardwareServiceFacade,
   MidiServiceFacade,
-  AudioMidiOrchestratorFacade,
+  AudioMidiOrchestratorDefinition,
 } from '@ultrst-armada/kloks/audio-midi';
 import { FunctionsServiceFacade } from '@ultrst-armada/kloks/functions';
 import {
@@ -41,29 +41,37 @@ import {
  * BACKEND FACADE: SkipoBackend
  * ──────────────────────────────────────────────────────────────────────────────
  * Purpose: Primary application backend composition entrypoint importing ready-made
- *          services and orchestrators directly from @kloks/* packages and executing
- *          cross-service workflows via canonical ServiceOrchestration and SkipoQ / KrnlQ.
+ *          services and pure orchestration definitions directly from @kloks/* packages
+ *          and executing cross-service workflows via canonical ServiceOrchestration and SkipoQ.
  *
  * Flow Chart:
- *   [External Caller] ───► [SkipoBackend / ServiceFacade] ───► [SkipoQ / KrnlQ Job]
+ *   [External Caller] ───► [SkipoBackend / ServiceFacade] ───► [SkipoQ Job]
  *                                                                     │
  *   [Result] ◄─── [Functionality / Service] ◄─── [Worker] ◄───────────┘
  * ──────────────────────────────────────────────────────────────────────────────
  */
-export const services = {
-  serviceA: ServiceAFacade,
-  serviceB: ServiceBFacade,
-  serviceC: ServiceCFacade,
-  serviceD: ServiceDFacade,
-  audioHardware: AudioHardwareServiceFacade,
-  midi: MidiServiceFacade,
-  functions: FunctionsServiceFacade,
-  auth: AuthServiceFacade,
-  storage: StorageServiceFacade,
-  workspace: WorkspaceServiceFacade,
-  controlPlane: ControlPlaneServiceFacade,
-  stateLifecycle: StateLifecycleServiceFacade,
-  nodeGraphEngine: NodeGraphEngineServiceFacade,
+export interface ServiceExecutableFacade {
+  readonly id: string;
+  readonly name: string;
+  readonly version: string;
+  execute<TIn = unknown, TOut = unknown>(operation: string, input?: TIn, options?: any): Promise<TOut>;
+  [key: string]: any;
+}
+
+export const services: Record<string, ServiceExecutableFacade> = {
+  serviceA: ServiceAFacade as ServiceExecutableFacade,
+  serviceB: ServiceBFacade as ServiceExecutableFacade,
+  serviceC: ServiceCFacade as ServiceExecutableFacade,
+  serviceD: ServiceDFacade as ServiceExecutableFacade,
+  audioHardware: AudioHardwareServiceFacade as ServiceExecutableFacade,
+  midi: MidiServiceFacade as ServiceExecutableFacade,
+  functions: FunctionsServiceFacade as ServiceExecutableFacade,
+  auth: AuthServiceFacade as ServiceExecutableFacade,
+  storage: StorageServiceFacade as ServiceExecutableFacade,
+  workspace: WorkspaceServiceFacade as ServiceExecutableFacade,
+  controlPlane: ControlPlaneServiceFacade as ServiceExecutableFacade,
+  stateLifecycle: StateLifecycleServiceFacade as ServiceExecutableFacade,
+  nodeGraphEngine: NodeGraphEngineServiceFacade as ServiceExecutableFacade,
 };
 
 // Register domain services in SkipoExecutionEngine
@@ -71,10 +79,35 @@ for (const [name, svc] of Object.entries(services)) {
   skipoExecutionEngine.registerService(name, svc);
 }
 
+const serviceResolverMap: Record<string, any> = {
+  'kloks.service.a': ServiceAFacade,
+  'kloks.service.b': ServiceBFacade,
+  'kloks.service.c': ServiceCFacade,
+  'kloks.service.d': ServiceDFacade,
+  'kloks.audio.hardware': AudioHardwareServiceFacade,
+  'kloks.midi.subsystem': MidiServiceFacade,
+  [AudioHardwareServiceFacade.id]: AudioHardwareServiceFacade,
+  [MidiServiceFacade.id]: MidiServiceFacade,
+  audioHardware: AudioHardwareServiceFacade,
+  midi: MidiServiceFacade,
+  serviceA: ServiceAFacade,
+  serviceB: ServiceBFacade,
+  serviceC: ServiceCFacade,
+  serviceD: ServiceDFacade,
+};
+
+function resolveService(id: string): any {
+  const resolved = serviceResolverMap[id] || skipoExecutionEngine.getService(id);
+  if (!resolved) {
+    throw new Error(`[SkipoBackend] Cannot resolve service '${id}'.`);
+  }
+  return resolved;
+}
+
 export const serviceOrchestrations = {
-  orchestratorA: OrchestratorAFacade,
-  orchestratorB: OrchestratorBFacade,
-  audioMidi: AudioMidiOrchestratorFacade,
+  orchestratorA: ServiceOrchestration.fromDefinition(OrchestratorADefinition, resolveService),
+  orchestratorB: ServiceOrchestration.fromDefinition(OrchestratorBDefinition, resolveService),
+  audioMidi: ServiceOrchestration.fromDefinition(AudioMidiOrchestratorDefinition, resolveService),
 };
 
 export const orchestrations = serviceOrchestrations;
@@ -109,7 +142,18 @@ export async function executeOrchestration<TInput = unknown, TOutput = unknown>(
   );
 }
 
-export const SkipoBackend = {
+export interface SkipoBackendFacade {
+  services: Record<string, ServiceExecutableFacade>;
+  serviceOrchestrations: typeof serviceOrchestrations;
+  orchestrations: typeof serviceOrchestrations;
+  worker: typeof skipoWorkerBoundary;
+  WorkerExecutionBoundary: typeof skipoWorkerBoundary;
+  executeService: typeof executeService;
+  executeOrchestration: typeof executeOrchestration;
+  [key: string]: any;
+}
+
+export const SkipoBackend: SkipoBackendFacade = {
   services,
   serviceOrchestrations,
   orchestrations,
