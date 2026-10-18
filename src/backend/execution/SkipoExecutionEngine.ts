@@ -1,23 +1,20 @@
 /**
  * @file SkipoExecutionEngine.ts
- * @description Canonical BullMQ Execution Engine & Worker Execution Boundary Manager for Skipo.
+ * @description Canonical Skipo Execution Engine managing SkipoQ and cross-service dispatches.
  *
  * Invariants:
- * - External caller -> ServiceFacade -> BullMQ command -> Worker -> Service Operation -> Result
+ * - External caller -> ServiceOrchestration -> SkipoQ -> ServiceFacade -> KrnlQ -> Worker -> Service Operation -> Result
  * - Zero synchronous unmediated bypasses.
- * - Single-service apps are fully supported.
+ * - Single-service apps and multi-service orchestrations are fully supported.
  */
 
-import {
-  BullMQExecutionEngine,
-  WorkerExecutionBoundary,
-  type BullMQExecutionEngineOptions,
-} from '@ultrst-armada/krnl';
+import { WorkerExecutionBoundary } from '@ultrst-armada/krnl';
 import {
   ServiceOrchestration,
   type ServiceTarget,
   type ServiceOrchestrationExecutionResult,
 } from '../orchestration/ServiceOrchestration.js';
+import { SkipoQ, type SkipoQOptions } from './SkipoQ.js';
 
 export interface ServiceExecutionOptions {
   correlationId?: string;
@@ -28,17 +25,18 @@ export interface ServiceExecutionOptions {
 }
 
 export class SkipoExecutionEngine {
-  private engine: BullMQExecutionEngine;
+  private queue: SkipoQ;
   private workerBoundary: WorkerExecutionBoundary;
   private services: Map<string, ServiceTarget> = new Map();
 
-  constructor(options: BullMQExecutionEngineOptions = {}) {
-    this.engine = new BullMQExecutionEngine({ queueName: options.queueName ?? 'skipo_main_queue', ...options });
-    this.workerBoundary = this.engine.getWorkerBoundary();
+  constructor(options: SkipoQOptions = {}) {
+    this.queue = new SkipoQ({ queueName: options.queueName ?? 'skipo_main_queue', ...options });
+    this.workerBoundary = new WorkerExecutionBoundary('skipo_engine_worker');
   }
 
   public registerService(name: string, service: ServiceTarget): this {
     this.services.set(name, service);
+    this.queue.registerService(name, service);
     return this;
   }
 
@@ -46,12 +44,16 @@ export class SkipoExecutionEngine {
     return this.services.get(name);
   }
 
+  public getQueue(): SkipoQ {
+    return this.queue;
+  }
+
   public getWorkerBoundary(): WorkerExecutionBoundary {
     return this.workerBoundary;
   }
 
   /**
-   * Dispatches a service operation through the BullMQ queue/worker pipeline.
+   * Dispatches a service operation through the ServiceFacade -> KrnlQ pipeline.
    * Enforces that all execution runs mediated through the queue and worker context.
    */
   public async executeService<TInput = unknown, TOutput = unknown>(
@@ -68,7 +70,7 @@ export class SkipoExecutionEngine {
       throw new Error(`[SkipoExecutionEngine] Service '${String(serviceOrName)}' is not registered.`);
     }
 
-    // Build a single-step service orchestration that goes through the BullMQ engine
+    // Build a single-step service orchestration that executes through SkipoQ
     const orchestration = new ServiceOrchestration<TInput, TOutput>(
       `executeService_${operation}`,
       '1.0.0'
@@ -94,7 +96,7 @@ export class SkipoExecutionEngine {
   }
 
   /**
-   * Executes a ServiceOrchestration through the canonical BullMQ engine.
+   * Executes a ServiceOrchestration through SkipoQ.
    */
   public async executeOrchestration<TInput = unknown, TOutput = unknown>(
     orchestration: ServiceOrchestration<TInput, TOutput>,
@@ -110,10 +112,10 @@ export class SkipoExecutionEngine {
   }
 
   /**
-   * Graceful cleanup of queues and workers.
+   * Graceful cleanup of queues.
    */
   public async close(): Promise<void> {
-    await this.engine.dispose();
+    await this.queue.dispose();
   }
 }
 

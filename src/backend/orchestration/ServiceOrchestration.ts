@@ -6,11 +6,10 @@
  * - Skipo owns the application/domain boundary above services.
  * - ServiceOrchestration composes MULTIPLE independent services.
  * - ServiceOrchestration MUST NOT orchestrate internal functionalities of a single service directly.
- * - Powered by the isomorphic BullMQ canonical execution engine from @ultrst-armada/krnl.
+ * - Powered by SkipoQ (in-process cross-service queue using p-queue) & KrnlQ.
  */
 
 import {
-  BullMQExecutionEngine,
   validateOrchestrationDAG,
   type OrchestrationStep,
   type StepRetryPolicy,
@@ -22,8 +21,9 @@ import {
   type OrchestrationStatus,
   type SagaCompensationHandler,
   type IServiceFacade,
-  type BullMQExecutionEngineOptions,
+  type OrchestrationDefinition,
 } from '@ultrst-armada/krnl';
+import { SkipoQ, type SkipoQOptions } from '../execution/SkipoQ.js';
 
 export interface ServiceLike {
   id?: string;
@@ -109,6 +109,7 @@ function assertServiceTarget(target: unknown): void {
 
 /**
  * Resolves service invocation against a target (ServiceFacade or named registered service).
+ * Enforces the strict path: ServiceOrchestration -> SkipoQ -> ServiceFacade -> KrnlQ.
  */
 async function invokeService(
   target: ServiceTarget,
@@ -137,7 +138,12 @@ async function invokeService(
   }
 
   if (typeof (target as any).execute === 'function') {
-    return (target as any).execute(operation, input);
+    return (target as any).execute(operation, input, {
+      correlationId: context.correlationId,
+      idempotencyKey: context.idempotencyKey,
+      metadata: context.metadata,
+      abortSignal: context.abortSignal,
+    });
   }
 
   throw new Error(`[ServiceOrchestration] Target service has no valid 'call' or 'execute' method.`);
@@ -185,16 +191,40 @@ function resolveStepInput(
 export class ServiceOrchestration<TInitialInput = unknown, TFinalOutput = unknown> {
   private steps: Array<OrchestrationStep<any, any>> = [];
   private lastStepId?: string;
-  private engine?: BullMQExecutionEngine;
+  private queue?: SkipoQ;
 
   constructor(
     public readonly name: string,
     public readonly version: string = '1.0.0',
-    engineOptions?: BullMQExecutionEngineOptions
+    queueOptions?: SkipoQOptions
   ) {
-    if (engineOptions) {
-      this.engine = new BullMQExecutionEngine(engineOptions);
+    if (queueOptions) {
+      this.queue = new SkipoQ(queueOptions);
     }
+  }
+
+  /**
+   * Instantiates a executable ServiceOrchestration from a pure serializable OrchestrationDefinition
+   * (e.g. from Kloks distribution).
+   */
+  public static fromDefinition<TIn = unknown, TOut = unknown>(
+    def: OrchestrationDefinition<TIn, TOut>,
+    serviceResolver?: (serviceId: string) => ServiceTarget
+  ): ServiceOrchestration<TIn, TOut> {
+    const orch = new ServiceOrchestration<TIn, TOut>(def.name || def.id, def.version);
+    for (const stepDef of def.steps) {
+      if (stepDef.type === 'task' && stepDef.target && stepDef.operation) {
+        const target = serviceResolver ? serviceResolver(stepDef.target) : stepDef.target;
+        orch.step(stepDef.id, target, stepDef.operation, stepDef.dependsOn ? [...stepDef.dependsOn] : [], {
+          name: stepDef.name,
+          retries: stepDef.retryPolicy?.maxAttempts,
+          retryDelayMs: stepDef.retryPolicy?.initialDelayMs,
+          retryBackoffMultiplier: stepDef.retryPolicy?.backoffMultiplier,
+          timeoutMs: stepDef.timeoutPolicy?.timeoutMs,
+        });
+      }
+    }
+    return orch;
   }
 
   /**
@@ -304,7 +334,6 @@ export class ServiceOrchestration<TInitialInput = unknown, TFinalOutput = unknow
       type: 'conditional',
       dependsOn: dependencies,
       handler: async (results: any, ctx: OrchestrationContext) => {
-        // Bridge step outputs for predicate compatibility
         const stepOutputs: Record<string, any> = {
           initial: results['input'],
           input: results['input'],
@@ -478,7 +507,7 @@ export class ServiceOrchestration<TInitialInput = unknown, TFinalOutput = unknow
   }
 
   /**
-   * Executes the service orchestration on the canonical BullMQ execution engine.
+   * Executes the service orchestration on the in-process SkipoQ execution engine.
    */
   public async execute(
     initialInput: TInitialInput,
@@ -492,10 +521,10 @@ export class ServiceOrchestration<TInitialInput = unknown, TFinalOutput = unknow
   ): Promise<ServiceOrchestrationExecutionResult<TFinalOutput>> {
     this.validate();
 
-    if (!this.engine) {
-      this.engine = new BullMQExecutionEngine({ queueName: this.name });
+    if (!this.queue) {
+      this.queue = new SkipoQ({ queueName: this.name });
     }
-    const engine = this.engine;
+    const queue = this.queue;
     const descriptor: OrchestrationDescriptor = {
       id: this.name,
       name: this.name,
@@ -504,7 +533,6 @@ export class ServiceOrchestration<TInitialInput = unknown, TFinalOutput = unknow
       timeoutMs: options.timeoutMs,
     };
 
-    // Handle incoming abort signal if present
     let cancellationHandler: (() => void) | undefined;
     let wasAborted = false;
     if (options.abortSignal) {
@@ -542,8 +570,8 @@ export class ServiceOrchestration<TInitialInput = unknown, TFinalOutput = unknow
         };
       }
 
-      // Execute through canonical BullMQ engine
-      const rawResult = await engine.executeOrchestration<TInitialInput, TFinalOutput>(
+      // Execute through in-process SkipoQ
+      const rawResult = await queue.executeOrchestration<TInitialInput, TFinalOutput>(
         descriptor,
         this.steps,
         initialInput,
@@ -556,7 +584,6 @@ export class ServiceOrchestration<TInitialInput = unknown, TFinalOutput = unknow
         }
       );
 
-      // Build trace list from stepResults
       const trace: ExecutionTraceItem[] = Object.values(rawResult.stepResults).map((sr) => ({
         stepId: sr.stepId,
         status: sr.status,

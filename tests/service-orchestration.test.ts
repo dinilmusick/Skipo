@@ -361,8 +361,8 @@ describe('Skipo Canonical ServiceOrchestration Architecture Suite', () => {
     expect(res.data).toEqual({ result: 'NESTED' });
   });
 
-  // 13. Single-service mediated BullMQ execution (executeService)
-  it('enforces external caller -> ServiceFacade -> BullMQ -> Worker pipeline for single-service execution', async () => {
+  // 13. Single-service mediated KrnlQ execution (executeService)
+  it('enforces external caller -> ServiceFacade -> KrnlQ -> Worker pipeline for single-service execution', async () => {
     const sum = await executeService<{ a: number; b: number }, { result: number }>(
       'serviceA',
       'add',
@@ -373,9 +373,9 @@ describe('Skipo Canonical ServiceOrchestration Architecture Suite', () => {
     const upper = await executeService<{ text: string }, { result: string }>(
       'serviceD',
       'uppercase',
-      { text: 'bullmq_mediated' }
+      { text: 'krnlq_mediated' }
     );
-    expect(upper.result).toBe('BULLMQ_MEDIATED');
+    expect(upper.result).toBe('KRNLQ_MEDIATED');
   });
 
   // 14. Negative Invariant: Direct functionality orchestration is strictly forbidden
@@ -391,5 +391,43 @@ describe('Skipo Canonical ServiceOrchestration Architecture Suite', () => {
     expect(() => {
       orch.thenService(rawFunctionality as any, 'execute');
     }).toThrow(/Invariant Violation: ServiceOrchestration composes independent services, NOT internal functionalities/i);
+  });
+
+  // 15. Instantiates and executes from pure OrchestrationDefinition
+  it('instantiates and executes ServiceOrchestration from pure serializable OrchestrationDefinition', async () => {
+    const def = {
+      id: 'custom_cross_service_def',
+      name: 'CustomCrossService',
+      version: '1.0.0',
+      scope: 'service' as const,
+      dependencies: ['serviceA', 'serviceD'],
+      steps: [
+        {
+          id: 'step_math',
+          name: 'Math',
+          type: 'task' as const,
+          target: 'serviceA',
+          operation: 'add',
+        },
+        {
+          id: 'step_text',
+          name: 'Text',
+          type: 'task' as const,
+          target: 'serviceD',
+          operation: 'uppercase',
+          dependsOn: ['step_math'],
+        },
+      ],
+    };
+
+    const serviceMap: Record<string, any> = {
+      serviceA: ServiceAFacade,
+      serviceD: ServiceDFacade,
+    };
+
+    const orch = ServiceOrchestration.fromDefinition(def, (id) => serviceMap[id]);
+    const res = await orch.execute({ a: 10, b: 5, text: 'hello' });
+    expect(res.success).toBe(true);
+    expect(res.data).toEqual({ result: 'HELLO' });
   });
 });

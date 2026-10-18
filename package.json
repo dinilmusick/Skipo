@@ -17,11 +17,11 @@
   },
   "dependencies": {
     "@dinilmusick/frnlts": "file:../FrnlTS",
-    "@ultrst-armada/krnl": "file:../KrnlTS",
-    "@ultrst-armada/kloks": "^1.4.2",
     "@ultrst-armada/floks": "^1.2.4",
-    "bullmq": "^6.3.8",
+    "@ultrst-armada/kloks": "^1.4.2",
+    "@ultrst-armada/krnl": "file:../KrnlTS",
     "lucide-react": "^1.55.0",
+    "p-queue": "^10.0.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "zustand": "^5.0.3"

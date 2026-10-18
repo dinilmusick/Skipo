@@ -42,10 +42,10 @@ import {
  * ──────────────────────────────────────────────────────────────────────────────
  * Purpose: Primary application backend composition entrypoint importing ready-made
  *          services and orchestrators directly from @kloks/* packages and executing
- *          cross-service workflows via canonical ServiceOrchestration and BullMQ.
+ *          cross-service workflows via canonical ServiceOrchestration and SkipoQ / KrnlQ.
  *
  * Flow Chart:
- *   [External Caller] ───► [SkipoBackend / ServiceFacade] ───► [BullMQ Command]
+ *   [External Caller] ───► [SkipoBackend / ServiceFacade] ───► [SkipoQ / KrnlQ Job]
  *                                                                     │
  *   [Result] ◄─── [Functionality / Service] ◄─── [Worker] ◄───────────┘
  * ──────────────────────────────────────────────────────────────────────────────
