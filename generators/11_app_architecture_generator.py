@@ -191,6 +191,7 @@ export const {pascal}Backend = {{
   services: {{
     coreDb: {{ query: queryUnifiedDb }},
   }},
+  serviceOrchestrations: {{}},
   orchestrations: {{}},
   worker: {camel}Worker,
   WorkerExecutionBoundary: {camel}Worker,

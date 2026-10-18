@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// 1. IMPORTS & EXTERNAL DEPENDENCIES (@kloks/* PACKAGES)
+// 1. IMPORTS & EXTERNAL DEPENDENCIES (@kloks/* PACKAGES & @ultrst-armada/krnl)
 // ══════════════════════════════════════════════════════════════════════════════
 
 import {
@@ -23,26 +23,31 @@ import {
   StorageServiceFacade,
   WorkspaceServiceFacade,
   ControlPlaneServiceFacade,
-  ExecutionServiceFacade,
 } from '@ultrst-armada/kloks/backend/krnl-services';
-import {
-  ExecutableBackendFacade,
-  WorkerExecutionBoundary,
-} from '@ultrst-armada/kloks/backend/execution';
 import {
   StateLifecycleServiceFacade,
   NodeGraphEngineServiceFacade,
 } from '@ultrst-armada/kloks/state-graph';
+import { WorkerExecutionBoundary } from '@ultrst-armada/krnl';
+import { ServiceOrchestration } from './orchestration/ServiceOrchestration.js';
+import {
+  skipoExecutionEngine,
+  skipoWorkerBoundary,
+  type ServiceExecutionOptions,
+} from './execution/SkipoExecutionEngine.js';
 
 /**
  * ──────────────────────────────────────────────────────────────────────────────
  * BACKEND FACADE: SkipoBackend
  * ──────────────────────────────────────────────────────────────────────────────
  * Purpose: Primary application backend composition entrypoint importing ready-made
- *          services and orchestrators directly from @kloks/* packages.
+ *          services and orchestrators directly from @kloks/* packages and executing
+ *          cross-service workflows via canonical ServiceOrchestration and BullMQ.
  *
  * Flow Chart:
- *   [@kloks/* Services] ───► [@kloks/* Orchestrators] ───► [SkipoBackend Facade]
+ *   [External Caller] ───► [SkipoBackend / ServiceFacade] ───► [BullMQ Command]
+ *                                                                     │
+ *   [Result] ◄─── [Functionality / Service] ◄─── [Worker] ◄───────────┘
  * ──────────────────────────────────────────────────────────────────────────────
  */
 export const services = {
@@ -57,28 +62,61 @@ export const services = {
   storage: StorageServiceFacade,
   workspace: WorkspaceServiceFacade,
   controlPlane: ControlPlaneServiceFacade,
-  execution: ExecutionServiceFacade,
   stateLifecycle: StateLifecycleServiceFacade,
   nodeGraphEngine: NodeGraphEngineServiceFacade,
 };
 
-export const orchestrations = {
+// Register domain services in SkipoExecutionEngine
+for (const [name, svc] of Object.entries(services)) {
+  skipoExecutionEngine.registerService(name, svc);
+}
+
+export const serviceOrchestrations = {
   orchestratorA: OrchestratorAFacade,
   orchestratorB: OrchestratorBFacade,
   audioMidi: AudioMidiOrchestratorFacade,
 };
 
-export const executableFacade = new ExecutableBackendFacade('SkipoBackend');
-export const skipoWorkerBoundary = new WorkerExecutionBoundary(
-  'skipo_worker_main',
-  executableFacade
-);
+export const orchestrations = serviceOrchestrations;
+
+export const worker = skipoWorkerBoundary;
+export const WorkerExecutionBoundaryInstance = skipoWorkerBoundary;
+export { WorkerExecutionBoundary };
+
+export async function executeService<TInput = unknown, TOutput = unknown>(
+  serviceName: string,
+  operation: string,
+  input?: TInput,
+  options?: ServiceExecutionOptions
+): Promise<TOutput> {
+  return skipoExecutionEngine.executeService<TInput, TOutput>(
+    serviceName,
+    operation,
+    input,
+    options
+  );
+}
+
+export async function executeOrchestration<TInput = unknown, TOutput = unknown>(
+  orchestration: ServiceOrchestration<TInput, TOutput>,
+  input: TInput,
+  options?: ServiceExecutionOptions
+) {
+  return skipoExecutionEngine.executeOrchestration<TInput, TOutput>(
+    orchestration,
+    input,
+    options
+  );
+}
 
 export const SkipoBackend = {
   services,
+  serviceOrchestrations,
   orchestrations,
   worker: skipoWorkerBoundary,
   WorkerExecutionBoundary: skipoWorkerBoundary,
+  executeService,
+  executeOrchestration,
 };
 
 export default SkipoBackend;

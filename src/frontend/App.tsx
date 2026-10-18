@@ -28,37 +28,37 @@ export function App() {
         slots={
           <FrnlSlot
             id="skipo.workspaceGate.menu"
+            store={skipoFrnlStore}
             address="Skipo.workspaceGate.menu"
             occupantId="workspace-menu"
             occupantKind="composite"
             occupants={{
               'workspace-menu': (
                 <WorkspaceTilesMenu
-              workspaces={workspaces}
-              activeWorkspaceId={null}
-              onSelectWorkspace={(ws) => setActiveWorkspace(ws)}
-              onCreateWorkspace={async (name, storage) => {
-                const validated = await SkipoBackend.services.workspace.execute<
-                  { id: string; name: string; storageType?: string },
-                  { workspaceId: string; name: string }
-                >('validateWorkspaceConfig', {
-                  id: `ws-${Date.now()}`,
-                  name,
-                  storageType: storage.provider,
-                });
-                const created: WorkspaceRecord = {
-                  id: validated.workspaceId,
-                  name: validated.name,
-                  storageProvider: storage.provider,
-                };
-                setWorkspaces((prev) => [...prev, created]);
-                setActiveWorkspace(created);
-              }}
+                  workspaces={workspaces}
+                  activeWorkspaceId={null}
+                  onSelectWorkspace={(ws) => setActiveWorkspace(ws)}
+                  onCreateWorkspace={async (input: { name: string; description?: string; storage: any }) => {
+                    const validated = await SkipoBackend.services.workspace.execute<
+                      { id: string; name: string; storageType?: string },
+                      { workspaceId: string; name: string }
+                    >('validateWorkspaceConfig', {
+                      id: `ws-${Date.now()}`,
+                      name: input.name,
+                      storageType: input.storage?.provider,
+                    });
+                    const created: WorkspaceRecord = {
+                      id: validated.workspaceId,
+                      name: validated.name,
+                      storageProvider: input.storage?.provider,
+                    };
+                    setWorkspaces((prev) => [...prev, created]);
+                    setActiveWorkspace(created);
+                  }}
                 />
               ),
             }}
           />
-          </FrnlSlot>
         }
       />
     );
@@ -71,6 +71,7 @@ export function App() {
       slots={
         <FrnlSlot
           id="skipo.application.shell"
+          store={skipoFrnlStore}
           address="Skipo.application.shell"
           occupantId="app-shell"
           occupantKind="composite"
@@ -101,7 +102,6 @@ export function App() {
             ),
           }}
         />
-        </FrnlSlot>
       }
     />
   );
