@@ -64,7 +64,7 @@ class ScaffoldRegressionTest(unittest.TestCase):
     def test_gates_import_canonical_floks(self):
         """LoginGate & WorkspaceGate must exist and import @ultrst-armada/floks/ui."""
         for scaffold_name in ["vite", "nextjs"]:
-            gates_dir = SKIPO_ROOT / "scaffolds" / scaffold_name / "src" / "frontend" / "gates"
+            gates_dir = SKIPO_ROOT / "scaffolds" / scaffold_name / "src" / "frontend" / "components" / "gates"
             login_gate = gates_dir / "LoginGate.tsx"
             ws_gate = gates_dir / "WorkspaceGate.tsx"
             self.assertTrue(login_gate.exists(), f"LoginGate missing in {scaffold_name}")

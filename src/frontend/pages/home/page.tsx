@@ -36,7 +36,7 @@ export function HomePage() {
             setActiveWorkspace(created);
           }}
         />
-      </FrnlPage
+      </FrnlPage>
     );
   }
 
@@ -58,7 +58,7 @@ export function HomePage() {
         />
         <DockBar items={[]} />
       </BaseCard>
-    </FrnlPage
+    </FrnlPage>
   );
 }
 

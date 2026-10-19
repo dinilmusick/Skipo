@@ -139,10 +139,10 @@ export function {camel_lib}Transform<T extends {pascal_lib}Model>(item: T, optio
  * Aggregates and exposes all contained code assets.
  */
 
-export * from './{types_filename}.js';
-export {{ {camel_lib}Transform }} from './{func_filename}.js';
+export * from './{pascal_lib}Types.js';
+export {{ {camel_lib}Transform }} from './{camel_lib}Transform.js';
 
-import {{ {camel_lib}Transform }} from './{func_filename}.js';
+import {{ {camel_lib}Transform }} from './{camel_lib}Transform.js';
 
 export const {lib_folder_name} = {{
   {camel_lib}Transform,

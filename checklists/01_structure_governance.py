@@ -210,6 +210,7 @@ def validate_structure(root_dir: Path) -> ChecklistResult:
                             suggestion="Import all frontend components through ../components/components.ts or the equivalent relative path."
                         ))
 
+                orch_dir = page_dir / "orchestrations"
                 if not orch_dir.exists() or not orch_dir.is_dir():
                     violations.append(Violation(
                         rule_id="skipo/page-orchestrations-required",
@@ -219,7 +220,6 @@ def validate_structure(root_dir: Path) -> ChecklistResult:
                         suggestion="Create pages/<page-name>/orchestrations/ and generate definitions with the Frnl CLI."
                     ))
 
-                orch_dir = page_dir / "orchestrations"
                 if orch_dir.exists():
                     for orch_file in orch_dir.glob("*.ts"):
                         source = read_text_safe(orch_file) or ""
