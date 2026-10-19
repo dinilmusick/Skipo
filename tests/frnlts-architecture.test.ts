@@ -158,7 +158,6 @@ describe('Skipo page orchestration validation', () => {
 
   it('rejects a frontend state directory and orphan orchestration', () => {
     const target = mkdtempSync(join(tmpdir(), 'skipo-page-invalid-'));
-    const fs = require('node:fs') as typeof import('node:fs');
     fs.mkdirSync(join(target, 'src/frontend/frontend-state'), { recursive: true });
     fs.mkdirSync(join(target, 'src/frontend/components'), { recursive: true });
     fs.mkdirSync(join(target, 'src/frontend/pages/home/orchestrations'), { recursive: true });
