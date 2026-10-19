@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { defineFrnlComponent, useFrnlComponent, type FrnlComponentDefinition } from '@dinilmusick/frnlts';
+import { defineFrnlComponent, useFrnlComponent, type FrnlComponentDefinition } from '@ultrst-armada/frnlts';
 import {
   AppShell,
   TopToolbar,

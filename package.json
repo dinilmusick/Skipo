@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@dinilmusick/frnlts": "file:../FrnlTS",
+    "@ultrst-armada/frnlts": "file:../FrnlTS",
     "@ultrst-armada/floks": "^1.2.4",
     "@ultrst-armada/kloks": "^1.4.2",
     "@ultrst-armada/krnl": "file:../KrnlTS",
@@ -35,7 +35,7 @@
   },
   "pnpm": {
     "overrides": {
-      "@dinilmusick/frnlts": "file:../FrnlTS",
+      "@ultrst-armada/frnlts": "file:../FrnlTS",
       "@ultrst-armada/krnl": "file:../KrnlTS",
       "@ultrst-armada/kloks": "file:../Kloks",
       "@ultrst-armada/floks": "file:../Floks"

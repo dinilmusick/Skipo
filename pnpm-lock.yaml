@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@dinilmusick/frnlts': file:../FrnlTS
+  '@ultrst-armada/frnlts': file:../FrnlTS
   '@ultrst-armada/krnl': file:../KrnlTS
   '@ultrst-armada/kloks': file:../Kloks
   '@ultrst-armada/floks': file:../Floks
@@ -14,12 +14,12 @@ importers:
 
   .:
     dependencies:
-      '@dinilmusick/frnlts':
-        specifier: file:../FrnlTS
-        version: file:../FrnlTS(@types/react@19.3.0)(react@19.3.0)
       '@ultrst-armada/floks':
         specifier: file:../Floks
         version: file:../Floks(@ultrst-armada/kloks@file:../Kloks(@types/react@19.3.0)(react@19.3.0))(lucide-react@1.55.0(@types/react@19.3.0)(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@ultrst-armada/frnlts':
+        specifier: file:../FrnlTS
+        version: file:../FrnlTS(@types/react@19.3.0)(react@19.3.0)
       '@ultrst-armada/kloks':
         specifier: file:../Kloks
         version: file:../Kloks(@types/react@19.3.0)(react@19.3.0)
@@ -131,12 +131,6 @@ packages:
   '@aws/lambda-invoke-store@0.3.0':
     resolution: {integrity: sha512-sl4Bm6yiMNYrZKkqqDFWN0UfnWhlS8ivKxrYl+6t0gCLrqr8y3B2IqZZbFRkfaVVp7C/baApyh71P+LeE1A2sQ==}
     engines: {node: '>=18.0.0'}
-
-  '@dinilmusick/frnlts@file:../FrnlTS':
-    resolution: {directory: ../FrnlTS, type: directory}
-    engines: {node: '>=20.0.0'}
-    peerDependencies:
-      react: ^18.0.0 || ^19.0.0
 
   '@esbuild/aix-ppc64@0.28.2':
     resolution: {integrity: sha512-XExcO+dvLKvVtNTibSTBej1NCAbaGhWn9Ww1ZPx80qsahhPFe/8jgWP0IchNe0F3HwkU7n8ejhH8bjonqht8mQ==}
@@ -479,6 +473,12 @@ packages:
       lucide-react: '>=0.300.0'
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
+
+  '@ultrst-armada/frnlts@file:../FrnlTS':
+    resolution: {directory: ../FrnlTS, type: directory}
+    engines: {node: '>=20.0.0'}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
 
   '@ultrst-armada/kloks@file:../Kloks':
     resolution: {directory: ../Kloks, type: directory}
@@ -989,16 +989,6 @@ snapshots:
 
   '@aws/lambda-invoke-store@0.3.0': {}
 
-  '@dinilmusick/frnlts@file:../FrnlTS(@types/react@19.3.0)(react@19.3.0)':
-    dependencies:
-      react: 19.3.0
-      zod: 3.25.76
-      zustand: 5.0.15(@types/react@19.3.0)(react@19.3.0)
-    transitivePeerDependencies:
-      - '@types/react'
-      - immer
-      - use-sync-external-store
-
   '@esbuild/aix-ppc64@0.28.2':
     optional: true
 
@@ -1218,6 +1208,16 @@ snapshots:
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
       zod: 3.25.76
+
+  '@ultrst-armada/frnlts@file:../FrnlTS(@types/react@19.3.0)(react@19.3.0)':
+    dependencies:
+      react: 19.3.0
+      zod: 3.25.76
+      zustand: 5.0.15(@types/react@19.3.0)(react@19.3.0)
+    transitivePeerDependencies:
+      - '@types/react'
+      - immer
+      - use-sync-external-store
 
   '@ultrst-armada/kloks@file:../Kloks(@types/react@19.3.0)(react@19.3.0)':
     dependencies:
