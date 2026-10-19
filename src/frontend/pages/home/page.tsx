@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  frnlPage,
+  FrnlPage,
   BaseButton,
   BaseCard,
   WorkspaceTilesMenu,
@@ -18,7 +18,7 @@ export function HomePage() {
 
   if (!activeWorkspace) {
     return (
-      <frnlPage appName="Skipo">
+      <FrnlPage appName="Skipo">
         <WorkspaceTilesMenu
           workspaces={workspaces}
           activeWorkspaceId={null}
@@ -36,12 +36,12 @@ export function HomePage() {
             setActiveWorkspace(created);
           }}
         />
-      </frnlPage>
+      </FrnlPage
     );
   }
 
   return (
-    <frnlPage
+    <FrnlPage
       appName="Skipo"
       title={activeWorkspace.name}
       topBarActions={
@@ -58,7 +58,7 @@ export function HomePage() {
         />
         <DockBar items={[]} />
       </BaseCard>
-    </frnlPage>
+    </FrnlPage
   );
 }
 
