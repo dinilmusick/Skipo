@@ -10,7 +10,6 @@ import {
   type WorkspaceRecord,
 } from '@ultrst-armada/floks/ui';
 import { InfiniteCanvas, DockBar } from '@ultrst-armada/floks/canvas-ui';
-import { SkipoBackend } from '../backend/SkipoBackend.js';
 import { skipoFrnlStore } from '../frontend-state/store.js';
 
 const workspaceGateDefinition = defineFrnlComponent({
@@ -84,20 +83,23 @@ export function App() {
           workspaces={workspaces}
           activeWorkspaceId={null}
           onSelectWorkspace={(ws) => setActiveWorkspace(ws)}
-          onCreateWorkspace={async (input: { name: string; description?: string; storage: any }) => {
-            const validated = await SkipoBackend.services.workspace.execute<
-              { id: string; name: string; storageType?: string },
-              { workspaceId: string; name: string }
-            >('validateWorkspaceConfig', {
-              id: `ws-${Date.now()}`,
-              name: input.name,
-              storageType: input.storage?.provider,
-            });
+          onCreateWorkspace={async (input: {
+            name: string;
+            description?: string;
+            storage?: { provider?: string } | null;
+          }) => {
+            const name = input.name.trim();
+            if (!name) {
+              throw new Error('Workspace name is required.');
+            }
+
+            const storageProvider = input.storage?.provider ?? 'local_fs';
             const created: WorkspaceRecord = {
-              id: validated.workspaceId,
-              name: validated.name,
-              storageProvider: input.storage?.provider,
+              id: `ws-${Date.now()}`,
+              name,
+              storageProvider,
             };
+
             setWorkspaces((prev) => [...prev, created]);
             setActiveWorkspace(created);
           }}
