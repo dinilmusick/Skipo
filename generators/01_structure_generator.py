@@ -112,8 +112,8 @@ python3 checklists/full_system_validator.py .
     frontend_readme = f"""# Frontend Plane: {app_name}
 
 Contains all client-side UI, presentation logic, and interactive views.
-- `components/`: Pure, single-responsibility components (<= 200 lines).
-- `shell/`: AppShell, TopToolbar (44px), BottomStrip (30px), FloatingDetailsPanel.
+- `components/`: Pure, single-responsibility components (<= 200 lines), exposed through `components.ts`.
+- `pages/`: Route-scoped page folders; each page owns its `page.tsx` and optional `orchestrations/`.
 - `lib/`: Reactive state hooks and UI helpers.
 """
     files.append(GeneratedFile(
@@ -162,14 +162,14 @@ export * from './drivers';
 
     # 6. Placeholder barrel files for sub-directories so imports resolve
     files.append(GeneratedFile(
-        relative_path="src/frontend/components/index.ts",
-        content=f"{section_header('Components Barrel')}\nexport {{}};\n",
-        description="Components barrel"
+        relative_path="src/frontend/components/components.ts",
+        content="// Canonical Skipo component facade. Pages import UI only through this file.\n",
+        description="Canonical frontend component facade"
     ))
     files.append(GeneratedFile(
-        relative_path="src/frontend/shell/index.ts",
-        content=f"{section_header('Shell Barrel')}\nexport {{}};\n",
-        description="Shell barrel"
+        relative_path="src/frontend/pages/.gitkeep",
+        content="",
+        description="Route-scoped page directory"
     ))
     files.append(GeneratedFile(
         relative_path="src/backend/entities/index.ts",
