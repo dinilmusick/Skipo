@@ -162,7 +162,7 @@ export * from './drivers';
     # 6. Placeholder barrel files for sub-directories so imports resolve
     files.append(GeneratedFile(
         relative_path="src/frontend/components/components.ts",
-        content="// Canonical Skipo component facade. Pages import UI only through this file.\n",
+        content="export * from '@ultrst-armada/floks/ui';\nexport * from '@ultrst-armada/floks/canvas-ui';\n",
         description="Canonical frontend component facade"
     ))
     files.append(GeneratedFile(
