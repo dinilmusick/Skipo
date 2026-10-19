@@ -13,7 +13,8 @@
     "validate": "python3 checklists/full_system_validator.py .",
     "assistant": "python3 assistant.py",
     "skipo": "python3 scripts/skipo_builder.py",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "validate:frnl": "python3 scripts/validate_frnl.py"
   },
   "dependencies": {
     "@ultrst-armada/frnlts": "file:../FrnlTS",
