@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -145,10 +145,9 @@ describe('canonical Skipo frontend page architecture', () => {
 describe('Skipo page orchestration validation', () => {
   it('accepts a page with a facade-backed page and valid orchestration', () => {
     const target = mkdtempSync(join(tmpdir(), 'skipo-page-valid-'));
-    const fs = require('node:fs') as typeof import('node:fs');
-    fs.mkdirSync(join(target, 'src/frontend/pages/home/orchestrations'), { recursive: true });
+    mkdirSync(join(target, 'src/frontend/pages/home/orchestrations'), { recursive: true });
     fs.mkdirSync(join(target, 'src/frontend/components'), { recursive: true });
-    fs.writeFileSync(join(target, 'src/frontend/components/components.ts'), 'export {};');
+    writeFileSync(join(target, 'src/frontend/components/components.ts'), 'export {};');
     fs.writeFileSync(join(target, 'src/frontend/pages/home/page.tsx'), "import { FrnlPage } from '../../components/components.js';\nexport function Home() { return <FrnlPage />; }");
     fs.writeFileSync(join(target, 'src/frontend/pages/home/orchestrations/Save.ts'), "import { defineFrnlOrchestration } from '@ultrst-armada/frnlts';\nexport const Save = defineFrnlOrchestration({ id: 'home.Save', name: 'Save', setup: () => undefined });");
     const validator = join(repoRoot, 'checklists/01_structure_governance.py');
