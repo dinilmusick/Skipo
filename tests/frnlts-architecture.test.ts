@@ -97,6 +97,10 @@ describe('concept-library generator', () => {
         readFileSync(join(target, path), 'utf8'),
       );
 
+      expect(generatedContents[2]).toContain("export * from './AudioGraphTypes.js';");
+      expect(generatedContents[2]).toContain("export { audioGraphTransform } from './audioGraphTransform.js';");
+      expect(generatedContents[3]).toContain("./audio_graph_concepts/audio_graph_concepts.js");
+
       const second = JSON.parse(execFileSync('python3', args, {
         cwd: repoRoot,
         encoding: 'utf8',
