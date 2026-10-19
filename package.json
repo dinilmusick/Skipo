@@ -31,16 +31,14 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "typescript": "^5.7.3",
-    "vitest": "^3.1.0",
-    "@ultrst-armada/frnlts-cli": "file:../FrnlTS/packages/cli"
+    "vitest": "^3.1.0"
   },
   "pnpm": {
     "overrides": {
       "@ultrst-armada/frnlts": "file:../FrnlTS",
       "@ultrst-armada/krnl": "file:../KrnlTS",
       "@ultrst-armada/kloks": "file:../Kloks",
-      "@ultrst-armada/floks": "file:../Floks",
-      "@ultrst-armada/frnlts-cli": "file:../FrnlTS/packages/cli"
+      "@ultrst-armada/floks": "file:../Floks"
     }
   },
   "packageManager": "pnpm@9.15.0",
