@@ -20,6 +20,21 @@ const FORBIDDEN_LEGACY_TERMS = [
 ];
 
 describe('current FrnlTS architecture boundary', () => {
+  it('keeps the frontend free of backend implementation imports', () => {
+    const frontendFiles = execFileSync(
+      'find',
+      ['src/frontend', '-type', 'f', '(', '-name', '*.ts', '-o', '-name', '*.tsx', '-o', '-name', '*.js', '-o', '-name', '*.jsx', ')'],
+      { cwd: repoRoot, encoding: 'utf8' },
+    ).trim().split('\n').filter(Boolean);
+
+    const backendImportPattern = /(?:from\\s+|import\\s*\\(\\s*)['"][^'"]*(?:\\/backend(?:\\/|['"])|SkipoBackend)[^'"]*['"]/;
+    const violations = frontendFiles.filter((relativePath) =>
+      backendImportPattern.test(readFileSync(join(repoRoot, relativePath), 'utf8')),
+    );
+
+    expect(violations).toEqual([]);
+  });
+
   it('contains no deleted Slots, Bounds, occupants, or visual-asset integration', () => {
     const roots = ['src', 'generators', 'mutators', 'scaffolds'];
     const files = execFileSync(
