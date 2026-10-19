@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { defineFrnlComponent, useFrnlComponent } from '@dinilmusick/frnlts';
+import { useState, type ReactNode } from 'react';
+import { defineFrnlComponent, useFrnlComponent, type FrnlComponentDefinition } from '@dinilmusick/frnlts';
 import {
   AppShell,
   TopToolbar,
@@ -53,8 +53,8 @@ function FrnlComponentBoundary({
 }: {
   id: string;
   parentId?: string;
-  definition: typeof workspaceGateDefinition;
-  children: React.ReactNode;
+  definition: FrnlComponentDefinition;
+  children: ReactNode;
 }) {
   useFrnlComponent({
     id,
