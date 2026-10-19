@@ -93,7 +93,7 @@ description: Architectural router and invariant specifications for {app_name}.
 # {app_name.upper()} RUNTIME SPECIFICATIONS
 
 ## Domain Layout
-- `src/frontend`: UI components, shells, design tokens, client state.
+- `src/frontend`: route-scoped pages and reusable UI components.
 - `src/backend`: API routes, authentic drivers, database adapters, control plane auth.
 
 ## Verification Gate
@@ -114,7 +114,7 @@ python3 checklists/full_system_validator.py .
 Contains all client-side UI, presentation logic, and interactive views.
 - `components/`: Pure, single-responsibility components (<= 200 lines), exposed through `components.ts`.
 - `pages/`: Route-scoped page folders; each page owns its `page.tsx` and optional `orchestrations/`.
-- `lib/`: Reactive state hooks and UI helpers.
+
 """
     files.append(GeneratedFile(
         relative_path="src/frontend/README.md",
@@ -122,11 +122,10 @@ Contains all client-side UI, presentation logic, and interactive views.
         description="Frontend plane documentation"
     ))
 
-    frontend_index = f"""{section_header("Frontend Plane Barrel")}
+    frontend_index = f"""{section_header("Frontend Plane Entry")}
 // ══════════════════════════════════════════════════════════════════════════════
 
-export * from './components';
-export * from './shell';
+export * from './components/components.js';
 """
     files.append(GeneratedFile(
         relative_path="src/frontend/index.ts",
