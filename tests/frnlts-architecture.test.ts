@@ -27,10 +27,14 @@ describe('current FrnlTS architecture boundary', () => {
       { cwd: repoRoot, encoding: 'utf8' },
     ).trim().split('\n').filter(Boolean);
 
-    const backendImportPattern = /(?:from\\s+|import\\s*\\(\\s*)['"][^'"]*(?:\\/backend(?:\\/|['"])|SkipoBackend)[^'"]*['"]/;
-    const violations = frontendFiles.filter((relativePath) =>
-      backendImportPattern.test(readFileSync(join(repoRoot, relativePath), 'utf8')),
-    );
+    const violations = frontendFiles.filter((relativePath) => {
+      const content = readFileSync(join(repoRoot, relativePath), 'utf8');
+      return (
+        content.includes("SkipoBackend") ||
+        content.includes("../backend/") ||
+        content.includes("./backend/")
+      );
+    });
 
     expect(violations).toEqual([]);
   });
