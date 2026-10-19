@@ -2,11 +2,11 @@
 """
 Aspect 11: App Architecture Spec & Service Suite Generator
 Generates:
-- Complete APP_ARCHITECTURE_SPEC canonical tree (src/frontend, src/backend, src/libraries, src/frontend-state)
+- Complete APP_ARCHITECTURE_SPEC canonical tree (src/frontend/pages, src/frontend/components, src/backend, src/libraries)
 - Single Backend Entrypoint Facade (<AppName>Backend.ts)
 - Plug-and-play Service Suites (<service>.ts facade, client/, server/, remote/, repositories/)
 - Gateway subsystem (gateway.ts, registry/, resolver/, transport/)
-- Pure neutral libraries and frontend-state directories
+- Pure neutral libraries shared by frontend and backend
 - Invariant tests, config directories, and GitHub Actions workflows
 """
 
@@ -293,21 +293,16 @@ export async function queryUnifiedDb<T = any>(
         description="Pure functions library"
     ))
 
-    # 4. Frontend State & Execution
+    # 4. Canonical frontend page/component tree
     files.append(GeneratedFile(
-        relative_path="src/frontend-state/stores/index.ts",
-        content="import { SKIPO_STATE, useSkipoState } from '@skipo/systems/state';\nexport { SKIPO_STATE, useSkipoState };\n",
-        description="SKIPO_STATE Zustand stores"
+        relative_path="src/frontend/components/components.ts",
+        content="// Canonical component facade. Pages import UI only through this file.\n",
+        description="Frontend component facade"
     ))
     files.append(GeneratedFile(
-        relative_path="src/frontend-state/execution/index.ts",
-        content="import { SKIPO_EXECUTION, useCommand } from '@skipo/systems/execution';\nexport { SKIPO_EXECUTION, useCommand };\n",
-        description="SKIPO_EXECUTION BullMQ command bus"
-    ))
-    files.append(GeneratedFile(
-        relative_path="src/frontend-state/events/index.ts",
-        content="// Domain and state transition events\nexport {};\n",
-        description="Frontend state events"
+        relative_path="src/frontend/pages/home/page.tsx",
+        content="import { frnlPage as FrnlPage } from '@ultrst-armada/floks/ui';\n\nexport function HomePage() {\n  return <FrnlPage appName=\"Skipo\">Home</FrnlPage>;\n}\n",
+        description="Canonical route-scoped page scaffold"
     ))
 
     # 5. Gateway
