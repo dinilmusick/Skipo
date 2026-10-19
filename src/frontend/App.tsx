@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { defineFrnlComponent, useFrnlComponent } from '@dinilmusick/frnlts';
 import {
   AppShell,
   TopToolbar,
@@ -9,9 +10,62 @@ import {
   type WorkspaceRecord,
 } from '@ultrst-armada/floks/ui';
 import { InfiniteCanvas, DockBar } from '@ultrst-armada/floks/canvas-ui';
-import { FrnlComposite, FrnlSlot } from '@dinilmusick/frnlts/react';
 import { SkipoBackend } from '../backend/SkipoBackend.js';
 import { skipoFrnlStore } from '../frontend-state/store.js';
+
+const workspaceGateDefinition = defineFrnlComponent({
+  name: 'SkipoWorkspaceGate',
+  states: {
+    default: {
+      name: 'default',
+      events: {},
+      visualParameters: {},
+      phases: {
+        attackPhase: { visualDefinition: { parameters: {} } },
+        sustainPhase: { visualDefinition: { parameters: {} } },
+        releasePhase: { visualDefinition: { parameters: {} } },
+      },
+    },
+  },
+});
+
+const applicationDefinition = defineFrnlComponent({
+  name: 'SkipoApplication',
+  states: {
+    default: {
+      name: 'default',
+      events: {},
+      visualParameters: {},
+      phases: {
+        attackPhase: { visualDefinition: { parameters: {} } },
+        sustainPhase: { visualDefinition: { parameters: {} } },
+        releasePhase: { visualDefinition: { parameters: {} } },
+      },
+    },
+  },
+});
+
+function FrnlComponentBoundary({
+  id,
+  parentId,
+  definition,
+  children,
+}: {
+  id: string;
+  parentId?: string;
+  definition: typeof workspaceGateDefinition;
+  children: React.ReactNode;
+}) {
+  useFrnlComponent({
+    id,
+    parentId,
+    definition,
+    store: skipoFrnlStore,
+    handlers: {},
+  });
+
+  return <>{children}</>;
+}
 
 export function App() {
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceRecord | null>(null);
@@ -22,88 +76,64 @@ export function App() {
 
   if (!activeWorkspace) {
     return (
-      <FrnlComposite
+      <FrnlComponentBoundary
         id="skipo.workspaceGate"
-        store={skipoFrnlStore}
-        slots={
-          <FrnlSlot
-            id="skipo.workspaceGate.menu"
-            store={skipoFrnlStore}
-            address="Skipo.workspaceGate.menu"
-            occupantId="workspace-menu"
-            occupantKind="composite"
-            occupants={{
-              'workspace-menu': (
-                <WorkspaceTilesMenu
-                  workspaces={workspaces}
-                  activeWorkspaceId={null}
-                  onSelectWorkspace={(ws) => setActiveWorkspace(ws)}
-                  onCreateWorkspace={async (input: { name: string; description?: string; storage: any }) => {
-                    const validated = await SkipoBackend.services.workspace.execute<
-                      { id: string; name: string; storageType?: string },
-                      { workspaceId: string; name: string }
-                    >('validateWorkspaceConfig', {
-                      id: `ws-${Date.now()}`,
-                      name: input.name,
-                      storageType: input.storage?.provider,
-                    });
-                    const created: WorkspaceRecord = {
-                      id: validated.workspaceId,
-                      name: validated.name,
-                      storageProvider: input.storage?.provider,
-                    };
-                    setWorkspaces((prev) => [...prev, created]);
-                    setActiveWorkspace(created);
-                  }}
-                />
-              ),
-            }}
-          />
-        }
-      />
+        definition={workspaceGateDefinition}
+      >
+        <WorkspaceTilesMenu
+          workspaces={workspaces}
+          activeWorkspaceId={null}
+          onSelectWorkspace={(ws) => setActiveWorkspace(ws)}
+          onCreateWorkspace={async (input: { name: string; description?: string; storage: any }) => {
+            const validated = await SkipoBackend.services.workspace.execute<
+              { id: string; name: string; storageType?: string },
+              { workspaceId: string; name: string }
+            >('validateWorkspaceConfig', {
+              id: `ws-${Date.now()}`,
+              name: input.name,
+              storageType: input.storage?.provider,
+            });
+            const created: WorkspaceRecord = {
+              id: validated.workspaceId,
+              name: validated.name,
+              storageProvider: input.storage?.provider,
+            };
+            setWorkspaces((prev) => [...prev, created]);
+            setActiveWorkspace(created);
+          }}
+        />
+      </FrnlComponentBoundary>
     );
   }
 
   return (
-    <FrnlComposite
+    <FrnlComponentBoundary
       id="skipo.application"
-      store={skipoFrnlStore}
-      slots={
-        <FrnlSlot
-          id="skipo.application.shell"
-          store={skipoFrnlStore}
-          address="Skipo.application.shell"
-          occupantId="app-shell"
-          occupantKind="composite"
-          occupants={{
-            'app-shell': (
-              <AppShell
-            header={
-              <TopToolbar
-                title={activeWorkspace.name}
-                actions={
-                  <BaseButton onClick={() => setActiveWorkspace(null)}>
-                    Switch Workspace
-                  </BaseButton>
-                }
-              />
+      definition={applicationDefinition}
+    >
+      <AppShell
+        header={
+          <TopToolbar
+            title={activeWorkspace.name}
+            actions={
+              <BaseButton onClick={() => setActiveWorkspace(null)}>
+                Switch Workspace
+              </BaseButton>
             }
-            footer={<BottomStrip centerSlot={<span>{activeWorkspace.name}</span>} />}
-          >
-            <BaseCard>
-              <InfiniteCanvas
-                items={[]}
-                transform={canvasTransform}
-                onTransformChange={setCanvasTransform}
-              />
-              <DockBar items={[]} />
-            </BaseCard>
-              </AppShell>
-            ),
-          }}
-        />
-      }
-    />
+          />
+        }
+        footer={<BottomStrip centerSlot={<span>{activeWorkspace.name}</span>} />}
+      >
+        <BaseCard>
+          <InfiniteCanvas
+            items={[]}
+            transform={canvasTransform}
+            onTransformChange={setCanvasTransform}
+          />
+          <DockBar items={[]} />
+        </BaseCard>
+      </AppShell>
+    </FrnlComponentBoundary>
   );
 }
 
