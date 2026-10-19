@@ -15,6 +15,7 @@ export function HomePage() {
   const [token, setToken] = useState<string | null>(null);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([]);
+  const [canvasTransform, setCanvasTransform] = useState({ x: 0, y: 0, scale: 1 });
 
   useEffect(() => {
     if (!token) return;
@@ -80,7 +81,7 @@ export function HomePage() {
       }
     >
       <BaseCard>
-        <InfiniteCanvas items={[]} />
+        <InfiniteCanvas items={[]} transform={canvasTransform} onTransformChange={setCanvasTransform} />
         <DockBar items={[]} />
       </BaseCard>
     </FrnlPage>
