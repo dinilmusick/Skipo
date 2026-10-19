@@ -45,6 +45,22 @@ class ScaffoldRegressionTest(unittest.TestCase):
                                     f"Forbidden DATABASE_URL at {fp.relative_to(SKIPO_ROOT)}:{i}",
                                 )
 
+    def test_frontend_plane_is_pages_and_components_only(self):
+        """Scaffolds must keep the frontend root limited to pages/ and components/."""
+        for scaffold_name in ["vite", "nextjs"]:
+            frontend = SKIPO_ROOT / "scaffolds" / scaffold_name / "src" / "frontend"
+            children = sorted(
+                entry.name for entry in frontend.iterdir()
+                if entry.is_dir() and not entry.name.startswith(".")
+            )
+            self.assertEqual(children, ["components", "pages"])
+            self.assertFalse((SKIPO_ROOT / "scaffolds" / scaffold_name / "src" / "frontend-state").exists())
+            self.assertTrue((frontend / "components" / "components.ts").exists())
+            page = frontend / "pages" / "home" / "page.tsx"
+            self.assertTrue(page.exists())
+            self.assertIn("components/components.js", page.read_text(encoding="utf-8"))
+            self.assertTrue((frontend / "pages" / "home" / "orchestrations").exists())
+
     def test_gates_import_canonical_floks(self):
         """LoginGate & WorkspaceGate must exist and import @ultrst-armada/floks/ui."""
         for scaffold_name in ["vite", "nextjs"]:
