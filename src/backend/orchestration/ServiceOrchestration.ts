@@ -24,6 +24,7 @@ import {
   type OrchestrationDefinition,
 } from '@ultrst-armada/krnl';
 import { SkipoQ, type SkipoQOptions } from '../execution/SkipoQ.js';
+import { backendFacade as defaultBackendFacade } from '../BackendFacade.js';
 
 export interface ServiceLike {
   id?: string;
@@ -119,13 +120,45 @@ async function invokeService(
 ): Promise<unknown> {
   assertServiceTarget(target);
 
+  const bf = (context.metadata?.backendFacade as any) ?? defaultBackendFacade;
+
   if (typeof target === 'string') {
+    if (bf && typeof bf.executeCapability === 'function') {
+      try {
+        return await bf.executeCapability(target, operation, input, {
+          correlationId: context.correlationId,
+          idempotencyKey: context.idempotencyKey,
+          metadata: context.metadata,
+          abortSignal: context.abortSignal,
+        });
+      } catch (err: any) {
+        if (!err.message?.includes('Cannot resolve capability') && !err.message?.includes('not found')) {
+          throw err;
+        }
+      }
+    }
+
     const registeredServices = (context.metadata?.registeredServices as Record<string, ServiceLike>) || {};
-    const service = registeredServices[target];
+    let service = registeredServices[target];
+    if (!service && bf && typeof bf.getService === 'function') {
+      try {
+        service = bf.getService(target);
+      } catch {
+        // Fall through
+      }
+    }
     if (!service) {
-      throw new Error(`[ServiceOrchestration] Target service '${target}' not found in registered services.`);
+      throw new Error(`[ServiceOrchestration] Target service '${target}' not found in registered services or BackendFacade.`);
     }
     return invokeService(service, operation, input, context);
+  }
+
+  if (bf && typeof bf.registerService === 'function' && (target as any).id) {
+    try {
+      bf.registerService(target as any);
+    } catch {
+      // Ignored if already registered
+    }
   }
 
   if (typeof (target as any).call === 'function') {
@@ -273,6 +306,18 @@ export class ServiceOrchestration<TInitialInput = unknown, TFinalOutput = unknow
     this.steps.push(step);
     this.lastStepId = stepId;
     return this;
+  }
+
+  /**
+   * Appends a capability step resolving dynamically through BackendFacade.
+   * Consumers do not need to know which service owns this capability.
+   */
+  public thenCapability<TStepIn = unknown, TStepOut = unknown>(
+    capability: string,
+    operation?: string,
+    config: ServiceStepConfig<TStepIn, TStepOut> = {}
+  ): this {
+    return this.thenService<TStepIn, TStepOut>(capability, operation || capability, config);
   }
 
   /**

@@ -28,7 +28,8 @@ import {
   StateLifecycleServiceFacade,
   NodeGraphEngineServiceFacade,
 } from '@ultrst-armada/kloks/state-graph';
-import { WorkerExecutionBoundary } from '@ultrst-armada/krnl';
+import { WorkerExecutionBoundary, type IServiceFacade } from '@ultrst-armada/krnl';
+import { BackendFacade } from './BackendFacade.js';
 import { ServiceOrchestration } from './orchestration/ServiceOrchestration.js';
 import {
   skipoExecutionEngine,
@@ -36,20 +37,6 @@ import {
   type ServiceExecutionOptions,
 } from './execution/SkipoExecutionEngine.js';
 
-/**
- * ──────────────────────────────────────────────────────────────────────────────
- * BACKEND FACADE: SkipoBackend
- * ──────────────────────────────────────────────────────────────────────────────
- * Purpose: Primary application backend composition entrypoint importing ready-made
- *          services and pure orchestration definitions directly from @kloks/* packages
- *          and executing cross-service workflows via canonical ServiceOrchestration and SkipoQ.
- *
- * Flow Chart:
- *   [External Caller] ───► [SkipoBackend / ServiceFacade] ───► [SkipoQ Job]
- *                                                                     │
- *   [Result] ◄─── [Functionality / Service] ◄─── [Worker] ◄───────────┘
- * ──────────────────────────────────────────────────────────────────────────────
- */
 export interface ServiceExecutableFacade {
   readonly id: string;
   readonly name: string;
@@ -57,6 +44,8 @@ export interface ServiceExecutableFacade {
   execute<TIn = unknown, TOut = unknown>(operation: string, input?: TIn, options?: any): Promise<TOut>;
   [key: string]: any;
 }
+
+export const backendFacade = new BackendFacade();
 
 export const services: Record<string, ServiceExecutableFacade> = {
   serviceA: ServiceAFacade as ServiceExecutableFacade,
@@ -74,34 +63,22 @@ export const services: Record<string, ServiceExecutableFacade> = {
   nodeGraphEngine: NodeGraphEngineServiceFacade as ServiceExecutableFacade,
 };
 
-// Register domain services in SkipoExecutionEngine
+// Register domain services in BackendFacade & SkipoExecutionEngine
 for (const [name, svc] of Object.entries(services)) {
+  backendFacade.registerService(svc as unknown as IServiceFacade, name);
   skipoExecutionEngine.registerService(name, svc);
 }
 
-const serviceResolverMap: Record<string, any> = {
-  'kloks.service.a': ServiceAFacade,
-  'kloks.service.b': ServiceBFacade,
-  'kloks.service.c': ServiceCFacade,
-  'kloks.service.d': ServiceDFacade,
-  'kloks.audio.hardware': AudioHardwareServiceFacade,
-  'kloks.midi.subsystem': MidiServiceFacade,
-  [AudioHardwareServiceFacade.id]: AudioHardwareServiceFacade,
-  [MidiServiceFacade.id]: MidiServiceFacade,
-  audioHardware: AudioHardwareServiceFacade,
-  midi: MidiServiceFacade,
-  serviceA: ServiceAFacade,
-  serviceB: ServiceBFacade,
-  serviceC: ServiceCFacade,
-  serviceD: ServiceDFacade,
-};
-
 function resolveService(id: string): any {
-  const resolved = serviceResolverMap[id] || skipoExecutionEngine.getService(id);
-  if (!resolved) {
-    throw new Error(`[SkipoBackend] Cannot resolve service '${id}'.`);
+  try {
+    return backendFacade.getService(id);
+  } catch {
+    const resolved = skipoExecutionEngine.getService(id);
+    if (!resolved) {
+      throw new Error(`[SkipoBackend] Cannot resolve service '${id}'.`);
+    }
+    return resolved;
   }
-  return resolved;
 }
 
 export const serviceOrchestrations = {
@@ -111,7 +88,6 @@ export const serviceOrchestrations = {
 };
 
 export const orchestrations = serviceOrchestrations;
-
 export const worker = skipoWorkerBoundary;
 export const WorkerExecutionBoundaryInstance = skipoWorkerBoundary;
 export { WorkerExecutionBoundary };
@@ -143,9 +119,12 @@ export async function executeOrchestration<TInput = unknown, TOutput = unknown>(
 }
 
 export interface SkipoBackendFacade {
+  backendFacade: BackendFacade;
   services: Record<string, ServiceExecutableFacade>;
   serviceOrchestrations: typeof serviceOrchestrations;
   orchestrations: typeof serviceOrchestrations;
+  libraries: Record<string, unknown>;
+  functionalities: Record<string, unknown>;
   worker: typeof skipoWorkerBoundary;
   WorkerExecutionBoundary: typeof skipoWorkerBoundary;
   executeService: typeof executeService;
@@ -154,9 +133,12 @@ export interface SkipoBackendFacade {
 }
 
 export const SkipoBackend: SkipoBackendFacade = {
+  backendFacade,
   services,
   serviceOrchestrations,
   orchestrations,
+  libraries: backendFacade.libraries,
+  functionalities: backendFacade.functionalities,
   worker: skipoWorkerBoundary,
   WorkerExecutionBoundary: skipoWorkerBoundary,
   executeService,

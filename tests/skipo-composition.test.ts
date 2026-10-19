@@ -14,6 +14,10 @@ describe('Skipo Minimal Application Composition (@kloks/* + @floks/*)', () => {
     expect(SkipoBackend.services.workspace).toBeDefined();
     expect(SkipoBackend.orchestrations.orchestratorA).toBeDefined();
     expect(SkipoBackend.orchestrations.audioMidi).toBeDefined();
+    expect(SkipoBackend.backendFacade).toBeDefined();
+    expect(SkipoBackend.backendFacade.namespaces['serviceA']).toBeDefined();
+    expect(SkipoBackend.libraries).toBeDefined();
+    expect(SkipoBackend.functionalities).toBeDefined();
 
     const sum = await SkipoBackend.services.serviceA.execute<
       { a: number; b: number },

@@ -1,3 +1,17 @@
-export * from './SkipoBackend.js';
+export * from './BackendFacadeTypes.js';
+export * from './BackendFacade.js';
+export {
+  SkipoBackend,
+  services,
+  serviceOrchestrations,
+  orchestrations,
+  worker,
+  WorkerExecutionBoundary,
+  WorkerExecutionBoundaryInstance,
+  executeService,
+  executeOrchestration,
+  type SkipoBackendFacade,
+  type ServiceExecutableFacade,
+} from './SkipoBackend.js';
 export * from './orchestration/index.js';
 export * from './execution/index.js';
