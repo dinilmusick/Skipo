@@ -9,17 +9,25 @@
 import {
   composition_concepts,
   createCompositionManifest,
+  createSkipoCompositionManifest,
   validateCompositionIntegrity,
+  validateSkipoCompositionIntegrity,
   type AppCompositionDescriptor,
+  type SkipoCompositionDescriptor,
   type CompositionValidationResult,
+  type SkipoCompositionValidationResult,
 } from './composition_concepts/composition_concepts.js';
 
 export {
   composition_concepts,
   createCompositionManifest,
+  createSkipoCompositionManifest,
   validateCompositionIntegrity,
+  validateSkipoCompositionIntegrity,
   type AppCompositionDescriptor,
+  type SkipoCompositionDescriptor,
   type CompositionValidationResult,
+  type SkipoCompositionValidationResult,
 };
 
 export const SkipoConcepts = {

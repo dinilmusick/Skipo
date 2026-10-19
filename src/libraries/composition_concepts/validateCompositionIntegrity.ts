@@ -4,11 +4,11 @@
  * Conforms to L9 (Lines <= 200).
  */
 
-import type { AppCompositionDescriptor, CompositionValidationResult } from './CompositionTypes.js';
+import type { SkipoCompositionDescriptor, SkipoCompositionValidationResult } from './CompositionTypes.js';
 
-export function validateCompositionIntegrity(
-  descriptor: AppCompositionDescriptor
-): CompositionValidationResult {
+export function validateSkipoCompositionIntegrity(
+  descriptor: SkipoCompositionDescriptor
+): SkipoCompositionValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -50,3 +50,5 @@ export function validateCompositionIntegrity(
     inspectedAt: Date.now(),
   };
 }
+
+export const validateCompositionIntegrity = validateSkipoCompositionIntegrity;

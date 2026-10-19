@@ -5,7 +5,7 @@
  * Conforms to L9 (Lines <= 200).
  */
 
-export interface AppCompositionDescriptor {
+export interface SkipoCompositionDescriptor {
   readonly appId: string;
   readonly appName: string;
   readonly version: string;
@@ -19,10 +19,14 @@ export interface AppCompositionDescriptor {
   readonly conceptLibraries: readonly string[];
 }
 
-export interface CompositionValidationResult {
+export type AppCompositionDescriptor = SkipoCompositionDescriptor;
+
+export interface SkipoCompositionValidationResult {
   readonly valid: boolean;
   readonly score: number;
   readonly errors: readonly string[];
   readonly warnings: readonly string[];
   readonly inspectedAt: number;
 }
+
+export type CompositionValidationResult = SkipoCompositionValidationResult;

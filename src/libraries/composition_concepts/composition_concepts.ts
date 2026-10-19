@@ -6,15 +6,17 @@
  */
 
 export * from './CompositionTypes.js';
-export { createCompositionManifest } from './createCompositionManifest.js';
-export { validateCompositionIntegrity } from './validateCompositionIntegrity.js';
+export { createCompositionManifest, createSkipoCompositionManifest } from './createCompositionManifest.js';
+export { validateCompositionIntegrity, validateSkipoCompositionIntegrity } from './validateCompositionIntegrity.js';
 
-import { createCompositionManifest } from './createCompositionManifest.js';
-import { validateCompositionIntegrity } from './validateCompositionIntegrity.js';
+import { createCompositionManifest, createSkipoCompositionManifest } from './createCompositionManifest.js';
+import { validateCompositionIntegrity, validateSkipoCompositionIntegrity } from './validateCompositionIntegrity.js';
 
 export const composition_concepts = {
   createCompositionManifest,
+  createSkipoCompositionManifest,
   validateCompositionIntegrity,
+  validateSkipoCompositionIntegrity,
 } as const;
 
 export default composition_concepts;

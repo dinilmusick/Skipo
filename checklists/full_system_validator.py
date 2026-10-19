@@ -55,6 +55,7 @@ mod_14 = _load_aspect_module("mod_14", "14_node_graph_spatial_governance.py")
 mod_15 = _load_aspect_module("mod_15", "15_contract_boundary_enforcement.py")
 mod_16 = _load_aspect_module("mod_16", "13_ui_contract_validator.py")
 mod_17 = _load_aspect_module("mod_17", "14_package_export_validator.py")
+mod_18 = _load_aspect_module("mod_18", "18_scoped_library_governance.py")
 
 ASPECT_RUNNERS = [
     ("aspect_01", "Structure & Governance", mod_01.validate_structure),
@@ -73,7 +74,8 @@ ASPECT_RUNNERS = [
     ("aspect_14", "Node Graph Spatial Governance", mod_14.validate_node_graph_governance),
     ("aspect_15", "Contract Boundary Enforcement", mod_15.validate_contract_boundaries),
     ("aspect_16", "Service UI Contracts & Provenance", mod_16.validate_ui_contracts),
-    ("aspect_17", "Package Export Boundaries", mod_17.validate_package_exports)
+    ("aspect_17", "Package Export Boundaries", mod_17.validate_package_exports),
+    ("aspect_18", "Scoped Application Library Governance", mod_18.validate_scoped_libraries)
 ]
 
 def detect_validation_profile(root_dir: Path, requested: str) -> str:

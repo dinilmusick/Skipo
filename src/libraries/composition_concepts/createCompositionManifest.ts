@@ -4,20 +4,20 @@
  * Conforms to L9 (Lines <= 200).
  */
 
-import type { AppCompositionDescriptor } from './CompositionTypes.js';
+import type { SkipoCompositionDescriptor } from './CompositionTypes.js';
 
-export function createCompositionManifest(
+export function createSkipoCompositionManifest(
   appId: string,
   appName: string,
   services: readonly string[] = [],
   conceptLibraries: readonly string[] = ['composition_concepts'],
   version = '1.0.0'
-): AppCompositionDescriptor {
+): SkipoCompositionDescriptor {
   if (!appId || typeof appId !== 'string') {
-    throw new Error('[createCompositionManifest] appId must be a valid non-empty string.');
+    throw new Error('[createSkipoCompositionManifest] appId must be a valid non-empty string.');
   }
   if (!appName || typeof appName !== 'string') {
-    throw new Error('[createCompositionManifest] appName must be a valid non-empty string.');
+    throw new Error('[createSkipoCompositionManifest] appName must be a valid non-empty string.');
   }
 
   return {
@@ -34,3 +34,5 @@ export function createCompositionManifest(
     conceptLibraries: [...conceptLibraries],
   };
 }
+
+export const createCompositionManifest = createSkipoCompositionManifest;
