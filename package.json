@@ -17,9 +17,9 @@
     "validate:frnl": "python3 scripts/validate_frnl.py"
   },
   "dependencies": {
-    "@ultrst-armada/frnlts": "file:../FrnlTS",
-    "@ultrst-armada/floks": "^1.2.4",
-    "@ultrst-armada/kloks": "^1.4.2",
+    "@ultrst-armada/frnlts": "^0.2.2",
+    "@ultrst-armada/floks": "^1.2.5",
+    "@ultrst-armada/kloks": "^1.4.3",
     "@ultrst-armada/krnl": "file:../KrnlTS",
     "lucide-react": "^1.55.0",
     "p-queue": "^10.0.0",
