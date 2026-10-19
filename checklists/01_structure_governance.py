@@ -210,7 +210,6 @@ def validate_structure(root_dir: Path) -> ChecklistResult:
                             suggestion="Import all frontend components through ../components/components.ts or the equivalent relative path."
                         ))
 
-                orch_dir = page_dir / "orchestrations"
                 if not orch_dir.exists() or not orch_dir.is_dir():
                     violations.append(Violation(
                         rule_id="skipo/page-orchestrations-required",
