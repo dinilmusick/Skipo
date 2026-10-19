@@ -89,15 +89,38 @@ def validate_app_architecture_spec(root_dir: Path) -> ChecklistResult:
         ))
 
     # Check for libraries
-    has_libraries = "libraries" in subdirs or (root_dir / "libraries").exists() or (src_dir / "lib").exists()
+    lib_dir = src_dir / "libraries" if "libraries" in subdirs else (root_dir / "libraries" if (root_dir / "libraries").exists() else None)
+    has_libraries = lib_dir is not None and lib_dir.exists()
     if not has_libraries:
         violations.append(Violation(
             rule_id="missing-libraries-directory",
             severity="warning",
-            message="Canonical 'src/libraries/' directory for environment-neutral pure utilities is missing.",
+            message="Canonical 'src/libraries/' directory for app-specific concept libraries is missing.",
             file_path="src/",
-            suggestion="Create 'src/libraries/' with 'types', 'data', 'functions', 'constants', and 'utilities'."
+            suggestion="Create 'src/libraries/' with '<library-name>_concepts/' and root '<AppName>Concepts.ts'."
         ))
+    elif lib_dir:
+        # Validate concept library conventions
+        concept_dirs = [d for d in lib_dir.iterdir() if d.is_dir() and not d.name.startswith('.')]
+        for cdir in concept_dirs:
+            if not cdir.name.endswith("_concepts"):
+                violations.append(Violation(
+                    rule_id="invalid-concept-library-name",
+                    severity="warning",
+                    message=f"Library directory '{cdir.name}' should follow the '<name>_concepts' naming convention.",
+                    file_path=str(cdir.relative_to(root_dir)),
+                    suggestion=f"Rename '{cdir.name}' to '{cdir.name}_concepts'."
+                ))
+            else:
+                facade_name = f"{cdir.name}.ts"
+                if not (cdir / facade_name).exists() and not (cdir / f"{cdir.name}.js").exists():
+                    violations.append(Violation(
+                        rule_id="missing-concept-library-facade",
+                        severity="error",
+                        message=f"Concept library '{cdir.name}' is missing its facade '{facade_name}'.",
+                        file_path=str(cdir.relative_to(root_dir)),
+                        suggestion=f"Create '{facade_name}' inside '{cdir.name}/' to aggregate all contained code assets."
+                    ))
 
     # Check for frontend-state
     has_state = "frontend-state" in subdirs or (src_dir / "frontend" / "state").exists() or (src_dir / "frontend" / "stores").exists()

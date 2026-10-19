@@ -57,6 +57,7 @@ mod_10 = _load_module("mod_10", "10_node_graph_generator.py")
 mod_11 = _load_module("mod_11", "11_app_architecture_generator.py")
 mod_12 = _load_module("mod_12", "12_multi_target_build_generator.py")
 mod_13 = _load_module("mod_13", "13_service_ui_generator.py")
+mod_14 = _load_module("mod_14", "14_concept_library_generator.py")
 
 GENERATOR_REGISTRY = {
     "structure": (mod_01.generate_structure, "Aspect 01: Plane Structure & Scaffolding"),
@@ -94,7 +95,10 @@ GENERATOR_REGISTRY = {
     "multi-target": (mod_12.generate_multi_target_suite, "Aspect 12: MULTI_TARGET_BUILD_SPEC & Protocol Adapters"),
     "12": (mod_12.generate_multi_target_suite, "Aspect 12: MULTI_TARGET_BUILD_SPEC & Protocol Adapters"),
     "service-ui": (mod_13.generate_service_ui_suite, "Aspect 13: Deterministic Service UI Composition & Provenance"),
-    "13": (mod_13.generate_service_ui_suite, "Aspect 13: Deterministic Service UI Composition & Provenance")
+    "13": (mod_13.generate_service_ui_suite, "Aspect 13: Deterministic Service UI Composition & Provenance"),
+    "library": (mod_14.generate_concept_library, "Aspect 14: App-Level Concept Library Generator"),
+    "concept-library": (mod_14.generate_concept_library, "Aspect 14: App-Level Concept Library Generator"),
+    "14": (mod_14.generate_concept_library, "Aspect 14: App-Level Concept Library Generator"),
 }
 
 def generate_full_subapp(target_dir: Path, params: Dict[str, Any]) -> GeneratorResult:
