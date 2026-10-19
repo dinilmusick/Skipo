@@ -211,6 +211,16 @@ def validate_structure(root_dir: Path) -> ChecklistResult:
                         ))
 
                 orch_dir = page_dir / "orchestrations"
+                if not orch_dir.exists() or not orch_dir.is_dir():
+                    violations.append(Violation(
+                        rule_id="skipo/page-orchestrations-required",
+                        severity="error",
+                        message=f"Page '{page_dir.name}' is missing its page-scoped orchestrations/ directory.",
+                        file_path=str(page_dir.relative_to(root_dir)),
+                        suggestion="Create pages/<page-name>/orchestrations/ and generate definitions with the Frnl CLI."
+                    ))
+
+                orch_dir = page_dir / "orchestrations"
                 if orch_dir.exists():
                     for orch_file in orch_dir.glob("*.ts"):
                         source = read_text_safe(orch_file) or ""
