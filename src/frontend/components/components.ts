@@ -1,5 +1,5 @@
 export {
-  frnlPage,
+  frnlPage as FrnlPage,
   BaseButton,
   BaseCard,
   WorkspaceTilesMenu,
