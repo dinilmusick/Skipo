@@ -143,6 +143,18 @@ describe('canonical Skipo frontend page architecture', () => {
   });
 });
 
+describe('Skipo Frnl CLI integration', () => {
+  it('uses the canonical Frnl CLI for page generation, orchestration generation, and validation', () => {
+    const createPage = readFileSync(join(repoRoot, 'scripts/create_page.py'), 'utf8');
+    const createOrchestration = readFileSync(join(repoRoot, 'scripts/create_orchestration.py'), 'utf8');
+    const validate = readFileSync(join(repoRoot, 'scripts/validate_frnl.py'), 'utf8');
+    for (const source of [createPage, createOrchestration, validate]) {
+      expect(source).toContain('@ultrst-armada/frnlts-cli');
+      expect(source).toContain('"frnl"');
+    }
+  });
+});
+
 describe('Skipo page orchestration validation', () => {
   it('accepts a page with a facade-backed page and valid orchestration', () => {
     const target = mkdtempSync(join(tmpdir(), 'skipo-page-valid-'));
