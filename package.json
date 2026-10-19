@@ -20,7 +20,7 @@
     "@ultrst-armada/frnlts": "^0.2.2",
     "@ultrst-armada/floks": "^1.2.5",
     "@ultrst-armada/kloks": "^1.4.3",
-    "@ultrst-armada/krnl": "file:../KrnlTS",
+    "@ultrst-armada/krnl": "^1.0.2",
     "lucide-react": "^1.55.0",
     "p-queue": "^10.0.0",
     "react": "^19.0.1",
@@ -33,14 +33,6 @@
     "@types/react-dom": "^19.0.0",
     "typescript": "^5.7.3",
     "vitest": "^3.1.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "@ultrst-armada/frnlts": "file:../FrnlTS",
-      "@ultrst-armada/krnl": "file:../KrnlTS",
-      "@ultrst-armada/kloks": "file:../Kloks",
-      "@ultrst-armada/floks": "file:../Floks"
-    }
   },
   "packageManager": "pnpm@9.15.0",
   "engines": {

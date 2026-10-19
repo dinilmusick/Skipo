@@ -1,12 +1,16 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// 1. MINIMAL BACKEND FACADE (@kloks/* COMPOSITION)
+// 1. MINIMAL BACKEND FACADE (@ultrst-armada/kloks/* & @ultrst-armada/krnl COMPOSITION)
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { ServiceAFacade, ServiceBFacade } from '@kloks/services';
-import { OrchestratorAFacade } from '@kloks/orchestrations';
-import { AudioHardwareServiceFacade, MidiServiceFacade, AudioMidiOrchestratorFacade } from '@kloks/audio-midi';
-import { AuthServiceFacade, StorageServiceFacade, WorkspaceServiceFacade } from '@kloks/backend';
-import { ExecutableBackendFacade, WorkerExecutionBoundary } from '@kloks/backend/execution';
+import { ServiceAFacade, ServiceBFacade } from '@ultrst-armada/kloks/services';
+import { OrchestratorADefinition, AudioMidiOrchestratorDefinition } from '@ultrst-armada/kloks/orchestrations';
+import { AudioHardwareServiceFacade, MidiServiceFacade } from '@ultrst-armada/kloks/audio-midi';
+import {
+  AuthServiceFacade,
+  StorageServiceFacade,
+  WorkspaceServiceFacade,
+} from '@ultrst-armada/kloks/backend/krnl-services';
+import { WorkerExecutionBoundary } from '@ultrst-armada/krnl';
 
 export const services = {
   serviceA: ServiceAFacade,
@@ -19,12 +23,11 @@ export const services = {
 };
 
 export const orchestrations = {
-  orchestratorA: OrchestratorAFacade,
-  audioMidi: AudioMidiOrchestratorFacade,
+  orchestratorA: OrchestratorADefinition,
+  audioMidi: AudioMidiOrchestratorDefinition,
 };
 
-export const executableFacade = new ExecutableBackendFacade('AppBackend');
-export const appWorkerBoundary = new WorkerExecutionBoundary('app_worker_main', executableFacade);
+export const appWorkerBoundary = new WorkerExecutionBoundary('app_worker_main');
 
 export const AppBackend = {
   services,
