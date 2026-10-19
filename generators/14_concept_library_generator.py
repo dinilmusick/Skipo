@@ -14,6 +14,7 @@ from typing import List, Dict, Any
 import re
 import sys
 import time
+import json
 
 try:
     from .common import (
@@ -211,7 +212,9 @@ export default {app_pascal}Concepts;
 def main():
     args = parse_generator_args("Generate Skipo App-Level Concept Library")
     target_path = Path(args.get("target_path") or ".").resolve()
-    res = generate_concept_library(target_path, args)
+    params = dict(args)
+    params.update(args.get("custom", {}))
+    res = generate_concept_library(target_path, params)
     if args.get("json"):
         print(json.dumps(res.to_dict(), indent=2))
     else:
