@@ -141,3 +141,31 @@ describe('canonical Skipo frontend page architecture', () => {
     expect(app).not.toContain('useState(');
   });
 });
+
+describe('Skipo page orchestration validation', () => {
+  it('accepts a page with a facade-backed page and valid orchestration', () => {
+    const target = mkdtempSync(join(tmpdir(), 'skipo-page-valid-'));
+    const fs = require('node:fs') as typeof import('node:fs');
+    fs.mkdirSync(join(target, 'src/frontend/pages/home/orchestrations'), { recursive: true });
+    fs.mkdirSync(join(target, 'src/frontend/components'), { recursive: true });
+    fs.writeFileSync(join(target, 'src/frontend/components/components.ts'), 'export {};');
+    fs.writeFileSync(join(target, 'src/frontend/pages/home/page.tsx'), "import { FrnlPage } from '../../components/components.js';\nexport function Home() { return <FrnlPage />; }");
+    fs.writeFileSync(join(target, 'src/frontend/pages/home/orchestrations/Save.ts'), "import { defineFrnlOrchestration } from '@ultrst-armada/frnlts';\nexport const Save = defineFrnlOrchestration({ id: 'home.Save', name: 'Save', setup: () => undefined });");
+    const validator = join(repoRoot, 'checklists/01_structure_governance.py');
+    const result = execFileSync('python3', [validator, target, '--json'], { encoding: 'utf8' });
+    expect(JSON.parse(result).overall_passed ?? JSON.parse(result).passed).toBe(true);
+  });
+
+  it('rejects a frontend state directory and orphan orchestration', () => {
+    const target = mkdtempSync(join(tmpdir(), 'skipo-page-invalid-'));
+    const fs = require('node:fs') as typeof import('node:fs');
+    fs.mkdirSync(join(target, 'src/frontend/frontend-state'), { recursive: true });
+    fs.mkdirSync(join(target, 'src/frontend/components'), { recursive: true });
+    fs.mkdirSync(join(target, 'src/frontend/pages/home/orchestrations'), { recursive: true });
+    fs.writeFileSync(join(target, 'src/frontend/components/components.ts'), 'export {};');
+    fs.writeFileSync(join(target, 'src/frontend/pages/home/page.tsx'), 'export function Home() { return null; }');
+    fs.writeFileSync(join(target, 'src/frontend/pages/home/orchestrations/Bad.ts'), 'export const Bad = 1;');
+    const validator = join(repoRoot, 'checklists/01_structure_governance.py');
+    expect(() => execFileSync('python3', [validator, target], { encoding: 'utf8' })).toThrow();
+  });
+});
