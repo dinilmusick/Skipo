@@ -119,3 +119,25 @@ describe('concept-library generator', () => {
     }
   });
 });
+
+describe('canonical Skipo frontend page architecture', () => {
+  it('contains only pages and components under the frontend plane', () => {
+    const frontendEntries = execFileSync('find', ['src/frontend', '-mindepth', '1', '-maxdepth', '1', '-type', 'd'], { cwd: repoRoot, encoding: 'utf8' })
+      .trim().split('\n').filter(Boolean).map((p) => p.replace(/^src\/frontend\//, '')).sort();
+    expect(frontendEntries).toEqual(['components', 'pages']);
+    expect(() => readFileSync(join(repoRoot, 'src/frontend-state/store.ts'), 'utf8')).toThrow();
+  });
+
+  it('requires pages to import UI through the components facade', () => {
+    const page = readFileSync(join(repoRoot, 'src/frontend/pages/home/page.tsx'), 'utf8');
+    expect(page).toContain("from '../../components/components.js'");
+    expect(page).not.toContain('@ultrst-armada/floks/');
+  });
+
+  it('routes App.tsx to a page instead of composing UI directly', () => {
+    const app = readFileSync(join(repoRoot, 'src/frontend/App.tsx'), 'utf8');
+    expect(app).toContain("./pages/home/page.js");
+    expect(app).not.toContain('@ultrst-armada/floks/');
+    expect(app).not.toContain('useState(');
+  });
+});
