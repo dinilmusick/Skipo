@@ -24,7 +24,6 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
         ("src/frontend", "Application UI composition entrypoint importing @floks/* packages."),
         ("src/backend", "Application backend facade importing @kloks/* services and orchestrators."),
         ("src/libraries", "Application-specific custom code ONLY (never copy @kloks/* or @floks/* source)."),
-        ("src/frontend-state", "Application-specific reactive UI stores and events.")
     ]
 
     for rel_path, desc in planes:
@@ -114,41 +113,49 @@ export default {pascal}Backend;
         backend_file.write_text(backend_content, encoding="utf-8")
         created.append(backend_file)
 
-    # 3. src/frontend/App.tsx
+    # 3. Canonical frontend route + component facade
+    frontend_components = target_root / "src" / "frontend" / "components"
+    frontend_pages = target_root / "src" / "frontend" / "pages" / "home" / "orchestrations"
+    frontend_components.mkdir(parents=True, exist_ok=True)
+    frontend_pages.mkdir(parents=True, exist_ok=True)
+
+    components_file = frontend_components / "components.ts"
+    if not components_file.exists():
+        components_file.write_text(
+            "export * from '@ultrst-armada/floks/ui';\n"
+            "export * from '@ultrst-armada/floks/canvas-ui';\n",
+            encoding="utf-8",
+        )
+        created.append(components_file)
+
     app_tsx = target_root / "src" / "frontend" / "App.tsx"
     if not app_tsx.exists():
-        app_content = f"""/**
- * @file App.tsx
- * @description Primary application UI composition entrypoint importing @ultrst-armada/floks components.
- */
-
-import React, {{ useState }} from 'react';
-import {{ AppShell, TopToolbar, BottomStrip, BaseCard }} from '@ultrst-armada/floks/ui';
-import {{ InfiniteCanvas, CanvasTransform }} from '@ultrst-armada/floks/canvas-ui';
-
-export function App() {{
-  const [transform, setTransform] = useState<CanvasTransform>({{ x: 0, y: 0, scale: 1 }});
-
-  return (
-    <AppShell
-      header={{<TopToolbar title="{pascal}" actions={{<div />}} />}}
-      footer={{<BottomStrip centerSlot={{<span>{pascal}</span>}} />}}
-    >
-      <BaseCard>
-        <InfiniteCanvas
-          items={{[]}}
-          transform={{transform}}
-          onTransformChange={{setTransform}}
-        />
-      </BaseCard>
-    </AppShell>
-  );
-}}
-
-export default App;
-"""
-        app_tsx.write_text(app_content, encoding="utf-8")
+        app_tsx.write_text(
+            "import { HomePage } from './pages/home/page.js';\n\n"
+            "export function App() {\n"
+            "  return <HomePage />;\n"
+            "}\n\n"
+            "export default App;\n",
+            encoding="utf-8",
+        )
         created.append(app_tsx)
+
+    page_file = target_root / "src" / "frontend" / "pages" / "home" / "page.tsx"
+    if not page_file.exists():
+        page_file.write_text(
+            "import { FrnlPage } from '../../components/components.js';\n\n"
+            "export function HomePage() {\n"
+            f"  return <FrnlPage appName=\"{pascal}\">Home</FrnlPage>;\n"
+            "}\n\n"
+            "export default HomePage;\n",
+            encoding="utf-8",
+        )
+        created.append(page_file)
+
+    orchestration_keep = frontend_pages / ".gitkeep"
+    if not orchestration_keep.exists():
+        orchestration_keep.write_text("", encoding="utf-8")
+        created.append(orchestration_keep)
 
     # 4. src/libraries/index.ts (Skipo-specific custom code only)
     lib_index = target_root / "src" / "libraries" / "index.ts"
