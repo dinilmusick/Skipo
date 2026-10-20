@@ -136,30 +136,31 @@ class CodeComposer:
         return ops
 
     def compose_service_frontend(self, service: Dict[str, Any]) -> List[CodeOperation]:
-        ui_info = service.get("ui")
-        if not ui_info:
+        frontend = service.get("defaultFrontend")
+        if not frontend:
             return []
 
+        component = frontend.get("component") if isinstance(frontend, dict) else frontend
+        if not component:
+            return []
+        package = (frontend.get("package") if isinstance(frontend, dict) else None) or "@ultrst-armada/floks/ui"
+        export_name = (frontend.get("export") if isinstance(frontend, dict) else None) or component
+
         app_file = "src/frontend/App.tsx"
-        ui_pkg = ui_info.get("package", "@ultrst-armada/floks/ui")
-        components = ui_info.get("components", [])
-        ops: List[CodeOperation] = []
-
-        for comp in components:
-            ops.append(CodeOperation(
+        ops: List[CodeOperation] = [
+            CodeOperation(
                 type="add-import",
-                file=app_file,
-                target={"file": app_file, "section": "imports"},
-                payload={"import": comp, "from": ui_pkg}
-            ))
-
-            ops.append(CodeOperation(
+                file="src/frontend/components/components.ts",
+                target={"file": "src/frontend/components/components.ts", "section": "imports"},
+                payload={"import": export_name, "from": package}
+            ),
+            CodeOperation(
                 type="insert-jsx",
                 file=app_file,
                 target={"file": app_file, "symbol": "App", "section": "main-content"},
-                payload={"jsx": f"<{comp} />\n"}
-            ))
-
+                payload={"jsx": f"<{export_name} />\\n"}
+            )
+        ]
         return ops
 
     def apply_operations(self, operations: List[CodeOperation], dry_run: bool = False) -> Tuple[bool, List[str]]:
@@ -406,7 +407,7 @@ class SkipoBuilder:
             "service": service_id,
             "mode": mode,
             "dryRun": dry_run,
-            "packages": [service.get("backend", {}).get("package")] + ([service.get("ui", {}).get("package")] if mode == "fullstack" and service.get("ui") else []),
+            "packages": [service.get("backend", {}).get("package")] + ([service.get("defaultFrontend", {}).get("package")] if mode == "fullstack" and service.get("ui") else []),
             "operations": [asdict(op) for op in operations],
             "logs": logs
         }
