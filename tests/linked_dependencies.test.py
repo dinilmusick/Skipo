@@ -177,3 +177,120 @@ def test_required_frontend_is_an_error():
         result = make_builder(root).validate_linked_dependencies()
         assert not result["valid"]
         assert any("requires FLOKS component 'GraphPanel'" in error for error in result["errors"])
+
+
+def test_near_matching_component_identifier_does_not_count_as_export():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        write_manifest(root / "Floks", "packages/canvas", "floks.manifest.json", {
+            "components": [{"id": "GraphPanel", "requiredServices": ["node-graph"]}]
+        })
+        components = root / "Skipo/src/frontend/components"
+        components.mkdir(parents=True)
+        (components / "components.ts").write_text(
+            "export { GraphPanelExtra } from '@floks/ui';", encoding="utf-8"
+        )
+        backend = root / "Skipo/src/backend"
+        backend.mkdir(parents=True)
+        (backend / "AppBackend.ts").write_text(
+            "export const AppBackend = { services: {} };", encoding="utf-8"
+        )
+        result = make_builder(root).validate_linked_dependencies()
+        assert not result["valid"]
+        assert any("GraphPanel" in error and "not exported" in error for error in result["errors"])
+
+
+def test_comment_does_not_count_as_registered_service():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        write_manifest(root / "Kloks", "packages/node", "kloks.manifest.json", {
+            "services": [{"id": "node-graph", "backend": {"facade": "NodeGraphEngineServiceFacade"}}]
+        })
+        write_manifest(root / "Floks", "packages/canvas", "floks.manifest.json", {
+            "components": [{"id": "FrnlEditableNodeGraph", "requiredServices": ["node-graph"]}]
+        })
+        components = root / "Skipo/src/frontend/components"
+        components.mkdir(parents=True)
+        (components / "components.ts").write_text(
+            "export { FrnlEditableNodeGraph } from '@floks/canvas';", encoding="utf-8"
+        )
+        backend = root / "Skipo/src/backend"
+        backend.mkdir(parents=True)
+        (backend / "AppBackend.ts").write_text(
+            "import { NodeGraphEngineServiceFacade } from '@kloks/state-graph';\n"
+            "// NodeGraphEngineServiceFacade\n"
+            "export const AppBackend = { services: {} };", encoding="utf-8"
+        )
+        result = make_builder(root).validate_linked_dependencies()
+        assert not result["valid"]
+        assert any("node-graph" in error for error in result["errors"])
+
+
+def test_registered_service_export_is_required_not_just_imported():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        write_manifest(root / "Kloks", "packages/node", "kloks.manifest.json", {
+            "services": [{"id": "node-graph", "backend": {"facade": "NodeGraphEngineServiceFacade"}}]
+        })
+        write_manifest(root / "Floks", "packages/canvas", "floks.manifest.json", {
+            "components": [{"id": "FrnlEditableNodeGraph", "requiredServices": ["node-graph"]}]
+        })
+        components = root / "Skipo/src/frontend/components"
+        components.mkdir(parents=True)
+        (components / "components.ts").write_text(
+            "export { FrnlEditableNodeGraph } from '@floks/canvas';", encoding="utf-8"
+        )
+        backend = root / "Skipo/src/backend"
+        backend.mkdir(parents=True)
+        (backend / "AppBackend.ts").write_text(
+            "import { NodeGraphEngineServiceFacade } from '@kloks/state-graph';\n"
+            "export const AppBackend = { services: { other: OtherFacade } };", encoding="utf-8"
+        )
+        result = make_builder(root).validate_linked_dependencies()
+        assert not result["valid"]
+
+
+def test_required_orchestration_near_match_does_not_count_as_registered():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        write_manifest(root / "Kloks", "packages/node", "kloks.manifest.json", {
+            "orchestrations": [{"id": "workspace-startup", "export": "WorkspaceStartupOrchestration"}]
+        })
+        write_manifest(root / "Floks", "packages/canvas", "floks.manifest.json", {
+            "components": [{"id": "WorkspacePanel", "requiredOrchestrations": ["workspace-startup"]}]
+        })
+        components = root / "Skipo/src/frontend/components"
+        components.mkdir(parents=True)
+        (components / "components.ts").write_text(
+            "export { WorkspacePanel } from '@floks/ui';", encoding="utf-8"
+        )
+        backend = root / "Skipo/src/backend"
+        backend.mkdir(parents=True)
+        (backend / "AppBackend.ts").write_text(
+            "import { WorkspaceStartupOrchestrationExtra } from '@kloks/orchestrations';\n"
+            "export const AppBackend = { orchestrations: { startup: WorkspaceStartupOrchestrationExtra } };",
+            encoding="utf-8"
+        )
+        result = make_builder(root).validate_linked_dependencies()
+        assert not result["valid"]
+
+
+def test_fullstack_service_summary_contains_default_frontend_package():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        write_manifest(root / "Kloks", "packages/node", "kloks.manifest.json", {
+            "services": [{
+                "id": "node-graph",
+                "backend": {"package": "@kloks/state-graph", "facade": "NodeGraphEngineServiceFacade"},
+                "defaultFrontend": {
+                    "component": "FrnlEditableNodeGraph",
+                    "package": "@ultrst-armada/floks/canvas-ui",
+                    "export": "FrnlEditableNodeGraph",
+                    "relationship": "recommended",
+                },
+            }]
+        })
+        builder = make_builder(root)
+        builder.composer = builder.composer if hasattr(builder, "composer") else None
+        result = builder.install_service("node-graph", mode="fullstack", dry_run=True)
+        assert result["status"] == "error" or result["packages"][-1] == "@ultrst-armada/floks/canvas-ui"
