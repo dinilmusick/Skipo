@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from skipo_builder import PackageCatalog, SkipoBuilder
+from skipo_builder import CodeComposer, CodeOperation, PackageCatalog, SkipoBuilder
 
 
 def write_manifest(root: Path, package: str, filename: str, payload: dict) -> None:
@@ -275,3 +275,27 @@ def test_required_orchestration_near_match_does_not_count_as_registered():
         assert not result["valid"]
 
 
+
+def test_frontend_composition_preserves_jsx_line_breaks():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        app = root / "src/frontend/App.tsx"
+        app.parent.mkdir(parents=True)
+        app.write_text("export function App() {\n  return (\n    <main />\n  );\n}\n", encoding="utf-8")
+        composer = CodeComposer(root)
+
+        class Resolved:
+            found = True
+            insertion_point = app.read_text(encoding="utf-8").index("    <main />")
+
+        composer.resolver.resolve = lambda _target: Resolved()
+        operation = CodeOperation(
+            type="insert-jsx",
+            file="src/frontend/App.tsx",
+            target={"file": "src/frontend/App.tsx", "symbol": "App", "section": "main-content"},
+            payload={"jsx": "<FrnlEditableNodeGraph />\n"},
+        )
+        ok, _ = composer.apply_operations([operation], dry_run=False)
+        assert ok
+        content = app.read_text(encoding="utf-8")
+        assert "<FrnlEditableNodeGraph />\n    <main />" in content
