@@ -70,3 +70,95 @@ def test_service_default_frontend_missing_is_warning_not_error():
         result = make_builder(root).validate_linked_dependencies()
         assert result["valid"]
         assert any("recommends FLOKS component" in warning for warning in result["warnings"])
+
+def test_component_with_required_service_passes_when_backend_facade_is_registered():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        write_manifest(root / "Kloks", "packages/node", "kloks.manifest.json", {
+            "services": [{
+                "id": "node-graph",
+                "backend": {"facade": "NodeGraphEngineServiceFacade"},
+            }]
+        })
+        write_manifest(root / "Floks", "packages/canvas", "floks.manifest.json", {
+            "components": [{
+                "id": "FrnlEditableNodeGraph",
+                "requiredServices": ["node-graph"],
+            }]
+        })
+        components = root / "Skipo/src/frontend/components"
+        components.mkdir(parents=True)
+        (components / "components.ts").write_text(
+            "export { FrnlEditableNodeGraph } from '@floks/canvas';",
+            encoding="utf-8",
+        )
+        backend = root / "Skipo/src/backend"
+        backend.mkdir(parents=True)
+        (backend / "AppBackend.ts").write_text(
+            "import { NodeGraphEngineServiceFacade } from '@kloks/state-graph';\n"
+            "export const AppBackend = { services: { nodeGraph: NodeGraphEngineServiceFacade } };",
+            encoding="utf-8",
+        )
+
+        result = make_builder(root).validate_linked_dependencies()
+        assert result["valid"], result["errors"]
+
+
+def test_component_required_orchestration_blocks_missing_backend_registration():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        write_manifest(root / "Kloks", "packages/node", "kloks.manifest.json", {
+            "orchestrations": [{
+                "id": "workspace-startup",
+                "export": "WorkspaceStartupOrchestration",
+            }]
+        })
+        write_manifest(root / "Floks", "packages/canvas", "floks.manifest.json", {
+            "components": [{
+                "id": "WorkspacePanel",
+                "requiredOrchestrations": ["workspace-startup"],
+            }]
+        })
+        components = root / "Skipo/src/frontend/components"
+        components.mkdir(parents=True)
+        (components / "components.ts").write_text(
+            "export { WorkspacePanel } from '@floks/ui';",
+            encoding="utf-8",
+        )
+        backend = root / "Skipo/src/backend"
+        backend.mkdir(parents=True)
+        (backend / "AppBackend.ts").write_text(
+            "export const AppBackend = { orchestrations: {} };",
+            encoding="utf-8",
+        )
+
+        result = make_builder(root).validate_linked_dependencies()
+        assert not result["valid"]
+        assert any("workspace-startup" in error for error in result["errors"])
+
+
+def test_component_unknown_required_service_is_reported():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        write_manifest(root / "Floks", "packages/canvas", "floks.manifest.json", {
+            "components": [{
+                "id": "UnknownServicePanel",
+                "requiredServices": ["missing-service"],
+            }]
+        })
+        components = root / "Skipo/src/frontend/components"
+        components.mkdir(parents=True)
+        (components / "components.ts").write_text(
+            "export { UnknownServicePanel } from '@floks/ui';",
+            encoding="utf-8",
+        )
+        backend = root / "Skipo/src/backend"
+        backend.mkdir(parents=True)
+        (backend / "AppBackend.ts").write_text(
+            "export const AppBackend = { services: {} };",
+            encoding="utf-8",
+        )
+
+        result = make_builder(root).validate_linked_dependencies()
+        assert not result["valid"]
+        assert any("Unknown required service 'missing-service'" in error for error in result["errors"])
