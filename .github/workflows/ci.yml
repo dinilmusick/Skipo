@@ -26,3 +26,5 @@ jobs:
       - run: pnpm run test
       - run: pnpm run validate
       - run: pnpm run validate:frnl
+
+# Verification workflow maintained by ecosystem audit.
