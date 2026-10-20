@@ -2,6 +2,7 @@ import json
 import tempfile
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from skipo_builder import CodeComposer, CodeOperation, PackageCatalog, SkipoBuilder
@@ -315,9 +316,11 @@ def test_fullstack_package_summary_uses_declared_frontend_package():
             }]
         })
         builder = make_builder(root)
-        builder.composer.compose_service_backend = lambda _service: []
-        builder.composer.compose_service_frontend = lambda _service: []
-        builder.composer.apply_operations = lambda _operations, dry_run=False: (True, [])
+        builder.composer = SimpleNamespace(
+            compose_service_backend=lambda _service: [],
+            compose_service_frontend=lambda _service: [],
+            apply_operations=lambda _operations, dry_run=False: (True, []),
+        )
         result = builder.install_service("node-graph", mode="fullstack", dry_run=True)
         assert result["status"] == "success"
         assert result["packages"] == ["@kloks/state-graph", "@ultrst-armada/floks/canvas-ui"]
