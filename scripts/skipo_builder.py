@@ -316,13 +316,15 @@ class SkipoBuilder:
         def registered_service_exports(source: str) -> set[str]:
             registered: set[str] = set()
             for match in re.finditer(r"\bservices\s*:\s*\{([\s\S]*?)\}\s*(?:,|\n|;)", source):
-                registered.update(re.findall(r":\s*([A-Za-z_$][\w$]*)\s*(?:,|$)", match.group(1)))
+                registered.update(re.findall(r":\s*([A-Za-z_$][\w$]*)(?:\s+as\s+[A-Za-z_$][\w$]*)?\s*(?:,|$)", match.group(1)))
             return registered
 
         def registered_orchestration_exports(source: str) -> set[str]:
             registered: set[str] = set()
             for match in re.finditer(r"\b(?:serviceOrchestrations|orchestrations)\s*=\s*\{([\s\S]*?)\}\s*;", source):
-                registered.update(re.findall(r":\s*([A-Za-z_$][\w$]*)\s*(?:,|$)", match.group(1)))
+                for line in match.group(1).splitlines():
+                    if ":" in line:
+                        registered.update(re.findall(r"\b([A-Za-z_$][\w$]*)\b", line.split(":", 1)[1]))
             return registered
 
         component_exports = exported_symbols(component_source)
