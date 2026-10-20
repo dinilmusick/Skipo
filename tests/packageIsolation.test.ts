@@ -9,5 +9,8 @@ describe('Skipo package isolation', () => {
     expect(builder).not.toContain('JS_ROOT / "Kloks"');
     expect(builder).not.toContain('JS_ROOT / "Floks"');
     expect(validator).not.toContain('../FrnlTS');
+    expect(builder).toContain('kloks.manifest.json');
+    expect(builder).toContain('floks.manifest.json');
   });
 });
+
