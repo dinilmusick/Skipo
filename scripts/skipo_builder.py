@@ -68,8 +68,23 @@ class PackageCatalog:
         self.kloks_path = (kloks_path or _resolve_installed_package_root("@ultrst-armada/kloks", "SKIPO_KLOKS_ROOT"))
         self.floks_path = (floks_path or _resolve_installed_package_root("@ultrst-armada/floks", "SKIPO_FLOKS_ROOT"))
 
+    def _load_root_manifest(self, filename: str) -> Dict[str, Any]:
+        root_manifest = self.kloks_path / filename if "kloks" in filename else self.floks_path / filename
+        if root_manifest.exists():
+            try:
+                return json.loads(root_manifest.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        return {}
+
     def load_services(self) -> Dict[str, Dict[str, Any]]:
+        data = self._load_root_manifest("kloks.manifest.json")
         services: Dict[str, Dict[str, Any]] = {}
+        for s in data.get("services", []):
+            if s.get("id"):
+                services[s["id"]] = s
+        if services:
+            return services
         for mpath in self.kloks_path.glob("packages/*/kloks.manifest.json"):
             try:
                 data = json.loads(mpath.read_text(encoding="utf-8"))
@@ -82,7 +97,13 @@ class PackageCatalog:
         return services
 
     def load_orchestrations(self) -> Dict[str, Dict[str, Any]]:
+        data = self._load_root_manifest("kloks.manifest.json")
         orchestrations: Dict[str, Dict[str, Any]] = {}
+        for o in data.get("orchestrations", []):
+            if o.get("id"):
+                orchestrations[o["id"]] = o
+        if orchestrations:
+            return orchestrations
         for mpath in self.kloks_path.glob("packages/*/kloks.manifest.json"):
             try:
                 data = json.loads(mpath.read_text(encoding="utf-8"))
@@ -95,7 +116,15 @@ class PackageCatalog:
         return orchestrations
 
     def load_components(self) -> Dict[str, Dict[str, Any]]:
+        data = self._load_root_manifest("floks.manifest.json")
         components: Dict[str, Dict[str, Any]] = {}
+        for c in data.get("components", []):
+            c_id = c.get("id")
+            if c_id:
+                c["package"] = c.get("package", data.get("uiPackage", "@ultrst-armada/floks/ui"))
+                components[c_id] = c
+        if components:
+            return components
         for mpath in self.floks_path.glob("packages/*/floks.manifest.json"):
             try:
                 data = json.loads(mpath.read_text(encoding="utf-8"))
