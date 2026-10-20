@@ -162,3 +162,18 @@ def test_component_unknown_required_service_is_reported():
         result = make_builder(root).validate_linked_dependencies()
         assert not result["valid"]
         assert any("Unknown required service 'missing-service'" in error for error in result["errors"])
+
+def test_required_frontend_is_an_error():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        write_manifest(root / "Kloks", "packages/node", "kloks.manifest.json", {"services": [{"id": "node-graph", "defaultFrontend": {"component": "GraphPanel", "relationship": "required"}}]})
+        write_manifest(root / "Floks", "packages/canvas", "floks.manifest.json", {"components": [{"id": "GraphPanel"}]})
+        components = root / "Skipo/src/frontend/components"
+        components.mkdir(parents=True)
+        (components / "components.ts").write_text("export { Other } from '@floks/ui';", encoding="utf-8")
+        backend = root / "Skipo/src/backend"
+        backend.mkdir(parents=True)
+        (backend / "AppBackend.ts").write_text("export const AppBackend = {};", encoding="utf-8")
+        result = make_builder(root).validate_linked_dependencies()
+        assert not result["valid"]
+        assert any("requires FLOKS component 'GraphPanel'" in error for error in result["errors"])
