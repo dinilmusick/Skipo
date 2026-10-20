@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { SkipoBackend } from '../src/backend/SkipoBackend.js';
 import { App } from '../src/frontend/App.js';
+import { FrnlEditableNodeGraph } from '../src/frontend/components/components.js';
 
 describe('Skipo Minimal Application Composition (@kloks/* + @floks/*)', () => {
   it('composes @kloks/* services and orchestrators in SkipoBackend without local source duplication', async () => {
@@ -32,6 +33,12 @@ describe('Skipo Minimal Application Composition (@kloks/* + @floks/*)', () => {
       channel: 1,
     });
     expect(midiOut.midiEvent.note).toBe(72);
+  });
+
+  it('resolves the node-graph frontend and registers its required backend service', () => {
+    expect(typeof FrnlEditableNodeGraph).toBe('function');
+    expect(SkipoBackend.services.nodeGraphEngine).toBeDefined();
+    expect(SkipoBackend.services.nodeGraphEngine.id).toContain('node-graph');
   });
 
   it('composes @floks/* UI components in App.tsx', () => {
