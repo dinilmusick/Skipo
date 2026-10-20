@@ -308,6 +308,7 @@ def test_fullstack_package_summary_uses_declared_frontend_package():
         write_manifest(root / "Kloks", "packages/node", "kloks.manifest.json", {
             "services": [{
                 "id": "node-graph",
+                "modes": ["backend", "fullstack"],
                 "backend": {"package": "@kloks/state-graph", "facade": "NodeGraphEngineServiceFacade"},
                 "defaultFrontend": {
                     "component": "FrnlEditableNodeGraph",
