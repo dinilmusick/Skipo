@@ -306,7 +306,7 @@ class SkipoBuilder:
                 errors.append(f"Unknown required service '{service_id}'.")
                 return False
             facade = service.get("backend", {}).get("facade") or service.get("backend", {}).get("export")
-            return bool(facade and (re.search(r"\b" + re.escape(facade) + r"\\b", backend_source) or re.search(r"registerService\s*\([^)]*" + re.escape(facade), backend_source)))
+            return bool(facade and (re.search(r"\b" + re.escape(facade) + r"\b", backend_source) or re.search(r"registerService\s*\([^)]*" + re.escape(facade), backend_source)))
 
         def orchestration_present(orch_id: str) -> bool:
             orch = orchestrations.get(orch_id)
@@ -314,13 +314,13 @@ class SkipoBuilder:
                 errors.append(f"Unknown required orchestration '{orch_id}'.")
                 return False
             export_name = orch.get("export")
-            return bool(export_name and re.search(r"\\b" + re.escape(export_name) + r"\\b", backend_source))
+            return bool(export_name and re.search(r"\b" + re.escape(export_name) + r"\b", backend_source))
 
         for component in components.values():
             component_id = component.get("id")
             if not component_id:
                 continue
-            if re.search(r"\\b" + re.escape(component_id) + r"\\b", component_source):
+            if re.search(r"\b" + re.escape(component_id) + r"\b", component_source):
                 for service_id in component.get("requiredServices", []):
                     if not service_present(service_id):
                         errors.append(f"Component '{component_id}' requires service '{service_id}', but it is not installed in the app backend.")
@@ -334,7 +334,7 @@ class SkipoBuilder:
                 component_id = frontend.get("component") if isinstance(frontend, dict) else frontend
                 if component_id and component_id not in components:
                     errors.append(f"Service '{service.get('id')}' declares unknown default frontend '{component_id}'.")
-                elif component_id and not re.search(r"\\b" + re.escape(component_id) + r"\\b", component_source):
+                elif component_id and not re.search(r"\b" + re.escape(component_id) + r"\b", component_source):
                     warnings.append(f"Service '{service.get('id')}' recommends FLOKS component '{component_id}', but it is not exported by the app component facade.")
 
         for orch in orchestrations.values():
