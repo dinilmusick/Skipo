@@ -306,7 +306,7 @@ class SkipoBuilder:
                 errors.append(f"Unknown required service '{service_id}'.")
                 return False
             facade = service.get("backend", {}).get("facade") or service.get("backend", {}).get("export")
-            return bool(facade and (re.search(r"\\b" + re.escape(facade) + r"\\b", backend_source) or re.search(r"registerService\\s*\\([^)]*" + re.escape(facade), backend_source)))
+            return bool(facade and (re.search(r"\b" + re.escape(facade) + r"\\b", backend_source) or re.search(r"registerService\s*\([^)]*" + re.escape(facade), backend_source)))
 
         def orchestration_present(orch_id: str) -> bool:
             orch = orchestrations.get(orch_id)
