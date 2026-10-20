@@ -299,3 +299,25 @@ def test_frontend_composition_preserves_jsx_line_breaks():
         assert ok
         content = app.read_text(encoding="utf-8")
         assert "<FrnlEditableNodeGraph />\n    <main />" in content
+
+def test_fullstack_package_summary_uses_declared_frontend_package():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        write_manifest(root / "Kloks", "packages/node", "kloks.manifest.json", {
+            "services": [{
+                "id": "node-graph",
+                "backend": {"package": "@kloks/state-graph", "facade": "NodeGraphEngineServiceFacade"},
+                "defaultFrontend": {
+                    "component": "FrnlEditableNodeGraph",
+                    "package": "@ultrst-armada/floks/canvas-ui",
+                    "relationship": "recommended",
+                },
+            }]
+        })
+        builder = make_builder(root)
+        builder.composer.compose_service_backend = lambda _service: []
+        builder.composer.compose_service_frontend = lambda _service: []
+        builder.composer.apply_operations = lambda _operations, dry_run=False: (True, [])
+        result = builder.install_service("node-graph", mode="fullstack", dry_run=True)
+        assert result["status"] == "success"
+        assert result["packages"] == ["@kloks/state-graph", "@ultrst-armada/floks/canvas-ui"]
