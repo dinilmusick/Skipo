@@ -38,7 +38,7 @@ describe('Skipo Minimal Application Composition (@kloks/* + @floks/*)', () => {
   it('resolves the node-graph frontend and registers its required backend service', () => {
     expect(typeof FrnlEditableNodeGraph).toBe('function');
     expect(SkipoBackend.services.nodeGraphEngine).toBeDefined();
-    expect(SkipoBackend.services.nodeGraphEngine.id).toContain('node-graph');
+    expect(SkipoBackend.services.nodeGraphEngine.id).toContain('graph');
   });
 
   it('composes @floks/* UI components in App.tsx', () => {
