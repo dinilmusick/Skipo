@@ -149,7 +149,9 @@ describe('Skipo Frnl CLI integration', () => {
     const createOrchestration = readFileSync(join(repoRoot, 'scripts/create_orchestration.py'), 'utf8');
     const validate = readFileSync(join(repoRoot, 'scripts/validate_frnl.py'), 'utf8');
     for (const source of [createPage, createOrchestration, validate]) {
-      expect(source).toContain('@ultrst-armada/frnlts-cli');
+      expect(source).toContain('["pnpm", "exec", "frnl"');
+      expect(source).not.toContain('../FrnlTS');
+      expect(source).not.toContain('@ultrst-armada/frnlts-cli');
       expect(source).toContain('"frnl"');
     }
   });
