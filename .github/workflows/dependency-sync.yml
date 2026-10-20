@@ -1,0 +1,81 @@
+name: Upstream Dependency Sync
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: upstream-dependency-sync-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - name: Sync published upstream dependencies
+        id: updates
+        shell: bash
+        run: |
+          set -euo pipefail
+          if npm view @dinilmusick/gutts version >/dev/null 2>&1; then
+            GUT_VERSION="$(npm view @dinilmusick/gutts version)"
+            export GUT_VERSION
+            node --input-type=module <<'NODE'
+            import fs from 'node:fs';
+            const file = 'package.json';
+            const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
+            const name = '@dinilmusick/gutts';
+            pkg.dependencies ??= {};
+            if (!pkg.dependencies[name] && !pkg.devDependencies?.[name] && !pkg.optionalDependencies?.[name]) {
+              pkg.dependencies[name] = '^' + process.env.GUT_VERSION;
+              fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');
+              console.log('Added public GutTS dependency at ' + pkg.dependencies[name]);
+            }
+            NODE
+          fi
+          npx --yes npm-check-updates@latest --upgrade --filter '@dinilmusick/gutts,@ultrst-armada/krnl,@ultrst-armada/frnlts,@ultrst-armada/kloks,@ultrst-armada/floks'
+          if git diff --quiet -- package.json ':(glob)**/package.json'; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install dependencies and refresh lockfile
+        if: steps.updates.outputs.changed == 'true'
+        run: pnpm install --no-frozen-lockfile
+      - name: Build
+        if: steps.updates.outputs.changed == 'true'
+        run: pnpm run build
+      - name: Typecheck
+        if: steps.updates.outputs.changed == 'true'
+        run: pnpm run typecheck
+      - name: Test
+        if: steps.updates.outputs.changed == 'true'
+        run: pnpm run test
+      - name: Commit verified dependency updates directly to main
+        if: steps.updates.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(deps): sync latest upstream packages [skip ci]"
+            git push origin HEAD:main
+          fi
