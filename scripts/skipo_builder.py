@@ -54,7 +54,13 @@ def _resolve_installed_package_root(package_name: str, env_var: str) -> Path:
             f"Install the published dependency or set {env_var} explicitly."
         )
 
-    return Path(probe.stdout.strip()).resolve().parent
+    resolved_entry = Path(probe.stdout.strip()).resolve()
+    for candidate in [resolved_entry.parent, *resolved_entry.parents]:
+        if (candidate / "package.json").exists():
+            return candidate
+    raise RuntimeError(
+        f"Resolved package {package_name!r} but could not locate its package root from {resolved_entry}."
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
