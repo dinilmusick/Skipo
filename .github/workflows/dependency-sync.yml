@@ -33,22 +33,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if npm view @dinilmusick/gutts version >/dev/null 2>&1; then
-            GUT_VERSION="$(npm view @dinilmusick/gutts version)"
-            export GUT_VERSION
-            node --input-type=module <<'NODE'
-            import fs from 'node:fs';
+          node -e "
+            const fs = require('node:fs');
             const file = 'package.json';
             const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
             const name = '@dinilmusick/gutts';
-            pkg.dependencies ??= {};
+            pkg.dependencies = pkg.dependencies || {};
             if (!pkg.dependencies[name] && !pkg.devDependencies?.[name] && !pkg.optionalDependencies?.[name]) {
-              pkg.dependencies[name] = '^' + process.env.GUT_VERSION;
-              fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');
-              console.log('Added public GutTS dependency at ' + pkg.dependencies[name]);
+              try {
+                const ver = require('node:child_process').execSync('npm view @dinilmusick/gutts version').toString().trim();
+                if (ver) {
+                  pkg.dependencies[name] = '^' + ver;
+                  fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');
+                }
+              } catch (_) {}
             }
-            NODE
-          fi
+          "
           npx --yes npm-check-updates@latest --upgrade --filter '@dinilmusick/gutts,@ultrst-armada/krnl,@ultrst-armada/frnlts,@ultrst-armada/kloks,@ultrst-armada/floks'
           if git diff --quiet -- package.json ':(glob)**/package.json'; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
