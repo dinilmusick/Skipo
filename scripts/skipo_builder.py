@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -25,10 +26,52 @@ from target_resolver import SemanticTargetResolver, TargetSpec, ResolvedTarget
 
 HERE = Path(__file__).resolve().parent
 SKIPO_ROOT = HERE.parent
-JS_ROOT = SKIPO_ROOT.parent
-KLOKS_ROOT = JS_ROOT / "Kloks"
-FLOKS_ROOT = JS_ROOT / "Floks"
-KRNL_ROOT = JS_ROOT / "KrnlTS"
+
+
+def _resolve_installed_package_root(package_name: str, env_var: str) -> Path:
+    """Resolve a published dependency; sibling repository clones are not required.
+
+    The environment override is useful for isolated integration tests and deliberate
+    development overrides. Normal consumer installs resolve from node_modules.
+    """
+    override = os.environ.get(env_var)
+    if override:
+        return Path(override).expanduser().resolve()
+
+    probe = subprocess.run(
+        [
+            "node",
+            "--input-type=module",
+            "-e",
+            (
+                "import { fileURLToPath } from 'node:url';"
+                f"console.log(fileURLToPath(import.meta.resolve('{package_name}')))"
+            ),
+        ],
+        cwd=str(SKIPO_ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if probe.returncode != 0 or not probe.stdout.strip():
+        raise RuntimeError(
+            f"Cannot resolve installed package {package_name!r}. "
+            f"Install the dependency or set {env_var} explicitly. "
+            f"Resolver details: {probe.stderr.strip()}"
+        )
+
+    entry = Path(probe.stdout.strip().splitlines()[-1]).resolve()
+    for candidate in (entry.parent, *entry.parents):
+        if (candidate / "package.json").is_file():
+            return candidate
+    raise RuntimeError(
+        f"Resolved {package_name!r} to {entry}, but could not locate its package root."
+    )
+
+
+KLOKS_ROOT = _resolve_installed_package_root("@ultrst-armada/kloks", "SKIPO_KLOKS_ROOT")
+FLOKS_ROOT = _resolve_installed_package_root("@ultrst-armada/floks", "SKIPO_FLOKS_ROOT")
+KRNL_ROOT = _resolve_installed_package_root("@ultrst-armada/krnl", "SKIPO_KRNL_ROOT")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 1. CATALOG & MANIFEST DISCOVERY ENGINE
