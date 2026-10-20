@@ -17,7 +17,7 @@
     "validate:frnl": "python3 scripts/validate_frnl.py"
   },
   "dependencies": {
-    "@dinilmusick/gutts": "^0.1.0",
+    "@dinilmusick/gutts": "^0.1.1",
     "@ultrst-armada/floks": "^1.2.7",
     "@ultrst-armada/frnlts": "^0.2.4",
     "@ultrst-armada/kloks": "^1.4.5",
