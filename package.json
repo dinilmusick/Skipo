@@ -8,9 +8,9 @@
     "skipo": "./bin/skipo.js"
   },
   "scripts": {
-    "build": "tsc --noEmit",
+    "build": "python3 scripts/skipo_builder.py validate-links && tsc --noEmit",
     "test": "vitest run",
-    "validate": "python3 checklists/full_system_validator.py .",
+    "validate": "python3 scripts/skipo_builder.py validate-links && python3 checklists/full_system_validator.py .",
     "assistant": "python3 assistant.py",
     "skipo": "python3 scripts/skipo_builder.py",
     "typecheck": "tsc --noEmit",
