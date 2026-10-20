@@ -50,6 +50,7 @@ def test_service_default_frontend_missing_is_warning_not_error():
         write_manifest(root / "Kloks", "packages/node", "kloks.manifest.json", {
             "services": [{
                 "id": "node-graph",
+                "modes": ["backend", "fullstack"],
                 "backend": {"facade": "NodeGraphEngineServiceFacade"},
                 "defaultFrontend": {"component": "FrnlEditableNodeGraph"},
             }]
