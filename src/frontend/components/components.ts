@@ -9,4 +9,5 @@ export {
 export {
   InfiniteCanvas,
   DockBar,
+  FrnlEditableNodeGraph,
 } from '@ultrst-armada/floks/canvas-ui';
