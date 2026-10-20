@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -25,10 +26,36 @@ from target_resolver import SemanticTargetResolver, TargetSpec, ResolvedTarget
 
 HERE = Path(__file__).resolve().parent
 SKIPO_ROOT = HERE.parent
-JS_ROOT = SKIPO_ROOT.parent
-KLOKS_ROOT = JS_ROOT / "Kloks"
-FLOKS_ROOT = JS_ROOT / "Floks"
-KRNL_ROOT = JS_ROOT / "KrnlTS"
+
+def _resolve_installed_package_root(package_name: str, env_var: str) -> Path:
+    """Resolve a published workspace dependency; local sibling repositories are never required."""
+    override = os.environ.get(env_var)
+    if override:
+        return Path(override).expanduser().resolve()
+
+    probe = subprocess.run(
+        [
+            "node",
+            "--input-type=module",
+            "-e",
+            (
+                "import { fileURLToPath } from 'node:url';"
+                f"console.log(fileURLToPath(await import.meta.resolve('{package_name}')))"
+            ),
+        ],
+        cwd=str(SKIPO_ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if probe.returncode != 0 or not probe.stdout.strip():
+        raise RuntimeError(
+            f"Cannot resolve installed package {package_name!r}. "
+            f"Install the published dependency or set {env_var} explicitly."
+        )
+
+    return Path(probe.stdout.strip()).resolve().parent
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 1. CATALOG & MANIFEST DISCOVERY ENGINE
@@ -37,9 +64,9 @@ KRNL_ROOT = JS_ROOT / "KrnlTS"
 class PackageCatalog:
     """Discovers and caches machine-readable service and UI component manifests."""
 
-    def __init__(self, kloks_path: Path = KLOKS_ROOT, floks_path: Path = FLOKS_ROOT):
-        self.kloks_path = kloks_path
-        self.floks_path = floks_path
+    def __init__(self, kloks_path: Optional[Path] = None, floks_path: Optional[Path] = None):
+        self.kloks_path = (kloks_path or _resolve_installed_package_root("@ultrst-armada/kloks", "SKIPO_KLOKS_ROOT"))
+        self.floks_path = (floks_path or _resolve_installed_package_root("@ultrst-armada/floks", "SKIPO_FLOKS_ROOT"))
 
     def load_services(self) -> Dict[str, Dict[str, Any]]:
         services: Dict[str, Dict[str, Any]] = {}
