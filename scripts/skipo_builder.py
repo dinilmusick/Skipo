@@ -319,17 +319,13 @@ class SkipoBuilder:
             component_id = component.get("id")
             if not component_id:
                 continue
-            for service_id in component.get("requiredServices", []):
-                if not service_present(service_id):
-                    errors.append(f"Component '{component_id}' requires service '{service_id}', but it is not installed in the app backend.")
-            for orch_id in component.get("requiredOrchestrations", []):
-                if not orchestration_present(orch_id):
-                    errors.append(f"Component '{component_id}' requires orchestration '{orch_id}', but it is not installed in the app backend.")
             if re.search(r"\\b" + re.escape(component_id) + r"\\b", component_source):
                 for service_id in component.get("requiredServices", []):
-                    service_present(service_id)
+                    if not service_present(service_id):
+                        errors.append(f"Component '{component_id}' requires service '{service_id}', but it is not installed in the app backend.")
                 for orch_id in component.get("requiredOrchestrations", []):
-                    orchestration_present(orch_id)
+                    if not orchestration_present(orch_id):
+                        errors.append(f"Component '{component_id}' requires orchestration '{orch_id}', but it is not installed in the app backend.")
 
         for service in services.values():
             frontend = service.get("defaultFrontend")
