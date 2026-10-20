@@ -158,7 +158,7 @@ class CodeComposer:
                 type="insert-jsx",
                 file=app_file,
                 target={"file": app_file, "symbol": "App", "section": "main-content"},
-                payload={"jsx": f"<{export_name} />\\n"}
+                payload={"jsx": f"<{export_name} />\n"}
             )
         ]
         return ops
@@ -335,7 +335,17 @@ class SkipoBuilder:
                 if component_id and component_id not in components:
                     errors.append(f"Service '{service.get('id')}' declares unknown default frontend '{component_id}'.")
                 elif component_id and not re.search(r"\b" + re.escape(component_id) + r"\b", component_source):
-                    warnings.append(f"Service '{service.get('id')}' recommends FLOKS component '{component_id}', but it is not exported by the app component facade.")
+                    relationship = frontend.get("relationship", "recommended") if isinstance(frontend, dict) else "recommended"
+                    message = (
+                        f"Service '{service.get('id')}' requires FLOKS component '{component_id}', "
+                        "but it is not exported by the app component facade."
+                        if relationship == "required"
+                        else f"Service '{service.get('id')}' recommends FLOKS component '{component_id}', but it is not exported by the app component facade."
+                    )
+                    if relationship == "required":
+                        errors.append(message)
+                    else:
+                        warnings.append(message)
 
         for orch in orchestrations.values():
             frontend = orch.get("defaultFrontend")
@@ -407,7 +417,7 @@ class SkipoBuilder:
             "service": service_id,
             "mode": mode,
             "dryRun": dry_run,
-            "packages": [service.get("backend", {}).get("package")] + ([service.get("defaultFrontend", {}).get("package")] if mode == "fullstack" and service.get("ui") else []),
+            "packages": [service.get("backend", {}).get("package")] + ([service.get("defaultFrontend", {}).get("package", "@ultrst-armada/floks/ui")] if mode == "fullstack" and service.get("defaultFrontend") else []),
             "operations": [asdict(op) for op in operations],
             "logs": logs
         }
