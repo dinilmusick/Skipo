@@ -13,7 +13,7 @@ def main() -> None:
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
     result = subprocess.run(
-        ["pnpm", "--dir", "../FrnlTS", "--filter", "@ultrst-armada/frnlts-cli", "run", "frnl", "--", "generate", "page", args.page],
+        ["pnpm", "exec", "frnl", "generate", "page", args.page],
         cwd=root,
         check=False,
     )
