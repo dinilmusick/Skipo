@@ -21,8 +21,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: pnpm install --no-frozen-lockfile
+      - run: pnpm run build
       - run: pnpm run typecheck
       - run: pnpm run test
-      - run: pnpm run build
       - run: pnpm run validate
       - run: pnpm run validate:frnl
