@@ -300,13 +300,47 @@ class SkipoBuilder:
         errors: List[str] = []
         warnings: List[str] = []
 
+        def exported_symbols(source: str) -> set[str]:
+            symbols: set[str] = set()
+            for match in re.finditer(r"\bexport\s*\{([^}]*)\}", source):
+                for item in match.group(1).split(","):
+                    name = item.strip().split(" as ")[-1].strip()
+                    if re.fullmatch(r"[A-Za-z_$][\w$]*", name):
+                        symbols.add(name)
+            for pattern in (
+                r"\bexport\s+(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)",
+            ):
+                symbols.update(re.findall(pattern, source))
+            return symbols
+
+        def registered_service_exports(source: str) -> set[str]:
+            registered: set[str] = set()
+            for match in re.finditer(r"\bservices\s*:\s*\{([\s\S]*?)\}\s*(?:,|\n|;)", source):
+                registered.update(re.findall(r":\s*([A-Za-z_$][\w$]*)\s*(?:,|$)", match.group(1)))
+            return registered
+
+        def registered_orchestration_exports(source: str) -> set[str]:
+            registered: set[str] = set()
+            for match in re.finditer(r"\b(?:serviceOrchestrations|orchestrations)\s*=\s*\{([\s\S]*?)\}\s*;", source):
+                registered.update(re.findall(r":\s*([A-Za-z_$][\w$]*)\s*(?:,|$)", match.group(1)))
+            return registered
+
+        component_exports = exported_symbols(component_source)
+        registered_services = registered_service_exports(backend_source)
+        registered_orchestrations = registered_orchestration_exports(backend_source)
+
         def service_present(service_id: str) -> bool:
             service = services.get(service_id)
             if not service:
                 errors.append(f"Unknown required service '{service_id}'.")
                 return False
-            facade = service.get("backend", {}).get("facade") or service.get("backend", {}).get("export")
-            return bool(facade and (re.search(r"\b" + re.escape(facade) + r"\b", backend_source) or re.search(r"registerService\s*\([^)]*" + re.escape(facade), backend_source)))
+            backend_info = service.get("backend", {})
+            facade = backend_info.get("facade") or backend_info.get("export")
+            if not facade:
+                errors.append(f"Service '{service_id}' has no backend facade/export declaration.")
+                return False
+            imported = bool(re.search(r"\bimport\s*\{[^}]*\b" + re.escape(facade) + r"\b[^}]*\}\s*from\s*['\"]", backend_source))
+            return imported and facade in registered_services
 
         def orchestration_present(orch_id: str) -> bool:
             orch = orchestrations.get(orch_id)
@@ -314,20 +348,25 @@ class SkipoBuilder:
                 errors.append(f"Unknown required orchestration '{orch_id}'.")
                 return False
             export_name = orch.get("export")
-            return bool(export_name and re.search(r"\b" + re.escape(export_name) + r"\b", backend_source))
+            if not export_name:
+                errors.append(f"Orchestration '{orch_id}' has no export declaration.")
+                return False
+            imported = bool(re.search(r"\bimport\s*\{[^}]*\b" + re.escape(export_name) + r"\b[^}]*\}\s*from\s*['\"]", backend_source))
+            return imported and export_name in registered_orchestrations
 
         for component in components.values():
             component_id = component.get("id")
             if not component_id:
                 continue
-            if re.search(r"\b" + re.escape(component_id) + r"\b", component_source):
+            if component_id in component_exports:
                 for service_id in component.get("requiredServices", []):
                     if not service_present(service_id):
                         errors.append(f"Component '{component_id}' requires service '{service_id}', but it is not installed in the app backend.")
                 for orch_id in component.get("requiredOrchestrations", []):
                     if not orchestration_present(orch_id):
                         errors.append(f"Component '{component_id}' requires orchestration '{orch_id}', but it is not installed in the app backend.")
-
+            elif component.get("requiredServices") or component.get("requiredOrchestrations"):
+                errors.append(f"Component '{component_id}' is declared by FLOKS but is not exported by the app component facade.")
         for service in services.values():
             frontend = service.get("defaultFrontend")
             if frontend:
