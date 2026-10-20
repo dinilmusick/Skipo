@@ -285,6 +285,70 @@ class SkipoBuilder:
     def inspect_component(self, component_id: str) -> Optional[Dict[str, Any]]:
         return self.catalog.load_components().get(component_id)
 
+    def validate_linked_dependencies(self) -> Dict[str, Any]:
+        """Validate bidirectional KLOKS↔FLOKS service/component coupling."""
+        services = self.catalog.load_services()
+        components = self.catalog.load_components()
+        orchestrations = self.catalog.load_orchestrations()
+
+        component_facade = self.project_root / "src" / "frontend" / "components" / "components.ts"
+        backend_files = list((self.project_root / "src" / "backend").glob("*.ts"))
+        component_source = component_facade.read_text(encoding="utf-8") if component_facade.exists() else ""
+        backend_source = "\n".join(p.read_text(encoding="utf-8") for p in backend_files if p.is_file())
+
+        errors: List[str] = []
+        warnings: List[str] = []
+
+        def service_present(service_id: str) -> bool:
+            service = services.get(service_id)
+            if not service:
+                errors.append(f"Unknown required service '{service_id}'.")
+                return False
+            facade = service.get("backend", {}).get("facade") or service.get("backend", {}).get("export")
+            return bool(facade and (re.search(r"\\b" + re.escape(facade) + r"\\b", backend_source) or re.search(r"registerService\\s*\\([^)]*" + re.escape(facade), backend_source)))
+
+        def orchestration_present(orch_id: str) -> bool:
+            orch = orchestrations.get(orch_id)
+            if not orch:
+                errors.append(f"Unknown required orchestration '{orch_id}'.")
+                return False
+            export_name = orch.get("export")
+            return bool(export_name and re.search(r"\\b" + re.escape(export_name) + r"\\b", backend_source))
+
+        for component in components.values():
+            component_id = component.get("id")
+            if not component_id:
+                continue
+            for service_id in component.get("requiredServices", []):
+                if not service_present(service_id):
+                    errors.append(f"Component '{component_id}' requires service '{service_id}', but it is not installed in the app backend.")
+            for orch_id in component.get("requiredOrchestrations", []):
+                if not orchestration_present(orch_id):
+                    errors.append(f"Component '{component_id}' requires orchestration '{orch_id}', but it is not installed in the app backend.")
+            if re.search(r"\\b" + re.escape(component_id) + r"\\b", component_source):
+                for service_id in component.get("requiredServices", []):
+                    service_present(service_id)
+                for orch_id in component.get("requiredOrchestrations", []):
+                    orchestration_present(orch_id)
+
+        for service in services.values():
+            frontend = service.get("defaultFrontend")
+            if frontend:
+                component_id = frontend.get("component") if isinstance(frontend, dict) else frontend
+                if component_id and component_id not in components:
+                    errors.append(f"Service '{service.get('id')}' declares unknown default frontend '{component_id}'.")
+                elif component_id and not re.search(r"\\b" + re.escape(component_id) + r"\\b", component_source):
+                    warnings.append(f"Service '{service.get('id')}' recommends FLOKS component '{component_id}', but it is not exported by the app component facade.")
+
+        for orch in orchestrations.values():
+            frontend = orch.get("defaultFrontend")
+            if frontend:
+                component_id = frontend.get("component") if isinstance(frontend, dict) else frontend
+                if component_id and component_id not in components:
+                    errors.append(f"Orchestration '{orch.get('id')}' declares unknown default frontend '{component_id}'.")
+
+        return {"valid": not errors, "errors": sorted(set(errors)), "warnings": sorted(set(warnings))}
+ 
     def install_service(self, service_id: str, mode: str = "backend", dry_run: bool = False) -> Dict[str, Any]:
         services = self.catalog.load_services()
         if service_id not in services:
@@ -424,6 +488,10 @@ def main():
     add_p.add_argument("--dry-run", action="store_true", help="Dry run without mutating source")
     add_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
+    # linked dependency validation
+    link_p = subparsers.add_parser("validate-links", help="Validate linked KLOKS services/orchestrations and FLOKS components")
+    link_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
     # target inspect
     tgt_p = subparsers.add_parser("target", help="Inspect semantic code targets")
     tgt_p.add_argument("action", choices=["inspect"], help="Target action")
@@ -502,6 +570,17 @@ def main():
             for log in res.get("logs", []):
                 print(f"  ➜ {log}")
             print()
+
+    elif args.command == "validate-links":
+        res = builder.validate_linked_dependencies()
+        if args.json:
+            print(json.dumps(res, indent=2))
+        else:
+            print("VALID" if res["valid"] else "INVALID")
+            for warning in res.get("warnings", []):
+                print(f"⚠ {warning}")
+            for error in res.get("errors", []):
+                print(f"✖ {error}")
 
     elif args.command == "target":
         resolver = SemanticTargetResolver(SKIPO_ROOT)
