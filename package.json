@@ -17,11 +17,11 @@
     "validate:frnl": "python3 scripts/validate_frnl.py"
   },
   "dependencies": {
-    "@dinilmusick/gutts": "^0.1.1",
+    "@dinilmusick/gutts": "^0.1.2",
     "@ultrst-armada/floks": "^1.2.8",
-    "@ultrst-armada/frnlts": "^0.2.5",
+    "@ultrst-armada/frnlts": "^0.2.6",
     "@ultrst-armada/kloks": "^1.4.6",
-    "@ultrst-armada/krnl": "^1.0.5",
+    "@ultrst-armada/krnl": "^1.0.6",
     "lucide-react": "^1.55.0",
     "p-queue": "^10.0.0",
     "react": "^19.0.1",
