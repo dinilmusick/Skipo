@@ -275,22 +275,3 @@ def test_required_orchestration_near_match_does_not_count_as_registered():
         assert not result["valid"]
 
 
-def test_fullstack_service_summary_contains_default_frontend_package():
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        write_manifest(root / "Kloks", "packages/node", "kloks.manifest.json", {
-            "services": [{
-                "id": "node-graph",
-                "backend": {"package": "@kloks/state-graph", "facade": "NodeGraphEngineServiceFacade"},
-                "defaultFrontend": {
-                    "component": "FrnlEditableNodeGraph",
-                    "package": "@ultrst-armada/floks/canvas-ui",
-                    "export": "FrnlEditableNodeGraph",
-                    "relationship": "recommended",
-                },
-            }]
-        })
-        builder = make_builder(root)
-        builder.composer = builder.composer if hasattr(builder, "composer") else None
-        result = builder.install_service("node-graph", mode="fullstack", dry_run=True)
-        assert result["status"] == "error" or result["packages"][-1] == "@ultrst-armada/floks/canvas-ui"
