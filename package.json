@@ -20,7 +20,7 @@
     "@dinilmusick/gutts": "^0.1.2",
     "@ultrst-armada/floks": "^1.2.9",
     "@ultrst-armada/frnlts": "^0.2.6",
-    "@ultrst-armada/kloks": "^1.4.7",
+    "@ultrst-armada/kloks": "^1.4.8",
     "@ultrst-armada/krnl": "^1.0.6",
     "lucide-react": "^1.55.0",
     "p-queue": "^10.0.0",
