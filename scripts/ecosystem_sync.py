@@ -168,8 +168,23 @@ def create_pr(key: str, state: dict[str, Any]) -> dict[str, Any] | None:
     spec, path = LIBS[key], LIBS[key]["path"]
     if not path.exists() or not run(["git", "status", "--porcelain"], cwd=path, check=False):
         return None
-    if not state.get("appCommit"):
-        raise RuntimeError("Cannot create library provenance PR before the originating app commit is recorded.")
+
+    # Validate provenance and target identity before committing or pushing any library changes.
+    app_repo = state.get("appRepository", "")
+    app_branch = state.get("appBranch", "")
+    app_commit = state.get("appCommit", "")
+    session_id = state.get("sessionId", "")
+    if not re.fullmatch(r"[^/]+/[^/]+", app_repo):
+        raise RuntimeError("Cannot create library provenance PR: originating app repository is invalid.")
+    if not app_branch or not session_id:
+        raise RuntimeError("Cannot create library provenance PR: originating app branch/session is missing.")
+    if not re.fullmatch(r"[0-9a-fA-F]{40}", app_commit):
+        raise RuntimeError("Cannot create library provenance PR before a valid immutable app commit SHA is recorded.")
+    branch = state.get("libraries", {}).get(key, {}).get("branch", "")
+    if not branch.startswith("skipo/"):
+        raise RuntimeError("Cannot create library provenance PR: library branch is not a Skipo session branch.")
+    if state["libraries"][key].get("repository") != spec["repo"]:
+        raise RuntimeError("Cannot create library provenance PR: library repository does not match the canonical target.")
 
     run(["git", "add", "-A"], cwd=path)
     run(["git", "commit", "-m", f"feat: downstream update from {state['appRepository']}"], cwd=path)
