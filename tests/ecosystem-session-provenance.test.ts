@@ -33,4 +33,12 @@ describe('Skipo ecosystem session provenance safety', () => {
     expect(cleanup).toContain('startswith("file:.skipo/libraries/")');
     expect(cleanup).toContain('Refusing cleanup of dirty {key} workspace');
   });
+  it('verifies reconciliation both before and after merge using a dedicated CI workflow', () => {
+    const workflow = fs.readFileSync(path.resolve(__dirname, '../.github/workflows/ecosystem-reconciliation.yml'), 'utf8');
+    expect(workflow).toContain('types: [opened, synchronize, reopened, closed]');
+    expect(workflow).toContain("startsWith(github.event.pull_request.head.ref, 'krusbl/reconcile-ecosystem-')");
+    expect(workflow).toContain("github.event.pull_request.merged == true");
+    expect(workflow).toContain("pnpm install --frozen-lockfile");
+    expect(workflow).toContain('Ecosystem reconciliation completed');
+  });
 });
