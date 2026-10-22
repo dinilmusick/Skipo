@@ -21,11 +21,11 @@
     "ecosystem:cleanup": "python3 scripts/ecosystem_sync.py cleanup"
   },
   "dependencies": {
-    "@dinilmusick/gutts": "^0.1.2",
+    "@dinilmusick/gutts": "^0.1.3",
     "@ultrst-armada/floks": "^1.2.9",
-    "@ultrst-armada/frnlts": "^0.2.6",
+    "@ultrst-armada/frnlts": "^0.2.7",
     "@ultrst-armada/kloks": "^1.4.8",
-    "@ultrst-armada/krnl": "^1.0.6",
+    "@ultrst-armada/krnl": "^1.0.7",
     "lucide-react": "^1.55.0",
     "p-queue": "^10.0.0",
     "react": "^19.0.1",
