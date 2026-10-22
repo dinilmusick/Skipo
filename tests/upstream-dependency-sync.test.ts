@@ -26,6 +26,13 @@ describe('upstream dependency sync workflow', () => {
     expect(prAt).toBeGreaterThan(testAt);
   });
 
+  it('requires an explicit token for automated pull request creation', () => {
+    expect(workflow).toContain('secrets.ECOSYSTEM_SYNC_TOKEN');
+    expect(workflow).not.toContain('secrets.ECOSYSTEM_SYNC_TOKEN || secrets.GITHUB_TOKEN');
+    expect(workflow).toContain('Verify dependency PR token is configured');
+    expect(workflow).toContain('Contents and Pull requests read/write access');
+  });
+
   it('tracks the upstream packages in the ecosystem dependency stream', () => {
     expect(workflow).toContain('@dinilmusick/gutts');
     expect(workflow).toContain('@ultrst-armada/krnl');
