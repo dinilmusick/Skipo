@@ -14,7 +14,11 @@
     "assistant": "python3 assistant.py",
     "skipo": "python3 scripts/skipo_builder.py",
     "typecheck": "tsc --noEmit",
-    "validate:frnl": "python3 scripts/validate_frnl.py"
+    "validate:frnl": "python3 scripts/validate_frnl.py",
+    "ecosystem": "python3 scripts/ecosystem_sync.py",
+    "ecosystem:hydrate": "python3 scripts/ecosystem_sync.py hydrate all",
+    "ecosystem:end-session": "python3 scripts/ecosystem_sync.py end-session",
+    "ecosystem:cleanup": "python3 scripts/ecosystem_sync.py cleanup"
   },
   "dependencies": {
     "@dinilmusick/gutts": "^0.1.2",
