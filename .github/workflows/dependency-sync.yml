@@ -76,7 +76,7 @@ jobs:
       - name: Open or update dependency PR
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.ECOSYSTEM_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
           branch: automation/upstream-dependency-sync
           delete-branch: true
           commit-message: "chore(deps): sync verified upstream package versions"
