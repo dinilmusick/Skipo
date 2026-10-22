@@ -14,7 +14,8 @@ describe('Skipo ecosystem session contract', () => {
 
   it('requires the originating app commit before library PR creation', () => {
     const sync = readFileSync(new URL('../scripts/ecosystem_sync.py', import.meta.url), 'utf8');
-    expect(sync).toContain('Cannot create library provenance PR before the originating app commit is recorded.');
+    expect(sync).toContain('Cannot create library provenance PR before a valid immutable app commit SHA is recorded.');
+    expect(sync).toContain('re.fullmatch(r"[0-9a-fA-F]{40}", app_commit)');
     expect(sync).toContain('"appCommit": state["appCommit"]');
   });
 
