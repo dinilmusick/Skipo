@@ -33,5 +33,7 @@ describe('upstream dependency sync workflow', () => {
     expect(workflow).toContain('@ultrst-armada/kloks');
     expect(workflow).toContain('@ultrst-armada/floks');
     expect(workflow).toContain('*/15 * * * *');
+    expect(workflow).toContain('repository_dispatch:');
+    expect(workflow).toContain('upstream-package-published');
   });
 });
