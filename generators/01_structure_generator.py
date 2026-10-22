@@ -40,6 +40,7 @@ GITIGNORE_CONTENT = """# Skipo Anchored .gitignore Invariant
 /.cache/
 *.log
 .DS_Store
+/.skipo/libraries/
 """
 
 def generate_structure(target_dir: Path, params: Dict[str, Any]) -> GeneratorResult:
@@ -57,6 +58,15 @@ def generate_structure(target_dir: Path, params: Dict[str, Any]) -> GeneratorRes
         content=GITIGNORE_CONTENT,
         description="Anchored root .gitignore with strict leading slash boundaries"
     ))
+
+    # 1b. Downstream ecosystem session machinery is scaffolded into every app.
+    ecosystem_source = Path(__file__).resolve().parents[1] / "scripts" / "ecosystem_sync.py"
+    if ecosystem_source.is_file():
+        files.append(GeneratedFile(
+            relative_path="scripts/ecosystem_sync.py",
+            content=ecosystem_source.read_text(encoding="utf-8"),
+            description="Local KLOKS/FLOKS hydration, session push, provenance PR and cleanup agent"
+        ))
 
     # 2. Architecture Documentation README.md
     flowchart = generate_ascii_flowchart(f"{app_name} Plane Architecture", [

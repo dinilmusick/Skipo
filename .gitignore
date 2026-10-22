@@ -7,3 +7,6 @@ node_modules/
 .turbo/
 __pycache__/
 *.pyc
+
+# Disposable downstream library workspaces
+/.skipo/libraries/
