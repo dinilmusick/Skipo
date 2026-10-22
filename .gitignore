@@ -9,4 +9,4 @@ __pycache__/
 *.pyc
 
 # Disposable downstream library workspaces
-.skipo/libraries/
+/.skipo/libraries/
