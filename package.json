@@ -8,9 +8,9 @@
     "skipo": "./bin/skipo.js"
   },
   "scripts": {
-    "build": "tsc --noEmit",
+    "build": "python3 scripts/skipo_builder.py validate-links && tsc --noEmit",
     "test": "vitest run",
-    "validate": "python3 checklists/full_system_validator.py .",
+    "validate": "python3 scripts/skipo_builder.py validate-links && python3 checklists/full_system_validator.py .",
     "assistant": "python3 assistant.py",
     "skipo": "python3 scripts/skipo_builder.py",
     "typecheck": "tsc --noEmit",
@@ -21,10 +21,11 @@
     "ecosystem:cleanup": "python3 scripts/ecosystem_sync.py cleanup"
   },
   "dependencies": {
-    "@ultrst-armada/frnlts": "^0.2.2",
-    "@ultrst-armada/floks": "^1.2.5",
-    "@ultrst-armada/kloks": "^1.4.3",
-    "@ultrst-armada/krnl": "^1.0.2",
+    "@dinilmusick/gutts": "^0.1.2",
+    "@ultrst-armada/floks": "^1.2.9",
+    "@ultrst-armada/frnlts": "^0.2.6",
+    "@ultrst-armada/kloks": "^1.4.8",
+    "@ultrst-armada/krnl": "^1.0.6",
     "lucide-react": "^1.55.0",
     "p-queue": "^10.0.0",
     "react": "^19.0.1",
@@ -37,6 +38,11 @@
     "@types/react-dom": "^19.0.0",
     "typescript": "^5.7.3",
     "vitest": "^3.1.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "bullmq": "6.3.16"
+    }
   },
   "packageManager": "pnpm@9.15.0",
   "engines": {
