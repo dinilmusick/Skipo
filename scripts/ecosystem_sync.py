@@ -78,7 +78,6 @@ def init_state() -> dict[str, Any]:
 def hydrate_repo(key: str, state: dict[str, Any]) -> None:
     spec = LIBS[key]
     path = spec["path"]
-
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
         run(["git", "clone", f"https://github.com/{spec['repo']}.git", str(path)])
@@ -88,17 +87,10 @@ def hydrate_repo(key: str, state: dict[str, Any]) -> None:
         run(["git", "fetch", "origin"], cwd=path)
         run(["git", "checkout", "main"], cwd=path)
         run(["git", "pull", "--ff-only", "origin", "main"], cwd=path)
-
-    session = state.setdefault(
-        "sessionId", datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    )
+    session = state.setdefault("sessionId", datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"))
     slug = re.sub(r"[^a-z0-9-]+", "-", state["appRepository"].lower()).strip("-")
     branch = f"skipo/{slug}/{session}"
-    existing = run(
-        ["git", "rev-parse", "--verify", f"refs/heads/{branch}"],
-        cwd=path,
-        check=False,
-    )
+    existing = run(["git", "rev-parse", "--verify", f"refs/heads/{branch}"], cwd=path, check=False)
     if existing:
         run(["git", "checkout", branch], cwd=path)
     else:
@@ -145,10 +137,7 @@ def status() -> dict[str, Any]:
                 "dirty": bool(run(["git", "status", "--porcelain"], cwd=spec["path"], check=False)),
             }
         else:
-            result["libraries"][key] = {
-                "path": str(spec["path"].relative_to(ROOT)),
-                "hydrated": False,
-            }
+            result["libraries"][key] = {"path": str(spec["path"].relative_to(ROOT)), "hydrated": False}
     return result
 
 
@@ -168,12 +157,8 @@ def create_pr(key: str, state: dict[str, Any]) -> dict[str, Any] | None:
     spec, path = LIBS[key], LIBS[key]["path"]
     if not path.exists() or not run(["git", "status", "--porcelain"], cwd=path, check=False):
         return None
-
-    # Validate provenance and target identity before committing or pushing any library changes.
-    app_repo = state.get("appRepository", "")
-    app_branch = state.get("appBranch", "")
-    app_commit = state.get("appCommit", "")
-    session_id = state.get("sessionId", "")
+    app_repo, app_branch = state.get("appRepository", ""), state.get("appBranch", "")
+    app_commit, session_id = state.get("appCommit", ""), state.get("sessionId", "")
     if not re.fullmatch(r"[^/]+/[^/]+", app_repo):
         raise RuntimeError("Cannot create library provenance PR: originating app repository is invalid.")
     if not app_branch or not session_id:
@@ -185,50 +170,20 @@ def create_pr(key: str, state: dict[str, Any]) -> dict[str, Any] | None:
         raise RuntimeError("Cannot create library provenance PR: library branch is not a Skipo session branch.")
     if state["libraries"][key].get("repository") != spec["repo"]:
         raise RuntimeError("Cannot create library provenance PR: library repository does not match the canonical target.")
-
     run(["git", "add", "-A"], cwd=path)
     run(["git", "commit", "-m", f"feat: downstream update from {state['appRepository']}"], cwd=path)
-    branch = state["libraries"][key]["branch"]
     run(["git", "push", "-u", "origin", branch], cwd=path)
-
     marker = {
-        "schemaVersion": 1,
-        "appRepository": state["appRepository"],
-        "appBranch": state["appBranch"],
-        "appCommit": state["appCommit"],
-        "sessionId": state["sessionId"],
-        "targetLibrary": key.upper(),
-        "targetPackage": spec["package"],
-        "targetRepository": spec["repo"],
-        "libraryBranch": branch,
+        "schemaVersion": 1, "appRepository": state["appRepository"], "appBranch": state["appBranch"],
+        "appCommit": state["appCommit"], "sessionId": state["sessionId"], "targetLibrary": key.upper(),
+        "targetPackage": spec["package"], "targetRepository": spec["repo"], "libraryBranch": branch,
     }
-    body = (
-        "## Skipo downstream library update\n\n"
-        "Produced by an actively validated Skipo application session.\n\n"
-        "<!-- skipo-ecosystem-promotion:v1\n"
-        + json.dumps(marker, separators=(",", ":"))
-        + "\n-->\n\n"
-        "Krusbl uses this marker to identify the originating application, "
-        "validate the library change, publish the package, and reconcile the app.\n"
-    )
-    pr = run(
-        [
-            "gh",
-            "pr",
-            "create",
-            "--repo",
-            spec["repo"],
-            "--base",
-            "main",
-            "--head",
-            branch,
-            "--title",
-            f"feat: downstream update from {state['appRepository']}",
-            "--body",
-            body,
-        ],
-        cwd=path,
-    )
+    body = ("## Skipo downstream library update\n\nProduced by an actively validated Skipo application session.\n\n"
+        "<!-- skipo-ecosystem-promotion:v1\n" + json.dumps(marker, separators=(",", ":")) +
+        "\n-->\n\nKrusbl uses this marker to identify the originating application, validate the library change, "
+        "publish the package, and reconcile the app.\n")
+    pr = run(["gh", "pr", "create", "--repo", spec["repo"], "--base", "main", "--head", branch,
+        "--title", f"feat: downstream update from {state['appRepository']}", "--body", body], cwd=path)
     return {"library": key, "branch": branch, "pr": pr}
 
 
@@ -245,40 +200,44 @@ def end_session() -> dict[str, Any]:
 
 def cleanup() -> dict[str, Any]:
     state = load_state()
-    if not state:
-        return {"removed": []}
     if run(["git", "status", "--porcelain"], check=False):
         raise RuntimeError("Refusing ecosystem cleanup while the application workspace is dirty.")
+    _, pkg = package_data()
+    if not state:
+        local_specs = [name for name, spec in {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}.items()
+            if isinstance(spec, str) and spec.startswith("file:.skipo/libraries/")]
+        if local_specs:
+            raise RuntimeError("Cannot remove local library clones while package.json still uses file: dependencies: " + ", ".join(local_specs))
+        removed = []
+        for key, spec in LIBS.items():
+            if spec["path"].exists():
+                if run(["git", "status", "--porcelain"], cwd=spec["path"], check=False):
+                    raise RuntimeError(f"Refusing cleanup of dirty {key} workspace; commit or clean it first.")
+                shutil.rmtree(spec["path"])
+                removed.append(str(spec["path"].relative_to(ROOT)))
+        return {"removed": removed, "reconciled": True}
     for key, spec in LIBS.items():
         if spec["path"].exists() and run(["git", "status", "--porcelain"], cwd=spec["path"], check=False):
             raise RuntimeError(f"Refusing cleanup of dirty {key} workspace; commit or clean it first.")
-
     path, pkg = package_data()
     deps = pkg.setdefault("dependencies", {})
     dev_deps = pkg.setdefault("devDependencies", {})
     for key, spec in LIBS.items():
         package_name = spec["package"]
-        original = state["libraries"][key].get("originalSpec")
-        original_dev = state["libraries"][key].get("originalDevSpec")
-        if original is not None:
-            deps[package_name] = original
-        else:
-            deps.pop(package_name, None)
-        if original_dev is not None:
-            dev_deps[package_name] = original_dev
-        else:
-            dev_deps.pop(package_name, None)
-
+        original, original_dev = state["libraries"][key].get("originalSpec"), state["libraries"][key].get("originalDevSpec")
+        if original is not None: deps[package_name] = original
+        else: deps.pop(package_name, None)
+        if original_dev is not None: dev_deps[package_name] = original_dev
+        else: dev_deps.pop(package_name, None)
     path.write_text(json.dumps(pkg, indent=2) + "\n", encoding="utf-8")
     run(["pnpm", "install", "--no-frozen-lockfile"])
-
     removed = []
     for spec in LIBS.values():
         if spec["path"].exists():
             shutil.rmtree(spec["path"])
             removed.append(str(spec["path"].relative_to(ROOT)))
     STATE.unlink(missing_ok=True)
-    return {"removed": removed}
+    return {"removed": removed, "reconciled": False}
 
 
 def main() -> None:
@@ -291,17 +250,11 @@ def main() -> None:
     s.add_parser("end-session")
     s.add_parser("cleanup")
     a = p.parse_args()
-
-    if a.command == "init":
-        result = init_state()
-    elif a.command == "hydrate":
-        result = hydrate(a.target)
-    elif a.command == "status":
-        result = status()
-    elif a.command == "end-session":
-        result = end_session()
-    else:
-        result = cleanup()
+    if a.command == "init": result = init_state()
+    elif a.command == "hydrate": result = hydrate(a.target)
+    elif a.command == "status": result = status()
+    elif a.command == "end-session": result = end_session()
+    else: result = cleanup()
     print(json.dumps(result, indent=2))
 
 
