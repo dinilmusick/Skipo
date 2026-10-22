@@ -26,9 +26,11 @@ describe('Skipo ecosystem session contract', () => {
     expect(sync).toContain('dev_deps.pop(package_name, None)');
   });
 
-  it('does not overwrite an existing dirty library workspace', () => {
+  it('does not overwrite or delete dirty ecosystem workspaces', () => {
     const sync = readFileSync(new URL('../scripts/ecosystem_sync.py', import.meta.url), 'utf8');
     expect(sync).toContain('Refusing to hydrate dirty {key} workspace');
+    expect(sync).toContain('Refusing ecosystem cleanup while the application workspace is dirty.');
+    expect(sync).toContain('Refusing cleanup of dirty {key} workspace');
     expect(sync).toContain('git", "rev-parse", "--verify"');
   });
 
