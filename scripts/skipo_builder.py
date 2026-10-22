@@ -27,8 +27,13 @@ from target_resolver import SemanticTargetResolver, TargetSpec, ResolvedTarget
 HERE = Path(__file__).resolve().parent
 SKIPO_ROOT = HERE.parent
 
+
 def _resolve_installed_package_root(package_name: str, env_var: str) -> Path:
-    """Resolve a published workspace dependency; local sibling repositories are never required."""
+    """Resolve a published dependency; sibling repository clones are not required.
+
+    The environment override is useful for isolated integration tests and deliberate
+    development overrides. Normal consumer installs resolve from node_modules.
+    """
     override = os.environ.get(env_var)
     if override:
         return Path(override).expanduser().resolve()
@@ -40,7 +45,7 @@ def _resolve_installed_package_root(package_name: str, env_var: str) -> Path:
             "-e",
             (
                 "import { fileURLToPath } from 'node:url';"
-                f"console.log(fileURLToPath(await import.meta.resolve('{package_name}')))"
+                f"console.log(fileURLToPath(import.meta.resolve('{package_name}')))"
             ),
         ],
         cwd=str(SKIPO_ROOT),
@@ -51,17 +56,22 @@ def _resolve_installed_package_root(package_name: str, env_var: str) -> Path:
     if probe.returncode != 0 or not probe.stdout.strip():
         raise RuntimeError(
             f"Cannot resolve installed package {package_name!r}. "
-            f"Install the published dependency or set {env_var} explicitly."
+            f"Install the dependency or set {env_var} explicitly. "
+            f"Resolver details: {probe.stderr.strip()}"
         )
 
-    resolved_entry = Path(probe.stdout.strip()).resolve()
-    for candidate in [resolved_entry.parent, *resolved_entry.parents]:
-        if (candidate / "package.json").exists():
+    entry = Path(probe.stdout.strip().splitlines()[-1]).resolve()
+    for candidate in (entry.parent, *entry.parents):
+        if (candidate / "package.json").is_file():
             return candidate
     raise RuntimeError(
-        f"Resolved package {package_name!r} but could not locate its package root from {resolved_entry}."
+        f"Resolved {package_name!r} to {entry}, but could not locate its package root."
     )
 
+
+KLOKS_ROOT = _resolve_installed_package_root("@ultrst-armada/kloks", "SKIPO_KLOKS_ROOT")
+FLOKS_ROOT = _resolve_installed_package_root("@ultrst-armada/floks", "SKIPO_FLOKS_ROOT")
+KRNL_ROOT = _resolve_installed_package_root("@ultrst-armada/krnl", "SKIPO_KRNL_ROOT")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 1. CATALOG & MANIFEST DISCOVERY ENGINE
@@ -70,27 +80,12 @@ def _resolve_installed_package_root(package_name: str, env_var: str) -> Path:
 class PackageCatalog:
     """Discovers and caches machine-readable service and UI component manifests."""
 
-    def __init__(self, kloks_path: Optional[Path] = None, floks_path: Optional[Path] = None):
-        self.kloks_path = (kloks_path or _resolve_installed_package_root("@ultrst-armada/kloks", "SKIPO_KLOKS_ROOT"))
-        self.floks_path = (floks_path or _resolve_installed_package_root("@ultrst-armada/floks", "SKIPO_FLOKS_ROOT"))
-
-    def _load_root_manifest(self, filename: str) -> Dict[str, Any]:
-        root_manifest = self.kloks_path / filename if "kloks" in filename else self.floks_path / filename
-        if root_manifest.exists():
-            try:
-                return json.loads(root_manifest.read_text(encoding="utf-8"))
-            except Exception:
-                pass
-        return {}
+    def __init__(self, kloks_path: Path = KLOKS_ROOT, floks_path: Path = FLOKS_ROOT):
+        self.kloks_path = kloks_path
+        self.floks_path = floks_path
 
     def load_services(self) -> Dict[str, Dict[str, Any]]:
-        data = self._load_root_manifest("kloks.manifest.json")
         services: Dict[str, Dict[str, Any]] = {}
-        for s in data.get("services", []):
-            if s.get("id"):
-                services[s["id"]] = s
-        if services:
-            return services
         for mpath in self.kloks_path.glob("packages/*/kloks.manifest.json"):
             try:
                 data = json.loads(mpath.read_text(encoding="utf-8"))
@@ -103,13 +98,7 @@ class PackageCatalog:
         return services
 
     def load_orchestrations(self) -> Dict[str, Dict[str, Any]]:
-        data = self._load_root_manifest("kloks.manifest.json")
         orchestrations: Dict[str, Dict[str, Any]] = {}
-        for o in data.get("orchestrations", []):
-            if o.get("id"):
-                orchestrations[o["id"]] = o
-        if orchestrations:
-            return orchestrations
         for mpath in self.kloks_path.glob("packages/*/kloks.manifest.json"):
             try:
                 data = json.loads(mpath.read_text(encoding="utf-8"))
@@ -122,15 +111,7 @@ class PackageCatalog:
         return orchestrations
 
     def load_components(self) -> Dict[str, Dict[str, Any]]:
-        data = self._load_root_manifest("floks.manifest.json")
         components: Dict[str, Dict[str, Any]] = {}
-        for c in data.get("components", []):
-            c_id = c.get("id")
-            if c_id:
-                c["package"] = c.get("package", data.get("uiPackage", "@ultrst-armada/floks/ui"))
-                components[c_id] = c
-        if components:
-            return components
         for mpath in self.floks_path.glob("packages/*/floks.manifest.json"):
             try:
                 data = json.loads(mpath.read_text(encoding="utf-8"))
@@ -198,30 +179,31 @@ class CodeComposer:
         return ops
 
     def compose_service_frontend(self, service: Dict[str, Any]) -> List[CodeOperation]:
-        ui_info = service.get("ui")
-        if not ui_info:
+        frontend = service.get("defaultFrontend")
+        if not frontend:
             return []
 
+        component = frontend.get("component") if isinstance(frontend, dict) else frontend
+        if not component:
+            return []
+        package = (frontend.get("package") if isinstance(frontend, dict) else None) or "@ultrst-armada/floks/ui"
+        export_name = (frontend.get("export") if isinstance(frontend, dict) else None) or component
+
         app_file = "src/frontend/App.tsx"
-        ui_pkg = ui_info.get("package", "@ultrst-armada/floks/ui")
-        components = ui_info.get("components", [])
-        ops: List[CodeOperation] = []
-
-        for comp in components:
-            ops.append(CodeOperation(
+        ops: List[CodeOperation] = [
+            CodeOperation(
                 type="add-import",
-                file=app_file,
-                target={"file": app_file, "section": "imports"},
-                payload={"import": comp, "from": ui_pkg}
-            ))
-
-            ops.append(CodeOperation(
+                file="src/frontend/components/components.ts",
+                target={"file": "src/frontend/components/components.ts", "section": "imports"},
+                payload={"import": export_name, "from": package}
+            ),
+            CodeOperation(
                 type="insert-jsx",
                 file=app_file,
                 target={"file": app_file, "symbol": "App", "section": "main-content"},
-                payload={"jsx": f"<{comp} />\n"}
-            ))
-
+                payload={"jsx": f"<{export_name} />\n"}
+            )
+        ]
         return ops
 
     def apply_operations(self, operations: List[CodeOperation], dry_run: bool = False) -> Tuple[bool, List[str]]:
@@ -347,6 +329,117 @@ class SkipoBuilder:
     def inspect_component(self, component_id: str) -> Optional[Dict[str, Any]]:
         return self.catalog.load_components().get(component_id)
 
+    def validate_linked_dependencies(self) -> Dict[str, Any]:
+        """Validate bidirectional KLOKS↔FLOKS service/component coupling."""
+        services = self.catalog.load_services()
+        components = self.catalog.load_components()
+        orchestrations = self.catalog.load_orchestrations()
+
+        component_facade = self.project_root / "src" / "frontend" / "components" / "components.ts"
+        backend_files = list((self.project_root / "src" / "backend").glob("*.ts"))
+        component_source = component_facade.read_text(encoding="utf-8") if component_facade.exists() else ""
+        backend_source = "\n".join(p.read_text(encoding="utf-8") for p in backend_files if p.is_file())
+
+        errors: List[str] = []
+        warnings: List[str] = []
+
+        def exported_symbols(source: str) -> set[str]:
+            symbols: set[str] = set()
+            for match in re.finditer(r"\bexport\s*\{([^}]*)\}", source):
+                for item in match.group(1).split(","):
+                    name = item.strip().split(" as ")[-1].strip()
+                    if re.fullmatch(r"[A-Za-z_$][\w$]*", name):
+                        symbols.add(name)
+            for pattern in (
+                r"\bexport\s+(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)",
+            ):
+                symbols.update(re.findall(pattern, source))
+            return symbols
+
+        def registered_service_exports(source: str) -> set[str]:
+            registered: set[str] = set()
+            for match in re.finditer(r"\bservices\s*:\s*\{([\s\S]*?)\}\s*(?:,|\n|;)", source):
+                registered.update(re.findall(r":\s*([A-Za-z_$][\w$]*)(?:\s+as\s+[A-Za-z_$][\w$]*)?\s*(?=,|}|$)", match.group(1)))
+            return registered
+
+        def registered_orchestration_exports(source: str) -> set[str]:
+            registered: set[str] = set()
+            for match in re.finditer(r"\b(?:serviceOrchestrations|orchestrations)\s*=\s*\{([\s\S]*?)\}\s*;", source):
+                for line in match.group(1).splitlines():
+                    if ":" in line:
+                        registered.update(re.findall(r"\b([A-Za-z_$][\w$]*)\b", line.split(":", 1)[1]))
+            return registered
+
+        component_exports = exported_symbols(component_source)
+        registered_services = registered_service_exports(backend_source)
+        registered_orchestrations = registered_orchestration_exports(backend_source)
+
+        def service_present(service_id: str) -> bool:
+            service = services.get(service_id)
+            if not service:
+                errors.append(f"Unknown required service '{service_id}'.")
+                return False
+            backend_info = service.get("backend", {})
+            facade = backend_info.get("facade") or backend_info.get("export")
+            if not facade:
+                errors.append(f"Service '{service_id}' has no backend facade/export declaration.")
+                return False
+            imported = bool(re.search(r"\bimport\s*\{[^}]*\b" + re.escape(facade) + r"\b[^}]*\}\s*from\s*['\"]", backend_source))
+            return imported and facade in registered_services
+
+        def orchestration_present(orch_id: str) -> bool:
+            orch = orchestrations.get(orch_id)
+            if not orch:
+                errors.append(f"Unknown required orchestration '{orch_id}'.")
+                return False
+            export_name = orch.get("export")
+            if not export_name:
+                errors.append(f"Orchestration '{orch_id}' has no export declaration.")
+                return False
+            imported = bool(re.search(r"\bimport\s*\{[^}]*\b" + re.escape(export_name) + r"\b[^}]*\}\s*from\s*['\"]", backend_source))
+            return imported and export_name in registered_orchestrations
+
+        for component in components.values():
+            component_id = component.get("id")
+            if not component_id:
+                continue
+            if component_id in component_exports:
+                for service_id in component.get("requiredServices", []):
+                    if not service_present(service_id):
+                        errors.append(f"Component '{component_id}' requires service '{service_id}', but it is not installed in the app backend.")
+                for orch_id in component.get("requiredOrchestrations", []):
+                    if not orchestration_present(orch_id):
+                        errors.append(f"Component '{component_id}' requires orchestration '{orch_id}', but it is not installed in the app backend.")
+            elif component.get("requiredServices") or component.get("requiredOrchestrations"):
+                errors.append(f"Component '{component_id}' is declared by FLOKS but is not exported by the app component facade.")
+        for service in services.values():
+            frontend = service.get("defaultFrontend")
+            if frontend:
+                component_id = frontend.get("component") if isinstance(frontend, dict) else frontend
+                if component_id and component_id not in components:
+                    errors.append(f"Service '{service.get('id')}' declares unknown default frontend '{component_id}'.")
+                elif component_id and not re.search(r"\b" + re.escape(component_id) + r"\b", component_source):
+                    relationship = frontend.get("relationship", "recommended") if isinstance(frontend, dict) else "recommended"
+                    message = (
+                        f"Service '{service.get('id')}' requires FLOKS component '{component_id}', "
+                        "but it is not exported by the app component facade."
+                        if relationship == "required"
+                        else f"Service '{service.get('id')}' recommends FLOKS component '{component_id}', but it is not exported by the app component facade."
+                    )
+                    if relationship == "required":
+                        errors.append(message)
+                    else:
+                        warnings.append(message)
+
+        for orch in orchestrations.values():
+            frontend = orch.get("defaultFrontend")
+            if frontend:
+                component_id = frontend.get("component") if isinstance(frontend, dict) else frontend
+                if component_id and component_id not in components:
+                    errors.append(f"Orchestration '{orch.get('id')}' declares unknown default frontend '{component_id}'.")
+
+        return {"valid": not errors, "errors": sorted(set(errors)), "warnings": sorted(set(warnings))}
+ 
     def install_service(self, service_id: str, mode: str = "backend", dry_run: bool = False) -> Dict[str, Any]:
         services = self.catalog.load_services()
         if service_id not in services:
@@ -408,7 +501,7 @@ class SkipoBuilder:
             "service": service_id,
             "mode": mode,
             "dryRun": dry_run,
-            "packages": [service.get("backend", {}).get("package")] + ([service.get("ui", {}).get("package")] if mode == "fullstack" and service.get("ui") else []),
+            "packages": [service.get("backend", {}).get("package")] + ([service.get("defaultFrontend", {}).get("package", "@ultrst-armada/floks/ui")] if mode == "fullstack" and service.get("defaultFrontend") else []),
             "operations": [asdict(op) for op in operations],
             "logs": logs
         }
@@ -486,6 +579,10 @@ def main():
     add_p.add_argument("--dry-run", action="store_true", help="Dry run without mutating source")
     add_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
+    # linked dependency validation
+    link_p = subparsers.add_parser("validate-links", help="Validate linked KLOKS services/orchestrations and FLOKS components")
+    link_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
     # target inspect
     tgt_p = subparsers.add_parser("target", help="Inspect semantic code targets")
     tgt_p.add_argument("action", choices=["inspect"], help="Target action")
@@ -493,12 +590,7 @@ def main():
     tgt_p.add_argument("--property", default="services", help="Property to inspect")
     tgt_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
-    eco_p = subparsers.add_parser("ecosystem", help="Manage local KLOKS/FLOKS development sessions")
-    eco_p.add_argument("action", choices=["init", "hydrate", "status", "end-session", "cleanup"])
-
     args = parser.parse_args()
-    if args.command == "ecosystem":
-        raise SystemExit(subprocess.call(["python3", str(HERE / "ecosystem_sync.py"), args.action]))
     builder = SkipoBuilder()
 
     if args.command == "list":
@@ -569,6 +661,17 @@ def main():
             for log in res.get("logs", []):
                 print(f"  ➜ {log}")
             print()
+
+    elif args.command == "validate-links":
+        res = builder.validate_linked_dependencies()
+        if args.json:
+            print(json.dumps(res, indent=2))
+        else:
+            print("VALID" if res["valid"] else "INVALID")
+            for warning in res.get("warnings", []):
+                print(f"⚠ {warning}")
+            for error in res.get("errors", []):
+                print(f"✖ {error}")
 
     elif args.command == "target":
         resolver = SemanticTargetResolver(SKIPO_ROOT)
