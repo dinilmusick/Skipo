@@ -30,7 +30,7 @@ describe('Skipo ecosystem session provenance safety', () => {
   it('refuses filesystem cleanup if the app is dirty or local dependency references remain', () => {
     const cleanup = script.slice(script.indexOf('def cleanup('), script.indexOf('\ndef main(', script.indexOf('def cleanup(')));
     expect(cleanup).toContain('Refusing ecosystem cleanup while the application workspace is dirty.');
-    expect(cleanup).toContain('startsWith');
+    expect(cleanup).toContain('startswith("file:.skipo/libraries/")');
     expect(cleanup).toContain('Refusing cleanup of dirty {key} workspace');
   });
 });
