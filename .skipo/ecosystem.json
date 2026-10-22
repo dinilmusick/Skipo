@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "appRepository": "dinilmusick/Skipo",
+  "appBranch": "test/ecosystem-promotion-20261022t160000z",
+  "librariesRoot": ".skipo/libraries",
+  "createdAt": "2026-10-22T16:00:00Z",
+  "sessionId": "20261022T160000Z",
+  "libraries": {
+    "kloks": {
+      "repository": "dinilmusick/Kloks",
+      "package": "@ultrst-armada/kloks",
+      "originalSpec": "^1.4.8",
+      "localSpec": "file:.skipo/libraries/kloks",
+      "branch": "skipo/dinilmusick-skipo/20261022T160000Z"
+    },
+    "floks": {
+      "repository": "dinilmusick/Floks",
+      "package": "@ultrst-armada/floks",
+      "originalSpec": "^1.2.9",
+      "localSpec": "file:.skipo/libraries/floks"
+    }
+  }
+}
