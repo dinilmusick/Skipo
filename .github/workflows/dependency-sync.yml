@@ -73,10 +73,20 @@ jobs:
       - name: Test
         if: steps.updates.outputs.changed == 'true'
         run: pnpm run test
+      - name: Verify dependency PR token is configured
+        env:
+          SYNC_TOKEN: ${{ secrets.ECOSYSTEM_SYNC_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${SYNC_TOKEN:-}" ]; then
+            echo "::error::Set the Skipo Actions secret ECOSYSTEM_SYNC_TOKEN to a token with Contents and Pull requests read/write access. The default GITHUB_TOKEN is not permitted to create pull requests in this repository."
+            exit 1
+          fi
       - name: Open or update dependency PR
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.ECOSYSTEM_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.ECOSYSTEM_SYNC_TOKEN }}
           branch: automation/upstream-dependency-sync
           delete-branch: true
           commit-message: "chore(deps): sync verified upstream package versions"
