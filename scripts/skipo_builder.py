@@ -493,7 +493,12 @@ def main():
     tgt_p.add_argument("--property", default="services", help="Property to inspect")
     tgt_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
+    eco_p = subparsers.add_parser("ecosystem", help="Manage local KLOKS/FLOKS development sessions")
+    eco_p.add_argument("action", choices=["init", "hydrate", "status", "end-session", "cleanup"])
+
     args = parser.parse_args()
+    if args.command == "ecosystem":
+        raise SystemExit(subprocess.call(["python3", str(HERE / "ecosystem_sync.py"), args.action]))
     builder = SkipoBuilder()
 
     if args.command == "list":
