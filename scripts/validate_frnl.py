@@ -9,7 +9,7 @@ import sys
 def main() -> None:
     root = Path(__file__).resolve().parent.parent
     result = subprocess.run(
-        ["pnpm", "dlx", "--yes", "@ultrst-armada/frnlts-cli@0.1.0", "validate"],
+        ["pnpm", "exec", "frnl", "validate"],
         cwd=root,
         check=False,
     )
