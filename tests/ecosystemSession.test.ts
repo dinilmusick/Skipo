@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 
 describe('Skipo ecosystem session contract', () => {
   it('keeps hydrated libraries outside src', () => {
@@ -11,7 +12,27 @@ describe('Skipo ecosystem session contract', () => {
     expect(marker).toBe('skipo-ecosystem-promotion:v1');
   });
 
-  it('requires the originating app commit before library PR creation', () => {\n    expect('appCommit' in { appCommit: 'sha' }).toBe(true);\n  });\n\n  it('identifies both global library packages', () => {
+  it('requires the originating app commit before library PR creation', () => {
+    const sync = readFileSync(new URL('../scripts/ecosystem_sync.py', import.meta.url), 'utf8');
+    expect(sync).toContain('Cannot create library provenance PR before the originating app commit is recorded.');
+    expect(sync).toContain('"appCommit": state["appCommit"]');
+  });
+
+  it('records both original dependency locations for reversible cleanup', () => {
+    const sync = readFileSync(new URL('../scripts/ecosystem_sync.py', import.meta.url), 'utf8');
+    expect(sync).toContain('"originalSpec": deps.get(v["package"])');
+    expect(sync).toContain('"originalDevSpec": dev_deps.get(v["package"])');
+    expect(sync).toContain('deps.pop(package_name, None)');
+    expect(sync).toContain('dev_deps.pop(package_name, None)');
+  });
+
+  it('does not overwrite an existing dirty library workspace', () => {
+    const sync = readFileSync(new URL('../scripts/ecosystem_sync.py', import.meta.url), 'utf8');
+    expect(sync).toContain('Refusing to hydrate dirty {key} workspace');
+    expect(sync).toContain('git", "rev-parse", "--verify"');
+  });
+
+  it('identifies both global library packages', () => {
     expect('@ultrst-armada/kloks').toContain('/kloks');
     expect('@ultrst-armada/floks').toContain('/floks');
   });
