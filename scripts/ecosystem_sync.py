@@ -232,6 +232,11 @@ def cleanup() -> dict[str, Any]:
     state = load_state()
     if not state:
         return {"removed": []}
+    if run(["git", "status", "--porcelain"], check=False):
+        raise RuntimeError("Refusing ecosystem cleanup while the application workspace is dirty.")
+    for key, spec in LIBS.items():
+        if spec["path"].exists() and run(["git", "status", "--porcelain"], cwd=spec["path"], check=False):
+            raise RuntimeError(f"Refusing cleanup of dirty {key} workspace; commit or clean it first.")
 
     path, pkg = package_data()
     deps = pkg.setdefault("dependencies", {})
