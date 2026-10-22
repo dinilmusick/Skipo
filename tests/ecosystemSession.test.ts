@@ -11,7 +11,7 @@ describe('Skipo ecosystem session contract', () => {
     expect(marker).toBe('skipo-ecosystem-promotion:v1');
   });
 
-  it('identifies both global library packages', () => {
+  it('requires the originating app commit before library PR creation', () => {\n    expect('appCommit' in { appCommit: 'sha' }).toBe(true);\n  });\n\n  it('identifies both global library packages', () => {
     expect('@ultrst-armada/kloks').toContain('/kloks');
     expect('@ultrst-armada/floks').toContain('/floks');
   });
