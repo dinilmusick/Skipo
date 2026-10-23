@@ -176,7 +176,7 @@ export class SkipoAgent {
   context() {
     return {
       runtime: 'skipo',
-      capabilities: ['inspect-assets', 'suggest-service-promotion', 'suggest-ui-promotion', 'validate-before-promotion', 'handoff-to-krusbl'],
+      capabilities: ['inspect-assets', 'suggest-service-promotion', 'suggest-ui-promotion', 'validate-before-promotion', 'code-validation-diagnostics', 'handoff-to-krusbl'],
     };
   }
 
