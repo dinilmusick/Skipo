@@ -18,7 +18,8 @@
     "ecosystem": "python3 scripts/ecosystem_sync.py",
     "ecosystem:hydrate": "python3 scripts/ecosystem_sync.py hydrate all",
     "ecosystem:end-session": "python3 scripts/ecosystem_sync.py end-session",
-    "ecosystem:cleanup": "python3 scripts/ecosystem_sync.py cleanup"
+    "ecosystem:cleanup": "python3 scripts/ecosystem_sync.py cleanup",
+    "ecosystem:checkpoint": "python3 scripts/ecosystem_sync.py checkpoint"
   },
   "dependencies": {
     "@dinilmusick/gutts": "^0.1.3",
