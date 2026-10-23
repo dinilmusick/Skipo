@@ -169,6 +169,50 @@ export * from './drivers';
         description="Backend plane entrypoint barrel"
     ))
 
+    # 5b. Skipo agent runtime layer is part of every generated application.
+    agent_content = """from __future__ import annotations
+from dataclasses import dataclass
+from typing import Literal
+
+AssetKind = Literal["SERVICE", "UI"]
+
+@dataclass(frozen=True)
+class PromotionSuggestion:
+    kind: AssetKind
+    name: str
+    target: Literal["KLOKS", "FLOKS"]
+    reason: str
+
+class SkipoAgent:
+    def context(self) -> dict:
+        return {
+            "runtime": "skipo",
+            "capabilities": [
+                "inspect-assets",
+                "suggest-service-promotion",
+                "suggest-ui-promotion",
+                "validate-before-promotion",
+                "handoff-to-krusbl",
+            ],
+        }
+
+    def suggest(self, kind: AssetKind, name: str) -> PromotionSuggestion:
+        target = "KLOKS" if kind == "SERVICE" else "FLOKS"
+        return PromotionSuggestion(
+            kind=kind,
+            name=name,
+            target=target,
+            reason="Promote only after validation and provenance are established.",
+        )
+
+agent = SkipoAgent()
+"""
+    files.append(GeneratedFile(
+        relative_path="src/backend/agent/skipoAgent.py",
+        content=agent_content,
+        description="Canonical Skipo agent layer for ecosystem inspection and promotion suggestions"
+    ))
+
     # 6. Placeholder barrel files for sub-directories so imports resolve
     files.append(GeneratedFile(
         relative_path="src/frontend/components/components.ts",
