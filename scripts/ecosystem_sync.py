@@ -67,6 +67,7 @@ def init_state() -> dict[str, Any]:
         "revisionId": str(uuid4()),
         "revisionStatus": "ACTIVE",
         "baseCommit": run(["git", "rev-parse", "HEAD"]),
+        "headCommit": run(["git", "rev-parse", "HEAD"]),
         "revisions": [],
         "appRepository": app_repo(),
         "appBranch": run(["git", "branch", "--show-current"]),
@@ -93,12 +94,12 @@ def record_revision(state: dict[str, Any], commit: str, status: str) -> None:
     revisions = state.setdefault("revisions", [])
     previous = state.get("revisionId")
     revision = {"revisionId": str(uuid4()), "environmentId": state["environmentId"],
-                "parentRevisionId": previous, "baseCommit": state.get("baseCommit", commit),
+                "parentRevisionId": previous, "baseCommit": state["baseCommit"],
                 "commit": commit, "status": status,
                 "recordedAt": datetime.now(timezone.utc).isoformat()}
     revisions.append(revision)
     state["revisionId"] = revision["revisionId"]
-    state["baseCommit"] = commit
+    state["headCommit"] = commit
     state["revisionStatus"] = status
 
 
