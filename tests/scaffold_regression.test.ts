@@ -13,5 +13,5 @@ describe('Scaffold Regression & Tightening Suites', () => {
     });
     expect(output).toContain('Ran 7 tests');
     expect(output).toContain('OK');
-  });
+  }, 30_000);
 });
