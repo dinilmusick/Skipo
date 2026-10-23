@@ -11,6 +11,7 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
 STATE = ROOT / ".skipo" / "ecosystem.json"
@@ -50,12 +51,23 @@ def package_data() -> tuple[Path, dict[str, Any]]:
     return path, json.loads(path.read_text(encoding="utf-8"))
 
 
+def environment_id() -> str:
+    path = ROOT / ".skipo" / "environment-id"
+    return path.read_text(encoding="utf-8").strip() if path.exists() else str(uuid4())
+
+
 def init_state() -> dict[str, Any]:
     _, pkg = package_data()
     deps = pkg.setdefault("dependencies", {})
     dev_deps = pkg.setdefault("devDependencies", {})
+    env_id = environment_id()
     state = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
+        "environmentId": env_id,
+        "revisionId": str(uuid4()),
+        "revisionStatus": "ACTIVE",
+        "baseCommit": run(["git", "rev-parse", "HEAD"]),
+        "revisions": [],
         "appRepository": app_repo(),
         "appBranch": run(["git", "branch", "--show-current"]),
         "librariesRoot": str(LIB_ROOT.relative_to(ROOT)),
@@ -71,8 +83,35 @@ def init_state() -> dict[str, Any]:
             for k, v in LIBS.items()
         },
     }
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    (STATE.parent / "environment-id").write_text(env_id + "\n", encoding="utf-8")
     save_state(state)
     return state
+
+
+def record_revision(state: dict[str, Any], commit: str, status: str) -> None:
+    revisions = state.setdefault("revisions", [])
+    previous = state.get("revisionId")
+    revision = {"revisionId": str(uuid4()), "environmentId": state["environmentId"],
+                "parentRevisionId": previous, "baseCommit": state.get("baseCommit", commit),
+                "commit": commit, "status": status,
+                "recordedAt": datetime.now(timezone.utc).isoformat()}
+    revisions.append(revision)
+    state["revisionId"] = revision["revisionId"]
+    state["baseCommit"] = commit
+    state["revisionStatus"] = status
+
+
+def checkpoint_session() -> dict[str, Any]:
+    state = load_state()
+    if not state:
+        raise RuntimeError("No ecosystem session exists; hydrate KLOKS/FLOKS first.")
+    state["appBranch"] = run(["git", "branch", "--show-current"])
+    commit = push_app(state) or run(["git", "rev-parse", "HEAD"])
+    record_revision(state, commit, "INTERRUPTED")
+    save_state(state)
+    return {"environmentId": state["environmentId"], "revisionId": state["revisionId"],
+            "commit": commit, "status": state["revisionStatus"]}
 
 
 def hydrate_repo(key: str, state: dict[str, Any]) -> None:
@@ -174,8 +213,10 @@ def create_pr(key: str, state: dict[str, Any]) -> dict[str, Any] | None:
     run(["git", "commit", "-m", f"feat: downstream update from {state['appRepository']}"], cwd=path)
     run(["git", "push", "-u", "origin", branch], cwd=path)
     marker = {
-        "schemaVersion": 1, "appRepository": state["appRepository"], "appBranch": state["appBranch"],
-        "appCommit": state["appCommit"], "sessionId": state["sessionId"], "targetLibrary": key.upper(),
+        "schemaVersion": 2, "appRepository": state["appRepository"], "appBranch": state["appBranch"],
+        "appCommit": state["appCommit"], "sessionId": state["sessionId"], "environmentId": state["environmentId"],
+        "revisionId": state["revisionId"], "baseCommit": state["baseCommit"], "revisionStatus": state["revisionStatus"],
+        "targetLibrary": key.upper(),
         "targetPackage": spec["package"], "targetRepository": spec["repo"], "libraryBranch": branch,
     }
     body = ("## Skipo downstream library update\n\nProduced by an actively validated Skipo application session.\n\n"
@@ -193,6 +234,7 @@ def end_session() -> dict[str, Any]:
         raise RuntimeError("No ecosystem session exists; hydrate KLOKS/FLOKS first.")
     state["appBranch"] = run(["git", "branch", "--show-current"])
     state["appCommit"] = push_app(state) or run(["git", "rev-parse", "HEAD"])
+    record_revision(state, state["appCommit"], "PROMOTING")
     save_state(state)
     prs = [x for k in LIBS if (x := create_pr(k, state))]
     return {"appCommit": state["appCommit"], "prs": prs}
@@ -248,12 +290,14 @@ def main() -> None:
     h.add_argument("target", choices=["kloks", "floks", "all"], nargs="?", default="all")
     s.add_parser("status")
     s.add_parser("end-session")
+    s.add_parser("checkpoint")
     s.add_parser("cleanup")
     a = p.parse_args()
     if a.command == "init": result = init_state()
     elif a.command == "hydrate": result = hydrate(a.target)
     elif a.command == "status": result = status()
     elif a.command == "end-session": result = end_session()
+    elif a.command == "checkpoint": result = checkpoint_session()
     else: result = cleanup()
     print(json.dumps(result, indent=2))
 
