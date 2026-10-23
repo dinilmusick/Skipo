@@ -35,6 +35,26 @@ describe('Skipo ecosystem session contract', () => {
     expect(sync).toContain('git", "rev-parse", "--verify"');
   });
 
+  it('persists environment identity and immutable revision timelines', () => {
+    const sync = readFileSync(new URL('../scripts/ecosystem_sync.py', import.meta.url), 'utf8');
+    expect(sync).toContain('"schemaVersion": 2');
+    expect(sync).toContain('"environmentId": env_id');
+    expect(sync).toContain('"revisionId": str(uuid4())');
+    expect(sync).toContain('"baseCommit": run(["git", "rev-parse", "HEAD"])');
+    expect(sync).toContain('"headCommit": run(["git", "rev-parse", "HEAD"])');
+    expect(sync).toContain('"parentRevisionId": previous');
+    expect(sync).toContain('record_revision(state, commit, "INTERRUPTED")');
+    expect(sync).toContain('s.add_parser("checkpoint")');
+  });
+
+  it('includes environment and revision provenance in promotion markers', () => {
+    const sync = readFileSync(new URL('../scripts/ecosystem_sync.py', import.meta.url), 'utf8');
+    expect(sync).toContain('"environmentId": state["environmentId"]');
+    expect(sync).toContain('"revisionId": state["revisionId"]');
+    expect(sync).toContain('"baseCommit": state["baseCommit"]');
+    expect(sync).toContain('"revisionStatus": state["revisionStatus"]');
+  });
+
   it('identifies both global library packages', () => {
     expect('@ultrst-armada/kloks').toContain('/kloks');
     expect('@ultrst-armada/floks').toContain('/floks');
