@@ -170,45 +170,31 @@ export * from './drivers';
     ))
 
     # 5b. Skipo agent runtime layer is part of every generated application.
-    agent_content = """from __future__ import annotations
-from dataclasses import dataclass
-from typing import Literal
+    agent_content = """export type AssetKind = 'SERVICE' | 'UI';
 
-AssetKind = Literal["SERVICE", "UI"]
+export class SkipoAgent {
+  context() {
+    return {
+      runtime: 'skipo',
+      capabilities: ['inspect-assets', 'suggest-service-promotion', 'suggest-ui-promotion', 'validate-before-promotion', 'handoff-to-krusbl'],
+    };
+  }
 
-@dataclass(frozen=True)
-class PromotionSuggestion:
-    kind: AssetKind
-    name: str
-    target: Literal["KLOKS", "FLOKS"]
-    reason: str
+  suggest(kind: AssetKind, name: string) {
+    return {
+      kind,
+      name,
+      target: kind === 'SERVICE' ? 'KLOKS' : 'FLOKS',
+      reason: 'Promote only after validation and provenance are established.',
+    } as const;
+  }
+}
 
-class SkipoAgent:
-    def context(self) -> dict:
-        return {
-            "runtime": "skipo",
-            "capabilities": [
-                "inspect-assets",
-                "suggest-service-promotion",
-                "suggest-ui-promotion",
-                "validate-before-promotion",
-                "handoff-to-krusbl",
-            ],
-        }
-
-    def suggest(self, kind: AssetKind, name: str) -> PromotionSuggestion:
-        target = "KLOKS" if kind == "SERVICE" else "FLOKS"
-        return PromotionSuggestion(
-            kind=kind,
-            name=name,
-            target=target,
-            reason="Promote only after validation and provenance are established.",
-        )
-
-agent = SkipoAgent()
+export const skipoAgent = new SkipoAgent();
 """
+    
     files.append(GeneratedFile(
-        relative_path="src/backend/agent/skipoAgent.py",
+        relative_path="src/backend/agent/skipoAgent.ts",
         content=agent_content,
         description="Canonical Skipo agent layer for ecosystem inspection and promotion suggestions"
     ))
