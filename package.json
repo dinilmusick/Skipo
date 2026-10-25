@@ -23,9 +23,9 @@
   },
   "dependencies": {
     "@dinilmusick/gutts": "^0.1.3",
-    "@ultrst-armada/floks": "^1.3.0",
+    "@ultrst-armada/floks": "^1.4.0",
     "@ultrst-armada/frnlts": "^0.2.7",
-    "@ultrst-armada/kloks": "^1.7.0",
+    "@ultrst-armada/kloks": "^1.8.0",
     "@ultrst-armada/krnl": "^1.0.7",
     "lucide-react": "^1.55.0",
     "p-queue": "^10.0.0",
