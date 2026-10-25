@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "python3 scripts/skipo_builder.py validate-links && tsc --noEmit",
-    "test": "vitest run",
+    "test": "python3 -m unittest checklists/test_19_skipo_frontend_structure.py && vitest run",
     "validate": "python3 scripts/skipo_builder.py validate-links && python3 checklists/full_system_validator.py .",
     "assistant": "python3 assistant.py",
     "skipo": "python3 scripts/skipo_builder.py",
