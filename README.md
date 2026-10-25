@@ -5,6 +5,30 @@
 1. **Modular Agent Skills**: Specialized domain instruction sets covering architecture, 4-layer function purity, Universal Backend, UI, APIs, databases, and system orchestration.
 2. **Task-Specific Prompt Library** ([`prompts/`](./prompts/README.md)): Formalized, token-efficient prompt attachments ready to be appended to any agent task.
 
+## 1.1 Canonical Skipo Application Frontend
+
+Every package marked with a `skipo` application manifest uses this frontend contract:
+
+```text
+src/frontend/pages/
+├── auth/page.tsx
+├── menus/
+│   ├── workspaces/page.tsx
+│   └── <optional-menu>/page.tsx
+├── main/
+│   ├── page.tsx
+│   └── tabs/<application-tab>/...
+└── settings/
+    ├── page.tsx
+    └── tabs/
+        ├── themes/page.tsx
+        └── accounts/page.tsx
+```
+
+Auth and Workspace Tiles are mandatory ecosystem surfaces. Main owns the standardized top/bottom shell and application-level immersive mode; application-specific working UI belongs under `main/tabs/`. Settings is mandatory, with Themes and Accounts mandatory tabs. Accounts synchronize the authenticated user's app-relevant service accounts from SRKL.
+
+The contract is enforced by `checklists/19_skipo_frontend_structure.py` and included in the full-system validator and application scaffold.
+
 ## 2. Directory Structure
 | Directory | Focus Area |
 | :--- | :--- |
