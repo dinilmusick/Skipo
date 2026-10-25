@@ -55,3 +55,14 @@ A Skipo app is auth-compliant only when:
 4. Google sign-in resolves to canonical Better Auth;
 5. Google Drive authorization is incremental and provider-specific;
 6. CI validates the auth integration and the app still passes the canonical Skipo architecture validator.
+
+
+## Security and release verification
+
+- A stored plaintext password MUST never be accepted as a password hash. Legacy hashed credentials may be supported only through an explicit migration path with tests; do not silently lock out existing users.
+- Session verification MUST use a canonical Better Auth session cookie or another explicitly supported server-to-server credential. A user ID alone is not an authentication credential.
+- Server-side HTTP clients MUST explicitly propagate the required cookie/session credential; `credentials: "include"` alone does not create a shared cookie jar between independent server requests.
+- Production configuration MUST define the canonical auth base URL, allowed origins, OAuth callback URLs, and required secrets without committing secret values.
+- CI must execute unit tests, type checks, package builds, and architecture checks. Source-marker checks are supplementary and do not replace runtime integration tests.
+- Before declaring rollout complete, exercise registration, sign-in, session retrieval, role/authorization enforcement, sign-out, expired/invalid sessions, and incremental Google Drive authorization against a disposable test environment.
+- Preserve reproducible dependency installation. Use the repository's committed lockfile and its matching package manager/CI install command where a lockfile exists.
