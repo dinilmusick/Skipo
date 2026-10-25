@@ -5,9 +5,8 @@
 export type UserStorageProvider =
   | 'local_fs'
   | 'backblaze_b2'
-  | 'cloudflare_r2'
   | 'supabase_storage'
-  | 'aws_s3';
+  | 'google_drive';
 
 export type StorageRole = 'primary' | 'redundant_clone';
 
@@ -49,6 +48,14 @@ export interface UserStorageConnection {
   supabaseAnonKey?: string;
   supabaseServiceKey?: string;
   supabaseBucketName?: string;
+
+  // Google Drive OAuth + selected root folder
+  googleClientId?: string;
+  googleRedirectUri?: string;
+  googleAccessToken?: string;
+  googleRefreshToken?: string;
+  googleAccountEmail?: string;
+  googleRootFolderId?: string;
 
   // Local FS Browser Handle reference metadata
   localFolderKey?: string;
