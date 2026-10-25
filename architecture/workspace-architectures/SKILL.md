@@ -5,31 +5,45 @@ description: Architecture specification for Direct-Vault vs Working-Workspace pa
 
 # Workspace Storage Architectures & Redundant Clones
 
-This specification establishes the dual workspace storage architecture defined under Skipo Law $L_{27}$.
+This specification establishes the unified workspace storage architecture defined under Skipo Law $L_{27}$. Every Skipo app uses the same active local workspace model; provider choice changes persistence only.
 
 $$\text{Workspace}(\mathcal{W}) \implies \left(\mathcal{W}_{\text{DirectVault}} \vee \mathcal{W}_{\text{WorkingWorkspace}}\right) \wedge \mathcal{W}_{\text{RedundantClones}} \subseteq \text{Replication}$$
 
 ---
 
-## 1. Direct-Vault Architecture (`direct-vault`)
+## 1. Unified Workspace Architecture
 
 ### Characteristics
-- Designed for document managers, knowledge bases, or low-frequency runtime I/O (e.g., `DocuStack-Engine`, `Depm-Engine`).
-- **No local working directory (`./workspace`)** is needed or instantiated.
-- Reads and writes communicate directly with the Primary Storage Vault:
-  - Remote Backblaze B2 bucket (`ultrst-apps` or custom bucket).
-  - Local non-working storage vault (`ultrst_<app>_<user>_<ws>`).
-- Secondary redundant clones mirror the primary vault on-write or on-demand.
+- Every Skipo app uses a persistent selectable workspace plus an active local working representation.
+- The workspace filesystem is the canonical project data model. No second workspace manifest is required.
+- The active representation is materialized per workspace and selected through the mandatory Workspaces menu.
+- Browser clients should use OPFS; native clients may use the host filesystem. WebContainers may consume the active workspace but do not define the workspace abstraction.
+- Persistence providers are adapters. The initial supported persistent providers are Backblaze B2 and Google Drive.
+- Workspace synchronization uses filesystem metadata (mtime/size) as the cheap change test and content hashes only when verification is required.
+- Large binary assets are hydrated lazily; opening or switching workspaces does not require downloading the entire workspace.
 
----
+### Workspace lifecycle
 
-## 2. Working-Workspace Architecture (`working-workspace`)
+select workspace
+      ↓
+open active local workspace
+      ↓
+hydrate required files
+      ↓
+READY
+      ↓
+local reads/writes
+      ↓
+periodic autosave + important lifecycle events + manual Save
+      ↓
+persistent storage reconciliation
 
-### Characteristics
-- Designed for audio DSP engines, graph compilers, and high-frequency real-time I/O (e.g., `Qwnsr-Engine`, `Loky-Engine`).
-- Operates on a dedicated, high-speed **local working workspace** (`./workspace` or custom working path).
-- **Bidirectional Timestamp Synchronization**:
-  - Compares local file modification times (`mtime`) against primary vault storage (Backblaze B2 or local non-working storage vault).
-  - Newer local changes are uploaded to the primary vault; newer remote files are downloaded.
-- **Secondary Redundant Storage Clones**:
-  - Replicate from the Primary Storage Vault to all configured secondary clones (`WorkspaceSecondaryClone[]`) with single-click manual sync or auto-sync.
+## 2. Persistent Storage
+
+- **Backblaze B2**: existing bucket-backed persistence.
+- **Google Drive**: user OAuth connection and selected Drive folder.
+- Provider-specific credentials and APIs stay behind the workspace storage adapter.
+- Applications never read/write the provider directly.
+- Amazon S3 is not a selectable Skipo workspace provider.
+
+
