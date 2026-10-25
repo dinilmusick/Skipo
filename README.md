@@ -57,3 +57,5 @@ All generated applications have two required deployment targets:
 `python3 assistant.py generate multi-target <app-root> --name <AppName>` creates the target manifests, Vercel and Wrangler configuration, API tsconfig, build scripts, and a non-secret `.env.example`. Real environment values are configured only in the hosting platform's secret store.
 
 For arbitrary edits, cloud agents use `python3 assistant.py edit operations.json`. The operation document is path-contained and each successful edit is recorded in `.skipo/actions/`, giving subsequent agents an explicit return message and audit trail.
+
+- Canonical authentication: `architecture/authentication/SKILL.md` (Better Auth via KLOKS/SRKL + FLOKS UI).
