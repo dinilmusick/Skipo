@@ -6,10 +6,15 @@ import json
 import re
 import time
 
+import sys
 try:
     from .common import Violation, ChecklistResult, parse_standard_args, print_checklist_report
 except ImportError:
-    from common import Violation, ChecklistResult, parse_standard_args, print_checklist_report
+    try:
+        from common import Violation, ChecklistResult, parse_standard_args, print_checklist_report
+    except ImportError:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from common import Violation, ChecklistResult, parse_standard_args, print_checklist_report
 
 ASPECT_ID = "aspect_19_skipo_frontend_structure"
 ASPECT_TITLE = "Skipo Frontend Structure"

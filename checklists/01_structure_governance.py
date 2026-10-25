@@ -189,48 +189,53 @@ def validate_structure(root_dir: Path) -> ChecklistResult:
 
         pages = frontend / "pages"
         if pages.exists():
-            for page_dir in sorted(p for p in pages.iterdir() if p.is_dir() and not p.name.startswith(".")):
-                page_file = page_dir / "page.tsx"
-                if not page_file.exists():
-                    violations.append(Violation(
-                        rule_id="skipo/page-entry-required",
-                        severity="error",
-                        message=f"Page route '{page_dir.name}' is missing page.tsx.",
-                        file_path=str(page_dir.relative_to(root_dir)),
-                        suggestion="Every named directory under src/frontend/pages must contain page.tsx."
-                    ))
-                else:
-                    page_source = read_text_safe(page_file) or ""
-                    if "components/components" not in page_source:
+            canonical_roots = {"auth", "menus", "main", "settings"}
+            subdirs = {p.name for p in pages.iterdir() if p.is_dir()}
+            # If canonical Skipo frontend structure (Aspect 19) is detected,
+            # page hierarchy and contracts are governed by Aspect 19.
+            if not subdirs.intersection(canonical_roots):
+                for page_dir in sorted(p for p in pages.iterdir() if p.is_dir() and not p.name.startswith(".")):
+                    page_file = page_dir / "page.tsx"
+                    if not page_file.exists():
                         violations.append(Violation(
-                            rule_id="skipo/page-component-facade",
+                            rule_id="skipo/page-entry-required",
                             severity="error",
-                            message=f"Page '{page_dir.name}' does not import its UI through components.ts.",
-                            file_path=str(page_file.relative_to(root_dir)),
-                            suggestion="Import all frontend components through ../components/components.ts or the equivalent relative path."
+                            message=f"Page route '{page_dir.name}' is missing page.tsx.",
+                            file_path=str(page_dir.relative_to(root_dir)),
+                            suggestion="Every named directory under src/frontend/pages must contain page.tsx."
+                        ))
+                    else:
+                        page_source = read_text_safe(page_file) or ""
+                        if "components/components" not in page_source:
+                            violations.append(Violation(
+                                rule_id="skipo/page-component-facade",
+                                severity="error",
+                                message=f"Page '{page_dir.name}' does not import its UI through components.ts.",
+                                file_path=str(page_file.relative_to(root_dir)),
+                                suggestion="Import all frontend components through ../components/components.ts or the equivalent relative path."
+                            ))
+
+                    orch_dir = page_dir / "orchestrations"
+                    if not orch_dir.exists() or not orch_dir.is_dir():
+                        violations.append(Violation(
+                            rule_id="skipo/page-orchestrations-required",
+                            severity="error",
+                            message=f"Page '{page_dir.name}' is missing its page-scoped orchestrations/ directory.",
+                            file_path=str(page_dir.relative_to(root_dir)),
+                            suggestion="Create pages/<page-name>/orchestrations/ and generate definitions with the Frnl CLI."
                         ))
 
-                orch_dir = page_dir / "orchestrations"
-                if not orch_dir.exists() or not orch_dir.is_dir():
-                    violations.append(Violation(
-                        rule_id="skipo/page-orchestrations-required",
-                        severity="error",
-                        message=f"Page '{page_dir.name}' is missing its page-scoped orchestrations/ directory.",
-                        file_path=str(page_dir.relative_to(root_dir)),
-                        suggestion="Create pages/<page-name>/orchestrations/ and generate definitions with the Frnl CLI."
-                    ))
-
-                if orch_dir.exists():
-                    for orch_file in orch_dir.glob("*.ts"):
-                        source = read_text_safe(orch_file) or ""
-                        if "defineFrnlOrchestration" not in source:
-                            violations.append(Violation(
-                                rule_id="skipo/page-orchestration-definition",
-                                severity="error",
-                                message=f"Page orchestration '{orch_file.name}' is not a Frnl orchestration definition.",
-                                file_path=str(orch_file.relative_to(root_dir)),
-                                suggestion="Generate page orchestrations with the Frnl CLI."
-                            ))
+                    if orch_dir.exists():
+                        for orch_file in orch_dir.glob("*.ts"):
+                            source = read_text_safe(orch_file) or ""
+                            if "defineFrnlOrchestration" not in source:
+                                violations.append(Violation(
+                                    rule_id="skipo/page-orchestration-definition",
+                                    severity="error",
+                                    message=f"Page orchestration '{orch_file.name}' is not a Frnl orchestration definition.",
+                                    file_path=str(orch_file.relative_to(root_dir)),
+                                    suggestion="Generate page orchestrations with the Frnl CLI."
+                                ))
 
     # 8. Package Source Duplication Ban (No copied Kloks/Floks/Skipo packages in src/libraries/)
     for forbidden_copied_dir in ("skipo", "kloks", "floks"):

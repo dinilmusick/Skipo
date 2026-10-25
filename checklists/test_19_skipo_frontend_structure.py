@@ -5,7 +5,10 @@ from pathlib import Path
 
 from importlib.util import spec_from_file_location, module_from_spec
 
+import sys
 ROOT = Path(__file__).resolve().parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 spec = spec_from_file_location("skipo_frontend_structure", ROOT / "19_skipo_frontend_structure.py")
 mod = module_from_spec(spec)
 spec.loader.exec_module(mod)
