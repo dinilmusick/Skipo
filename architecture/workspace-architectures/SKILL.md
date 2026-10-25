@@ -1,49 +1,84 @@
 ---
 name: workspace-architectures
-description: Architecture specification for Direct-Vault vs Working-Workspace paradigms with secondary redundant backup clones.
+description: Canonical unified workspace, persistence, synchronization, and redundant-clone architecture for every Skipo application.
 ---
 
-# Workspace Storage Architectures & Redundant Clones
+# Unified Workspace & Storage Architecture
 
-This specification establishes the unified workspace storage architecture defined under Skipo Law $L_{27}$. Every Skipo app uses the same active local workspace model; provider choice changes persistence only.
+Every Skipo application uses one workspace abstraction. The selected persistence provider changes where durable workspace data is stored; it does not change the application workspace model.
 
-$$\text{Workspace}(\mathcal{W}) \implies \left(\mathcal{W}_{\text{DirectVault}} \vee \mathcal{W}_{\text{WorkingWorkspace}}\right) \wedge \mathcal{W}_{\text{RedundantClones}} \subseteq \text{Replication}$$
+## 1. Architecture
 
----
+```mermaid
+flowchart TD
+    A[Skipo Application] --> M[Mandatory Workspaces Menu]
+    M --> W[Selected Workspace]
+    W --> L[Active Local Working Representation]
+    L --> H[Lazy Hydration]
+    L --> RW[Local Reads / Writes]
+    RW --> AS[Autosave + Manual Save + Lifecycle Events]
+    AS --> R[Storage Reconciliation]
+    R --> P[Workspace Storage Adapter]
+    P --> F[Local Folder]
+    P --> B[Backblaze B2]
+    P --> G[Google Drive]
+```
 
-## 1. Unified Workspace Architecture
+The filesystem representation is the canonical project data model. A second workspace manifest is not required.
 
-### Characteristics
-- Every Skipo app uses a persistent selectable workspace plus an active local working representation.
-- The workspace filesystem is the canonical project data model. No second workspace manifest is required.
-- The active representation is materialized per workspace and selected through the mandatory Workspaces menu.
-- Browser clients should use OPFS; native clients may use the host filesystem. WebContainers may consume the active workspace but do not define the workspace abstraction.
-- Persistence providers are adapters. The initial supported persistent providers are Backblaze B2 and Google Drive.
-- Workspace synchronization uses filesystem metadata (mtime/size) as the cheap change test and content hashes only when verification is required.
-- Large binary assets are hydrated lazily; opening or switching workspaces does not require downloading the entire workspace.
+## 2. Workspace lifecycle
 
-### Workspace lifecycle
-
-select workspace
-      ↓
-open active local workspace
-      ↓
-hydrate required files
-      ↓
+```text
+SELECT
+  ↓
+OPEN ACTIVE LOCAL WORKSPACE
+  ↓
+HYDRATE REQUIRED FILES
+  ↓
 READY
-      ↓
-local reads/writes
-      ↓
-periodic autosave + important lifecycle events + manual Save
-      ↓
-persistent storage reconciliation
+  ↓
+LOCAL READS / WRITES
+  ↓
+AUTOSAVE + IMPORTANT LIFECYCLE EVENTS + MANUAL SAVE
+  ↓
+PERSISTENT STORAGE RECONCILIATION
+```
 
-## 2. Persistent Storage
+Large binary assets are hydrated lazily. Opening or switching workspaces does not require downloading the complete workspace.
 
-- **Backblaze B2**: existing bucket-backed persistence.
-- **Google Drive**: user OAuth connection and selected Drive folder.
-- Provider-specific credentials and APIs stay behind the workspace storage adapter.
-- Applications never read/write the provider directly.
-- Amazon S3 is not a selectable Skipo workspace provider.
+## 3. Persistence providers
 
+| Provider | Role |
+|---|---|
+| Local Folder / OPFS | Active local working representation and local persistence |
+| Backblaze B2 | Durable bucket-backed persistence |
+| Google Drive | User-authorized durable workspace persistence |
 
+Provider-specific credentials, OAuth, APIs, and synchronization logic stay behind the workspace storage adapter/service.
+
+**Application invariant:** Skipo application code never reads or writes a provider directly.
+
+Amazon S3 is not a selectable Skipo workspace provider at this time.
+
+## 4. Runtime relationship
+
+WebContainers may consume the active workspace, but WebContainers do not define the workspace abstraction.
+
+```mermaid
+flowchart LR
+    W[Active Workspace] --> WC[WebContainer]
+    W --> APP[Application Runtime]
+    W --> FS[Native / Browser Filesystem]
+```
+
+## 5. Change detection and reconciliation
+
+Filesystem metadata such as modification time and size is the cheap change test. Content hashes are used when verification is required. Reconciliation is responsible for resolving changes between the active local representation and the selected persistent provider.
+
+Redundant clones are replication/backup mechanisms; they do not create a second logical workspace.
+
+## 6. Related contracts
+
+- [Skipo Application Contract](../app-architecture/SKILL.md)
+- [Backend Architecture](../../backend/SKILL.md)
+- [State & Execution](../state-execution-spec/SKILL.md)
