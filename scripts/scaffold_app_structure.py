@@ -113,49 +113,87 @@ export default {pascal}Backend;
         backend_file.write_text(backend_content, encoding="utf-8")
         created.append(backend_file)
 
-    # 3. Canonical frontend route + component facade
+    # 3. Canonical Skipo frontend page contract + component facade
     frontend_components = target_root / "src" / "frontend" / "components"
-    frontend_pages = target_root / "src" / "frontend" / "pages" / "home" / "orchestrations"
+    pages_root = target_root / "src" / "frontend" / "pages"
+    required_page_dirs = [
+        pages_root / "auth",
+        pages_root / "menus" / "workspaces",
+        pages_root / "main" / "tabs",
+        pages_root / "settings" / "tabs" / "themes",
+        pages_root / "settings" / "tabs" / "accounts",
+    ]
     frontend_components.mkdir(parents=True, exist_ok=True)
-    frontend_pages.mkdir(parents=True, exist_ok=True)
+    for page_dir in required_page_dirs:
+        page_dir.mkdir(parents=True, exist_ok=True)
 
     components_file = frontend_components / "components.ts"
     if not components_file.exists():
         components_file.write_text(
-            "export * from '@ultrst-armada/floks/ui';\n"
-            "export * from '@ultrst-armada/floks/canvas-ui';\n",
+            "export * from '@ultrst-armada/floks/ui';\\n"
+            "export * from '@ultrst-armada/floks/canvas-ui';\\n",
             encoding="utf-8",
         )
         created.append(components_file)
 
+    page_templates = {
+        pages_root / "auth" / "page.tsx": (
+            "export { AuthPage } from '@ultrst-armada/floks/ui';\\n"
+        ),
+        pages_root / "menus" / "workspaces" / "page.tsx": (
+            "export { WorkspaceTilesMenu } from '@ultrst-armada/floks/ui';\\n"
+        ),
+        pages_root / "main" / "page.tsx": (
+            "import React, { useState } from 'react';\\n"
+            "import { FrnlPage } from '../../components/components.js';\\n\\n"
+            "export function MainPage({ children }: { children?: React.ReactNode }) {\\n"
+            "  const [immersive, setImmersive] = useState(false);\\n"
+            "  return (\\n"
+            "    <div data-skipo-main-page=\"true\" data-immersive={immersive}>\\n"
+            "      <button type=\"button\" data-skipo-immersive-toggle=\"true\" onClick={() => setImmersive((value) => !value)}>\\n"
+            "        {immersive ? 'Exit immersive' : 'Immersive'}\\n"
+            "      </button>\\n"
+            "      <FrnlPage showTopBar={!immersive} showBottomBar={!immersive}>{children}</FrnlPage>\\n"
+            "    </div>\\n"
+            "  );\\n"
+            "}\\n\\n"
+            "export default MainPage;\\n"
+        ),
+        pages_root / "main" / "tabs" / "app" / "page.tsx": (
+            "export default function AppTab() { return null; }\\n"
+        ),
+        pages_root / "settings" / "page.tsx": (
+            "import React, { useState } from 'react';\\n"
+            "import ThemesTab from './tabs/themes/page.js';\\n"
+            "import AccountsTab from './tabs/accounts/page.js';\\n\\n"
+            "export default function SettingsPage() {\\n"
+            "  const [tab, setTab] = useState<'themes' | 'accounts'>('themes');\\n"
+            "  return <div><nav><button onClick={() => setTab('themes')}>Themes</button><button onClick={() => setTab('accounts')}>Accounts</button></nav>{tab === 'themes' ? <ThemesTab /> : <AccountsTab />}</div>;\\n"
+            "}\\n"
+        ),
+        pages_root / "settings" / "tabs" / "themes" / "page.tsx": (
+            "export default function ThemesTab() { return null; }\\n"
+        ),
+        pages_root / "settings" / "tabs" / "accounts" / "page.tsx": (
+            "export default function AccountsTab() { return <button type=\"button\">Sync from SRKL</button>; }\\n"
+        ),
+    }
+    # app tab directory is created lazily so the template file has a parent.
+    for page_file, content in page_templates.items():
+        page_file.parent.mkdir(parents=True, exist_ok=True)
+        if not page_file.exists():
+            page_file.write_text(content, encoding="utf-8")
+            created.append(page_file)
+
     app_tsx = target_root / "src" / "frontend" / "App.tsx"
     if not app_tsx.exists():
         app_tsx.write_text(
-            "import { HomePage } from './pages/home/page.js';\n\n"
-            "export function App() {\n"
-            "  return <HomePage />;\n"
-            "}\n\n"
-            "export default App;\n",
+            "import MainPage from './pages/main/page.js';\\n\\n"
+            "export function App() { return <MainPage />; }\\n\\n"
+            "export default App;\\n",
             encoding="utf-8",
         )
         created.append(app_tsx)
-
-    page_file = target_root / "src" / "frontend" / "pages" / "home" / "page.tsx"
-    if not page_file.exists():
-        page_file.write_text(
-            "import { FrnlPage } from '../../components/components.js';\n\n"
-            "export function HomePage() {\n"
-            f"  return <FrnlPage appName=\"{pascal}\">Home</FrnlPage>;\n"
-            "}\n\n"
-            "export default HomePage;\n",
-            encoding="utf-8",
-        )
-        created.append(page_file)
-
-    orchestration_keep = frontend_pages / ".gitkeep"
-    if not orchestration_keep.exists():
-        orchestration_keep.write_text("", encoding="utf-8")
-        created.append(orchestration_keep)
 
     # 4. src/libraries/index.ts (Skipo-specific custom code only)
     lib_index = target_root / "src" / "libraries" / "index.ts"
