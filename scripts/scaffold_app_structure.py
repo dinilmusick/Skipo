@@ -211,6 +211,12 @@ def run_validators(target_root: Path) -> Tuple[bool, str]:
         if res.returncode != 0:
             errors.append(f"[ASPECT 01 VIOLATION]\n{res.stdout or res.stderr}")
 
+    val_19 = SKIPO_ROOT / "checklists" / "19_skipo_frontend_structure.py"
+    if val_19.exists():
+        res = subprocess.run(["python3", str(val_19), str(target_root)], capture_output=True, text=True)
+        if res.returncode != 0:
+            errors.append(f"[ASPECT 19 VIOLATION]\n{res.stdout or res.stderr}")
+
     val_15 = SKIPO_ROOT / "checklists" / "15_contract_boundary_enforcement.py"
     if val_15.exists():
         res = subprocess.run(["python3", str(val_15), str(target_root)], capture_output=True, text=True)
