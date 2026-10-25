@@ -159,8 +159,8 @@ export default {pascal}Backend;
             "}\\n\\n"
             "export default MainPage;\\n"
         ),
-        pages_root / "main" / "tabs" / "app" / "page.tsx": (
-            "export default function AppTab() { return null; }\\n"
+        pages_root / "main" / "tabs" / "README.md": (
+            "# Main Tabs\\n\\nPlace all application-specific working UI in tab directories under this folder.\\n"
         ),
         pages_root / "settings" / "page.tsx": (
             "import React, { useState } from 'react';\\n"
