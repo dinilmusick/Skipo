@@ -73,6 +73,7 @@ python3 assistant.py validate .
 | `storage`, `b2`, `s3`, `presigned`, `upload` | [`backend/workspace-storage/SKILL.md`](./backend/workspace-storage/SKILL.md) | `python3 assistant.py generate storage <path>` |
 | `auth`, `multi_session`, `refresh_token` | [`backend/control-plane/SKILL.md`](./backend/control-plane/SKILL.md) | Token rotation, progressive trust tiers |
 | `api`, `8_gate`, `rate_limit`, `security` | [`api/SKILL.md`](./api/SKILL.md) | `python3 assistant.py generate route <path> --name <Name>` |
+| `app_contract`, `application_shape`, `spec` | [`architecture/app-architecture/SKILL.md`](./architecture/app-architecture/SKILL.md) | Single facade, plane isolation, universal backend |
 | `test`, `coverage`, `anti_stub`, `zero_mock` | [`features/SKILL.md`](./features/SKILL.md) | `python3 assistant.py generate test <path> --name <Name>` |
 
 ## 4. BLOCKING VERIFICATION GATE

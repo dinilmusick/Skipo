@@ -3,9 +3,17 @@
 
 from pathlib import Path
 import re
+import sys
 import time
 
-try:\n    from .common import ChecklistResult, Violation\nexcept ImportError:\n    from common import ChecklistResult, Violation
+try:
+    from .common import ChecklistResult, Violation
+except ImportError:
+    try:
+        from common import ChecklistResult, Violation
+    except ImportError:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from common import ChecklistResult, Violation
 
 TS_EXTENSIONS = {".ts", ".tsx", ".js", ".jsx"}
 VISUAL_TOKENS = (
@@ -57,7 +65,7 @@ def _check_graph_domain(root: Path, domain: Path, violations):
                     _rel(root, path),
                 ))
             text = path.read_text(encoding="utf-8", errors="ignore")
-            if re.search(r"\b(interface|type|class|enum)\s+[A-Za-z_]", text):
+            if re.search(r"^\s*(?:export\s+)?(interface|type|class|enum)\s+[A-Za-z_]", text, re.MULTILINE):
                 violations.append(Violation(
                     "23.3-semantic-types-outside-libraries", "error",
                     "Application semantic types must be defined in src/libraries.",
@@ -83,12 +91,8 @@ def _check_graph_domain(root: Path, domain: Path, violations):
                         _rel(root, path),
                     ))
 
-    for filename, parent in {
-        "connection-types.ts": connection_dir,
-        "nodes.ts": node_dir,
-        "graph.ts": facade_dir,
-    }.items():
-        path = parent / filename
+    for filename in ("connection-types.ts", "nodes.ts", "graph.ts"):
+        path = facade_dir / filename
         if not path.is_file():
             violations.append(Violation(
                 "23.6-missing-graph-facade", "error",

@@ -249,6 +249,19 @@ def gate_09_import_direction() -> bool:
     return False
 
 # ══════════════════════════════════════════════════════════════════════════════
+# GATE 10: GRAPH APPLICATION CONTRACT GOVERNANCE
+# ══════════════════════════════════════════════════════════════════════════════
+def gate_10_graph_application_contract() -> bool:
+    log_header("10. GRAPH APPLICATION CONTRACT GOVERNANCE")
+    validator = SKIPO_ROOT / "checklists" / "23_graph_application_contract.py"
+    code, out, err = run_cmd(["python3", str(validator), str(SKIPO_ROOT)], SKIPO_ROOT)
+    if code == 0:
+        log_pass("Graph application contract semantic/visual separation and tab/interface structure verified")
+        return True
+    log_fail(f"Graph application contract validation failed:\n{out}\n{err}")
+    return False
+
+# ══════════════════════════════════════════════════════════════════════════════
 # MAIN ORCHESTRATOR
 # ══════════════════════════════════════════════════════════════════════════════
 def main():
@@ -267,6 +280,7 @@ def main():
         ("Gate 7: Implementation-Only Upgrade Simulation", gate_07_upgrade_simulation),
         ("Gate 8: Negative Boundary Test Fixtures", gate_08_negative_fixtures),
         ("Gate 9: Skipo Import Direction", gate_09_import_direction),
+        ("Gate 10: Graph Application Contract", gate_10_graph_application_contract),
     ]
 
     results = []
@@ -279,7 +293,7 @@ def main():
 
     duration = time.time() - start_time
     print(f"\n{BOLD}{GREEN}{'═' * 80}{RESET}")
-    print(f"{BOLD}{GREEN}  🎉 ALL 9 ARCHITECTURE GATES PASSED (100% COMPLIANT) in {duration:.2f}s{RESET}")
+    print(f"{BOLD}{GREEN}  🎉 ALL 10 ARCHITECTURE GATES PASSED (100% COMPLIANT) in {duration:.2f}s{RESET}")
     print(f"{BOLD}{GREEN}{'═' * 80}{RESET}")
     for title, success in results:
         status_text = f"{GREEN}PASSED{RESET}" if success else f"{RED}FAILED{RESET}"

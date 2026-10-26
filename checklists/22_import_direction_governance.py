@@ -19,12 +19,17 @@ Forbidden:
 from pathlib import Path
 from typing import Optional
 import re
+import sys
 import time
 
 try:
     from .common import ChecklistResult, Violation
 except ImportError:
-    from common import ChecklistResult, Violation
+    try:
+        from common import ChecklistResult, Violation
+    except ImportError:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from common import ChecklistResult, Violation
 
 IMPORT_REGEX = re.compile(
     r"""import\s+(?:(?:\*\s+as\s+\w+)|(?:\{[^}]*\})|(?:[\w\s,{}*]+))\s+from\s+['"]([^'"]+)['"]""",
@@ -53,10 +58,12 @@ def _resolve_local_import(source: Path, specifier: str) -> Optional[Path]:
     if candidate.suffix == "":
         candidates.extend(candidate.with_suffix(ext) for ext in (".ts", ".tsx", ".js", ".jsx"))
         candidates.extend(candidate / ("index" + ext) for ext in (".ts", ".tsx", ".js", ".jsx"))
+    elif candidate.suffix in {".js", ".jsx"}:
+        candidates.extend(candidate.with_suffix(ext) for ext in (".ts", ".tsx"))
     for item in candidates:
         if item.is_file():
             return item
-    return None
+    return candidate
 
 
 def _service_scope(target: Path, path: Path) -> Optional[str]:
@@ -81,7 +88,7 @@ def _is_public_backend_barrel(target: Path, imported: Optional[Path]) -> bool:
         rel = imported.resolve().relative_to(target.resolve()).as_posix()
     except ValueError:
         return False
-    return rel == "src/backend/index.ts"
+    return rel in {"src/backend/index.ts", "src/backend/index.js", "src/backend/index", "src/backend"}
 
 
 def _iter_imports(content: str):
@@ -139,6 +146,24 @@ def validate_import_direction(target: Path) -> ChecklistResult:
             target_plane = _source_plane(target, imported) if imported else None
             if target_plane is None:
                 continue
+
+            if imported and _is_service_local_library(imported):
+                source_svc = _service_scope(target, fpath)
+                imported_svc = _service_scope(target, imported)
+                if source_svc != imported_svc:
+                    violations.append(Violation(
+                        rule_id="22.3-cross-service-library-import",
+                        severity="error",
+                        message=(
+                            f"Service '{source_svc}' cannot directly import private library from "
+                            f"service '{imported_svc}' via '{specifier}'. Access must go through the service facade."
+                        ),
+                        file_path=rel_path,
+                        line=line_no,
+                        snippet=specifier,
+                        suggestion=f"Export the capability via service '{imported_svc}' facade instead of importing its private libraries.",
+                    ))
+                    continue
 
             allowed = (
                 (source_plane == "frontend" and target_plane == "frontend") or

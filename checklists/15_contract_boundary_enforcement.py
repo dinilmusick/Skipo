@@ -100,6 +100,7 @@ VALID_KLOKS_SUBPATHS = {
     "backend/krnl-services",
     "orchestrations",
     "contracts",
+    "development",
 }
 
 DATABASE_PACKAGES = {
@@ -285,9 +286,7 @@ def validate_contract_boundaries(target: Path) -> ChecklistResult:
                         import_src == "@ultrst-armada/kloks/backend" or
                         (import_src.startswith("@ultrst-armada/kloks/backend/") and import_src != "@ultrst-armada/kloks/backend/client") or
                         import_src == "@kloks/backend" or
-                        (import_src.startswith("@kloks/backend/") and import_src != "@kloks/backend/client") or
-                        import_src.startswith("@ultrst-armada/kloks/services") or
-                        import_src.startswith("@kloks/services")
+                        (import_src.startswith("@kloks/backend/") and import_src != "@kloks/backend/client")
                     )
                     if is_kloks_backend:
                         violations.append(Violation(

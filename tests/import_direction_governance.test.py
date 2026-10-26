@@ -5,7 +5,10 @@ import unittest
 from pathlib import Path
 import importlib.util
 
+import sys
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT / "checklists") not in sys.path:
+    sys.path.insert(0, str(ROOT / "checklists"))
 SPEC = importlib.util.spec_from_file_location(
     "aspect_22",
     ROOT / "checklists" / "22_import_direction_governance.py",
