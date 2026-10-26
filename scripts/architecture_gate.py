@@ -236,7 +236,21 @@ def gate_08_negative_fixtures() -> bool:
         return False
 
 # ══════════════════════════════════════════════════════════════════════════════
-# MAIN ORCHESTRATOR
+
+# ══════════════════════════════════════════════════════════════════════════════
+# GATE 9: SKIPO IMPORT-DIRECTION GOVERNANCE
+# ══════════════════════════════════════════════════════════════════════════════
+def gate_09_import_direction() -> bool:
+    log_header("9. SKIPO IMPORT-DIRECTION GOVERNANCE")
+    validator = SKIPO_ROOT / "checklists" / "22_import_direction_governance.py"
+    code, out, err = run_cmd(["python3", str(validator), str(SKIPO_ROOT)], SKIPO_ROOT)
+    if code == 0:
+        log_pass("Skipo source imports comply with the one-way frontend-terminal dependency graph")
+        return True
+    log_fail(f"Skipo import-direction validation failed:\n{out}\n{err}")
+    return False
+
+# ══════════════════════════════════════════════════════════════════════════════# MAIN ORCHESTRATOR
 # ══════════════════════════════════════════════════════════════════════════════
 def main():
     start_time = time.time()
@@ -252,7 +266,8 @@ def main():
         ("Gate 5: Encapsulation & Filesystem Escapes", gate_05_encapsulation_check),
         ("Gate 6: Scaffold Generator Validation", gate_06_scaffold_validation),
         ("Gate 7: Implementation-Only Upgrade Simulation", gate_07_upgrade_simulation),
-        ("Gate 8: Negative Boundary Test Fixtures", gate_08_negative_fixtures),\n        ("Gate 9: Skipo Import Direction", gate_09_import_direction),
+        ("Gate 8: Negative Boundary Test Fixtures", gate_08_negative_fixtures),
+        ("Gate 9: Skipo Import Direction", gate_09_import_direction),
     ]
 
     results = []
