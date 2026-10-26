@@ -45,6 +45,5 @@ describe('shared authoring ecosystem contract', () => {
     expect(validation.valid).toBe(true);
 
     await MonacoIdeServiceFacade.execute('disposeSession', { sessionId: editor.sessionId });
-    await UIAuthoringServiceFacade.execute('disposeSession', { sessionId: session.sessionId });
   });
 });
