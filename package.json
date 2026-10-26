@@ -45,7 +45,7 @@
       "bullmq": "6.3.16"
     }
   },
-  "packageManager": "pnpm@9.15.0",
+  "packageManager": "pnpm@10.33.0",
   "engines": {
     "node": ">=20.0.0"
   }
