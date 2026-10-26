@@ -41,7 +41,7 @@ describe('shared authoring ecosystem contract', () => {
     );
     const assetRef = {
       packageId: '@ultrst-armada/floks',
-      packageVersion: '^1.5.5',
+      packageVersion: '^1.6.0',
       exportPath: 'ui',
       assetId: 'floks.button',
       assetVersion: '1.0.0',
