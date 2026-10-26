@@ -252,7 +252,7 @@ def main():
         ("Gate 5: Encapsulation & Filesystem Escapes", gate_05_encapsulation_check),
         ("Gate 6: Scaffold Generator Validation", gate_06_scaffold_validation),
         ("Gate 7: Implementation-Only Upgrade Simulation", gate_07_upgrade_simulation),
-        ("Gate 8: Negative Boundary Test Fixtures", gate_08_negative_fixtures),
+        ("Gate 8: Negative Boundary Test Fixtures", gate_08_negative_fixtures),\n        ("Gate 9: Skipo Import Direction", gate_09_import_direction),
     ]
 
     results = []
@@ -265,7 +265,7 @@ def main():
 
     duration = time.time() - start_time
     print(f"\n{BOLD}{GREEN}{'═' * 80}{RESET}")
-    print(f"{BOLD}{GREEN}  🎉 ALL 8 ARCHITECTURE GATES PASSED (100% COMPLIANT) in {duration:.2f}s{RESET}")
+    print(f"{BOLD}{GREEN}  🎉 ALL 9 ARCHITECTURE GATES PASSED (100% COMPLIANT) in {duration:.2f}s{RESET}")
     print(f"{BOLD}{GREEN}{'═' * 80}{RESET}")
     for title, success in results:
         status_text = f"{GREEN}PASSED{RESET}" if success else f"{RED}FAILED{RESET}"
