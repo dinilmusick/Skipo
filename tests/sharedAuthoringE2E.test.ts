@@ -39,6 +39,23 @@ describe('shared authoring ecosystem contract', () => {
     const session = await UIAuthoringServiceFacade.execute<UIAuthoringCreateInput, UIAuthoringSession>(
       'createSession', authoringInput,
     );
+    const assetRef = {
+      packageId: '@ultrst-armada/floks',
+      packageVersion: '^1.5.5',
+      exportPath: 'ui',
+      assetId: 'floks.button',
+      assetVersion: '1.0.0',
+    };
+    await UIAuthoringServiceFacade.execute('addNode', { sessionId: session.sessionId, node: {
+      id: 'e2e-page', kind: 'page', name: 'Page', props: {},
+    }});
+    await UIAuthoringServiceFacade.execute('addNode', { sessionId: session.sessionId, node: {
+      id: 'e2e-section', kind: 'section', name: 'Section', parentId: 'e2e-page', props: {},
+    }});
+    await UIAuthoringServiceFacade.execute('addNode', { sessionId: session.sessionId, node: {
+      id: 'e2e-button', kind: 'component', name: 'Button', componentId: 'floks.button',
+      parentId: 'e2e-section', assetRef, props: {},
+    }});
     const validation = await UIAuthoringServiceFacade.execute<{ sessionId: string }, UIAuthoringValidation>(
       'validate', { sessionId: session.sessionId },
     );
