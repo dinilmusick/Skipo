@@ -19,7 +19,8 @@
     "ecosystem:hydrate": "python3 scripts/ecosystem_sync.py hydrate all",
     "ecosystem:end-session": "python3 scripts/ecosystem_sync.py end-session",
     "ecosystem:cleanup": "python3 scripts/ecosystem_sync.py cleanup",
-    "ecosystem:checkpoint": "python3 scripts/ecosystem_sync.py checkpoint"
+    "ecosystem:checkpoint": "python3 scripts/ecosystem_sync.py checkpoint",
+    "generate:graph-assets": "python3 scripts/skipo_builder.py generate-graph-assets"
   },
   "dependencies": {
     "@dinilmusick/gutts": "^0.1.3",
