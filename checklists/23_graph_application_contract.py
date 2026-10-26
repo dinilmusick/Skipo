@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 import time
 
-from .common import ChecklistResult, Violation
+try:\n    from .common import ChecklistResult, Violation\nexcept ImportError:\n    from common import ChecklistResult, Violation
 
 TS_EXTENSIONS = {".ts", ".tsx", ".js", ".jsx"}
 VISUAL_TOKENS = (
