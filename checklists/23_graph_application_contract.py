@@ -69,6 +69,12 @@ def _check_graph_domain(root: Path, domain: Path, violations):
                     f"Backend {kind} definitions may not contain frontend visual assets or JSX.",
                     _rel(root, path),
                 ))
+            if kind == "node" and "facades/connection-types" not in text and "../facades/connection-types" not in text:
+                violations.append(Violation(
+                    "23.12-node-definition-connection-facade", "error",
+                    "Every node definition must consume connection types through the connection-types facade.",
+                    _rel(root, path),
+                ))
             for specifier in _imports(text):
                 if specifier.startswith("../../../frontend") or "/frontend/" in specifier:
                     violations.append(Violation(
