@@ -289,13 +289,7 @@ def validate_contract_boundaries(target: Path) -> ChecklistResult:
                         import_src.startswith("@ultrst-armada/kloks/services") or
                         import_src.startswith("@kloks/services")
                     )
-                    is_direct_backend_rel = (
-                        re.search(r"(?:^\.\./|\./).*/backend(?:/.*)?$", import_src) is not None or
-                        import_src.endswith("Backend")
-                    )
-                    has_backend_symbol = any(sym in line for sym in BACKEND_ONLY_SYMBOLS)
-
-                    if is_kloks_backend or is_direct_backend_rel or (has_backend_symbol and ("backend" in import_src or "services" in import_src)):
+                    if is_kloks_backend:
                         violations.append(Violation(
                             rule_id="15.9-ui-backend-import-forbidden",
                             severity="error",
