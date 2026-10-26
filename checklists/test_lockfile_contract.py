@@ -3,8 +3,8 @@ import json
 import tempfile
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from checklists.lockfile_contract import validate_lockfile_contract
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lockfile_contract import validate_lockfile_contract
 
 def fixture(manifest_spec, lock_spec, manager="pnpm@10.33.0"):
     root = Path(tempfile.mkdtemp())
