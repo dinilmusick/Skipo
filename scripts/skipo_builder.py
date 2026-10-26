@@ -23,6 +23,7 @@ import subprocess
 import sys
 
 from target_resolver import SemanticTargetResolver, TargetSpec, ResolvedTarget
+from generate_graph_assets import generate as generate_graph_assets
 
 HERE = Path(__file__).resolve().parent
 SKIPO_ROOT = HERE.parent
@@ -579,6 +580,13 @@ def main():
     add_p.add_argument("--dry-run", action="store_true", help="Dry run without mutating source")
     add_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
+    # graph frontend asset generation
+    graph_p = subparsers.add_parser("generate-graph-assets", help="Generate frontend graph assets from a backend functional graph manifest")
+    graph_p.add_argument("manifest", type=Path)
+    graph_p.add_argument("root", type=Path)
+    graph_p.add_argument("--tab", required=True)
+    graph_p.add_argument("--interface", required=True)
+
     # linked dependency validation
     link_p = subparsers.add_parser("validate-links", help="Validate linked KLOKS services/orchestrations and FLOKS components")
     link_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
@@ -661,6 +669,10 @@ def main():
             for log in res.get("logs", []):
                 print(f"  ➜ {log}")
             print()
+
+    elif args.command == "generate-graph-assets":
+        for path in generate_graph_assets(args.manifest.resolve(), args.root.resolve(), args.tab, args.interface):
+            print(path)
 
     elif args.command == "validate-links":
         res = builder.validate_linked_dependencies()
