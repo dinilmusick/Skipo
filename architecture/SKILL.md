@@ -34,7 +34,7 @@ def route_arch(intent: str) -> str:
         "dedup": "deduplication/SKILL.md", "layer": "function-layers/SKILL.md",
         "entity": "entity-functionality/SKILL.md", "concept": "libraries-concepts/SKILL.md",
         "skeleton": "skeleton-components/SKILL.md", "limit": "code-limits/SKILL.md",
-        "subapp": "sub-app-engine/SKILL.md", "gate": "../api/SKILL.md"
+        "subapp": "sub-app-engine/SKILL.md", "graph": "graph-application-contract/SKILL.md", "node-graph": "graph-application-contract/SKILL.md", "force-graph": "graph-application-contract/SKILL.md", "gate": "../api/SKILL.md"
     }
     return next((path for k, path in routes.items() if k in intent.lower()), "app-architecture-spec/SKILL.md")
 ```
