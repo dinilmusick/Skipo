@@ -87,7 +87,7 @@ An agent creating or modifying a Skipo application MUST follow this order:
 1. Read this contract.
 2. Run `python3 assistant.py advise "<task>"`.
 3. Load the linked domain SKILL.md files returned by the router.
-4. Use the appropriate `assistant.py generate ...` command for new structural artifacts.
+4. Use the appropriate `assistant.py generate ...` command for new structural artifacts. Graph applications MUST also load [Graph Application Contract](../graph-application-contract/SKILL.md).
 5. Implement business-specific logic only inside the generated architectural boundaries.
 6. Run the relevant checklist(s).
 7. Run `python3 assistant.py validate .`.
