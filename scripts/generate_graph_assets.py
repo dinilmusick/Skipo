@@ -28,9 +28,15 @@ def generate(manifest_path: Path, root: Path, tab: str, interface: str) -> list[
 
     interface_file = target / f"{interface}.tsx"
     interface_file.write_text(
+        "import type { GraphEdge, GraphNode, NodeDefinition } from '@ultrst-armada/kloks/state-graph';\n"
         "import { FrnlEditableNodeGraph } from '@ultrst-armada/floks/canvas-ui';\n\n"
-        f"export function {interface}() {{\n"
-        f"  return <FrnlEditableNodeGraph graphId={json.dumps(str(graph.get('id', interface)))} />;\n"
+        f"export interface {interface}Props {{\n"
+        "  nodes: GraphNode[];\n"
+        "  edges: GraphEdge[];\n"
+        "  availableNodeTypes?: NodeDefinition[];\n"
+        "}\n\n"
+        f"export function {interface}({{ nodes, edges, availableNodeTypes }}: {interface}Props) {{\n"
+        "  return <FrnlEditableNodeGraph nodes={nodes} edges={edges} availableNodeTypes={availableNodeTypes} />;\n"
         f"}}\n",
         encoding="utf-8",
     )
