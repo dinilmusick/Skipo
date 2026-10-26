@@ -59,6 +59,21 @@ def _resolve_local_import(source: Path, specifier: str) -> Optional[Path]:
     return None
 
 
+def _service_scope(target: Path, path: Path) -> Optional[str]:
+    try:
+        rel = path.resolve().relative_to(target.resolve())
+    except ValueError:
+        return None
+    parts = rel.parts
+    if len(parts) >= 4 and parts[0] == "src" and parts[1] == "backend" and parts[2] == "services":
+        return parts[3]
+    return None
+
+
+def _is_service_local_library(path: Path) -> bool:
+    return "services" in path.parts and "libraries" in path.parts
+
+
 def _is_public_backend_barrel(target: Path, imported: Optional[Path]) -> bool:
     if imported is None:
         return False
