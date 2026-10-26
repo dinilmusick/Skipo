@@ -99,6 +99,19 @@ class ImportDirectionTest(unittest.TestCase):
         )
         self.assertTrue(validate_import_direction(self.root).passed)
 
+    def test_service_local_library_cannot_cross_service_boundary(self):
+        (self.root / "src/backend/services/a/libraries").mkdir(parents=True)
+        (self.root / "src/backend/services/b").mkdir(parents=True)
+        self.write(
+            "src/backend/services/a/libraries/private.ts",
+            "export const privateValue = 1;\n",
+        )
+        self.write(
+            "src/backend/services/b/service.ts",
+            "import { privateValue } from '../a/libraries/private.js';\nexport const value = privateValue;\n",
+        )
+        self.assert_rule(self.root, "22.3-cross-service-library-import")
+
     def test_libraries_to_libraries_is_allowed(self):
         self.write(
             "src/libraries/consumer.ts",
