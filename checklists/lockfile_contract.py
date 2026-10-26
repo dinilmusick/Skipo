@@ -25,7 +25,7 @@ def _manifest_specs(package_json: Dict) -> Dict[str, str]:
     return result
 
 def _root_importer(lock_text: str) -> str:
-    match = re.search(r"(?m)^  \.:\s*\n(?P<body>.*?)(?=^  [^ \n]|\Z)", lock_text)
+    match = re.search(r"(?ms)^  \\.\:\s*\n(?P<body>.*?)(?=^  [^ \\n]|^\\S|\\Z)", lock_text)
     return match.group("body") if match else ""
 
 def _lock_specs(lock_text: str) -> Dict[str, str]:
