@@ -60,6 +60,7 @@ mod_19 = _load_aspect_module("mod_19", "19_skipo_frontend_structure.py")
 mod_20 = _load_aspect_module("mod_20", "20_skipo_documentation_contract.py")
 mod_21 = _load_aspect_module("mod_21", "lockfile_contract.py")
 mod_22 = _load_aspect_module("mod_22", "22_import_direction_governance.py")
+mod_23 = _load_aspect_module("mod_23", "23_graph_application_contract.py")
 
 ASPECT_RUNNERS = [
     ("aspect_01", "Structure & Governance", mod_01.validate_structure),
@@ -83,7 +84,8 @@ ASPECT_RUNNERS = [
     ("aspect_19", "Skipo Frontend Structure", mod_19.validate_skipo_frontend_structure),
     ("aspect_20", "Skipo Documentation Contract", mod_20.validate_documentation_contract),
     ("aspect_21", "Package Manager & Lockfile Contract", mod_21.validate_lockfile_contract),
-    ("aspect_22", "Skipo Import Direction Governance", mod_22.validate_import_direction)
+    ("aspect_22", "Skipo Import Direction Governance", mod_22.validate_import_direction),
+    ("aspect_23", "Graph Application Contract", mod_23.validate_graph_application_contract)
 ]
 
 def detect_validation_profile(root_dir: Path, requested: str) -> str:
