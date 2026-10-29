@@ -84,6 +84,7 @@ import {{
   AuthServiceFacade,
   StorageServiceFacade,
   WorkspaceServiceFacade,
+  workingWorkspaceService,
   ExecutableBackendFacade,
   WorkerExecutionBoundary,
 }} from '@ultrst-armada/kloks/backend';
