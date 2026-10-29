@@ -87,9 +87,29 @@ import {{
   ExecutableBackendFacade,
   WorkerExecutionBoundary,
 }} from '@ultrst-armada/kloks/backend';
+import { FodRuntime, createFodServiceFacadeForWorkspace, scanBackendFacadeToNodes } from '@ultrst-armada/kloks/fod';
+import { guttsFodNodeDefinitions, executeGuttsApi } from '@dinimusick/gutts/api';
 
 export const {camel}BackendFacade = new ExecutableBackendFacade('{pascal}Backend');
 export const {camel}Worker = new WorkerExecutionBoundary('{pascal}Worker', {camel}BackendFacade);
+
+export const createFodRuntime = (workspaceId: string) => {{
+  const runtime = new FodRuntime({{ workspaceId, workspaceService: workingWorkspaceService }});
+  const host = scanBackendFacadeToNodes({pascal}Backend as any);
+  const guttsEndpoints = guttsFodNodeDefinitions.map((node: any) => ({{
+    id: String(node.metadata.apiId),
+    serviceId: '@dinimusick/gutts',
+    serviceName: 'GutTS',
+    operationId: String(node.metadata.apiId),
+    operationName: node.label,
+    description: node.description,
+    invoke: (input: Record<string, unknown>) => executeGuttsApi(String(node.metadata.apiId), input),
+  }}));
+  runtime.setEndpoints([...host.endpoints, ...guttsEndpoints], [...host.nodes as any, ...guttsFodNodeDefinitions as any]);
+  return runtime;
+}};
+
+export const FodServiceFacade = createFodServiceFacadeForWorkspace(createFodRuntime);
 
 export const {pascal}Backend = {{
   services: {{
@@ -100,6 +120,7 @@ export const {pascal}Backend = {{
     auth: AuthServiceFacade,
     storage: StorageServiceFacade,
     workspace: WorkspaceServiceFacade,
+    fod: FodServiceFacade,
   }},
   orchestrations: {{
     orchestratorA: OrchestratorAFacade,
