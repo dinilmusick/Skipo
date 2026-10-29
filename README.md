@@ -59,3 +59,8 @@ All generated applications have two required deployment targets:
 For arbitrary edits, cloud agents use `python3 assistant.py edit operations.json`. The operation document is path-contained and each successful edit is recorded in `.skipo/actions/`, giving subsequent agents an explicit return message and audit trail.
 
 - Canonical authentication: `architecture/authentication/SKILL.md` (Better Auth via KLOKS/SRKL + FLOKS UI).
+
+
+## Mandatory FOD module
+
+Every generated Skipo application includes a Main → FOD tab. FOD discovers host backend endpoints and GutTS APIs deterministically, persists flows under the workspace `FOD/` directory, and exposes saved flows through the application backend facade.
