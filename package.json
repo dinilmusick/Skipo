@@ -27,7 +27,7 @@
     "@ultrst-armada/floks": "^1.7.2",
     "@ultrst-armada/frnlts": "^0.2.7",
     "@ultrst-armada/kloks": "^1.19.0",
-    "@ultrst-armada/krnl": "^1.0.7",
+    "@ultrst-armada/krnl": "^1.0.8",
     "lucide-react": "^1.55.0",
     "p-queue": "^10.0.0",
     "react": "^19.0.1",
