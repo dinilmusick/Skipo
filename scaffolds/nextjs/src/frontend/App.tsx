@@ -1,13 +1,6 @@
-import { HomePage } from './pages/home/page.js';
+import MainPage from './pages/main/page.js';
 
-const routes: Record<string, typeof HomePage> = {
-  '/': HomePage,
-  '/home': HomePage,
-};
+const routes:Record<string,typeof MainPage>={'/':MainPage,'/home':MainPage};
 
-export function App() {
-  const Page = routes[window.location.pathname] ?? HomePage;
-  return <Page />;
-}
-
+export function App(){const Page=routes[window.location.pathname]??MainPage;return <Page/>;}
 export default App;

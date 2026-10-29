@@ -45,6 +45,7 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
             "dependencies": {
                 "@ultrst-armada/krnl": "^1.0.0",
                 "@ultrst-armada/kloks": "^1.0.0",
+                "@dinimusick/gutts": "^1.0.0",
                 "@ultrst-armada/floks": "^1.1.0",
                 "react": "^19.0.1",
                 "react-dom": "^19.0.1"
@@ -83,12 +84,33 @@ import {{
   AuthServiceFacade,
   StorageServiceFacade,
   WorkspaceServiceFacade,
+  workingWorkspaceService,
   ExecutableBackendFacade,
   WorkerExecutionBoundary,
 }} from '@ultrst-armada/kloks/backend';
+import { FodRuntime, createFodServiceFacadeForWorkspace, scanBackendFacadeToNodes } from '@ultrst-armada/kloks/fod';
+import { guttsFodNodeDefinitions, executeGuttsApi } from '@dinimusick/gutts/api';
 
 export const {camel}BackendFacade = new ExecutableBackendFacade('{pascal}Backend');
 export const {camel}Worker = new WorkerExecutionBoundary('{pascal}Worker', {camel}BackendFacade);
+
+export const createFodRuntime = (workspaceId: string) => {{
+  const runtime = new FodRuntime({{ workspaceId, workspaceService: workingWorkspaceService }});
+  const host = scanBackendFacadeToNodes({pascal}Backend as any);
+  const guttsEndpoints = guttsFodNodeDefinitions.map((node: any) => ({{
+    id: String(node.metadata.apiId),
+    serviceId: '@dinimusick/gutts',
+    serviceName: 'GutTS',
+    operationId: String(node.metadata.apiId),
+    operationName: node.label,
+    description: node.description,
+    invoke: (input: Record<string, unknown>) => executeGuttsApi(String(node.metadata.apiId), input),
+  }}));
+  runtime.setEndpoints([...host.endpoints, ...guttsEndpoints], [...host.nodes as any, ...guttsFodNodeDefinitions as any]);
+  return runtime;
+}};
+
+export const FodServiceFacade = createFodServiceFacadeForWorkspace(createFodRuntime);
 
 export const {pascal}Backend = {{
   services: {{
@@ -99,6 +121,7 @@ export const {pascal}Backend = {{
     auth: AuthServiceFacade,
     storage: StorageServiceFacade,
     workspace: WorkspaceServiceFacade,
+    fod: FodServiceFacade,
   }},
   orchestrations: {{
     orchestratorA: OrchestratorAFacade,
@@ -120,6 +143,7 @@ export default {pascal}Backend;
         pages_root / "auth",
         pages_root / "menus" / "workspaces",
         pages_root / "main" / "tabs",
+        pages_root / "main" / "tabs" / "fod",
         pages_root / "settings" / "tabs" / "themes",
         pages_root / "settings" / "tabs" / "accounts",
     ]
@@ -146,21 +170,29 @@ export default {pascal}Backend;
         pages_root / "main" / "page.tsx": (
             "import React, { useState } from 'react';\\n"
             "import { FrnlPage } from '../../components/components.js';\\n\\n"
-            "export function MainPage({ children }: { children?: React.ReactNode }) {\\n"
+            "export function MainPage({ children, fod }: { children?: React.ReactNode; fod?: React.ReactNode }) {\\n"
             "  const [immersive, setImmersive] = useState(false);\\n"
             "  return (\\n"
             "    <div data-skipo-main-page=\"true\" data-immersive={immersive}>\\n"
             "      <button type=\"button\" data-skipo-immersive-toggle=\"true\" onClick={() => setImmersive((value) => !value)}>\\n"
             "        {immersive ? 'Exit immersive' : 'Immersive'}\\n"
             "      </button>\\n"
-            "      <FrnlPage showTopBar={!immersive} showBottomBar={!immersive}>{children}</FrnlPage>\\n"
+            "      <FrnlPage showTopBar={!immersive} showBottomBar={!immersive}>{fod ?? children}</FrnlPage>\\n"
             "    </div>\\n"
             "  );\\n"
             "}\\n\\n"
             "export default MainPage;\\n"
         ),
         pages_root / "main" / "tabs" / "README.md": (
-            "# Main Tabs\\n\\nPlace all application-specific working UI in tab directories under this folder.\\n"
+            "# Main Tabs\\n\\nFOD is mandatory. Application-specific working UI belongs in additional tab directories under this folder.\\n"
+        ),
+        pages_root / "main" / "tabs" / "fod" / "page.tsx": (
+            "import { FodModule } from '@ultrst-armada/floks/canvas-ui/fod';\\n"
+            "import type { FodRuntimeLike } from '@ultrst-armada/floks/canvas-ui/fod';\\n"
+            "import { guttsFodNodeDefinitions } from '@dinimusick/gutts/api';\\n\\n"
+            "export default function FodTab({ runtime, workspaceId, hostNodes = [] }: { runtime: FodRuntimeLike; workspaceId: string; hostNodes?: any[] }) {\\n"
+            "  return <FodModule runtime={runtime} workspaceId={workspaceId} nodeDefinitions={[...guttsFodNodeDefinitions as any, ...hostNodes]} />;\\n"
+            "}\\n"
         ),
         pages_root / "settings" / "page.tsx": (
             "import React, { useState } from 'react';\\n"

@@ -23,6 +23,7 @@ REQUIRED_FILES = (
     "src/frontend/pages/auth/page.tsx",
     "src/frontend/pages/menus/workspaces/page.tsx",
     "src/frontend/pages/main/page.tsx",
+    "src/frontend/pages/main/tabs/fod/page.tsx",
     "src/frontend/pages/settings/page.tsx",
     "src/frontend/pages/settings/tabs/themes/page.tsx",
     "src/frontend/pages/settings/tabs/accounts/page.tsx",
@@ -30,6 +31,7 @@ REQUIRED_FILES = (
 
 REQUIRED_DIRS = (
     "src/frontend/pages/main/tabs",
+    "src/frontend/pages/main/tabs/fod",
 )
 
 ALLOWED_PAGE_ROOTS = {"auth", "menus", "main", "settings"}
