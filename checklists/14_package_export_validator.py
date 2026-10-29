@@ -23,7 +23,7 @@ ASPECT_TITLE = "Package Export Boundary & Sub-Path Governance"
 # Optional bootstrap fallback only if package metadata cannot be located on disk
 BOOTSTRAP_FALLBACK_EXPORTS: Dict[str, Set[str]] = {
     "@ultrst-armada/floks": {"ui", "canvas-ui", "contracts"},
-    "@ultrst-armada/kloks": {"services", "contracts", "backend", "client", "audio-midi", "functions", "orchestrations", "state-graph"},
+    "@ultrst-armada/kloks": {"services", "contracts", "backend", "client", "audio-midi", "functions", "orchestrations", "state-graph", "fod"},
     "@ultrst-armada/krnl": set(),
 }
 
