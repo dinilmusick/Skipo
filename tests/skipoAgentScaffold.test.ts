@@ -8,5 +8,7 @@ describe('Skipo agent scaffold', () => {
     expect(source).toContain('suggest-service-promotion');
     expect(source).toContain('suggest-ui-promotion');
     expect(source).toContain('handoff-to-krusbl');
+    expect(source).toContain('main/tabs/fod');
+    expect(source).toContain('@dinimusick/gutts/api');
   });
 });
