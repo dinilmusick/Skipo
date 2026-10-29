@@ -10,20 +10,10 @@ import {
   StorageServiceFacade,
   WorkspaceServiceFacade,
 } from '@ultrst-armada/kloks/backend/krnl-services';
+import { workingWorkspaceService } from '@ultrst-armada/kloks/backend';
 import { WorkerExecutionBoundary } from '@ultrst-armada/krnl';
 import { FodRuntime, createFodServiceFacadeForWorkspace, scanBackendFacadeToNodes } from '@ultrst-armada/kloks/fod';
 import { guttsFodNodeDefinitions, executeGuttsApi } from '@dinimusick/gutts/api';
-
-export const services = {
-  serviceA: ServiceAFacade,
-  serviceB: ServiceBFacade,
-  audioHardware: AudioHardwareServiceFacade,
-  midi: MidiServiceFacade,
-  auth: AuthServiceFacade,
-  storage: StorageServiceFacade,
-  workspace: WorkspaceServiceFacade,
-  fod: FodServiceFacade,
-};
 
 export const orchestrations = {
   orchestratorA: OrchestratorADefinition,
@@ -45,6 +35,17 @@ export const createFodRuntime = (workspaceId: string) => {
 };
 
 export const FodServiceFacade = createFodServiceFacadeForWorkspace(createFodRuntime);
+
+export const services = {
+  serviceA: ServiceAFacade,
+  serviceB: ServiceBFacade,
+  audioHardware: AudioHardwareServiceFacade,
+  midi: MidiServiceFacade,
+  auth: AuthServiceFacade,
+  storage: StorageServiceFacade,
+  workspace: WorkspaceServiceFacade,
+  fod: FodServiceFacade,
+};
 
 export const AppBackend = {
   services,

@@ -88,8 +88,8 @@ import {{
   ExecutableBackendFacade,
   WorkerExecutionBoundary,
 }} from '@ultrst-armada/kloks/backend';
-import { FodRuntime, createFodServiceFacadeForWorkspace, scanBackendFacadeToNodes } from '@ultrst-armada/kloks/fod';
-import { guttsFodNodeDefinitions, executeGuttsApi } from '@dinimusick/gutts/api';
+import {{ FodRuntime, createFodServiceFacadeForWorkspace, scanBackendFacadeToNodes }} from '@ultrst-armada/kloks/fod';
+import {{ guttsFodNodeDefinitions, executeGuttsApi }} from '@dinimusick/gutts/api';
 
 export const {camel}BackendFacade = new ExecutableBackendFacade('{pascal}Backend');
 export const {camel}Worker = new WorkerExecutionBoundary('{pascal}Worker', {camel}BackendFacade);
