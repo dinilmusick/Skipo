@@ -102,6 +102,7 @@ VALID_KLOKS_SUBPATHS = {
     "contracts",
     "development",
     "fod",
+    "aiko",
 }
 
 DATABASE_PACKAGES = {
@@ -131,6 +132,7 @@ VALID_FLOKS_SUBPATHS = {
     "ui",
     "canvas-ui",
     "canvas-ui/fod",
+    "canvas-ui/aiko",
     "contracts",
 }
 
