@@ -19,6 +19,7 @@ class SkipoFrontendStructureTests(unittest.TestCase):
         "src/frontend/pages/menus/workspaces/page.tsx",
         "src/frontend/pages/main/page.tsx",
         "src/frontend/pages/main/tabs/fod/page.tsx",
+        "src/frontend/pages/main/tabs/aiko/page.tsx",
         "src/frontend/pages/settings/page.tsx",
         "src/frontend/pages/settings/tabs/themes/page.tsx",
         "src/frontend/pages/settings/tabs/accounts/page.tsx",
@@ -27,6 +28,7 @@ class SkipoFrontendStructureTests(unittest.TestCase):
     def make_fixture(self, complete=True):
         root = Path(tempfile.mkdtemp())
         (root / "src/frontend/pages/main/tabs/fod").mkdir(parents=True)
+        (root / "src/frontend/pages/main/tabs/aiko").mkdir(parents=True)
         (root / "src/frontend/pages/settings/tabs/themes").mkdir(parents=True)
         (root / "src/frontend/pages/settings/tabs/accounts").mkdir(parents=True)
         (root / "src/frontend/pages/auth").mkdir(parents=True)
