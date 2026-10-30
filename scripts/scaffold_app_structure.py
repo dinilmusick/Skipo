@@ -243,12 +243,12 @@ export default {pascal}Backend;
             "import { FrnlPage } from '../../components/components.js';\\n\\n"
             "export function MainPage({ children, fod, aiko }: { children?: React.ReactNode; fod?: React.ReactNode; aiko?: React.ReactNode }) {\\n"
             "  const [immersive, setImmersive] = useState(false);\\n"
+            "  const [tab, setTab] = useState<'main' | 'fod' | 'aiko' | 'settings'>('main');\\n"
+            "  const content = tab === 'fod' ? fod : tab === 'aiko' ? aiko : children;\\n"
             "  return (\\n"
             "    <div data-skipo-main-page=\"true\" data-immersive={immersive}>\\n"
-            "      <button type=\"button\" data-skipo-immersive-toggle=\"true\" onClick={() => setImmersive((value) => !value)}>\\n"
-            "        {immersive ? 'Exit immersive' : 'Immersive'}\\n"
-            "      </button>\\n"
-            "      <FrnlPage showTopBar={!immersive} showBottomBar={!immersive}>{aiko ?? fod ?? children}</FrnlPage>\\n"
+            "      <nav><button type=\"button\" onClick={() => setTab('main')}>Main</button><button type=\"button\" onClick={() => setTab('fod')}>FOD</button><button type=\"button\" onClick={() => setTab('aiko')}>Aiko</button><button type=\"button\" onClick={() => setTab('settings')}>Settings</button><button type=\"button\" data-skipo-immersive-toggle=\"true\" onClick={() => setImmersive((value) => !value)}>{immersive ? 'Exit immersive' : 'Immersive'}</button></nav>\\n"
+            "      <FrnlPage showTopBar={!immersive} showBottomBar={!immersive}>{tab === 'settings' ? <div>Settings</div> : content}</FrnlPage>\\n"
             "    </div>\\n"
             "  );\\n"
             "}\\n\\n"
@@ -295,8 +295,11 @@ export default {pascal}Backend;
     app_tsx = target_root / "src" / "frontend" / "App.tsx"
     if not app_tsx.exists():
         app_tsx.write_text(
-            "import MainPage from './pages/main/page.js';\\n\\n"
-            "export function App() { return <MainPage />; }\\n\\n"
+            "import MainPage from './pages/main/page.js';\\n"
+            "import FodTab from './pages/main/tabs/fod/page.js';\\n"
+            "import AikoTab from './pages/main/tabs/aiko/page.js';\\n"
+            "import { createFodRuntime, createAikoRuntime } from '../backend/AppBackend.js';\\n\\n"
+            "export function App() { const workspaceId = typeof window === 'undefined' ? 'default' : localStorage.getItem('skipo-active-workspace') || 'default'; const fodRuntime = createFodRuntime(workspaceId); const aikoRuntime = createAikoRuntime(workspaceId); return <MainPage fod={<FodTab runtime={fodRuntime} workspaceId={workspaceId} />} aiko={<AikoTab runtime={aikoRuntime} workspaceId={workspaceId} />} />; }\\n\\n"
             "export default App;\\n",
             encoding="utf-8",
         )
