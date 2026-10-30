@@ -153,6 +153,7 @@ export const createAikoRuntime = (workspaceId: string) => {{
       listKeys: async () => (AIKeyServiceFacade.getKeys() as any[]).map((key: any) => ({{ id: key.id, providerId: key.providerId, label: key.label, status: key.status, isActive: key.isActive, emailGroup: key.emailGroup, expiresAt: key.expiresAt }})),
       getActiveKey: async (providerId) => (AIKeyServiceFacade.getActiveKey(providerId) as any) ?? null,
       rotateKey: async (providerId) => (AIKeyServiceFacade.rotateKey(providerId) as any) ?? null,
+      addKey: async (input) => AIKeyServiceFacade.addKey(input) as any,
       syncFromAikoEngine: async () => {{
         if (!engineUrl) throw new Error('AIKO_ENGINE_URL is required for Aiko Engine key sync.');
         const response = await fetch(engineUrl.replace(/\/$/, '') + '/api/module/keys/export', {{
