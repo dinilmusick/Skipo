@@ -44,9 +44,9 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
             "type": "module",
             "dependencies": {
                 "@ultrst-armada/krnl": "^1.0.0",
-                "@ultrst-armada/kloks": "^1.0.0",
+                "@ultrst-armada/kloks": "^1.20.0",
                 "@dinimusick/gutts": "^1.0.0",
-                "@ultrst-armada/floks": "^1.1.0",
+                "@ultrst-armada/floks": "^1.8.0",
                 "react": "^19.0.1",
                 "react-dom": "^19.0.1"
             },
@@ -89,6 +89,8 @@ import {{
   WorkerExecutionBoundary,
 }} from '@ultrst-armada/kloks/backend';
 import {{ FodRuntime, createFodServiceFacadeForWorkspace, scanBackendFacadeToNodes }} from '@ultrst-armada/kloks/fod';
+import {{ AikoRuntime }} from '@ultrst-armada/kloks/aiko';
+import {{ AIKeyServiceFacade }} from '@ultrst-armada/kloks/krnl-ai-services';
 import {{ guttsFodNodeDefinitions, executeGuttsApi }} from '@dinimusick/gutts/api';
 
 export const {camel}BackendFacade = new ExecutableBackendFacade('{pascal}Backend');
@@ -112,6 +114,72 @@ export const createFodRuntime = (workspaceId: string) => {{
 
 export const FodServiceFacade = createFodServiceFacadeForWorkspace(createFodRuntime);
 
+export const createAikoRuntime = (workspaceId: string) => {{
+  const fod = createFodRuntime(workspaceId);
+  const host = scanBackendFacadeToNodes({pascal}Backend as any);
+  const engineUrl = process.env.AIKO_ENGINE_URL;
+  const resolve = async (specId?: string) => {{
+    if (!engineUrl) throw new Error('AIKO_ENGINE_URL is required for the embedded Aiko module.');
+    const response = await fetch(engineUrl.replace(/\/$/, '') + '/api/module/resolve-intelligence', {{
+      method: 'POST',
+      headers: {{ 'Content-Type': 'application/json' }},
+      body: JSON.stringify({{ specId }}),
+    }});
+    if (!response.ok) throw new Error('Aiko Engine intelligence resolver request failed.');
+    return response.json();
+  }};
+  const capabilities = async () => {{
+    const endpointCapabilities = host.endpoints.map((endpoint: any) => ({{
+      id: String(endpoint.id), name: endpoint.operationName || endpoint.id, description: endpoint.description,
+      sourceKind: 'endpoint', sourceId: String(endpoint.id), inputSchema: endpoint.inputSchema,
+      execute: (input: unknown) => endpoint.invoke(input),
+    }}));
+    const flowCapabilities = (await fod.listFlows()).map((flow: any) => ({{
+      id: String(flow.id), name: flow.name, description: flow.description,
+      sourceKind: 'fod-flow', sourceId: String(flow.id), inputSchema: flow.inputSchema,
+      execute: (_input: unknown) => fod.executeFlow(String(flow.id)),
+    }}));
+    const guttsCapabilities = guttsFodNodeDefinitions.map((node: any) => ({{
+      id: String(node.metadata.apiId), name: node.label, description: node.description,
+      sourceKind: 'gutts-api', sourceId: String(node.metadata.apiId), inputSchema: node.inputSchema,
+      execute: (input: unknown) => executeGuttsApi(String(node.metadata.apiId), input as Record<string, unknown>),
+    }}));
+    return [...endpointCapabilities, ...flowCapabilities, ...guttsCapabilities];
+  }};
+  return new AikoRuntime({{
+    capabilities,
+    resolver: {{ resolve: async (specId) => resolve(specId) }},
+    keys: {{
+      listKeys: async () => (AIKeyServiceFacade.getKeys() as any[]).map((key: any) => ({{ id: key.id, providerId: key.providerId, label: key.label, status: key.status, isActive: key.isActive, emailGroup: key.emailGroup, expiresAt: key.expiresAt }})),
+      getActiveKey: async (providerId) => (AIKeyServiceFacade.getActiveKey(providerId) as any) ?? null,
+      rotateKey: async (providerId) => (AIKeyServiceFacade.rotateKey(providerId) as any) ?? null,
+      syncFromAikoEngine: async () => {{
+        if (!engineUrl) throw new Error('AIKO_ENGINE_URL is required for Aiko Engine key sync.');
+        const response = await fetch(engineUrl.replace(/\/$/, '') + '/api/module/keys/export', {{
+          headers: process.env.AIKO_MODULE_TOKEN ? {{ 'x-aiko-module-token': process.env.AIKO_MODULE_TOKEN }} : undefined,
+        }});
+        if (!response.ok) throw new Error('Aiko Engine key synchronization failed.');
+        const payload = await response.json();
+        const imported = await AIKeyServiceFacade.importKeys(payload.backup);
+        return {{ synced: imported.importedCount, message: 'Aiko Engine keys synchronized.' }};
+      }},
+    }},
+  }});
+}};
+
+export const AikoServiceFacade = {{
+  id: 'kloks.aiko', name: 'AikoService', version: '1.0.0',
+  runtime: 'server' as const, deployment: 'local' as const,
+  execute: async (operation: string, input?: any) => {{
+    const runtime = createAikoRuntime(String(input?.workspaceId || 'default'));
+    if (operation === 'listAgents') return runtime.listAgents();
+    if (operation === 'executeAgent') return runtime.executeAgent(String(input?.agentId), input?.query);
+    if (operation === 'listKeys') return runtime.listKeys();
+    if (operation === 'syncFromAikoEngine') return runtime.syncFromAikoEngine();
+    throw new Error('Unsupported Aiko operation: ' + operation);
+  }},
+}};
+
 export const {pascal}Backend = {{
   services: {{
     serviceA: ServiceAFacade,
@@ -122,6 +190,7 @@ export const {pascal}Backend = {{
     storage: StorageServiceFacade,
     workspace: WorkspaceServiceFacade,
     fod: FodServiceFacade,
+    aiko: AikoServiceFacade,
   }},
   orchestrations: {{
     orchestratorA: OrchestratorAFacade,
@@ -144,6 +213,7 @@ export default {pascal}Backend;
         pages_root / "menus" / "workspaces",
         pages_root / "main" / "tabs",
         pages_root / "main" / "tabs" / "fod",
+        pages_root / "main" / "tabs" / "aiko",
         pages_root / "settings" / "tabs" / "themes",
         pages_root / "settings" / "tabs" / "accounts",
     ]
@@ -155,7 +225,8 @@ export default {pascal}Backend;
     if not components_file.exists():
         components_file.write_text(
             "export * from '@ultrst-armada/floks/ui';\\n"
-            "export * from '@ultrst-armada/floks/canvas-ui';\\n",
+            "export * from '@ultrst-armada/floks/canvas-ui';\\n"
+            "export * from '@ultrst-armada/floks/canvas-ui/aiko';\\n",
             encoding="utf-8",
         )
         created.append(components_file)
@@ -170,14 +241,14 @@ export default {pascal}Backend;
         pages_root / "main" / "page.tsx": (
             "import React, { useState } from 'react';\\n"
             "import { FrnlPage } from '../../components/components.js';\\n\\n"
-            "export function MainPage({ children, fod }: { children?: React.ReactNode; fod?: React.ReactNode }) {\\n"
+            "export function MainPage({ children, fod, aiko }: { children?: React.ReactNode; fod?: React.ReactNode; aiko?: React.ReactNode }) {\\n"
             "  const [immersive, setImmersive] = useState(false);\\n"
             "  return (\\n"
             "    <div data-skipo-main-page=\"true\" data-immersive={immersive}>\\n"
             "      <button type=\"button\" data-skipo-immersive-toggle=\"true\" onClick={() => setImmersive((value) => !value)}>\\n"
             "        {immersive ? 'Exit immersive' : 'Immersive'}\\n"
             "      </button>\\n"
-            "      <FrnlPage showTopBar={!immersive} showBottomBar={!immersive}>{fod ?? children}</FrnlPage>\\n"
+            "      <FrnlPage showTopBar={!immersive} showBottomBar={!immersive}>{aiko ?? fod ?? children}</FrnlPage>\\n"
             "    </div>\\n"
             "  );\\n"
             "}\\n\\n"
@@ -185,6 +256,10 @@ export default {pascal}Backend;
         ),
         pages_root / "main" / "tabs" / "README.md": (
             "# Main Tabs\\n\\nFOD is mandatory. Application-specific working UI belongs in additional tab directories under this folder.\\n"
+        ),
+        pages_root / "main" / "tabs" / "aiko" / "page.tsx": (
+            "import { AikoModule } from '@ultrst-armada/floks/canvas-ui/aiko';\\n"
+            "export default function AikoTab({ runtime, workspaceId }: { runtime: any; workspaceId: string }) { return <AikoModule runtime={runtime} workspaceId={workspaceId} />; }\\n"
         ),
         pages_root / "main" / "tabs" / "fod" / "page.tsx": (
             "import { FodModule } from '@ultrst-armada/floks/canvas-ui/fod';\\n"
