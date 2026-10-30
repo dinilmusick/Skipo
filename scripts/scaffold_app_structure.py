@@ -146,9 +146,22 @@ export const createAikoRuntime = (workspaceId: string) => {{
     }}));
     return [...endpointCapabilities, ...flowCapabilities, ...guttsCapabilities];
   }};
+  const resolveNaturalLanguage = async (agent: any, input: string) => {{
+    if (!engineUrl) throw new Error('AIKO_ENGINE_URL is required for natural-language Aiko execution.');
+    const response = await fetch(engineUrl.replace(/\\/$/, '') + '/api/chat/completions', {{
+      method: 'POST', headers: {{ 'Content-Type': 'application/json' }},
+      body: JSON.stringify({{ messages: [{{ role: 'user', content: input }}], intelligenceSpec: agent.intelligenceSpec, tools: [{{ type: 'function', function: {{ name: agent.tool.id, description: agent.tool.description || agent.tool.name, parameters: agent.tool.inputSchema || {{ type: 'object' }} }} }}], tool_choice: {{ type: 'function', function: {{ name: agent.tool.id }} }} }}),
+    }});
+    if (!response.ok) throw new Error('Aiko Engine natural-language resolution failed.');
+    const payload = await response.json();
+    const argumentsText = payload.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    if (!argumentsText) throw new Error('Aiko Engine did not return a structured tool payload.');
+    return JSON.parse(argumentsText);
+  }};
   return new AikoRuntime({{
     capabilities,
     resolver: {{ resolve: async (specId) => resolve(specId) }},
+    resolveNaturalLanguage,
     keys: {{
       listKeys: async () => (AIKeyServiceFacade.getKeys() as any[]).map((key: any) => ({{ id: key.id, providerId: key.providerId, label: key.label, status: key.status, isActive: key.isActive, emailGroup: key.emailGroup, expiresAt: key.expiresAt }})),
       getActiveKey: async (providerId) => (AIKeyServiceFacade.getActiveKey(providerId) as any) ?? null,
