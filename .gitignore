@@ -10,3 +10,5 @@ __pycache__/
 
 # Disposable downstream library workspaces
 /.skipo/libraries/
+workspace/
+workspaces/
