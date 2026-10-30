@@ -13,7 +13,7 @@ describe('Skipo scaffold contracts', () => {
   it('ships mandatory FOD in the application scaffold generator', () => {
     const source = readFileSync(new URL('../scripts/scaffold_app_structure.py', import.meta.url), 'utf8');
     expect(source).toContain('pages_root / "main" / "tabs" / "fod"');
-    expect(source).toContain('@dinimusick/gutts/api');
+    expect(source).toContain('@dinilmusick/gutts/api');
     expect(source).toContain('FodRuntime');
   });
 });

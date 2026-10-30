@@ -13,7 +13,7 @@ import {
 import { workingWorkspaceService } from '@ultrst-armada/kloks/backend';
 import { WorkerExecutionBoundary } from '@ultrst-armada/krnl';
 import { FodRuntime, createFodServiceFacadeForWorkspace, scanBackendFacadeToNodes } from '@ultrst-armada/kloks/fod';
-import { guttsFodNodeDefinitions, executeGuttsApi } from '@dinimusick/gutts/api';
+import { guttsFodNodeDefinitions, executeGuttsApi } from '@dinilmusick/gutts/api';
 
 export const orchestrations = {
   orchestratorA: OrchestratorADefinition,
@@ -26,7 +26,7 @@ export const createFodRuntime = (workspaceId: string) => {
   const runtime = new FodRuntime({ workspaceId, workspaceService: workingWorkspaceService });
   const host = scanBackendFacadeToNodes({ services, orchestrations });
   const guttsEndpoints = guttsFodNodeDefinitions.map((node: any) => ({
-    id: String(node.metadata.apiId), serviceId: '@dinimusick/gutts', serviceName: 'GutTS',
+    id: String(node.metadata.apiId), serviceId: '@dinilmusick/gutts', serviceName: 'GutTS',
     operationId: String(node.metadata.apiId), operationName: node.label, description: node.description,
     invoke: (input: Record<string, unknown>) => executeGuttsApi(String(node.metadata.apiId), input),
   }));

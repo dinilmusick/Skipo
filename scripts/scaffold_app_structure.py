@@ -45,16 +45,10 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
             "dependencies": {
                 "@ultrst-armada/krnl": "^1.0.0",
                 "@ultrst-armada/kloks": "^1.20.0",
-                "@dinimusick/gutts": "^1.0.0",
+                "@dinilmusick/gutts": "^1.1.0",
                 "@ultrst-armada/floks": "^1.8.0",
                 "react": "^19.0.1",
                 "react-dom": "^19.0.1"
-            },
-            "pnpm": {
-                "overrides": {
-                    "@ultrst-armada/kloks": "file:../Kloks",
-                    "@ultrst-armada/floks": "file:../Floks"
-                }
             }
         }
         pkg_json_file.write_text(json.dumps(pkg_data, indent=2) + "\n", encoding="utf-8")
@@ -91,7 +85,7 @@ import {{
 import {{ FodRuntime, createFodServiceFacadeForWorkspace, scanBackendFacadeToNodes }} from '@ultrst-armada/kloks/fod';
 import {{ AikoRuntime }} from '@ultrst-armada/kloks/aiko';
 import {{ AIKeyServiceFacade }} from '@ultrst-armada/kloks/krnl-ai-services';
-import {{ guttsFodNodeDefinitions, executeGuttsApi }} from '@dinimusick/gutts/api';
+import {{ guttsFodNodeDefinitions, executeGuttsApi }} from '@dinilmusick/gutts/api';
 
 export const {camel}BackendFacade = new ExecutableBackendFacade('{pascal}Backend');
 export const {camel}Worker = new WorkerExecutionBoundary('{pascal}Worker', {camel}BackendFacade);
@@ -101,7 +95,7 @@ export const createFodRuntime = (workspaceId: string) => {{
   const host = scanBackendFacadeToNodes({pascal}Backend as any);
   const guttsEndpoints = guttsFodNodeDefinitions.map((node: any) => ({{
     id: String(node.metadata.apiId),
-    serviceId: '@dinimusick/gutts',
+    serviceId: '@dinilmusick/gutts',
     serviceName: 'GutTS',
     operationId: String(node.metadata.apiId),
     operationName: node.label,
@@ -118,30 +112,50 @@ export const createAikoRuntime = (workspaceId: string) => {{
   const fod = createFodRuntime(workspaceId);
   const host = scanBackendFacadeToNodes({pascal}Backend as any);
   const engineUrl = process.env.AIKO_ENGINE_URL;
-  const resolve = async (specId?: string) => {{
+  const resolve = async (specId?: string, context?: any) => {{
     if (!engineUrl) throw new Error('AIKO_ENGINE_URL is required for the embedded Aiko module.');
     const response = await fetch(engineUrl.replace(/\/$/, '') + '/api/module/resolve-intelligence', {{
       method: 'POST',
-      headers: {{ 'Content-Type': 'application/json' }},
-      body: JSON.stringify({{ specId }}),
+      headers: {{
+        'Content-Type': 'application/json',
+        ...(process.env.AIKO_MODULE_TOKEN ? {{ 'x-aiko-module-token': process.env.AIKO_MODULE_TOKEN }} : {{}}),
+      }},
+      body: JSON.stringify({{ specId, ...context }}),
     }});
     if (!response.ok) throw new Error('Aiko Engine intelligence resolver request failed.');
     return response.json();
   }};
   const capabilities = async () => {{
-    const endpointCapabilities = host.endpoints.map((endpoint: any) => ({{
-      id: String(endpoint.id), name: endpoint.operationName || endpoint.id, description: endpoint.description,
-      sourceKind: 'endpoint', sourceId: String(endpoint.id), inputSchema: endpoint.inputSchema,
-      execute: (input: unknown) => endpoint.invoke(input),
-    }}));
+    const endpointCapabilities = host.endpoints
+      .filter((endpoint: any) => !String(endpoint.id).startsWith('aiko') && !String(endpoint.id).startsWith('kloks.aiko') && endpoint.serviceName !== 'AikoService')
+      .map((endpoint: any) => ({{
+        id: String(endpoint.id), name: endpoint.operationName || endpoint.id, description: endpoint.description,
+        sourceKind: 'endpoint', sourceId: String(endpoint.id), inputSchema: endpoint.inputSchema,
+        execute: (input: unknown) => endpoint.invoke(input),
+      }}));
     const flowCapabilities = (await fod.listFlows()).map((flow: any) => ({{
       id: String(flow.id), name: flow.name, description: flow.description,
-      sourceKind: 'fod-flow', sourceId: String(flow.id), inputSchema: flow.inputSchema,
-      execute: (_input: unknown) => fod.executeFlow(String(flow.id)),
+      sourceKind: 'fod-flow', sourceId: String(flow.id), inputSchema: (flow as any).inputSchema,
+      execute: async (input: unknown) => {{
+        const result = await fod.executeFlow(String(flow.id), input);
+        if (!result.success) throw new Error(result.errors?.[0]?.message || 'Flow execution failed');
+        return result.output;
+      }},
     }}));
+    const deriveInputSchema = (inputs?: any[]) => {{
+      if (!inputs || !Array.isArray(inputs) || inputs.length === 0) return {{ type: 'object' }};
+      const properties: Record<string, any> = {{}};
+      const required: string[] = [];
+      for (const port of inputs) {{
+        const propName = port.name || port.id;
+        properties[propName] = {{ type: port.dataType === 'number' ? 'number' : port.dataType === 'boolean' ? 'boolean' : 'string', description: port.description }};
+        if (port.required) required.push(propName);
+      }}
+      return {{ type: 'object', properties, required }};
+    }};
     const guttsCapabilities = guttsFodNodeDefinitions.map((node: any) => ({{
       id: String(node.metadata.apiId), name: node.label, description: node.description,
-      sourceKind: 'gutts-api', sourceId: String(node.metadata.apiId), inputSchema: node.inputSchema,
+      sourceKind: 'gutts-api', sourceId: String(node.metadata.apiId), inputSchema: node.inputSchema || deriveInputSchema(node.inputs),
       execute: (input: unknown) => executeGuttsApi(String(node.metadata.apiId), input as Record<string, unknown>),
     }}));
     return [...endpointCapabilities, ...flowCapabilities, ...guttsCapabilities];
@@ -160,7 +174,7 @@ export const createAikoRuntime = (workspaceId: string) => {{
   }};
   return new AikoRuntime({{
     capabilities,
-    resolver: {{ resolve: async (specId) => resolve(specId) }},
+    resolver: {{ resolve: async (specId, context) => resolve(specId, context) }},
     resolveNaturalLanguage,
     keys: {{
       listKeys: async () => (AIKeyServiceFacade.getKeys() as any[]).map((key: any) => ({{ id: key.id, providerId: key.providerId, label: key.label, status: key.status, isActive: key.isActive, emailGroup: key.emailGroup, expiresAt: key.expiresAt }})),
@@ -219,6 +233,20 @@ export default {pascal}Backend;
         backend_file.write_text(backend_content, encoding="utf-8")
         created.append(backend_file)
 
+    # 2b. Canonical public backend barrel (Aspect 22 compliance)
+    backend_barrel = target_root / "src" / "backend" / "index.ts"
+    if not backend_barrel.exists():
+        backend_barrel_content = f"""/**
+ * @file index.ts
+ * @description Canonical public backend barrel.
+ */
+
+export * from './{pascal}Backend.js';
+export {{ default }} from './{pascal}Backend.js';
+"""
+        backend_barrel.write_text(backend_barrel_content, encoding="utf-8")
+        created.append(backend_barrel)
+
     # 3. Canonical Skipo frontend page contract + component facade
     frontend_components = target_root / "src" / "frontend" / "components"
     pages_root = target_root / "src" / "frontend" / "pages"
@@ -269,19 +297,29 @@ export default {pascal}Backend;
             "export default MainPage;\\n"
         ),
         pages_root / "main" / "tabs" / "README.md": (
-            "# Main Tabs\\n\\nFOD is mandatory. Application-specific working UI belongs in additional tab directories under this folder.\\n"
+            "# Main Tabs\n\nFOD is mandatory. Application-specific working UI belongs in additional tab directories under this folder.\n"
+        ),
+        pages_root / "main" / "tabs" / "aiko" / "aiko.tsx": (
+            "import React from 'react';\\n"
+            "import { AikoModule } from '@ultrst-armada/floks/canvas-ui/aiko';\\n\\n"
+            "export function AikoTab({ runtime, workspaceId }: { runtime: any; workspaceId: string }) { return <AikoModule runtime={runtime} workspaceId={workspaceId} />; }\\n"
+            "export default AikoTab;\\n"
         ),
         pages_root / "main" / "tabs" / "aiko" / "page.tsx": (
-            "import { AikoModule } from '@ultrst-armada/floks/canvas-ui/aiko';\\n"
-            "export default function AikoTab({ runtime, workspaceId }: { runtime: any; workspaceId: string }) { return <AikoModule runtime={runtime} workspaceId={workspaceId} />; }\\n"
+            "export { AikoTab as default } from './aiko.js';\\n"
         ),
-        pages_root / "main" / "tabs" / "fod" / "page.tsx": (
+        pages_root / "main" / "tabs" / "fod" / "fod.tsx": (
+            "import React from 'react';\\n"
             "import { FodModule } from '@ultrst-armada/floks/canvas-ui/fod';\\n"
             "import type { FodRuntimeLike } from '@ultrst-armada/floks/canvas-ui/fod';\\n"
-            "import { guttsFodNodeDefinitions } from '@dinimusick/gutts/api';\\n\\n"
-            "export default function FodTab({ runtime, workspaceId, hostNodes = [] }: { runtime: FodRuntimeLike; workspaceId: string; hostNodes?: any[] }) {\\n"
+            "import { guttsFodNodeDefinitions } from '@dinilmusick/gutts/api';\\n\\n"
+            "export function FodTab({ runtime, workspaceId, hostNodes = [] }: { runtime: FodRuntimeLike; workspaceId: string; hostNodes?: any[] }) {\\n"
             "  return <FodModule runtime={runtime} workspaceId={workspaceId} nodeDefinitions={[...guttsFodNodeDefinitions as any, ...hostNodes]} />;\\n"
             "}\\n"
+            "export default FodTab;\\n"
+        ),
+        pages_root / "main" / "tabs" / "fod" / "page.tsx": (
+            "export { FodTab as default } from './fod.js';\\n"
         ),
         pages_root / "settings" / "page.tsx": (
             "import React, { useState } from 'react';\\n"
@@ -312,7 +350,7 @@ export default {pascal}Backend;
             "import MainPage from './pages/main/page.js';\\n"
             "import FodTab from './pages/main/tabs/fod/page.js';\\n"
             "import AikoTab from './pages/main/tabs/aiko/page.js';\\n"
-            "import { createFodRuntime, createAikoRuntime } from '../backend/AppBackend.js';\\n\\n"
+            "import { createFodRuntime, createAikoRuntime } from '../backend/index.js';\\n\\n"
             "export function App() { const workspaceId = typeof window === 'undefined' ? 'default' : localStorage.getItem('skipo-active-workspace') || 'default'; const fodRuntime = createFodRuntime(workspaceId); const aikoRuntime = createAikoRuntime(workspaceId); return <MainPage fod={<FodTab runtime={fodRuntime} workspaceId={workspaceId} />} aiko={<AikoTab runtime={aikoRuntime} workspaceId={workspaceId} />} />; }\\n\\n"
             "export default App;\\n",
             encoding="utf-8",
@@ -346,6 +384,18 @@ def run_validators(target_root: Path) -> Tuple[bool, str]:
         res = subprocess.run(["python3", str(val_15), str(target_root)], capture_output=True, text=True)
         if res.returncode != 0:
             errors.append(f"[ASPECT 15 VIOLATION]\n{res.stdout or res.stderr}")
+
+    val_22 = SKIPO_ROOT / "checklists" / "22_import_direction_governance.py"
+    if val_22.exists():
+        res = subprocess.run(["python3", str(val_22), str(target_root)], capture_output=True, text=True)
+        if res.returncode != 0:
+            errors.append(f"[ASPECT 22 VIOLATION]\n{res.stdout or res.stderr}")
+
+    val_23 = SKIPO_ROOT / "checklists" / "23_graph_application_contract.py"
+    if val_23.exists():
+        res = subprocess.run(["python3", str(val_23), str(target_root)], capture_output=True, text=True)
+        if res.returncode != 0:
+            errors.append(f"[ASPECT 23 VIOLATION]\n{res.stdout or res.stderr}")
 
     # If tsconfig.json and node_modules exist, run TypeScript typecheck
     tsconfig = target_root / "tsconfig.json"

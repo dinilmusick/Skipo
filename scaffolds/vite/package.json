@@ -36,7 +36,7 @@
     "@ultrst-armada/kloks": "^1.19.0",
     "@ultrst-armada/floks": "^1.2.5",
     "@ultrst-armada/frnlts": "^0.2.2",
-    "@dinimusick/gutts": "^1.0.0"
+    "@dinilmusick/gutts": "^1.1.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",

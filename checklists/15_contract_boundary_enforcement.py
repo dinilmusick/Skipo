@@ -101,6 +101,13 @@ VALID_KLOKS_SUBPATHS = {
     "orchestrations",
     "contracts",
     "development",
+    "ai-provider",
+    "ai-inference",
+    "ai-models",
+    "ai-routing",
+    "ai-keys",
+    "ai-tools",
+    "krnl-ai-services",
     "fod",
     "aiko",
 }
