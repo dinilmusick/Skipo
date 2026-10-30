@@ -24,10 +24,10 @@
   },
   "dependencies": {
     "@dinilmusick/gutts": "^1.1.0",
-    "@ultrst-armada/floks": "^1.9.0",
-    "@ultrst-armada/frnlts": "^0.2.7",
+    "@ultrst-armada/floks": "^1.11.1",
+    "@ultrst-armada/frnlts": "^0.3.0",
     "@ultrst-armada/kloks": "^1.21.0",
-    "@ultrst-armada/krnl": "^1.0.8",
+    "@ultrst-armada/krnl": "^1.0.9",
     "lucide-react": "^1.55.0",
     "p-queue": "^10.0.0",
     "react": "^19.0.1",
