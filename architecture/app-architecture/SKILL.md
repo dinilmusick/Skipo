@@ -41,6 +41,23 @@ Skipo App
 
 The detailed backend/runtime boundary rules are defined by [APP_ARCHITECTURE_SPEC](../app-architecture-spec/SKILL.md). The frontend contract is enforced by checklist 19.
 
+## 1.1 Global Aiko Direct Chat
+
+Every generated Skipo application MUST mount `AikoDirectChat` at the application root (`src/frontend/App.tsx`), outside page/tab content. This makes the chat available over every route and module without page-specific integration.
+
+```text
+Application root
+├── current route/page
+└── AikoDirectChat overlay
+    ├── @AgentName autocomplete
+    ├── Aiko runtime agent resolution
+    ├── conversation state
+    ├── execution/streaming state
+    └── runtime error state
+```
+
+The component MUST obtain agent definitions from `AikoRuntime` and execute the selected agent through that runtime. Applications MUST NOT create separate direct-chat agents, agent APIs, or page-local chat implementations.
+
 ## 2. Workspace and storage model
 
 Every Skipo app exposes the same workspace abstraction. A selected workspace has an active local working representation; persistence is an adapter concern.
