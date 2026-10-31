@@ -313,7 +313,8 @@ export {{ default }} from './{pascal}Backend.js';
         components_file.write_text(
             "export * from '@ultrst-armada/floks/ui';\n"
             "export * from '@ultrst-armada/floks/canvas-ui';\n"
-            "export * from '@ultrst-armada/floks/canvas-ui/aiko';\n",
+            "export * from '@ultrst-armada/floks/canvas-ui/aiko';\n"
+            "export { AikoDirectChat } from './aiko/AikoDirectChat.js';\n",
             encoding="utf-8",
         )
         created.append(components_file)
@@ -395,8 +396,9 @@ export {{ default }} from './{pascal}Backend.js';
             "import MainPage from './pages/main/page.js';\n"
             "import FodTab from './pages/main/tabs/fod/page.js';\n"
             "import AikoTab from './pages/main/tabs/aiko/page.js';\n"
+            "import { AikoDirectChat } from './components/components.js';\n"
             "import { createFodRuntime, createAikoRuntime } from '../backend/index.js';\n\n"
-            "export function App() { const workspaceId = typeof window === 'undefined' ? 'default' : localStorage.getItem('skipo-active-workspace') || 'default'; const fodRuntime = createFodRuntime(workspaceId); const aikoRuntime = createAikoRuntime(workspaceId); return <MainPage fod={<FodTab runtime={fodRuntime} workspaceId={workspaceId} />} aiko={<AikoTab runtime={aikoRuntime} workspaceId={workspaceId} />} />; }\n\n"
+            "export function App() { const workspaceId = typeof window === 'undefined' ? 'default' : localStorage.getItem('skipo-active-workspace') || 'default'; const fodRuntime = createFodRuntime(workspaceId); const aikoRuntime = createAikoRuntime(workspaceId); return <> <MainPage fod={<FodTab runtime={fodRuntime} workspaceId={workspaceId} />} aiko={<AikoTab runtime={aikoRuntime} workspaceId={workspaceId} />} /> <AikoDirectChat runtime={aikoRuntime} workspaceId={workspaceId} /> </>; }\n\n"
             "export default App;\n",
             encoding="utf-8",
         )
