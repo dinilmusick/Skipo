@@ -395,7 +395,8 @@ export {{ default }} from './{pascal}Backend.js';
             "import MainPage from './pages/main/page.js';\n"
             "import FodTab from './pages/main/tabs/fod/page.js';\n"
             "import AikoTab from './pages/main/tabs/aiko/page.js';\n"
-            "import { createFodRuntime, createAikoRuntime } from '../backend/index.js';\n\n"
+            "import { createFodRuntime, createAikoRuntime } from '../backend/index.js';\n"
+            "import { FrnlSemanticInputProvider } from '@ultrst-armada/frnlts';\n\n"
             "export function App() { const workspaceId = typeof window === 'undefined' ? 'default' : localStorage.getItem('skipo-active-workspace') || 'default'; const fodRuntime = createFodRuntime(workspaceId); const aikoRuntime = createAikoRuntime(workspaceId); return <FrnlSemanticInputProvider value={{ workspace: workspaceId }}><MainPage fod={<FodTab runtime={fodRuntime} workspaceId={workspaceId} />} aiko={<AikoTab runtime={aikoRuntime} workspaceId={workspaceId} />} /></FrnlSemanticInputProvider>; }\n\n"
             "export default App;\n",
             encoding="utf-8",
@@ -406,8 +407,8 @@ export {{ default }} from './{pascal}Backend.js';
     semantic_input_file = target_root / "src" / "frontend" / "semantic-input.ts"
     if not semantic_input_file.exists():
         semantic_input_file.write_text(
-            "import { Whistle } from '@dinilmusick/gutts';\\n"
-            "export async function transcribeVoiceInput(audio, language) { return new Whistle().transcribe({ audio, language }); }\\n",
+            "import { Whistle } from '@dinilmusick/gutts';\n"
+            "export async function transcribeVoiceInput(audio, language) { return new Whistle().transcribe({ audio, language }); }\n",
             encoding="utf-8",
         )
         created.append(semantic_input_file)
