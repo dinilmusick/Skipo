@@ -1,6 +1,11 @@
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from scripts.scaffold_app_structure import scaffold_structure
 
@@ -16,7 +21,7 @@ class AikoDirectChatScaffoldTests(unittest.TestCase):
             self.assertIn("createAikoRuntime",app)
             self.assertIn("listAgents",chat)
             self.assertIn("executeAgent",chat)
-        self.assertIn("skipo-application-agent",(root / "src/frontend/../backend/aikoRuntime.ts").resolve().read_text(encoding="utf-8"))
+            self.assertIn("skipo-application-agent",(root / "src/frontend/../backend/aikoRuntime.ts").resolve().read_text(encoding="utf-8"))
         finally:
             import shutil
             shutil.rmtree(root,ignore_errors=True)

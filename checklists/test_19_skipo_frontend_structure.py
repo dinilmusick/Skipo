@@ -50,6 +50,11 @@ class SkipoFrontendStructureTests(unittest.TestCase):
                     p.write_text("import { AikoModule } from '@ultrst-armada/floks/canvas-ui/aiko';")
                 else:
                     p.write_text("")
+            chat = root / "src/frontend/components/aiko/AikoDirectChat.tsx"
+            chat.parent.mkdir(parents=True, exist_ok=True)
+            chat.write_text("export function AikoDirectChat() {}")
+            app = root / "src/frontend/App.tsx"
+            app.write_text("import { AikoDirectChat } from './components/aiko/AikoDirectChat';\nexport function App() { return <AikoDirectChat />; }")
         return root
 
     def test_complete_structure_passes(self):

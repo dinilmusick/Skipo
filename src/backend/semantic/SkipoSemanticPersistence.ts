@@ -18,6 +18,6 @@ export class WorkspaceSemanticTaskStore implements TaskStore{
 
 export class WorkspaceSemanticConversationStore implements SemanticConversationStore{
   constructor(private readonly workspaceId:string,private readonly workspace:any=workingWorkspaceService,private readonly root='SEMANTIC/conversations'){}
-  async append(sessionId:string,message:SemanticConversationMessage){const current=await this.list(sessionId);current.push(message);await this.workspace.writeFile(this.workspaceId,`${this.root}/${safe(sessionId)}.json`,JSON.stringify(current,null,2));}
-  async list(sessionId:string):Promise<SemanticConversationMessage[]>{try{return JSON.parse(decode(await this.workspace.readFile(this.workspaceId,`${this.root}/${safe(sessionId)}.json`))) as SemanticConversationMessage[];}catch{return [];}}
+  async append(sessionId:string,message:SemanticConversationMessage){const current=await this.list(sessionId);const list=Array.isArray(current)?current:[];list.push(message);await this.workspace.writeFile(this.workspaceId,`${this.root}/${safe(sessionId)}.json`,JSON.stringify(list,null,2));}
+  async list(sessionId:string):Promise<SemanticConversationMessage[]>{try{const parsed=JSON.parse(decode(await this.workspace.readFile(this.workspaceId,`${this.root}/${safe(sessionId)}.json`)));return Array.isArray(parsed)?parsed:[];}catch{return [];}}
 }

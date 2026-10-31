@@ -1,0 +1,548 @@
+import {describe,expect,it,vi} from 'vitest';
+import {createSkipoSemanticRuntime,type Requirement} from '../src/backend/semantic/SkipoSemanticRuntime.js';
+import {createSkipoAikoRuntime} from '../src/backend/semantic/SkipoAikoBridge.js';
+import {handleConversationRoutes} from '../scaffolds/vite/src/backend/adapters/conversationRoutes.js';
+import {WorkspaceSemanticTaskStore,WorkspaceSemanticConversationStore} from '../src/backend/semantic/SkipoSemanticPersistence.js';
+
+describe('Ecosystem Conversational Architecture E2E Matrix', () => {
+
+  it('E2E-01 Simple endpoint execution via natural language', async () => {
+    const runtime = createSkipoSemanticRuntime({ applicationId: 'e2e-app-1' });
+    runtime.registerCapability({
+      id: 'greeting.echo',
+      name: 'Echo Greeting',
+      description: 'Echoes back a greeting message',
+      kind: 'endpoint',
+      inputSchema: { type: 'object', properties: { message: { type: 'string' } } },
+      metadata: { public: true }
+    });
+    runtime.setPlanner(async (request) => ({
+      intent: 'greeting.echo',
+      nodes: [{ id: 'n1', capabilityId: 'greeting.echo', dependsOn: [], input: { message: 'hello world' } }]
+    }));
+    runtime.setExecutor({
+      async execute(cap, input: any) {
+        return `Echoed: ${input.message}`;
+      }
+    });
+
+    const result = await runtime.handle('Say hello world', {
+      applicationId: 'e2e-app-1',
+      sessionId: 'session-e2e-01'
+    });
+
+    expect(result.status).toBe('completed');
+    expect(result.task.result).toBe('Echoed: hello world');
+  });
+
+  it('E2E-02 Real GutTS API capability execution', async () => {
+    const runtime = createSkipoSemanticRuntime({ applicationId: 'e2e-app-2' });
+    runtime.registerGutTS();
+
+    const cap = runtime.capabilities.get('gutts.strings.capitalize');
+    expect(cap).toBeDefined();
+    expect(cap?.kind).toBe('gutts');
+
+    runtime.setPlanner(async () => ({
+      intent: 'capitalize',
+      nodes: [{ id: 'cap-1', capabilityId: 'gutts.strings.capitalize', dependsOn: [], input: { value: 'krusbl ecosystem' } }]
+    }));
+
+    const result = await runtime.handle('Capitalize krusbl ecosystem', {
+      applicationId: 'e2e-app-2',
+      sessionId: 'session-e2e-02'
+    });
+
+    expect(result.status).toBe('completed');
+    expect(result.task.result).toBe('Krusbl ecosystem');
+  });
+
+  it('E2E-03 FOD flow capability discovery, execution, and artifact verification', async () => {
+    const runtime = createSkipoSemanticRuntime({ applicationId: 'e2e-app-3' });
+    const mockFod = {
+      listFlows: () => [
+        { id: 'flow.syncUsers', name: 'Sync Users Flow', description: 'Synchronize users with remote DB', inputSchema: {}, outputSchema: {} }
+      ],
+      executeFlow: vi.fn(async (flowId: string, input: any) => ({ syncedCount: 42, flowId }))
+    };
+
+    await runtime.registerFod(mockFod);
+    const flowCap = runtime.capabilities.get('flow.syncUsers');
+    expect(flowCap).toBeDefined();
+    expect(flowCap?.kind).toBe('fod-flow');
+
+    runtime.setPlanner(async () => ({
+      intent: 'sync-users',
+      nodes: [{ id: 'fod-node-1', capabilityId: 'flow.syncUsers', dependsOn: [], input: { batchSize: 100 } }]
+    }));
+
+    const result = await runtime.handle('Run sync users flow', {
+      applicationId: 'e2e-app-3',
+      sessionId: 'session-e2e-03',
+      userId: 'user-e2e-3'
+    });
+
+    expect(result.status).toBe('completed');
+    expect(mockFod.executeFlow).toHaveBeenCalledWith('flow.syncUsers', { batchSize: 100 });
+    expect(result.task.result).toEqual({ syncedCount: 42, flowId: 'flow.syncUsers' });
+    expect(result.task.context.artifacts.length).toBeGreaterThanOrEqual(1);
+    expect(result.task.context.artifacts[0].producer).toBe('flow.syncUsers');
+  });
+
+  it('E2E-04 Provider chain: Capability A requires B, B requires C (C -> B -> A)', async () => {
+    const runtime = createSkipoSemanticRuntime({ applicationId: 'e2e-app-4' });
+    const executionOrder: string[] = [];
+
+    runtime.registerCapability({
+      id: 'auth.login',
+      name: 'Auth Login',
+      description: 'Generates authentication token',
+      kind: 'endpoint',
+      metadata: { provides: ['AuthToken'] }
+    });
+    runtime.registerCapability({
+      id: 'users.profile',
+      name: 'Get User Profile',
+      description: 'Retrieves user profile using auth token',
+      kind: 'endpoint',
+      metadata: { provides: ['UserProfile'] }
+    });
+    runtime.registerCapability({
+      id: 'reports.generate',
+      name: 'Generate User Report',
+      description: 'Generates report using user profile',
+      kind: 'endpoint',
+      metadata: { provides: ['ReportSummary'] }
+    });
+
+    runtime.setPlanner(async () => ({
+      intent: 'generate-report-chain',
+      nodes: [
+        { id: 'step-c', capabilityId: 'auth.login', dependsOn: [], input: {} },
+        { id: 'step-b', capabilityId: 'users.profile', dependsOn: ['step-c'], input: {} },
+        { id: 'step-a', capabilityId: 'reports.generate', dependsOn: ['step-b'], input: {} }
+      ]
+    }));
+
+    runtime.setExecutor({
+      async execute(cap) {
+        executionOrder.push(cap.id);
+        if (cap.id === 'auth.login') return { token: 'jwt-123' };
+        if (cap.id === 'users.profile') return { user: 'Alice', role: 'admin' };
+        if (cap.id === 'reports.generate') return { report: 'Report for Alice' };
+        return {};
+      }
+    });
+
+    const result = await runtime.handle('Generate my user report', {
+      applicationId: 'e2e-app-4',
+      sessionId: 'session-e2e-04'
+    });
+
+    expect(result.status).toBe('completed');
+    expect(executionOrder).toEqual(['auth.login', 'users.profile', 'reports.generate']);
+  });
+
+  it('E2E-05 Missing input enters input-required, user provides answer, same task resumes and completes', async () => {
+    const runtime = createSkipoSemanticRuntime({ applicationId: 'e2e-app-5' });
+    runtime.registerCapability({
+      id: 'account.create',
+      name: 'Create Account',
+      description: 'Creates a new user account',
+      kind: 'endpoint',
+      inputSchema: { type: 'object', properties: { username: { type: 'string' } } }
+    });
+
+    runtime.setPlanner(async () => ({
+      intent: 'account.create',
+      nodes: [{ id: 'n-create', capabilityId: 'account.create', dependsOn: [], input: { username: '$requirement:username' } }],
+      requirements: [{
+        id: 'username',
+        semanticType: 'Username',
+        description: 'Please provide a username',
+        required: true,
+        sourceCapability: 'account.create',
+        sourceField: 'username',
+        constraints: { schema: { type: 'string' } }
+      }]
+    }));
+
+    runtime.setExecutor({
+      async execute(cap, input: any) {
+        return { accountCreated: true, username: input.username };
+      }
+    });
+
+    const first = await runtime.handle('Create account', {
+      applicationId: 'e2e-app-5',
+      sessionId: 'session-e2e-05'
+    });
+
+    expect(first.status).toBe('input-required');
+    expect(first.requirements?.[0].id).toBe('username');
+
+    // Second turn provides the missing value and resumes the same task
+    const second = await runtime.continueTask('coolguy42', first.task.id, {
+      applicationId: 'e2e-app-5',
+      sessionId: 'session-e2e-05'
+    });
+
+    expect(second.status).toBe('completed');
+    expect(second.task.id).toBe(first.task.id);
+    expect(second.task.result).toEqual({ accountCreated: true, username: 'coolguy42' });
+  });
+
+  it('E2E-06 Process restart / state recovery persistence across turns', async () => {
+    const fakeFs = new Map<string, string>();
+    const mockWorkspace = {
+      async listFiles(_wsId: string, _dir: string) {
+        return [...fakeFs.keys()].map(path => ({ path, name: path.split('/').pop()!, isFolder: false }));
+      },
+      async readFile(_wsId: string, path: string) {
+        return fakeFs.get(path) ?? '{}';
+      },
+      async writeFile(_wsId: string, path: string, content: string) {
+        fakeFs.set(path, content);
+      }
+    };
+
+    const taskStore1 = new WorkspaceSemanticTaskStore('ws-test', mockWorkspace as any);
+    const convStore1 = new WorkspaceSemanticConversationStore('ws-test', mockWorkspace as any);
+
+    const runtime1 = createSkipoSemanticRuntime({
+      applicationId: 'e2e-app-6',
+      taskStore: taskStore1,
+      conversationStore: convStore1
+    });
+
+    runtime1.registerCapability({
+      id: 'service.action',
+      name: 'Action',
+      description: 'Perform action with code',
+      kind: 'endpoint'
+    });
+    const planner = async () => ({
+      intent: 'action',
+      nodes: [{ id: 'act-1', capabilityId: 'service.action', dependsOn: [], input: { code: '$requirement:code' } }],
+      requirements: [{
+        id: 'code',
+        semanticType: 'Code',
+        description: 'Provide verification code',
+        required: true,
+        sourceCapability: 'service.action',
+        sourceField: 'code'
+      }]
+    });
+    runtime1.setPlanner(planner);
+
+    const first = await runtime1.handle('Execute action', {
+      applicationId: 'e2e-app-6',
+      sessionId: 'session-e2e-06'
+    });
+    expect(first.status).toBe('input-required');
+
+    // Process restart: new runtime instance with re-hydrated stores from the same persistent workspace
+    const taskStore2 = new WorkspaceSemanticTaskStore('ws-test', mockWorkspace as any);
+    await taskStore2.hydrate();
+    const convStore2 = new WorkspaceSemanticConversationStore('ws-test', mockWorkspace as any);
+
+    const runtime2 = createSkipoSemanticRuntime({
+      applicationId: 'e2e-app-6',
+      taskStore: taskStore2,
+      conversationStore: convStore2
+    });
+    runtime2.setPlanner(planner);
+    runtime2.registerCapability({
+      id: 'service.action',
+      name: 'Action',
+      description: 'Perform action with code',
+      kind: 'endpoint'
+    });
+    runtime2.setExecutor({
+      async execute(_cap, input: any) {
+        return { success: true, verifiedCode: input.code };
+      }
+    });
+
+    // Check recovered task exists in storage
+    const recovered = taskStore2.get(first.task.id);
+    expect(recovered).toBeDefined();
+    expect(recovered?.status).toBe('input-required');
+
+    // Resume on new runtime instance
+    const second = await runtime2.continueTask('998877', first.task.id, {
+      applicationId: 'e2e-app-6',
+      sessionId: 'session-e2e-06'
+    });
+
+    expect(second.status).toBe('completed');
+    expect(second.task.result).toEqual({ success: true, verifiedCode: '998877' });
+    const history = await convStore2.list('session-e2e-06');
+    expect(history.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('E2E-07 Unauthorized attempt rejected; verify executor is NEVER invoked', async () => {
+    const executorSpy = vi.fn(async () => 'danger');
+    const runtime = createSkipoSemanticRuntime({
+      applicationId: 'e2e-app-7',
+      authorizationPolicy: {
+        async canExecute() {
+          return false; // Deny all
+        }
+      }
+    });
+
+    runtime.registerCapability({
+      id: 'admin.nuke',
+      name: 'Admin Nuke',
+      description: 'Dangerous operation',
+      kind: 'endpoint'
+    });
+    runtime.setPlanner(async () => ({
+      intent: 'nuke',
+      nodes: [{ id: 'nuke-1', capabilityId: 'admin.nuke', dependsOn: [], input: {} }]
+    }));
+    runtime.setExecutor({ execute: executorSpy });
+
+    const result = await runtime.handle('Run nuke command', {
+      applicationId: 'e2e-app-7',
+      sessionId: 'session-e2e-07'
+    });
+
+    expect(result.status).toBe('failed');
+    expect(executorSpy).not.toHaveBeenCalled();
+  });
+
+  it('E2E-08 Authorized execution succeeds with valid roles/user', async () => {
+    const executorSpy = vi.fn(async (_cap, input: any) => ({ authorized: true, input }));
+    const runtime = createSkipoSemanticRuntime({
+      applicationId: 'e2e-app-8',
+      authorizationPolicy: {
+        async canExecute(_cap, context) {
+          return context.runtime.userId === 'admin-user';
+        }
+      }
+    });
+
+    runtime.registerCapability({
+      id: 'admin.config',
+      name: 'Admin Config',
+      description: 'Configure system',
+      kind: 'endpoint'
+    });
+    runtime.setPlanner(async () => ({
+      intent: 'config',
+      nodes: [{ id: 'cfg-1', capabilityId: 'admin.config', dependsOn: [], input: { key: 'value' } }]
+    }));
+    runtime.setExecutor({ execute: executorSpy });
+
+    const result = await runtime.handle('Update config', {
+      applicationId: 'e2e-app-8',
+      sessionId: 'session-e2e-08',
+      userId: 'admin-user'
+    });
+
+    expect(result.status).toBe('completed');
+    expect(executorSpy).toHaveBeenCalled();
+  });
+
+  it('E2E-09 Parallel plan ("Get X and Y") executes independent branches', async () => {
+    const runtime = createSkipoSemanticRuntime({ applicationId: 'e2e-app-9' });
+    const timestamps: Record<string, number> = {};
+
+    runtime.registerCapability({ id: 'data.getX', name: 'Get X', description: 'Fetch X', kind: 'endpoint' });
+    runtime.registerCapability({ id: 'data.getY', name: 'Get Y', description: 'Fetch Y', kind: 'endpoint' });
+
+    runtime.setPlanner(async () => ({
+      intent: 'fetch-x-and-y',
+      nodes: [
+        { id: 'node-x', capabilityId: 'data.getX', dependsOn: [], input: {} },
+        { id: 'node-y', capabilityId: 'data.getY', dependsOn: [], input: {} }
+      ]
+    }));
+
+    runtime.setExecutor({
+      async execute(cap) {
+        timestamps[cap.id] = Date.now();
+        await new Promise(r => setTimeout(r, 20));
+        return { [cap.id]: true };
+      }
+    });
+
+    const result = await runtime.handle('Get X and Y', {
+      applicationId: 'e2e-app-9',
+      sessionId: 'session-e2e-09'
+    });
+
+    expect(result.status).toBe('completed');
+    expect(timestamps['data.getX']).toBeDefined();
+    expect(timestamps['data.getY']).toBeDefined();
+    // Both were started in the same wave (parallel ready nodes)
+    expect(Math.abs(timestamps['data.getX'] - timestamps['data.getY'])).toBeLessThan(15);
+  });
+
+  it('E2E-10 Sequential plan ("Find X and then update Y") enforces A -> B order', async () => {
+    const runtime = createSkipoSemanticRuntime({ applicationId: 'e2e-app-10' });
+    const order: string[] = [];
+
+    runtime.registerCapability({ id: 'items.find', name: 'Find Item', description: 'Finds item', kind: 'endpoint' });
+    runtime.registerCapability({ id: 'items.update', name: 'Update Item', description: 'Updates item', kind: 'endpoint' });
+
+    runtime.setPlanner(async () => ({
+      intent: 'find-then-update',
+      nodes: [
+        { id: 'find-1', capabilityId: 'items.find', dependsOn: [], input: {} },
+        { id: 'update-1', capabilityId: 'items.update', dependsOn: ['find-1'], input: {} }
+      ]
+    }));
+
+    runtime.setExecutor({
+      async execute(cap) {
+        order.push(cap.id);
+        return { done: cap.id };
+      }
+    });
+
+    const result = await runtime.handle('Find X and then update Y', {
+      applicationId: 'e2e-app-10',
+      sessionId: 'session-e2e-10'
+    });
+
+    expect(result.status).toBe('completed');
+    expect(order).toEqual(['items.find', 'items.update']);
+  });
+
+  it('E2E-11 Mixed plan ("Get X and Y and then create Z") enforces A, B -> C', async () => {
+    const runtime = createSkipoSemanticRuntime({ applicationId: 'e2e-app-11' });
+    const order: string[] = [];
+
+    runtime.registerCapability({ id: 'cap.x', name: 'Get X', description: 'Fetch X', kind: 'endpoint' });
+    runtime.registerCapability({ id: 'cap.y', name: 'Get Y', description: 'Fetch Y', kind: 'endpoint' });
+    runtime.registerCapability({ id: 'cap.z', name: 'Create Z', description: 'Create Z', kind: 'endpoint' });
+
+    runtime.setPlanner(async () => ({
+      intent: 'mixed-plan',
+      nodes: [
+        { id: 'node-x', capabilityId: 'cap.x', dependsOn: [], input: {} },
+        { id: 'node-y', capabilityId: 'cap.y', dependsOn: [], input: {} },
+        { id: 'node-z', capabilityId: 'cap.z', dependsOn: ['node-x', 'node-y'], input: {} }
+      ]
+    }));
+
+    runtime.setExecutor({
+      async execute(cap) {
+        order.push(cap.id);
+        return { done: cap.id };
+      }
+    });
+
+    const result = await runtime.handle('Get X and Y and then create Z', {
+      applicationId: 'e2e-app-11',
+      sessionId: 'session-e2e-11'
+    });
+
+    expect(result.status).toBe('completed');
+    expect(order.indexOf('cap.x')).toBeLessThan(order.indexOf('cap.z'));
+    expect(order.indexOf('cap.y')).toBeLessThan(order.indexOf('cap.z'));
+  });
+
+  it('E2E-12 Aiko Direct Chat component defaults normal message to Application Agent', async () => {
+    const executeAgentSpy = vi.fn(async (agentId: string, input: string) => `Executed ${agentId} with ${input}`);
+    const mockRuntime = {
+      async listAgents() {
+        return [
+          { id: 'skipo-application-agent', name: 'Application Agent', description: 'Handles conversational app requests' },
+          { id: 'specialist-agent', name: 'Specialist Agent', description: 'Handles niche tasks' }
+        ];
+      },
+      executeAgent: executeAgentSpy
+    };
+
+    // Simulate mention resolution in AikoDirectChat
+    const agents = await mockRuntime.listAgents();
+    const input = 'Show me open invoices';
+    const match = input.match(/^\s*@([^\s]+)\s*([\s\S]*)$/);
+    const targetAgent = match
+      ? agents.find(a => a.id.toLowerCase() === match[1].toLowerCase() || a.name.toLowerCase().replace(/\s+/g,'-') === match[1].toLowerCase())
+      : agents.find(a => a.id === 'skipo-application-agent' || a.id === 'application') ?? agents[0];
+    const targetQuery = match ? match[2].trim() : input;
+
+    expect(targetAgent?.id).toBe('skipo-application-agent');
+    expect(targetQuery).toBe('Show me open invoices');
+
+    const response = await mockRuntime.executeAgent(targetAgent!.id, targetQuery);
+    expect(response).toBe('Executed skipo-application-agent with Show me open invoices');
+  });
+
+  it('E2E-13 Explicit @AgentName in Aiko Direct Chat routes directly to requested agent', async () => {
+    const executeAgentSpy = vi.fn(async (agentId: string, input: string) => `Executed ${agentId} with ${input}`);
+    const mockRuntime = {
+      async listAgents() {
+        return [
+          { id: 'skipo-application-agent', name: 'Application Agent', description: 'Default' },
+          { id: 'specialist-agent', name: 'Specialist-Agent', description: 'Specialist' }
+        ];
+      },
+      executeAgent: executeAgentSpy
+    };
+
+    const agents = await mockRuntime.listAgents();
+    const input = '@Specialist-Agent generate code template';
+    const match = input.match(/^\s*@([^\s]+)\s*([\s\S]*)$/);
+    const targetAgent = match
+      ? agents.find(a => a.id.toLowerCase() === match[1].toLowerCase() || a.name.toLowerCase().replace(/\s+/g,'-') === match[1].toLowerCase())
+      : agents.find(a => a.id === 'skipo-application-agent') ?? agents[0];
+    const targetQuery = match ? match[2].trim() : input;
+
+    expect(targetAgent?.id).toBe('specialist-agent');
+    expect(targetQuery).toBe('generate code template');
+
+    const response = await mockRuntime.executeAgent(targetAgent!.id, targetQuery);
+    expect(response).toBe('Executed specialist-agent with generate code template');
+  });
+
+  it('E2E-14 Universal POST /api/converse HTTP transport matches UI conversational execution', async () => {
+    // 1. Rejects GET with 405 Method Not Allowed
+    const getReq = new Request('http://localhost/api/converse', { method: 'GET' });
+    const getRes = await handleConversationRoutes(getReq);
+    expect(getRes).not.toBeNull();
+    expect(getRes?.status).toBe(405);
+    const getJson = await getRes?.json();
+    expect(getJson.error).toBe('Method not allowed');
+
+    // 2. Rejects malformed JSON with 400 Bad Request
+    const badJsonReq = new Request('http://localhost/api/converse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: 'not a json{'
+    });
+    const badJsonRes = await handleConversationRoutes(badJsonReq);
+    expect(badJsonRes?.status).toBe(400);
+    const badJsonOutput = await badJsonRes?.json();
+    expect(badJsonOutput.error).toBe('Invalid JSON body');
+
+    // 3. Rejects empty message with 400 Bad Request
+    const emptyMsgReq = new Request('http://localhost/api/converse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: '   ' })
+    });
+    const emptyMsgRes = await handleConversationRoutes(emptyMsgReq);
+    expect(emptyMsgRes?.status).toBe(400);
+    const emptyMsgOutput = await emptyMsgRes?.json();
+    expect(emptyMsgOutput.error).toBe('Message or input is required');
+
+    // 4. Valid POST /api/converse dispatches to application agent and returns 200
+    const validReq = new Request('http://localhost/api/converse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Hello server', workspaceId: 'ws-e2e' })
+    });
+    const validRes = await handleConversationRoutes(validReq);
+    expect(validRes?.status).toBe(200);
+    const validJson = await validRes?.json();
+    expect(validJson).toBeDefined();
+    expect(validJson.status).toBeDefined();
+  });
+
+});

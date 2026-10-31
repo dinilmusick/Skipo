@@ -8,7 +8,7 @@ export interface SkipoAikoBridgeOptions {workspaceId:string;runtime:SkipoSemanti
 export function createSkipoAikoRuntime(options:SkipoAikoBridgeOptions):AikoRuntime {
   const resolver={resolve:async(specId?:string,context?:any)=>{
     if(!options.engineUrl)return {spec:{mode:'semantic-runtime',specId:specId??'skipo-semantic'},specId:specId??'skipo-semantic'};
-    const response=await fetch(options.engineUrl.replace(/\\/$/,'')+'/api/module/resolve-intelligence',{method:'POST',headers:{'Content-Type':'application/json',...(options.moduleToken?{'x-aiko-module-token':options.moduleToken}:{})},body:JSON.stringify({specId,...context})});
+    const response=await fetch(options.engineUrl.replace(/\/$/,'')+'/api/module/resolve-intelligence',{method:'POST',headers:{'Content-Type':'application/json',...(options.moduleToken?{'x-aiko-module-token':options.moduleToken}:{})},body:JSON.stringify({specId,...context})});
     if(!response.ok)throw new Error('Aiko Engine intelligence resolver request failed.');
     return response.json();
   }};

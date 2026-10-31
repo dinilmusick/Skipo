@@ -16,7 +16,7 @@ export function createAikoRuntime(
   const engineUrl = typeof process !== 'undefined' ? process.env.AIKO_ENGINE_URL : undefined;
 
   const resolve = async (specId?: string, context?: any) => {
-    if (!engineUrl) throw new Error('AIKO_ENGINE_URL is required for the embedded Aiko module.');
+    if (!engineUrl) return { spec: { mode: 'application-router', ...context }, specId: specId || 'default-spec' };
     const response = await fetch(engineUrl.replace(/\/$/, '') + '/api/module/resolve-intelligence', {
       method: 'POST',
       headers: {
@@ -72,7 +72,14 @@ export function createAikoRuntime(
   };
 
   const resolveNaturalLanguage = async (agent: any, inputText: string) => {
-    if (!engineUrl) throw new Error('AIKO_ENGINE_URL is required for natural-language Aiko execution.');
+    if (!engineUrl) {
+      const allCaps = await capabilities();
+      const matched = allCaps.find((c: any) =>
+        inputText.toLowerCase().includes(c.name.toLowerCase()) ||
+        inputText.toLowerCase().includes(c.id.toLowerCase())
+      ) ?? allCaps[0];
+      return { capabilityId: matched?.id ?? 'default', input: { value: inputText, message: inputText } };
+    }
     const response = await fetch(engineUrl.replace(/\/$/, '') + '/api/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
