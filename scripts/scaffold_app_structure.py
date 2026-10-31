@@ -305,6 +305,7 @@ export {{ default }} from './{pascal}Backend.js';
         pages_root / "settings" / "tabs" / "accounts",
     ]
     frontend_components.mkdir(parents=True, exist_ok=True)
+    (frontend_components / "aiko").mkdir(parents=True, exist_ok=True)
     for page_dir in required_page_dirs:
         page_dir.mkdir(parents=True, exist_ok=True)
 
@@ -389,6 +390,12 @@ export {{ default }} from './{pascal}Backend.js';
         if not page_file.exists():
             page_file.write_text(content, encoding="utf-8")
             created.append(page_file)
+
+    aiko_chat_target = frontend_components / "aiko" / "AikoDirectChat.tsx"
+    if not aiko_chat_target.exists():
+        canonical_aiko_chat = SKIPO_ROOT / "src" / "frontend" / "components" / "aiko" / "AikoDirectChat.tsx"
+        aiko_chat_target.write_text(canonical_aiko_chat.read_text(encoding="utf-8"), encoding="utf-8")
+        created.append(aiko_chat_target)
 
     app_tsx = target_root / "src" / "frontend" / "App.tsx"
     if not app_tsx.exists():
