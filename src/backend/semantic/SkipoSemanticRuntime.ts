@@ -10,9 +10,12 @@ import {
   type RuntimeContext,
   type TaskNode,
   type TaskStore,
+  type AuthorizationPolicy,
 } from '@ultrst-armada/kloks/semantic-runtime';
 import {guttsApiDefinitions,executeGuttsApi,resolveSemanticInput,rankSemanticInputCandidates} from '@dinilmusick/gutts';
 import {skipoExecutionEngine} from '../execution/SkipoExecutionEngine.js';
+import {CapabilityExecutionRuntime} from '@ultrst-armada/kloks/semantic-runtime';
+
 import type {SemanticConversationStore} from './SkipoSemanticPersistence.js';
 
 export interface SemanticAgentDescriptor {
@@ -29,6 +32,7 @@ export interface SemanticRuntimeOptions {
   knowledgeResolver?:ConstructorParameters<typeof ContextResolver>[1];
   taskStore?:TaskStore;
   conversationStore?:SemanticConversationStore;
+  authorizationPolicy?:AuthorizationPolicy;
 }
 
 export interface SemanticPlan { intent?:string; nodes:Omit<TaskNode,'status'>[]; requirements?:Requirement[]; }
@@ -60,10 +64,12 @@ export class SkipoSemanticRuntime {
   readonly agents=new Map<string,SemanticAgentDescriptor>();
   private readonly conversationStore?:SemanticConversationStore;
   private executor?:SemanticRuntimeExecutor;
+  private readonly authorizationPolicy:AuthorizationPolicy;
   private planner?:SemanticPlanner;
 
   constructor(private readonly options:SemanticRuntimeOptions){
     this.tasks=new TaskRuntime(options.taskStore);
+    this.authorizationPolicy=options.authorizationPolicy??{authorize:async(capability,context)=>{const requiredRoles=capability.metadata?.requiredRoles as string[]|undefined;const roles=(context.runtime.metadata?.roles as string[]|undefined)??[];if(requiredRoles?.length&&!requiredRoles.some(role=>roles.includes(role)))return {allowed:false,reason:'CAPABILITY_ROLE_FORBIDDEN'};if(capability.sideEffects==='irreversible'&&!context.runtime.userId)return {allowed:false,reason:'CAPABILITY_AUTH_REQUIRED'};if(['write','external'].includes(capability.sideEffects??'')&&!context.runtime.userId)return {allowed:false,reason:'CAPABILITY_AUTH_REQUIRED'};return {allowed:true};}};
     this.conversationStore=options.conversationStore;
     this.contextResolver=new ContextResolver(this.capabilities,options.knowledgeResolver);
     this.requirements=new RequirementResolver(this.capabilities);
@@ -267,13 +273,14 @@ export class SkipoSemanticRuntime {
   }
 
   async execute(capability:CapabilityDescriptor,input:unknown,context:AgentContext):Promise<unknown>{
-    if(this.executor) return this.executor.execute(capability,input,context);
+    const execute=async()=>{if(this.executor)return this.executor.execute(capability,input,context);
     if(capability.kind==='gutts') return executeGuttsApi(String(capability.metadata?.apiId??capability.id),input as Record<string,unknown>);
     if(capability.metadata?.service && capability.metadata?.operation)
       return skipoExecutionEngine.executeService(String(capability.metadata.service),String(capability.metadata.operation),input);
     if(capability.kind==='fod-flow' && capability.metadata?.flowExecutor)
       return (capability.metadata.flowExecutor as (input:unknown)=>Promise<unknown>)(input);
-    throw new Error(`NO_EXECUTOR:${capability.id}`);
+    throw new Error(`NO_EXECUTOR:${capability.id}`);};
+    return (await new CapabilityExecutionRuntime(this.authorizationPolicy).execute(capability,input,context,{execute})).artifact.value;
   }
 
   private resolveInput(input:unknown,requirements:Requirement[]):unknown{
