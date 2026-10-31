@@ -281,6 +281,31 @@ describe('Ecosystem Conversational Architecture E2E Matrix', () => {
     expect(history.length).toBeGreaterThanOrEqual(2);
   });
 
+
+  it('E2E-06b Workspace persistence serializes concurrent conversation appends', async () => {
+    const fakeFs = new Map<string, string>();
+    const mockWorkspace = {
+      async listFiles() { return []; },
+      async readFile(_wsId: string, path: string) { return fakeFs.get(path) ?? '[]'; },
+      async writeFile(_wsId: string, path: string, content: string) {
+        await new Promise(resolve => setTimeout(resolve, Math.floor(Math.random() * 2)));
+        fakeFs.set(path, content);
+      }
+    };
+    const store = new WorkspaceSemanticConversationStore('ws-concurrency', mockWorkspace as any);
+    await Promise.all(Array.from({ length: 20 }, (_, index) =>
+      store.append('session-concurrency', {
+        id: String(index),
+        role: 'user',
+        content: String(index),
+        createdAt: new Date().toISOString()
+      })
+    ));
+    const history = await store.list('session-concurrency');
+    expect(history).toHaveLength(20);
+    expect(new Set(history.map(message => message.id)).size).toBe(20);
+  });
+
   it('E2E-07 Unauthorized attempt rejected; verify executor is NEVER invoked', async () => {
     const executorSpy = vi.fn(async () => 'danger');
     const runtime = createSkipoSemanticRuntime({
