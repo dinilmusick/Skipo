@@ -21,6 +21,11 @@ export async function resolveSkipoInput<T>(
   contract: SkipoInputContract<T>,
   input: {text?: string; audio?: Uint8Array; language?: string},
 ): Promise<FrnlResolvedInput<T>> {
-  const text = input.text ?? (input.audio ? await transcribeVoiceInput(input.audio, input.language) : "");
-  return resolveFrnlInput(contract, text);
+  const text =
+    input.text ??
+    (input.audio ? await transcribeVoiceInput(input.audio, input.language) : "");
+  return resolveFrnlInput(contract, text, {
+    application: contract.application,
+    workspace: contract.workspace,
+  });
 }
