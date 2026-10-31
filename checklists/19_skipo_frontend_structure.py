@@ -30,7 +30,7 @@ REQUIRED_FILES = (
     "src/frontend/pages/settings/tabs/accounts/page.tsx",
 )
 
-REQUIRED_DIRS = (
+REQUIRED_COMPONENT_FILES = (\n    "src/frontend/components/aiko/AikoDirectChat.tsx",\n)\n\nREQUIRED_DIRS = (
     "src/frontend/pages/main/tabs",
     "src/frontend/pages/main/tabs/fod",
     "src/frontend/pages/main/tabs/aiko",
@@ -65,6 +65,16 @@ def validate_skipo_frontend_structure(root_dir: Path) -> ChecklistResult:
     for rel in REQUIRED_FILES:
         if not (root_dir / rel).is_file():
             violations.append(Violation("missing-skipo-page", "error", f"Missing mandatory Skipo frontend page: {rel}", rel))
+
+    for rel in REQUIRED_COMPONENT_FILES:
+        if not (root_dir / rel).is_file():
+            violations.append(Violation("missing-skipo-aiko-direct-chat", "error", f"Missing mandatory global Aiko Direct Chat component: {rel}", rel))
+
+    app_entry = root_dir / "src/frontend/App.tsx"
+    if app_entry.exists():
+        app_text = app_entry.read_text(encoding="utf-8", errors="ignore")
+        if "AikoDirectChat" not in app_text:
+            violations.append(Violation("missing-skipo-aiko-direct-chat-mount", "error", "The Skipo application root must mount Aiko Direct Chat so it overlays every page.", str(app_entry.relative_to(root_dir)), suggestion="Mount AikoDirectChat at src/frontend/App.tsx root with the application Aiko runtime."))
 
     if pages.is_dir():
         for entry in pages.iterdir():
@@ -105,7 +115,7 @@ def validate_skipo_frontend_structure(root_dir: Path) -> ChecklistResult:
                 suggestion="Sync the authenticated user's app-relevant accounts from SRKL."
             ))
 
-    files_scanned = len(REQUIRED_FILES) + len(REQUIRED_DIRS)
+    files_scanned = len(REQUIRED_FILES) + len(REQUIRED_DIRS) + len(REQUIRED_COMPONENT_FILES)
     errors = sum(v.severity == "error" for v in violations)
     score = max(0.0, 100.0 - errors * 20.0)
     return ChecklistResult(ASPECT_ID, ASPECT_TITLE, errors == 0, violations, files_scanned, (time.time() - start) * 1000, score)
