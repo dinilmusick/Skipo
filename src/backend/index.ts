@@ -10,6 +10,9 @@ export {
   WorkerExecutionBoundaryInstance,
   executeService,
   executeOrchestration,
+  converse,
+  createFodRuntime,
+  createAikoRuntime,
   type SkipoBackendFacade,
   type ServiceExecutableFacade,
 } from './SkipoBackend.js';
