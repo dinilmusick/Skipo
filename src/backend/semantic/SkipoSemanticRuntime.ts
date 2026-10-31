@@ -115,7 +115,7 @@ export class SkipoSemanticRuntime {
       this.registerCapability({
         id:String(flow.id),name:String(flow.name),description:String(flow.description??'Execute FOD flow'),kind:'fod-flow',
         inputSchema:flow.inputSchema,outputSchema:flow.outputSchema,sideEffects:'external',
-        metadata:{source:'fod',flowId:String(flow.id),provides:[String(flow.id)]}
+        metadata:{source:'fod',flowId:String(flow.id),provides:[String(flow.id)],flowExecutor:(input:unknown)=>fod.executeFlow(String(flow.id),input)}
       });
     }
   }
