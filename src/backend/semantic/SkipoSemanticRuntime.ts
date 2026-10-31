@@ -243,22 +243,27 @@ export class SkipoSemanticRuntime {
     if(this.planner) return this.planner.plan(request,context);
     const candidates=this.capabilities.list().filter(c=>c.kind!=='knowledge'&&c.metadata?.category!=='models');
     if(!candidates.length) throw new Error('NO_CAPABILITIES');
-    const ranked=await rankSemanticInputCandidates(
-      request,candidates.map(c=>`${c.name}: ${c.description}`),'fast'
-    );
-    const selected=candidates.find(c=>`${c.name}: ${c.description}`===ranked[0]?.value)??candidates[0];
-    let input:unknown={};
-    if(selected.inputSchema?.type){
-      const resolved=await resolveSemanticInput({input:request,schema:selected.inputSchema as any,context:{application:context.runtime.applicationId,locale:context.runtime.locale}});
-      if(resolved.status==='resolved') input=resolved.value;
-      else if(resolved.status==='ambiguous' && resolved.clarification)
-        throw new Error(resolved.clarification.question);
+    const parts=request.split(/\s+(and then|then|and)\s+/i);
+    const requests:string[]=[];const links:string[]=[];
+    for(let i=0;i<parts.length;i+=2){if(parts[i]?.trim())requests.push(parts[i].trim());if(parts[i+1])links.push(String(parts[i+1]).toLowerCase());}
+    const nodes:Omit<TaskNode,'status'>[]=[];const requirements:Requirement[]=[];
+    for(let i=0;i<requests.length;i++){
+      const part=requests[i];
+      const ranked=await rankSemanticInputCandidates(part,candidates.map(c=>c.name+': '+c.description),'fast');
+      const selected=candidates.find(c=>c.name+': '+c.description===ranked[0]?.value)??candidates[0];
+      let input:unknown={};
+      if(selected.inputSchema?.type){
+        const resolved=await resolveSemanticInput({input:part,schema:selected.inputSchema as any,context:{application:context.runtime.applicationId,locale:context.runtime.locale}});
+        if(resolved.status==='resolved') input=resolved.value;
+        else if(resolved.status==='ambiguous'&&resolved.clarification) throw new Error(resolved.clarification.question);
+      }
+      const id=selected.id+'-'+i;
+      const dependsOn=i>0&&links[i-1]==='then'?[nodes[i-1].id]:[];
+      nodes.push({id,capabilityId:selected.id,dependsOn,input});
+      for(const requirement of selected.requirements??[]) if(requirement.required&&!requirements.some(item=>item.id===requirement.id&&item.sourceCapability===selected.id))
+        requirements.push({id:requirement.id,semanticType:requirement.semanticType,description:requirement.description,required:true,sourceCapability:selected.id,sourceField:requirement.sourceField});
     }
-    const requirements=(selected.requirements??[]).filter(r=>r.required).map(r=>({
-      id:r.id,semanticType:r.semanticType,description:r.description,required:true,
-      sourceCapability:selected.id,sourceField:r.sourceField
-    }));
-    return {intent:selected.id,nodes:[{id:`${selected.id}-0`,capabilityId:selected.id,dependsOn:[],input}],requirements};
+    return {intent:nodes.map(n=>n.capabilityId).join(' -> '),nodes,requirements};
   }
 
   async execute(capability:CapabilityDescriptor,input:unknown,context:AgentContext):Promise<unknown>{
