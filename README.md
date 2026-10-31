@@ -61,6 +61,23 @@ For arbitrary edits, cloud agents use `python3 assistant.py edit operations.json
 - Canonical authentication: `architecture/authentication/SKILL.md` (Better Auth via KLOKS/SRKL + FLOKS UI).
 
 
+## Mandatory global Aiko Direct Chat
+
+Every newly scaffolded Skipo application mounts a global Aiko Direct Chat at the application root. The overlay is independent of the current page/tab and remains available while navigating the application.
+
+```text
+Skipo App root
+├── current page / route
+└── AikoDirectChat
+    ├── @agent autocomplete
+    ├── agent resolution through Aiko runtime
+    ├── conversation history
+    ├── execution state
+    └── optional streaming execution
+```
+
+The chat accepts messages in the form `@AgentName instruction`. Agent definitions are loaded from the application's Aiko runtime; the chat does not define application-local agents or APIs.
+
 ## Mandatory FOD module
 
 Every generated Skipo application includes a Main → FOD tab. FOD discovers host backend endpoints and GutTS APIs deterministically, persists flows under the workspace `FOD/` directory, and exposes saved flows through the application backend facade.
