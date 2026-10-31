@@ -33,7 +33,7 @@ export function createAikoRuntime(
 
   const capabilities = async (): Promise<AikoCapability[]> => {
     const endpointCapabilities: AikoCapability[] = (host?.endpoints ?? [])
-      .filter((endpoint: any) => !String(endpoint.id).toLowerCase().includes('aiko'))
+      .filter((endpoint: any) => !String(endpoint.id).toLowerCase().includes('aiko') && !String(endpoint.serviceId).toLowerCase().includes('aiko') && !String(endpoint.serviceName).toLowerCase().includes('aiko'))
       .map((endpoint: any) => ({
         id: String(endpoint.id),
         name: endpoint.operationName || endpoint.id,
