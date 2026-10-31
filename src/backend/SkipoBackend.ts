@@ -104,7 +104,7 @@ export function createFodRuntime(workspaceId:string):FodRuntime {
 
 export function createAikoRuntime(runtimeContext:Parameters<typeof semanticRuntime.handle>[1]) {
   const workspaceRuntime=getWorkspaceSemanticRuntime(String(runtimeContext.metadata?.workspaceId??'default')).runtime;
-  return createSkipoAikoRuntime({workspaceId:String(runtimeContext.metadata?.workspaceId??'default'),runtime:workspaceRuntime,runtimeContext,engineUrl:typeof process!=='undefined'?process.env.AIKO_ENGINE_URL:undefined,moduleToken:typeof process!=='undefined'?process.env.AIKO_MODULE_TOKEN:undefined});
+  return createSkipoAikoRuntime({workspaceId:String(runtimeContext.metadata?.workspaceId??'default'),runtime:workspaceRuntime,runtimeContext,refresh:()=>workspaceRuntime.registerFodRuntime(createFodRuntime(String(runtimeContext.metadata?.workspaceId??'default'))),engineUrl:typeof process!=='undefined'?process.env.AIKO_ENGINE_URL:undefined,moduleToken:typeof process!=='undefined'?process.env.AIKO_MODULE_TOKEN:undefined});
 }
 
 function resolveService(id: string): any {
