@@ -9,15 +9,27 @@ function decode(value:string|Uint8Array){return typeof value==='string'?value:Bu
 
 export class WorkspaceSemanticTaskStore implements TaskStore{
   private readonly items=new Map<string,Task>();
+  private readonly writes=new Map<string,Promise<void>>();
   constructor(private readonly workspaceId:string,private readonly workspace:any=workingWorkspaceService,private readonly root='SEMANTIC/tasks'){}
   async hydrate(){try{for(const entry of await this.workspace.listFiles(this.workspaceId,this.root)){if(entry.isFolder||!entry.name.endsWith('.json'))continue;try{const task=JSON.parse(decode(await this.workspace.readFile(this.workspaceId,entry.path))) as Task;this.items.set(task.id,task);}catch{}}}catch{};return this.list();}
   get(id:string){return this.items.get(id);}
-  set(task:Task){this.items.set(task.id,task);void this.workspace.writeFile(this.workspaceId,`${this.root}/${safe(task.id)}.json`,JSON.stringify(task,null,2));}
+  set(task:Task){
+    this.items.set(task.id,task);
+    const previous=this.writes.get(task.id)??Promise.resolve();
+    const next=previous.then(()=>this.workspace.writeFile(this.workspaceId,`${this.root}/${safe(task.id)}.json`,JSON.stringify(task,null,2)));
+    this.writes.set(task.id,next.catch(()=>{}));
+  }
   list(){return [...this.items.values()];}
 }
 
 export class WorkspaceSemanticConversationStore implements SemanticConversationStore{
+  private readonly writes=new Map<string,Promise<void>>();
   constructor(private readonly workspaceId:string,private readonly workspace:any=workingWorkspaceService,private readonly root='SEMANTIC/conversations'){}
-  async append(sessionId:string,message:SemanticConversationMessage){const current=await this.list(sessionId);const list=Array.isArray(current)?current:[];list.push(message);await this.workspace.writeFile(this.workspaceId,`${this.root}/${safe(sessionId)}.json`,JSON.stringify(list,null,2));}
+  async append(sessionId:string,message:SemanticConversationMessage){
+    const previous=this.writes.get(sessionId)??Promise.resolve();
+    const next=previous.then(async()=>{const current=await this.list(sessionId);const list=Array.isArray(current)?current:[];list.push(message);await this.workspace.writeFile(this.workspaceId,`${this.root}/${safe(sessionId)}.json`,JSON.stringify(list,null,2));});
+    this.writes.set(sessionId,next.catch(()=>{}));
+    await next;
+  }
   async list(sessionId:string):Promise<SemanticConversationMessage[]>{try{const parsed=JSON.parse(decode(await this.workspace.readFile(this.workspaceId,`${this.root}/${safe(sessionId)}.json`)));return Array.isArray(parsed)?parsed:[];}catch{return [];}}
 }
