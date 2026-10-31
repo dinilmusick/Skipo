@@ -94,7 +94,34 @@ export function createAikoRuntime(
     return JSON.parse(argumentsText);
   };
 
+  const applicationAgent = {
+    schemaVersion: '1.0.0' as const,
+    id: 'skipo-application-agent',
+    name: 'Application Agent',
+    description: 'Universal conversational application router',
+    agentType: 'AIKO' as const,
+    intelligenceSpec: { mode: 'application-router' },
+    sourceKind: 'custom' as const,
+    sourceId: 'application',
+    custom: true,
+    tool: {
+      id: 'skipo.application',
+      name: 'Application Agent',
+      description: 'Route a natural-language request to an application capability.',
+      sourceKind: 'custom' as const,
+      sourceId: 'application',
+      inputSchema: { type: 'object', properties: { capabilityId: { type: 'string' }, input: {} }, required: ['capabilityId', 'input'] },
+      execute: async (value: unknown) => {
+        const request = value as { capabilityId?: string; input?: unknown };
+        const capability = (await capabilities()).find(item => item.id === request.capabilityId);
+        if (!capability) throw new Error('Application Agent resolved an unknown capability: ' + request.capabilityId);
+        return capability.execute(request.input);
+      },
+    },
+  };
+
   return new AikoRuntime({
+    customAgents: [applicationAgent],
     capabilities,
     resolver: { resolve },
     resolveNaturalLanguage,
