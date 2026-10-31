@@ -86,7 +86,7 @@ export class SkipoSemanticRuntime {
         outputSchema:definition.outputSchema,
         requirements:(definition.requirements??[]).map((r:any)=>({...r,required:r.required!==false})),
         sideEffects:definition.sideEffects??'external',
-        metadata:{service:serviceName,operation}
+        metadata:{service:serviceName,operation,provides:definition.provides??[]}
       });
     }
   }
@@ -104,7 +104,7 @@ export class SkipoSemanticRuntime {
           id:p.name,semanticType:p.name,description:p.description,required:p.required,sourceField:p.name
         })),
         sideEffects:sideEffects(api),
-        metadata:{apiId:api.id,category:api.category,deterministic:api.semantics.deterministic,pure:api.semantics.pure}
+        metadata:{apiId:api.id,category:api.category,deterministic:api.semantics.deterministic,pure:api.semantics.pure,provides:[api.id]}
       });
     }
   }
@@ -216,7 +216,7 @@ export class SkipoSemanticRuntime {
 
   private async plan(request:string,context:AgentContext):Promise<SemanticPlan>{
     if(this.planner) return this.planner.plan(request,context);
-    const candidates=this.capabilities.list().filter(c=>c.kind!=='knowledge');
+    const candidates=this.capabilities.list().filter(c=>c.kind!=='knowledge'&&c.metadata?.category!=='models');
     if(!candidates.length) throw new Error('NO_CAPABILITIES');
     const ranked=await rankSemanticInputCandidates(
       request,candidates.map(c=>`${c.name}: ${c.description}`),'fast'
