@@ -23,9 +23,9 @@
     "generate:graph-assets": "python3 scripts/skipo_builder.py generate-graph-assets"
   },
   "dependencies": {
-    "@dinilmusick/gutts": "^1.2.0",
-    "@ultrst-armada/floks": "^1.12.1",
-    "@ultrst-armada/frnlts": "^0.4.0",
+    "@dinilmusick/gutts": "^1.2.1",
+    "@ultrst-armada/floks": "^1.12.2",
+    "@ultrst-armada/frnlts": "^0.4.1",
     "@ultrst-armada/kloks": "^1.21.0",
     "@ultrst-armada/krnl": "^1.0.9",
     "lucide-react": "^1.55.0",

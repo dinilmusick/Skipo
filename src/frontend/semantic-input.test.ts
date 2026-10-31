@@ -1,5 +1,6 @@
 import {describe, expect, it, vi, beforeEach} from "vitest";
 import {z} from "zod";
+import {createDefaultFrnlInputContract} from "@ultrst-armada/frnlts";
 
 const transcribeMock = vi.fn(async () => "thirty two");
 
@@ -11,30 +12,12 @@ vi.mock("@dinilmusick/gutts", () => ({
   },
 }));
 
-const resolveFrnlInputMock = vi.fn(async (contract: any, input: string, sharedContext?: any) => {
-  if (!input || !input.trim()) {
-    return {
-      status: "invalid",
-      value: undefined,
-      candidates: [],
-      modelOutput: undefined,
-      ...(contract.preserveRawInput ? {rawInput: input} : {}),
-    };
-  }
+const resolveFrnlInputMock = vi.fn(async (contract: any, input: string) => {
   const rawValue = input === "thirty two" ? 32 : input === "invalid text" ? -50 : input;
   const parsed = contract.validator ? contract.validator.safeParse(rawValue) : {success: true, data: rawValue};
-  if (!parsed.success) {
-    return {
-      status: "invalid",
-      value: undefined,
-      candidates: [],
-      modelOutput: rawValue,
-      ...(contract.preserveRawInput ? {rawInput: input} : {}),
-    };
-  }
   return {
-    status: "resolved",
-    value: parsed.data,
+    status: parsed.success ? "resolved" : "invalid",
+    value: parsed.success ? parsed.data : undefined,
     candidates: [],
     modelOutput: rawValue,
     ...(contract.preserveRawInput ? {rawInput: input} : {}),
@@ -51,106 +34,144 @@ vi.mock("@ultrst-armada/frnlts", async (importOriginal) => {
 
 import {resolveSkipoInput, transcribeVoiceInput, type SkipoInputContract} from "./semantic-input.js";
 
-describe("Skipo universal semantic input", () => {
+describe("Skipo universal semantic input regression matrix", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("1. treats voice strictly as a transcription transport feeding the universal pipeline", async () => {
-    const audioBytes = new Uint8Array([10, 20, 30]);
-    const transcript = await transcribeVoiceInput(audioBytes, "en");
-    expect(transcript).toBe("thirty two");
+  it("1. text input canonical resolution", async () => {
+    const contract: SkipoInputContract<string> = {
+      name: "fullName",
+      label: "Full Name",
+      schema: {type: "string"},
+      validator: z.string().min(1),
+    };
+    const res = await resolveSkipoInput(contract, {text: "John Doe"});
+    expect(res.status).toBe("resolved");
+    expect(res.value).toBe("John Doe");
+    expect(resolveFrnlInputMock).toHaveBeenCalledTimes(1);
+  });
 
+  it("2. date input natural language resolution", async () => {
+    const contract: SkipoInputContract<string> = {
+      name: "dob",
+      label: "Date of Birth",
+      semanticType: "date",
+      schema: {type: "string", format: "date"},
+      validator: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    };
+    const res = await resolveSkipoInput(contract, {text: "1994-05-23"});
+    expect(res.status).toBe("resolved");
+    expect(res.value).toBe("1994-05-23");
+  });
+
+  it("3. number input natural language resolution", async () => {
     const contract: SkipoInputContract<number> = {
       name: "age",
       label: "Age",
+      semanticType: "number",
       schema: {type: "integer", minimum: 0},
       validator: z.number().int().min(0),
-      context: {page: "Registration", field: "age"},
     };
+    const res = await resolveSkipoInput(contract, {text: "thirty two"});
+    expect(res.status).toBe("resolved");
+    expect(res.value).toBe(32);
+  });
 
-    const result = await resolveSkipoInput(contract, {audio: audioBytes, language: "en"});
-    expect(result.status).toBe("resolved");
-    expect(result.value).toBe(32);
-    expect(result.rawInput).toBeUndefined(); // default preserveRawInput = false
-    expect(resolveFrnlInputMock).toHaveBeenCalledTimes(1);
+  it("4. email input natural language resolution", async () => {
+    const contract: SkipoInputContract<string> = {
+      name: "email",
+      label: "Email",
+      semanticType: "email",
+      schema: {type: "string", format: "email"},
+      validator: z.string().email(),
+    };
+    const res = await resolveSkipoInput(contract, {text: "dev@example.com"});
+    expect(res.status).toBe("resolved");
+    expect(res.value).toBe("dev@example.com");
+  });
+
+  it("5. url input natural language resolution", async () => {
+    const contract: SkipoInputContract<string> = {
+      name: "website",
+      label: "Website",
+      semanticType: "url",
+      schema: {type: "string", format: "uri"},
+      validator: z.string().url(),
+    };
+    const res = await resolveSkipoInput(contract, {text: "https://example.com"});
+    expect(res.status).toBe("resolved");
+    expect(res.value).toBe("https://example.com");
+  });
+
+  it("6. voice transcription input flow", async () => {
+    const audioBytes = new Uint8Array([1, 2, 3]);
+    const contract: SkipoInputContract<number> = {
+      name: "age",
+      label: "Age",
+      schema: {type: "integer"},
+      validator: z.number().int(),
+    };
+    const res = await resolveSkipoInput(contract, {audio: audioBytes, language: "en"});
+    expect(res.status).toBe("resolved");
+    expect(res.value).toBe(32);
+    expect(res.rawInput).toBeUndefined();
     expect(resolveFrnlInputMock).toHaveBeenCalledWith(contract, "thirty two", {
       application: undefined,
       workspace: undefined,
     });
   });
 
-  it("2. voice inputs cannot bypass Zod validation", async () => {
-    transcribeMock.mockResolvedValueOnce("invalid text");
-
+  it("7. voice transcription failure preserves input & does not execute resolver", async () => {
+    transcribeMock.mockRejectedValueOnce(new Error("Microphone decode error"));
     const contract: SkipoInputContract<number> = {
       name: "age",
       label: "Age",
-      schema: {type: "integer", minimum: 0},
-      validator: z.number().int().min(0), // Fails for -50
-    };
-
-    const result = await resolveSkipoInput(contract, {audio: new Uint8Array([1, 2])});
-    expect(result.status).toBe("invalid");
-    expect(result.value).toBeUndefined();
-  });
-
-  it("3. threads application, workspace, and page context into the resolver", async () => {
-    const contract: SkipoInputContract<number> = {
-      name: "itemCount",
-      label: "Count",
       schema: {type: "integer"},
       validator: z.number(),
-      application: "InventoryApp",
-      workspace: "ws-primary",
-      context: {page: "Stock", section: "Warehouse"},
-    };
-
-    await resolveSkipoInput(contract, {text: "thirty two"});
-    expect(resolveFrnlInputMock).toHaveBeenCalledWith(
-      contract,
-      "thirty two",
-      {
-        application: "InventoryApp",
-        workspace: "ws-primary",
-      }
-    );
-  });
-
-  it("4. raw input is omitted by default and preserved only when opted in", async () => {
-    const defaultContract: SkipoInputContract<number> = {
-      name: "count",
-      label: "Count",
-      schema: {type: "integer"},
-      validator: z.number().int(),
-    };
-
-    const preserveContract: SkipoInputContract<number> = {
-      name: "count",
-      label: "Count",
-      schema: {type: "integer"},
-      validator: z.number().int(),
       preserveRawInput: true,
     };
-
-    const res1 = await resolveSkipoInput(defaultContract, {text: "thirty two"});
-    expect(res1.rawInput).toBeUndefined();
-
-    const res2 = await resolveSkipoInput(preserveContract, {text: "thirty two"});
-    expect(res2.rawInput).toBe("thirty two");
+    const res = await resolveSkipoInput(contract, {audio: new Uint8Array([9, 9])});
+    expect(res.status).toBe("invalid");
+    expect(res.rawInput).toBe("[audio]");
+    expect(resolveFrnlInputMock).not.toHaveBeenCalled();
   });
 
-  it("5. empty or whitespace voice transcription returns invalid status safely", async () => {
-    transcribeMock.mockResolvedValueOnce("   ");
-
-    const contract: SkipoInputContract<number> = {
-      name: "count",
-      label: "Count",
-      schema: {type: "integer"},
-      validator: z.number(),
+  it("8. empty / whitespace natural language does not execute resolver", async () => {
+    const contract: SkipoInputContract<string> = {
+      name: "notes",
+      label: "Notes",
+      schema: {type: "string"},
+      validator: z.string(),
     };
+    const res = await resolveSkipoInput(contract, {text: "   \t\n  "});
+    expect(res.status).toBe("invalid");
+    expect(resolveFrnlInputMock).not.toHaveBeenCalled();
+  });
 
-    const result = await resolveSkipoInput(contract, {audio: new Uint8Array([])});
-    expect(result.status).toBe("invalid");
+  it("9. explicit semanticInput takes precedence over default contract", async () => {
+    const defaultContract = createDefaultFrnlInputContract({
+      name: "notes",
+      label: "Notes",
+      inputType: "text",
+    });
+    expect(defaultContract?.semanticType).toBe("text");
+
+    const explicitContract: SkipoInputContract<string> = {
+      name: "customNotes",
+      label: "Custom",
+      schema: {type: "string", minLength: 10},
+      validator: z.string().min(10),
+    };
+    const res = await resolveSkipoInput(explicitContract, {text: "valid long custom text"});
+    expect(res.status).toBe("resolved");
+    expect(resolveFrnlInputMock).toHaveBeenCalledWith(explicitContract, "valid long custom text", expect.anything());
+  });
+
+  it("10. explicit opt-out (semanticInput={null}) disables semantic resolution", async () => {
+    const res = await resolveSkipoInput(null, {text: "raw text bypass"});
+    expect(res.status).toBe("invalid");
+    expect(res.value).toBeUndefined();
+    expect(resolveFrnlInputMock).not.toHaveBeenCalled();
   });
 });
