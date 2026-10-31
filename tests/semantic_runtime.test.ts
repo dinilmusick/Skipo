@@ -16,7 +16,7 @@ describe('Skipo semantic runtime',()=>{
   it('creates resumable semantic tasks',()=>{
     const runtime=createSkipoSemanticRuntime({applicationId:'test-app'});
     const task=runtime.createTask('create an invoice');
-    runtime.tasks.transition(task.id,'waiting-for-user');
+    runtime.tasks.transition(task.id,'input-required');
     expect(runtime.tasks.get(task.id)?.status).toBe('waiting-for-user');
   });
 });
