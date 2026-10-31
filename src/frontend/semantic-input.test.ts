@@ -11,6 +11,7 @@ vi.mock("@dinilmusick/gutts", () => ({
 }));
 
 import {resolveSkipoInput, transcribeVoiceInput} from "./semantic-input.js";
+import {z} from "zod";
 
 describe("Skipo universal semantic input", () => {
   it("treats voice as a transcription transport", async () => {
@@ -19,10 +20,12 @@ describe("Skipo universal semantic input", () => {
 
   it("passes page context and schema into the universal resolver", async () => {
     const result = await resolveSkipoInput({
-      text: "thirty two",
+      name: "age",
+      label: "Age",
       schema: {type: "integer"},
+      validator: z.number().int(),
       context: {page: "Registration", field: "Age"},
-    });
+    }, {text: "thirty two"});
     expect(result.value).toBe(32);
   });
 });
