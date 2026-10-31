@@ -14,8 +14,10 @@ vi.mock("@dinilmusick/gutts", () => ({
 }));
 
 const resolveFrnlInputMock = vi.fn(async (contract: any, input: string) => {
+  contract.onProgress?.({phase: "started"});
   const rawValue = input === "thirty two" ? 32 : input === "invalid text" ? -50 : input;
   const parsed = contract.validator ? contract.validator.safeParse(rawValue) : {success: true, data: rawValue};
+  contract.onProgress?.({phase: "completed"});
   return {
     status: parsed.success ? "resolved" : "invalid",
     value: parsed.success ? parsed.data : undefined,
