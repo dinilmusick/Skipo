@@ -13,6 +13,7 @@ export {
   converse,
   createFodRuntime,
   createAikoRuntime,
+  getWorkspaceSemanticRuntime,
   type SkipoBackendFacade,
   type ServiceExecutableFacade,
 } from './SkipoBackend.js';
