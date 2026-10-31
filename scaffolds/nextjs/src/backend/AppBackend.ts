@@ -14,6 +14,7 @@ import { workingWorkspaceService } from '@ultrst-armada/kloks/backend';
 import { WorkerExecutionBoundary } from '@ultrst-armada/krnl';
 import { FodRuntime, createFodServiceFacadeForWorkspace, scanBackendFacadeToNodes } from '@ultrst-armada/kloks/fod';
 import { guttsFodNodeDefinitions, executeGuttsApi } from '@dinilmusick/gutts/api';
+import { createAikoRuntime as buildAikoRuntime, createAikoServiceFacade } from './aikoRuntime.js';
 
 export const orchestrations = {
   orchestratorA: OrchestratorADefinition,
@@ -36,6 +37,13 @@ export const createFodRuntime = (workspaceId: string) => {
 
 export const FodServiceFacade = createFodServiceFacadeForWorkspace(createFodRuntime);
 
+export const createAikoRuntime = (workspaceId: string) => buildAikoRuntime(workspaceId, {
+  fod: createFodRuntime(workspaceId),
+  backend: { services, orchestrations },
+});
+
+export const AikoServiceFacade = createAikoServiceFacade(createAikoRuntime);
+
 export const services = {
   serviceA: ServiceAFacade,
   serviceB: ServiceBFacade,
@@ -45,6 +53,7 @@ export const services = {
   storage: StorageServiceFacade,
   workspace: WorkspaceServiceFacade,
   fod: FodServiceFacade,
+  aiko: AikoServiceFacade,
 };
 
 export const AppBackend = {
