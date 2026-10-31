@@ -162,6 +162,7 @@ export class SkipoSemanticRuntime {
     if(task.context.contextId && task.context.contextId!==runtime.sessionId)
       throw new Error('SEMANTIC_CONTEXT_MISMATCH');
     const requirement=task.context.requirements.find(r=>r.required&&r.value===undefined);
+    await this.conversationStore?.append(runtime.sessionId,{id:crypto.randomUUID(),role:'user',content:message,taskId,createdAt:new Date().toISOString()});
     if(requirement){
       const schema=(requirement.constraints?.schema as any)??{type:'string'};
       const resolved=await resolveSemanticInput({
@@ -169,11 +170,13 @@ export class SkipoSemanticRuntime {
         schema,
         context:{application:runtime.applicationId,semanticType:requirement.semanticType,description:requirement.description}
       });
-      if(resolved.status!=='resolved') return {task,status:'input-required' as const,requirements:[requirement],clarification:resolved.clarification};
+      if(resolved.status!=='resolved'){await this.conversationStore?.append(runtime.sessionId,{id:crypto.randomUUID(),role:'agent',content:resolved.clarification?.question??requirement.description,taskId,createdAt:new Date().toISOString()});return {task,status:'input-required' as const,requirements:[requirement],clarification:resolved.clarification};}
       requirement.value=resolved.value;
     }
     task.status='submitted';
-    return this.handleTask(task,runtime);
+    const result=await this.handleTask(task,runtime);
+    await this.conversationStore?.append(runtime.sessionId,{id:crypto.randomUUID(),role:'agent',content:result.status==='completed'?'Task completed.':result.status==='failed'?`Task failed: ${result.error}`:'Input required.',taskId,createdAt:new Date().toISOString()});
+    return result;
   }
 
   async handle(request:string,runtime:RuntimeContext){
