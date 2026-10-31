@@ -8,6 +8,7 @@ import { DepmBackend } from '../DepmBackend';
 import { adaptNodeRequest } from './nodeBridge';
 import { handleVaultRoutes } from './vaultRoutes';
 import { handleFodRoutes } from './fodRoutes';
+import { handleAikoRoutes } from './aikoRoutes';
 
 export interface Env {
   ENVIRONMENT?: string;
@@ -52,6 +53,9 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
 
   const fodResponse = await handleFodRoutes(request);
   if (fodResponse) return fodResponse;
+
+  const aikoResponse = await handleAikoRoutes(request);
+  if (aikoResponse) return aikoResponse;
 
   const ingress = DepmBackend.services.routes.matchGatewayIngress(pathname);
   if (ingress) return Response.redirect(ingress.destinationUrl, 302);
