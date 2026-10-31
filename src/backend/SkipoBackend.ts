@@ -32,6 +32,7 @@ import { WorkerExecutionBoundary, type IServiceFacade } from '@ultrst-armada/krn
 import { FodRuntime, scanBackendFacadeToNodes } from '@ultrst-armada/kloks/fod';
 import { workingWorkspaceService } from '@ultrst-armada/kloks/backend';
 import { createSkipoAikoRuntime } from './semantic/SkipoAikoBridge.js';
+import { WorkspaceSemanticTaskStore, WorkspaceSemanticConversationStore } from './semantic/SkipoSemanticPersistence.js';
 import { BackendFacade } from './BackendFacade.js';
 import { createSkipoSemanticRuntime } from './semantic/SkipoSemanticRuntime.js';
 import { ServiceOrchestration } from './orchestration/ServiceOrchestration.js';
@@ -82,6 +83,18 @@ for (const [name, svc] of Object.entries(services)) {
 
 semanticRuntime.registerGutTS();
 
+const workspaceSemanticRuntimes=new Map<string,{runtime:ReturnType<typeof createSkipoSemanticRuntime>;ready:Promise<unknown>}>();
+
+export function getWorkspaceSemanticRuntime(workspaceId:string){
+  const existing=workspaceSemanticRuntimes.get(workspaceId);if(existing)return existing;
+  const taskStore=new WorkspaceSemanticTaskStore(workspaceId,workingWorkspaceService);
+  const runtime=createSkipoSemanticRuntime({applicationId:'skipo-application',applicationName:'Skipo Application',applicationVersion:'1.0.0',taskStore,conversationStore:new WorkspaceSemanticConversationStore(workspaceId,workingWorkspaceService)});
+  for(const [name,svc] of Object.entries(services)){runtime.registerService(name,svc);}
+  runtime.registerGutTS();
+  const ready=taskStore.hydrate();
+  const value={runtime,ready};workspaceSemanticRuntimes.set(workspaceId,value);return value;
+}
+
 export function createFodRuntime(workspaceId:string):FodRuntime {
   const runtime=new FodRuntime({workspaceId,workspaceService:workingWorkspaceService});
   const host=scanBackendFacadeToNodes({services,orchestrations});
@@ -90,7 +103,8 @@ export function createFodRuntime(workspaceId:string):FodRuntime {
 }
 
 export function createAikoRuntime(runtimeContext:Parameters<typeof semanticRuntime.handle>[1]) {
-  return createSkipoAikoRuntime({workspaceId:String(runtimeContext.metadata?.workspaceId??'default'),runtime:semanticRuntime,runtimeContext,engineUrl:typeof process!=='undefined'?process.env.AIKO_ENGINE_URL:undefined,moduleToken:typeof process!=='undefined'?process.env.AIKO_MODULE_TOKEN:undefined});
+  const workspaceRuntime=getWorkspaceSemanticRuntime(String(runtimeContext.metadata?.workspaceId??'default')).runtime;
+  return createSkipoAikoRuntime({workspaceId:String(runtimeContext.metadata?.workspaceId??'default'),runtime:workspaceRuntime,runtimeContext,engineUrl:typeof process!=='undefined'?process.env.AIKO_ENGINE_URL:undefined,moduleToken:typeof process!=='undefined'?process.env.AIKO_MODULE_TOKEN:undefined});
 }
 
 function resolveService(id: string): any {
@@ -118,8 +132,10 @@ export { WorkerExecutionBoundary };
 
 export async function converse(message:string,runtimeContext:Parameters<typeof semanticRuntime.handle>[1]) {
   const workspaceId=String(runtimeContext.metadata?.workspaceId??'default');
-  await semanticRuntime.registerFodRuntime(createFodRuntime(workspaceId));
-  return semanticRuntime.handle(message,runtimeContext);
+  const workspaceRuntime=getWorkspaceSemanticRuntime(workspaceId);
+  await workspaceRuntime.ready;
+  await workspaceRuntime.runtime.registerFodRuntime(createFodRuntime(workspaceId));
+  return workspaceRuntime.runtime.handle(message,runtimeContext);
 }
 
 export async function executeService<TInput = unknown, TOutput = unknown>(
@@ -162,6 +178,7 @@ export interface SkipoBackendFacade {
   executeOrchestration: typeof executeOrchestration;
   semanticRuntime: typeof semanticRuntime;
   createAikoRuntime: typeof createAikoRuntime;
+  getWorkspaceSemanticRuntime: typeof getWorkspaceSemanticRuntime;
   [key: string]: any;
 }
 
@@ -179,6 +196,7 @@ export const SkipoBackend: SkipoBackendFacade = {
   executeOrchestration,
   semanticRuntime,
   createAikoRuntime,
+  getWorkspaceSemanticRuntime,
 };
 
 export default SkipoBackend;
