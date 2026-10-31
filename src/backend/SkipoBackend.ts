@@ -29,6 +29,9 @@ import {
   NodeGraphEngineServiceFacade,
 } from '@ultrst-armada/kloks/state-graph';
 import { WorkerExecutionBoundary, type IServiceFacade } from '@ultrst-armada/krnl';
+import { FodRuntime, scanBackendFacadeToNodes } from '@ultrst-armada/kloks/fod';
+import { workingWorkspaceService } from '@ultrst-armada/kloks/backend';
+import { createSkipoAikoRuntime } from './semantic/SkipoAikoBridge.js';
 import { BackendFacade } from './BackendFacade.js';
 import { createSkipoSemanticRuntime } from './semantic/SkipoSemanticRuntime.js';
 import { ServiceOrchestration } from './orchestration/ServiceOrchestration.js';
@@ -79,6 +82,17 @@ for (const [name, svc] of Object.entries(services)) {
 
 semanticRuntime.registerGutTS();
 
+export function createFodRuntime(workspaceId:string):FodRuntime {
+  const runtime=new FodRuntime({workspaceId,workspaceService:workingWorkspaceService});
+  const host=scanBackendFacadeToNodes({services,orchestrations});
+  runtime.setEndpoints(host.endpoints,host.nodes as any);
+  return runtime;
+}
+
+export function createAikoRuntime(runtimeContext:Parameters<typeof semanticRuntime.handle>[1]) {
+  return createSkipoAikoRuntime({workspaceId:String(runtimeContext.metadata?.workspaceId??'default'),runtime:semanticRuntime,runtimeContext,engineUrl:typeof process!=='undefined'?process.env.AIKO_ENGINE_URL:undefined,moduleToken:typeof process!=='undefined'?process.env.AIKO_MODULE_TOKEN:undefined});
+}
+
 function resolveService(id: string): any {
   try {
     return backendFacade.getService(id);
@@ -103,6 +117,8 @@ export const WorkerExecutionBoundaryInstance = skipoWorkerBoundary;
 export { WorkerExecutionBoundary };
 
 export async function converse(message:string,runtimeContext:Parameters<typeof semanticRuntime.handle>[1]) {
+  const workspaceId=String(runtimeContext.metadata?.workspaceId??'default');
+  await semanticRuntime.registerFodRuntime(createFodRuntime(workspaceId));
   return semanticRuntime.handle(message,runtimeContext);
 }
 
@@ -145,6 +161,7 @@ export interface SkipoBackendFacade {
   converse: typeof converse;
   executeOrchestration: typeof executeOrchestration;
   semanticRuntime: typeof semanticRuntime;
+  createAikoRuntime: typeof createAikoRuntime;
   [key: string]: any;
 }
 
@@ -161,6 +178,7 @@ export const SkipoBackend: SkipoBackendFacade = {
   converse,
   executeOrchestration,
   semanticRuntime,
+  createAikoRuntime,
 };
 
 export default SkipoBackend;
