@@ -102,6 +102,10 @@ export const worker = skipoWorkerBoundary;
 export const WorkerExecutionBoundaryInstance = skipoWorkerBoundary;
 export { WorkerExecutionBoundary };
 
+export async function converse(message:string,runtimeContext:Parameters<typeof semanticRuntime.handle>[1]) {
+  return semanticRuntime.handle(message,runtimeContext);
+}
+
 export async function executeService<TInput = unknown, TOutput = unknown>(
   serviceName: string,
   operation: string,
@@ -138,6 +142,7 @@ export interface SkipoBackendFacade {
   worker: typeof skipoWorkerBoundary;
   WorkerExecutionBoundary: typeof skipoWorkerBoundary;
   executeService: typeof executeService;
+  converse: typeof converse;
   executeOrchestration: typeof executeOrchestration;
   semanticRuntime: typeof semanticRuntime;
   [key: string]: any;
@@ -153,6 +158,7 @@ export const SkipoBackend: SkipoBackendFacade = {
   worker: skipoWorkerBoundary,
   WorkerExecutionBoundary: skipoWorkerBoundary,
   executeService,
+  converse,
   executeOrchestration,
   semanticRuntime,
 };
