@@ -24,8 +24,8 @@
   },
   "dependencies": {
     "@dinilmusick/gutts": "^1.1.0",
-    "@ultrst-armada/floks": "^1.11.1",
-    "@ultrst-armada/frnlts": "^0.3.0",
+    "@ultrst-armada/floks": "^1.12.0",
+    "@ultrst-armada/frnlts": "^0.4.0",
     "@ultrst-armada/kloks": "^1.21.0",
     "@ultrst-armada/krnl": "^1.0.9",
     "lucide-react": "^1.55.0",
