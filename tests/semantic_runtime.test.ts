@@ -130,6 +130,47 @@ describe('Skipo semantic runtime', () => {
     expect(capRequiresExec.source).toBe('contacts.search');
   });
 
+  it('registers GutTS APIs as reusable capabilities', () => {
+    const runtime = createSkipoSemanticRuntime({ applicationId: 'gutts-app' });
+    runtime.registerGutTS();
+    expect(runtime.capabilities.get('gutts.strings.capitalize')).toBeDefined();
+    expect(runtime.capabilities.get('gutts.strings.capitalize')?.kind).toBe('gutts');
+  });
+
+  it('plans and executes a conversational request through the application runtime', async () => {
+    const runtime = createSkipoSemanticRuntime({ applicationId: 'conversation-app' });
+    runtime.registerCapability({
+      id: 'math.add',
+      name: 'Add numbers',
+      description: 'Adds two numbers',
+      kind: 'endpoint',
+      inputSchema: { type: 'object', properties: { a: { type: 'number' }, b: { type: 'number' } }, required: ['a', 'b'] },
+      outputSchema: { type: 'number' },
+    });
+    runtime.setPlanner({
+      async plan() {
+        return {
+          intent: 'math.add',
+          nodes: [{ id: 'add-1', capabilityId: 'math.add', dependsOn: [], input: { a: 2, b: 3 } }],
+        };
+      },
+    });
+    runtime.setExecutor({
+      async execute(capability, input) {
+        expect(capability.id).toBe('math.add');
+        const values = input as { a: number; b: number };
+        return values.a + values.b;
+      },
+    });
+
+    const result = await runtime.handle('add two and three', {
+      applicationId: 'conversation-app',
+      sessionId: 'conversation-1',
+    });
+    expect(result.status).toBe('completed');
+    expect(result.task.result).toBe(5);
+  });
+
   it('verifies SkipoBackend semanticRuntime exposure and existing services', () => {
     expect(SkipoBackend.semanticRuntime).toBeDefined();
     expect(SkipoBackend.semanticRuntime).toBe(semanticRuntime);
