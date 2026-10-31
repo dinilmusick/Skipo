@@ -120,12 +120,12 @@ export class SkipoSemanticRuntime {
 
   async resolveRequirement(requirement:Requirement,context:AgentContext){
     const direct=await this.requirements.resolve(requirement,context);
-    if(direct.resolved || !this.executor) return direct;
+    if(direct.resolved) return direct;
     const provider=this.capabilities.list().find(c=>
       (c.metadata?.provides as string[]|undefined)?.includes(requirement.semanticType)
     );
     if(!provider) return direct;
-    const value=await this.executor.execute(provider,{},context);
+    const value=await this.execute(provider,{},context);
     return {resolved:true,value,source:'capability-provider',capabilityId:provider.id};
   }
 
