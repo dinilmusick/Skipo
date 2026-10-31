@@ -212,4 +212,19 @@ describe("Skipo universal semantic input regression matrix", () => {
     expect(resolveFrnlFormInputMock).toHaveBeenCalledTimes(1);
   });
 
+  it("12. semantic policy and progressive lifecycle remain application-visible", async () => {
+    const progress: string[] = [];
+    const contract: SkipoInputContract<number> = {
+      name: "age",
+      label: "Age",
+      schema: {type: "integer"},
+      validator: z.number().int(),
+      modelPolicy: "accurate",
+      onProgress: ({phase}: {phase: string}) => progress.push(phase),
+    };
+    const result = await resolveSkipoInput(contract, {text: "forty two"});
+    expect(result.status).toBe("resolved");
+    expect(progress.length).toBeGreaterThan(0);
+  });
+
 });
