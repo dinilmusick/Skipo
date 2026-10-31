@@ -406,8 +406,10 @@ export {{ default }} from './{pascal}Backend.js';
     semantic_input_file = target_root / "src" / "frontend" / "semantic-input.ts"
     if not semantic_input_file.exists():
         semantic_input_file.write_text(
-            "export * from '@dinilmusick/gutts';\\n"
-            "export { transcribeVoiceInput, resolveSkipoInput } from '@ultrst-armada/skipo/semantic-input';\\n",
+            "import { Whistle, resolveSemanticInput } from '@dinilmusick/gutts';\\n"
+            "export { Whistle, resolveSemanticInput };\\n"
+            "export async function transcribeVoiceInput(audio, language) { return new Whistle().transcribe({ audio, language }); }\\n"
+            "export async function resolveSkipoInput(input) { const text = input.text ?? (input.audio ? await transcribeVoiceInput(input.audio, input.language) : ''); return resolveSemanticInput({ input: text, schema: input.schema, context: input.context, candidates: input.candidates, preserveRawInput: input.preserveRawInput ?? false }); }\\n",
             encoding="utf-8",
         )
         created.append(semantic_input_file)
