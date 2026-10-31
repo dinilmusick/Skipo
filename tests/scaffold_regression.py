@@ -61,6 +61,28 @@ class ScaffoldRegressionTest(unittest.TestCase):
             self.assertIn("components/components.js", page.read_text(encoding="utf-8"))
             self.assertTrue((frontend / "pages" / "home" / "orchestrations").exists())
 
+    def test_mandatory_fod_and_aiko_modules_exist_in_all_app_templates(self):
+        """Every canonical Vite/Next.js app template contains FOD and Aiko UI/runtime wiring."""
+        for scaffold_name in ["vite", "nextjs"]:
+            base = SKIPO_ROOT / "scaffolds" / scaffold_name
+            fod_page = base / "src/frontend/pages/main/tabs/fod/page.tsx"
+            aiko_page = base / "src/frontend/pages/main/tabs/aiko/page.tsx"
+            backend = base / "src/backend/AppBackend.ts"
+            aiko_runtime = base / "src/backend/aikoRuntime.ts"
+            main_page = base / "src/frontend/pages/main/page.tsx"
+            self.assertTrue(fod_page.exists(), f"FOD tab missing in {scaffold_name}")
+            self.assertTrue(aiko_page.exists(), f"Aiko tab missing in {scaffold_name}")
+            self.assertTrue(aiko_runtime.exists(), f"Aiko runtime missing in {scaffold_name}")
+            self.assertIn("@ultrst-armada/floks/canvas-ui/fod", fod_page.read_text(encoding="utf-8"))
+            self.assertIn("@ultrst-armada/floks/canvas-ui/aiko", aiko_page.read_text(encoding="utf-8"))
+            backend_text = backend.read_text(encoding="utf-8")
+            self.assertIn("createFodRuntime", backend_text)
+            self.assertIn("createAikoRuntime", backend_text)
+            self.assertIn("Aiko", main_page.read_text(encoding="utf-8"))
+        if (SKIPO_ROOT / "scaffolds/nextjs/app").exists():
+            self.assertTrue((SKIPO_ROOT / "scaffolds/nextjs/app/api/aiko/route.ts").exists())
+        self.assertTrue((SKIPO_ROOT / "scaffolds/vite/src/backend/adapters/aikoRoutes.ts").exists())
+
     def test_gates_import_canonical_floks(self):
         """LoginGate & WorkspaceGate must exist and import @ultrst-armada/floks/ui."""
         for scaffold_name in ["vite", "nextjs"]:
