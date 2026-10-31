@@ -9,9 +9,11 @@ import {
   type Requirement,
   type RuntimeContext,
   type TaskNode,
+  type TaskStore,
 } from '@ultrst-armada/kloks/semantic-runtime';
 import {guttsApiDefinitions,executeGuttsApi,resolveSemanticInput,rankSemanticInputCandidates} from '@dinilmusick/gutts';
 import {skipoExecutionEngine} from '../execution/SkipoExecutionEngine.js';
+import type {SemanticConversationStore} from './SkipoSemanticPersistence.js';
 
 export interface SemanticAgentDescriptor {
   id:string; name:string; role:'application'|'endpoint'|'capability'; capabilityIds:string[];
@@ -25,6 +27,8 @@ export interface SemanticApplicationManifest {
 export interface SemanticRuntimeOptions {
   applicationId:string; applicationName?:string; applicationVersion?:string;
   knowledgeResolver?:ConstructorParameters<typeof ContextResolver>[1];
+  taskStore?:TaskStore;
+  conversationStore?:SemanticConversationStore;
 }
 
 export interface SemanticPlan { intent?:string; nodes:Omit<TaskNode,'status'>[]; requirements?:Requirement[]; }
@@ -49,15 +53,18 @@ function sideEffects(definition:any):CapabilityDescriptor['sideEffects'] {
 
 export class SkipoSemanticRuntime {
   readonly capabilities=new CapabilityRegistry();
-  readonly tasks=new TaskRuntime();
+  readonly tasks:TaskRuntime;
   readonly graphs=new TaskGraphRuntime();
   readonly contextResolver:ContextResolver;
   readonly requirements:RequirementResolver;
   readonly agents=new Map<string,SemanticAgentDescriptor>();
+  private readonly conversationStore?:SemanticConversationStore;
   private executor?:SemanticRuntimeExecutor;
   private planner?:SemanticPlanner;
 
   constructor(private readonly options:SemanticRuntimeOptions){
+    this.tasks=new TaskRuntime(options.taskStore);
+    this.conversationStore=options.conversationStore;
     this.contextResolver=new ContextResolver(this.capabilities,options.knowledgeResolver);
     this.requirements=new RequirementResolver(this.capabilities);
     this.agents.set('application',{id:'application',name:options.applicationName??options.applicationId,role:'application',capabilityIds:[]});
@@ -165,6 +172,7 @@ export class SkipoSemanticRuntime {
 
   async handle(request:string,runtime:RuntimeContext){
     const task=this.createTask(request,undefined,runtime.sessionId);
+    await this.conversationStore?.append(runtime.sessionId,{id:crypto.randomUUID(),role:'user',content:request,taskId:task.id,createdAt:new Date().toISOString()});
     const context=await this.buildContext(runtime,task.id);
     const plan=await this.plan(request,context);
     task.context.intent=plan.intent;
@@ -180,10 +188,14 @@ export class SkipoSemanticRuntime {
       const resolved=await this.resolveRequirement(requirement,context);
       if(resolved.resolved){requirement.value=resolved.value;continue;}
       this.tasks.addRequirement(task.id,requirement);
-      return {task:this.tasks.get(task.id)!,status:'input-required' as const,requirements:[requirement]};
+      const pending={task:this.tasks.get(task.id)!,status:'input-required' as const,requirements:[requirement]};
+      await this.conversationStore?.append(runtime.sessionId,{id:crypto.randomUUID(),role:'agent',content:requirement.description,taskId:task.id,createdAt:new Date().toISOString()});
+      return pending;
     }
 
-    return this.handleTask(task,runtime,plan);
+    const result=await this.handleTask(task,runtime,plan);
+    await this.conversationStore?.append(runtime.sessionId,{id:crypto.randomUUID(),role:'agent',content:result.status==='completed'?'Task completed.':result.status==='failed'?`Task failed: ${result.error}`:'Input required.',taskId:task.id,createdAt:new Date().toISOString()});
+    return result;
   }
 
   private async handleTask(task:any,runtime:RuntimeContext,planned?:SemanticPlan){
@@ -215,6 +227,8 @@ export class SkipoSemanticRuntime {
       return {task:this.tasks.get(task.id)!,status:'failed' as const,error:message};
     }
   }
+
+  async conversationHistory(sessionId:string){return (await this.conversationStore?.list(sessionId))??[];}
 
   manifest():SemanticApplicationManifest{
     return {
