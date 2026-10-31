@@ -2,6 +2,7 @@ import { AikoRuntime } from '@ultrst-armada/kloks/aiko';
 import type { AikoCapability, AikoSourceKind } from '@ultrst-armada/kloks/aiko';
 import { AIKeyServiceFacade } from '@ultrst-armada/kloks/krnl-ai-services';
 import { guttsFodNodeDefinitions, executeGuttsApi } from '@dinilmusick/gutts/api';
+import { scanBackendFacadeToNodes } from '@ultrst-armada/kloks/fod';
 
 export function createAikoRuntime(
   workspaceId: string,
@@ -11,7 +12,7 @@ export function createAikoRuntime(
   },
 ) {
   const { fod, backend } = input;
-  const host = (globalThis as any).__skipoScanBackend?.(backend);
+  const host = scanBackendFacadeToNodes(backend);
   const engineUrl = typeof process !== 'undefined' ? process.env.AIKO_ENGINE_URL : undefined;
 
   const resolve = async (specId?: string, context?: any) => {
