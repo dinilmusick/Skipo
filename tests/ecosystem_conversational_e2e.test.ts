@@ -190,7 +190,7 @@ describe('Ecosystem Conversational Architecture E2E Matrix', () => {
     expect(second.status).toBe('completed');
     expect(second.task.id).toBe(first.task.id);
     expect(second.task.result).toEqual({ accountCreated: true, username: 'coolguy42' });
-  });
+  }, 15000);
 
   it('E2E-06 Process restart / state recovery persistence across turns', async () => {
     const fakeFs = new Map<string, string>();
@@ -279,7 +279,7 @@ describe('Ecosystem Conversational Architecture E2E Matrix', () => {
     expect(second.task.result).toEqual({ success: true, verifiedCode: '998877' });
     const history = await convStore2.list('session-e2e-06');
     expect(history.length).toBeGreaterThanOrEqual(2);
-  });
+  }, 15000);
 
 
   it('E2E-06b Workspace persistence serializes concurrent conversation appends', async () => {

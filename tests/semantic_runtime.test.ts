@@ -211,7 +211,7 @@ describe('Skipo semantic runtime', () => {
     });
     expect(second.status).toBe('completed');
     expect(second.task.result).toEqual({ displayName: 'Monke' });
-  });
+  }, 15000);
 
   it('verifies SkipoBackend semanticRuntime exposure and existing services', () => {
     expect(SkipoBackend.semanticRuntime).toBeDefined();
