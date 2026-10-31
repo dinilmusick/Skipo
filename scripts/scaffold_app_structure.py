@@ -426,6 +426,7 @@ export async function handleAikoRoutes(request: Request): Promise<Response | nul
         pages_root / "settings" / "tabs" / "accounts",
     ]
     frontend_components.mkdir(parents=True, exist_ok=True)
+    (frontend_components / "aiko").mkdir(parents=True, exist_ok=True)
     for page_dir in required_page_dirs:
         page_dir.mkdir(parents=True, exist_ok=True)
 
@@ -434,7 +435,8 @@ export async function handleAikoRoutes(request: Request): Promise<Response | nul
         components_file.write_text(
             "export * from '@ultrst-armada/floks/ui';\n"
             "export * from '@ultrst-armada/floks/canvas-ui';\n"
-            "export * from '@ultrst-armada/floks/canvas-ui/aiko';\n",
+            "export * from '@ultrst-armada/floks/canvas-ui/aiko';\n"
+            "export { AikoDirectChat } from './aiko/AikoDirectChat.js';\n",
             encoding="utf-8",
         )
         created.append(components_file)
@@ -503,6 +505,12 @@ export async function handleAikoRoutes(request: Request): Promise<Response | nul
             "export default function AccountsTab() { return <button type=\"button\">Sync from SRKL</button>; }\n"
         ),
     }
+    aiko_chat_target = frontend_components / "aiko" / "AikoDirectChat.tsx"
+    if not aiko_chat_target.exists():
+        canonical_aiko_chat = SKIPO_ROOT / "src" / "frontend" / "components" / "aiko" / "AikoDirectChat.tsx"
+        aiko_chat_target.write_text(canonical_aiko_chat.read_text(encoding="utf-8"), encoding="utf-8")
+        created.append(aiko_chat_target)
+
     # app tab directory is created lazily so the template file has a parent.
     for page_file, content in page_templates.items():
         page_file.parent.mkdir(parents=True, exist_ok=True)
@@ -517,8 +525,9 @@ export async function handleAikoRoutes(request: Request): Promise<Response | nul
             "import FodTab from './pages/main/tabs/fod/page.js';\n"
             "import AikoTab from './pages/main/tabs/aiko/page.js';\n"
             "import { createFodRuntime, createAikoRuntime } from '../backend/index.js';\n"
-            "import { FrnlSemanticInputProvider } from '@ultrst-armada/frnlts';\n\n"
-            "export function App() { const workspaceId = typeof window === 'undefined' ? 'default' : localStorage.getItem('skipo-active-workspace') || 'default'; const fodRuntime = createFodRuntime(workspaceId); const aikoRuntime = createAikoRuntime(workspaceId); return <FrnlSemanticInputProvider value={{ workspace: workspaceId }}><MainPage fod={<FodTab runtime={fodRuntime} workspaceId={workspaceId} />} aiko={<AikoTab runtime={aikoRuntime} workspaceId={workspaceId} />} /></FrnlSemanticInputProvider>; }\n\n"
+            "import { FrnlSemanticInputProvider } from '@ultrst-armada/frnlts';\n"
+            "import { AikoDirectChat } from './components/components.js';\n\n"
+            "export function App() { const workspaceId = typeof window === 'undefined' ? 'default' : localStorage.getItem('skipo-active-workspace') || 'default'; const fodRuntime = createFodRuntime(workspaceId); const aikoRuntime = createAikoRuntime(workspaceId); return <FrnlSemanticInputProvider value={{ workspace: workspaceId }}><MainPage fod={<FodTab runtime={fodRuntime} workspaceId={workspaceId} />} aiko={<AikoTab runtime={aikoRuntime} workspaceId={workspaceId} />} /><AikoDirectChat runtime={aikoRuntime} workspaceId={workspaceId} /></FrnlSemanticInputProvider>; }\n\n"
             "export default App;\n",
             encoding="utf-8",
         )
