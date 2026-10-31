@@ -2,7 +2,8 @@ import {describe, expect, it, vi, beforeEach} from "vitest";
 import {z} from "zod";
 import {createDefaultFrnlInputContract} from "@ultrst-armada/frnlts";
 
-const transcribeMock = vi.fn(async () => "thirty two");\nconst resolveFrnlFormInputMock = vi.fn();
+const transcribeMock = vi.fn(async () => "thirty two");
+const resolveFrnlFormInputMock = vi.fn();
 
 vi.mock("@dinilmusick/gutts", () => ({
   Whistle: class {
@@ -28,7 +29,8 @@ vi.mock("@ultrst-armada/frnlts", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@ultrst-armada/frnlts")>();
   return {
     ...actual,
-    resolveFrnlInput: (...args: unknown[]) => resolveFrnlInputMock(...args as [any, string, any?]),\n    resolveFrnlFormInput: (...args: unknown[]) => resolveFrnlFormInputMock(...args as [any, string]),
+    resolveFrnlInput: (...args: unknown[]) => resolveFrnlInputMock(...args as [any, string, any?]),
+    resolveFrnlFormInput: (...args: unknown[]) => resolveFrnlFormInputMock(...args as [any, string]),
   };
 });
 
@@ -144,7 +146,8 @@ describe("Skipo universal semantic input regression matrix", () => {
       schema: {type: "string"},
       validator: z.string(),
     };
-    const res = await resolveSkipoInput(contract, {text: "   \t\n  "});
+    const res = await resolveSkipoInput(contract, {text: "   \t
+  "});
     expect(res.status).toBe("invalid");
     expect(resolveFrnlInputMock).not.toHaveBeenCalled();
   });
