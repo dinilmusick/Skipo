@@ -2,7 +2,7 @@ import {describe, expect, it, vi, beforeEach} from "vitest";
 import {z} from "zod";
 import {createDefaultFrnlInputContract} from "@ultrst-armada/frnlts";
 
-const transcribeMock = vi.fn(async () => "thirty two");
+const transcribeMock = vi.fn(async () => "thirty two");\nconst resolveFrnlFormInputMock = vi.fn();
 
 vi.mock("@dinilmusick/gutts", () => ({
   Whistle: class {
@@ -28,11 +28,11 @@ vi.mock("@ultrst-armada/frnlts", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@ultrst-armada/frnlts")>();
   return {
     ...actual,
-    resolveFrnlInput: (...args: unknown[]) => resolveFrnlInputMock(...args as [any, string, any?]),
+    resolveFrnlInput: (...args: unknown[]) => resolveFrnlInputMock(...args as [any, string, any?]),\n    resolveFrnlFormInput: (...args: unknown[]) => resolveFrnlFormInputMock(...args as [any, string]),
   };
 });
 
-import {resolveSkipoInput, transcribeVoiceInput, type SkipoInputContract} from "./semantic-input.js";
+import {resolveSkipoFormInput, resolveSkipoInput, transcribeVoiceInput, type SkipoInputContract} from "./semantic-input.js";
 
 describe("Skipo universal semantic input regression matrix", () => {
   beforeEach(() => {
@@ -174,4 +174,39 @@ describe("Skipo universal semantic input regression matrix", () => {
     expect(res.value).toBeUndefined();
     expect(resolveFrnlInputMock).not.toHaveBeenCalled();
   });
+  it("11. multi-field natural-language input delegates to the canonical Frnl form runtime", async () => {
+    resolveFrnlFormInputMock.mockResolvedValueOnce({
+      status: "resolved",
+      value: {name: "Monke", age: 32},
+      fields: {
+        name: {status: "resolved", value: "Monke", candidates: [], modelOutput: "Monke"},
+        age: {status: "resolved", value: 32, candidates: [], modelOutput: 32},
+      },
+      candidates: [],
+      modelOutput: {name: "Monke", age: 32},
+    });
+
+    const result = await resolveSkipoFormInput({
+      fields: {
+        name: {
+          name: "name",
+          label: "Name",
+          schema: {type: "string"},
+          validator: z.string(),
+        },
+        age: {
+          name: "age",
+          label: "Age",
+          schema: {type: "integer"},
+          validator: z.number().int(),
+        },
+      },
+      validator: z.object({name: z.string(), age: z.number().int()}),
+    }, {text: "Monke is 32"});
+
+    expect(result.status).toBe("resolved");
+    expect(result.value).toEqual({name: "Monke", age: 32});
+    expect(resolveFrnlFormInputMock).toHaveBeenCalledTimes(1);
+  });
+
 });
