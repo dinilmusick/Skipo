@@ -9,6 +9,7 @@ import { adaptNodeRequest } from './nodeBridge';
 import { handleVaultRoutes } from './vaultRoutes';
 import { handleFodRoutes } from './fodRoutes';
 import { handleAikoRoutes } from './aikoRoutes';
+import { handleConversationRoutes } from './conversationRoutes';
 
 export interface Env {
   ENVIRONMENT?: string;
@@ -56,6 +57,9 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
 
   const aikoResponse = await handleAikoRoutes(request);
   if (aikoResponse) return aikoResponse;
+
+  const conversationResponse = await handleConversationRoutes(request);
+  if (conversationResponse) return conversationResponse;
 
   const ingress = DepmBackend.services.routes.matchGatewayIngress(pathname);
   if (ingress) return Response.redirect(ingress.destinationUrl, 302);
