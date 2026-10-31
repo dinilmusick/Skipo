@@ -3,7 +3,7 @@ import {AIKeyServiceFacade} from '@ultrst-armada/kloks/krnl-ai-services';
 import type {RuntimeContext} from '@ultrst-armada/kloks/semantic-runtime';
 import type {SkipoSemanticRuntime} from './SkipoSemanticRuntime.js';
 
-export interface SkipoAikoBridgeOptions {workspaceId:string;runtime:SkipoSemanticRuntime;runtimeContext:RuntimeContext;engineUrl?:string;moduleToken?:string;}
+export interface SkipoAikoBridgeOptions {workspaceId:string;runtime:SkipoSemanticRuntime;runtimeContext:RuntimeContext;refresh?:()=>Promise<void>;engineUrl?:string;moduleToken?:string;}
 
 export function createSkipoAikoRuntime(options:SkipoAikoBridgeOptions):AikoRuntime {
   const resolver={resolve:async(specId?:string,context?:any)=>{
@@ -12,10 +12,10 @@ export function createSkipoAikoRuntime(options:SkipoAikoBridgeOptions):AikoRunti
     if(!response.ok)throw new Error('Aiko Engine intelligence resolver request failed.');
     return response.json();
   }};
-  const capabilities=():AikoCapability[]=>options.runtime.capabilities.list().map(capability=>({
+  const capabilities=async():Promise<AikoCapability[]>=>{await options.refresh?.();return options.runtime.capabilities.list().map(capability=>({
     id:capability.id,name:capability.name,description:capability.description,sourceKind:capability.kind==='fod-flow'?'fod-flow':capability.kind==='gutts'?'gutts-api':'endpoint',sourceId:capability.id,inputSchema:capability.inputSchema,
     execute:(input:unknown)=>options.runtime.execute(capability,input,options.runtimeContext)
-  }));
+  }));};
   const applicationTool={id:'skipo.application',name:'Application Agent',description:'Universal Skipo application agent',inputSchema:{type:'object',properties:{request:{type:'string'}},required:['request']},sourceKind:'custom' as const,sourceId:'application',execute:async(input:unknown)=>{
     const request=typeof input==='string'?input:String((input as any)?.request??'');
     return options.runtime.handle(request,{...options.runtimeContext,sessionId:options.runtimeContext.sessionId});
