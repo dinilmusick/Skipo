@@ -14,7 +14,7 @@ export function createSkipoAikoRuntime(options:SkipoAikoBridgeOptions):AikoRunti
   }};
   const capabilities=():AikoCapability[]=>options.runtime.capabilities.list().map(capability=>({
     id:capability.id,name:capability.name,description:capability.description,sourceKind:capability.kind==='fod-flow'?'fod-flow':capability.kind==='gutts'?'gutts-api':'endpoint',sourceId:capability.id,inputSchema:capability.inputSchema,
-    execute:(input:unknown)=>options.runtime['execute'](capability,input,options.runtimeContext)
+    execute:(input:unknown)=>options.runtime.execute(capability,input,options.runtimeContext)
   }));
   const applicationTool={id:'skipo.application',name:'Application Agent',description:'Universal Skipo application agent',inputSchema:{type:'object',properties:{request:{type:'string'}},required:['request']},sourceKind:'custom' as const,sourceId:'application',execute:async(input:unknown)=>{
     const request=typeof input==='string'?input:String((input as any)?.request??'');
