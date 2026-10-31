@@ -30,6 +30,7 @@ import {
 } from '@ultrst-armada/kloks/state-graph';
 import { WorkerExecutionBoundary, type IServiceFacade } from '@ultrst-armada/krnl';
 import { BackendFacade } from './BackendFacade.js';
+import { createSkipoSemanticRuntime } from './semantic/SkipoSemanticRuntime.js';
 import { ServiceOrchestration } from './orchestration/ServiceOrchestration.js';
 import {
   skipoExecutionEngine,
@@ -46,6 +47,12 @@ export interface ServiceExecutableFacade {
 }
 
 export const backendFacade = new BackendFacade();
+
+export const semanticRuntime = createSkipoSemanticRuntime({
+  applicationId: 'skipo-application',
+  applicationName: 'Skipo Application',
+  applicationVersion: '1.0.0',
+});
 
 export const services: Record<string, ServiceExecutableFacade> = {
   serviceA: ServiceAFacade as ServiceExecutableFacade,
@@ -67,6 +74,7 @@ export const services: Record<string, ServiceExecutableFacade> = {
 for (const [name, svc] of Object.entries(services)) {
   backendFacade.registerService(svc as unknown as IServiceFacade, name);
   skipoExecutionEngine.registerService(name, svc);
+  semanticRuntime.registerService(name, svc);
 }
 
 function resolveService(id: string): any {
@@ -129,6 +137,7 @@ export interface SkipoBackendFacade {
   WorkerExecutionBoundary: typeof skipoWorkerBoundary;
   executeService: typeof executeService;
   executeOrchestration: typeof executeOrchestration;
+  semanticRuntime: typeof semanticRuntime;
   [key: string]: any;
 }
 
@@ -143,6 +152,7 @@ export const SkipoBackend: SkipoBackendFacade = {
   WorkerExecutionBoundary: skipoWorkerBoundary,
   executeService,
   executeOrchestration,
+  semanticRuntime,
 };
 
 export default SkipoBackend;
