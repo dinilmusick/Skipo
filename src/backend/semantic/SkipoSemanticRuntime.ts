@@ -9,7 +9,7 @@ import {
   type CapabilityDescriptor,
   type Requirement,
   type RuntimeContext,
-  type SemanticPlan,
+  type TaskNode,
 } from '@ultrst-armada/kloks/semantic-runtime';
 import {guttsApiDefinitions,executeGuttsApi,resolveSemanticInput,rankSemanticInputCandidates} from '@dinilmusick/gutts';
 import {skipoExecutionEngine} from '../execution/SkipoExecutionEngine.js';
@@ -27,6 +27,8 @@ export interface SemanticRuntimeOptions {
   applicationId:string; applicationName?:string; applicationVersion?:string;
   knowledgeResolver?:ConstructorParameters<typeof ContextResolver>[1];
 }
+
+export interface SemanticPlan { intent?:string; nodes:Omit<TaskNode,'status'>[]; requirements?:Requirement[]; }
 
 export interface SemanticRuntimeExecutor {
   execute(capability:CapabilityDescriptor,input:unknown,context:AgentContext):Promise<unknown>;
@@ -109,7 +111,9 @@ export class SkipoSemanticRuntime {
   }
 
   createTask(request:string,parentTaskId?:string,contextId?:string){
-    return this.tasks.create(request,parentTaskId,contextId);
+    const task=this.tasks.create(request,parentTaskId);
+    if(contextId) task.context.contextId=contextId;
+    return task;
   }
 
   async buildContext(runtime:RuntimeContext,taskId:string):Promise<AgentContext>{
