@@ -133,6 +133,26 @@ export class SkipoSemanticRuntime {
     return {resolved:true,value,source:'capability-provider',capabilityId:provider.id};
   }
 
+  async continueTask(message:string,taskId:string,runtime:RuntimeContext){
+    const task=this.tasks.get(taskId);
+    if(!task) throw new Error(`Unknown semantic task: ${taskId}`);
+    if(task.context.contextId && task.context.contextId!==runtime.sessionId)
+      throw new Error('SEMANTIC_CONTEXT_MISMATCH');
+    const requirement=task.context.requirements.find(r=>r.required&&r.value===undefined);
+    if(requirement){
+      const schema=(requirement.constraints?.schema as any)??{type:'string'};
+      const resolved=await resolveSemanticInput({
+        input:message,
+        schema,
+        context:{application:runtime.applicationId,semanticType:requirement.semanticType,description:requirement.description}
+      });
+      if(resolved.status!=='resolved') return {task,status:'input-required' as const,requirements:[requirement],clarification:resolved.clarification};
+      requirement.value=resolved.value;
+    }
+    task.status='submitted';
+    return this.handleTask(task,runtime);
+  }
+
   async handle(request:string,runtime:RuntimeContext){
     const task=this.createTask(request,undefined,runtime.sessionId);
     const context=await this.buildContext(runtime,task.id);
@@ -148,6 +168,12 @@ export class SkipoSemanticRuntime {
       return {task:this.tasks.get(task.id)!,status:'input-required' as const,requirements:[requirement]};
     }
 
+    return this.handleTask(task,runtime,plan);
+  }
+
+  private async handleTask(task:any,runtime:RuntimeContext,planned?:SemanticPlan){
+    const context=await this.buildContext(runtime,task.id);
+    const plan=planned??await this.plan(task.request,context);
     this.tasks.transition(task.id,'working');
     const graph=this.graphs.create(task.id,plan.nodes);
     const outputs:unknown[]=[];
