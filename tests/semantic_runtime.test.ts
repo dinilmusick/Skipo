@@ -187,6 +187,7 @@ describe('Skipo semantic runtime', () => {
 
     // Existing backend methods remain functional
     expect(typeof SkipoBackend.executeService).toBe('function');
+    expect(typeof SkipoBackend.converse).toBe('function');
     expect(typeof SkipoBackend.executeOrchestration).toBe('function');
     expect(SkipoBackend.worker).toBeDefined();
   });
