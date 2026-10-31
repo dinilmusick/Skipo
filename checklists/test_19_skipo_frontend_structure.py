@@ -23,6 +23,7 @@ class SkipoFrontendStructureTests(unittest.TestCase):
         "src/frontend/pages/settings/page.tsx",
         "src/frontend/pages/settings/tabs/themes/page.tsx",
         "src/frontend/pages/settings/tabs/accounts/page.tsx",
+        "src/frontend/components/aiko/AikoDirectChat.tsx",
     ]
 
     def make_fixture(self, complete=True):
