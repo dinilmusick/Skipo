@@ -25,6 +25,9 @@ import sys
 import time
 from typing import Dict, Any, List
 
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 from scripts.scaffold_app_structure import scaffold_structure
 
 def _load_module(rel_name: str, py_name: str):
