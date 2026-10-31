@@ -402,6 +402,16 @@ export {{ default }} from './{pascal}Backend.js';
         )
         created.append(app_tsx)
 
+    # 3b. Universal semantic input runtime. Natural language is resolved into a schema-constrained value; voice is only a transcription transport.
+    semantic_input_file = target_root / "src" / "frontend" / "semantic-input.ts"
+    if not semantic_input_file.exists():
+        semantic_input_file.write_text(
+            "export * from '@dinilmusick/gutts';\\n"
+            "export { transcribeVoiceInput, resolveSkipoInput } from '@ultrst-armada/skipo/semantic-input';\\n",
+            encoding="utf-8",
+        )
+        created.append(semantic_input_file)
+
     # 4. src/libraries/index.ts (Skipo-specific custom code only)
     lib_index = target_root / "src" / "libraries" / "index.ts"
     if not lib_index.exists():
