@@ -15,7 +15,7 @@ vi.mock("@dinilmusick/gutts", () => ({
 
 const resolveFrnlInputMock = vi.fn(async (contract: any, input: string) => {
   contract.onProgress?.({phase: "started"});
-  const rawValue = input === "thirty two" ? 32 : input === "invalid text" ? -50 : input;
+  const rawValue = input === "thirty two" ? 32 : input === "forty two" ? 42 : input === "invalid text" ? -50 : input;
   const parsed = contract.validator ? contract.validator.safeParse(rawValue) : {success: true, data: rawValue};
   contract.onProgress?.({phase: "completed"});
   return {
@@ -148,8 +148,7 @@ describe("Skipo universal semantic input regression matrix", () => {
       schema: {type: "string"},
       validator: z.string(),
     };
-    const res = await resolveSkipoInput(contract, {text: "   \t
-  "});
+    const res = await resolveSkipoInput(contract, {text: "   \t\n   "});
     expect(res.status).toBe("invalid");
     expect(resolveFrnlInputMock).not.toHaveBeenCalled();
   });

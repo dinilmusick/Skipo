@@ -11,7 +11,8 @@ describe('Scaffold Regression & Tightening Suites', () => {
     const output = execSync(`python3 "${scriptPath}" 2>&1`, {
       encoding: 'utf-8',
     });
-    expect(output).toContain('Ran 7 tests');
+    expect(output).toMatch(/Ran \d+ tests/);
+    expect(output).toContain('Ran 8 tests');
     expect(output).toContain('OK');
   }, 30_000);
 });

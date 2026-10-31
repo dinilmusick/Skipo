@@ -80,7 +80,171 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
         tsconfig_file.write_text(json.dumps(tsconfig_data, indent=2) + "\n", encoding="utf-8")
         created.append(tsconfig_file)
 
-    # 2. src/backend/<AppName>Backend.ts
+    # 2. src/backend/aikoRuntime.ts
+    aiko_runtime_file = target_root / "src" / "backend" / "aikoRuntime.ts"
+    if not aiko_runtime_file.exists():
+        aiko_runtime_content = """import { AikoRuntime } from '@ultrst-armada/kloks/aiko';
+import type { AikoCapability, AikoSourceKind } from '@ultrst-armada/kloks/aiko';
+import { AIKeyServiceFacade } from '@ultrst-armada/kloks/krnl-ai-services';
+import { guttsFodNodeDefinitions, executeGuttsApi } from '@dinilmusick/gutts/api';
+import { scanBackendFacadeToNodes } from '@ultrst-armada/kloks/fod';
+
+export function createAikoRuntime(
+  workspaceId: string,
+  input: {
+    fod: any;
+    backend: any;
+  },
+) {
+  const { fod, backend } = input;
+  const host = scanBackendFacadeToNodes(backend);
+  const engineUrl = typeof process !== 'undefined' ? process.env.AIKO_ENGINE_URL : undefined;
+
+  const resolve = async (specId?: string, context?: any) => {
+    if (!engineUrl) throw new Error('AIKO_ENGINE_URL is required for the embedded Aiko module.');
+    const response = await fetch(engineUrl.replace(/\\/$/, '') + '/api/module/resolve-intelligence', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(typeof process !== 'undefined' && process.env.AIKO_MODULE_TOKEN
+          ? { 'x-aiko-module-token': process.env.AIKO_MODULE_TOKEN }
+          : {}),
+      },
+      body: JSON.stringify({ specId, ...context }),
+    });
+    if (!response.ok) throw new Error('Aiko Engine intelligence resolver request failed.');
+    return response.json();
+  };
+
+  const capabilities = async (): Promise<AikoCapability[]> => {
+    const endpointCapabilities: AikoCapability[] = (host?.endpoints ?? [])
+      .filter((endpoint: any) => !String(endpoint.id).toLowerCase().includes('aiko') && !String(endpoint.serviceId).toLowerCase().includes('aiko') && !String(endpoint.serviceName).toLowerCase().includes('aiko'))
+      .map((endpoint: any) => ({
+        id: String(endpoint.id),
+        name: endpoint.operationName || endpoint.id,
+        description: endpoint.description,
+        sourceKind: 'endpoint' as AikoSourceKind,
+        sourceId: String(endpoint.id),
+        inputSchema: endpoint.inputSchema,
+        execute: (input: unknown) => endpoint.invoke(input),
+      }));
+
+    const flowCapabilities: AikoCapability[] = (await fod.listFlows()).map((flow: any) => ({
+      id: String(flow.id),
+      name: flow.name,
+      description: flow.description,
+      sourceKind: 'fod-flow' as AikoSourceKind,
+      sourceId: String(flow.id),
+      inputSchema: flow.inputSchema,
+      execute: async (input: unknown) => {
+        const result = await fod.executeFlow(String(flow.id), input);
+        if (!result.success) throw new Error(result.errors?.[0]?.message || 'Flow execution failed');
+        return result.output;
+      },
+    }));
+
+    const guttsCapabilities: AikoCapability[] = guttsFodNodeDefinitions.map((node: any) => ({
+      id: String(node.metadata.apiId),
+      name: node.label,
+      description: node.description,
+      sourceKind: 'gutts-api' as AikoSourceKind,
+      sourceId: String(node.metadata.apiId),
+      inputSchema: node.inputSchema,
+      execute: (input: unknown) => executeGuttsApi(String(node.metadata.apiId), input as Record<string, unknown>),
+    }));
+
+    return [...endpointCapabilities, ...flowCapabilities, ...guttsCapabilities];
+  };
+
+  const resolveNaturalLanguage = async (agent: any, inputText: string) => {
+    if (!engineUrl) throw new Error('AIKO_ENGINE_URL is required for natural-language Aiko execution.');
+    const response = await fetch(engineUrl.replace(/\\/$/, '') + '/api/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: inputText }],
+        intelligenceSpec: agent.intelligenceSpec,
+        tools: [{ type: 'function', function: {
+          name: agent.tool.id,
+          description: agent.tool.description || agent.tool.name,
+          parameters: agent.tool.inputSchema || { type: 'object' },
+        }}],
+        tool_choice: { type: 'function', function: { name: agent.tool.id } },
+      }),
+    });
+    if (!response.ok) throw new Error('Aiko Engine natural-language resolution failed.');
+    const payload = await response.json();
+    const argumentsText = payload.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    if (!argumentsText) throw new Error('Aiko Engine did not return a structured tool payload.');
+    return JSON.parse(argumentsText);
+  };
+
+  return new AikoRuntime({
+    capabilities,
+    resolver: { resolve },
+    resolveNaturalLanguage,
+    keys: {
+      listKeys: async () => (AIKeyServiceFacade.getKeys() as any[]).map((key: any) => ({
+        id: key.id, providerId: key.providerId, label: key.label, status: key.status,
+        isActive: key.isActive, emailGroup: key.emailGroup, expiresAt: key.expiresAt,
+      })),
+      getActiveKey: async (providerId: string) => {
+        const facade: any = AIKeyServiceFacade;
+        if (typeof facade.getActiveKey === 'function') return facade.getActiveKey(providerId) ?? null;
+        const { keyStore } = await import('@ultrst-armada/kloks/ai-keys');
+        return keyStore.getActiveKey(providerId) ?? null;
+      },
+      rotateKey: async (providerId: string) => {
+        const facade: any = AIKeyServiceFacade;
+        if (typeof facade.rotateKey === 'function') return facade.rotateKey(providerId) ?? null;
+        const { keyStore } = await import('@ultrst-armada/kloks/ai-keys');
+        return keyStore.getNextKey(providerId) ?? null;
+      },
+      addKey: async (input: any) => AIKeyServiceFacade.addKey(input) as any,
+      syncFromAikoEngine: async () => {
+        if (!engineUrl) throw new Error('AIKO_ENGINE_URL is required for Aiko Engine key sync.');
+        const response = await fetch(engineUrl.replace(/\\/$/, '') + '/api/module/keys/export', {
+          headers: typeof process !== 'undefined' && process.env.AIKO_MODULE_TOKEN
+            ? { 'x-aiko-module-token': process.env.AIKO_MODULE_TOKEN } : undefined,
+        });
+        if (!response.ok) throw new Error('Aiko Engine key synchronization failed.');
+        const payload = await response.json();
+        const importer = (AIKeyServiceFacade as any).importKeys
+          ? (AIKeyServiceFacade as any).importKeys.bind(AIKeyServiceFacade)
+          : (await import('@ultrst-armada/kloks/ai-keys')).keyStore.importKeys.bind(
+              (await import('@ultrst-armada/kloks/ai-keys')).keyStore,
+            );
+        const imported = await importer(payload.backup);
+        return { synced: imported.importedCount, message: 'Aiko Engine keys synchronized.' };
+      },
+    },
+  });
+}
+
+export function createAikoServiceFacade(createRuntime: (workspaceId: string) => any) {
+  return {
+    id: 'kloks.aiko',
+    name: 'AikoService',
+    version: '1.0.0',
+    runtime: 'server' as const,
+    deployment: 'local' as const,
+    execute: async (operation: string, input?: any) => {
+      const runtime = createRuntime(String(input?.workspaceId || 'default'));
+      if (operation === 'listAgents') return runtime.listAgents();
+      if (operation === 'executeAgent') return runtime.executeAgent(String(input?.agentId), input?.query);
+      if (operation === 'listKeys') return runtime.listKeys();
+      if (operation === 'syncFromAikoEngine') return runtime.syncFromAikoEngine();
+      if (operation === 'listCapabilities') return runtime.listCapabilities();
+      if (operation === 'createCustomAgent') return runtime.createCustomAgent(String(input?.name), input?.capabilityIds, input?.specId);
+      throw new Error('Unsupported Aiko operation: ' + operation);
+    },
+  };
+}
+"""
+        aiko_runtime_file.write_text(aiko_runtime_content, encoding="utf-8")
+        created.append(aiko_runtime_file)
+
+    # 2b. src/backend/<AppName>Backend.ts
     backend_file = target_root / "src" / "backend" / f"{pascal}Backend.ts"
     if not backend_file.exists():
         backend_content = f"""/**
@@ -109,10 +273,8 @@ import {{
 }} from '@ultrst-armada/kloks/backend';
 import {{ WorkerExecutionBoundary }} from '@ultrst-armada/krnl';
 import {{ FodRuntime, createFodServiceFacadeForWorkspace, scanBackendFacadeToNodes }} from '@ultrst-armada/kloks/fod';
-import {{ AikoRuntime }} from '@ultrst-armada/kloks/aiko';
-import type {{ AikoCapability, AikoSourceKind }} from '@ultrst-armada/kloks/aiko';
-import {{ AIKeyServiceFacade }} from '@ultrst-armada/kloks/krnl-ai-services';
 import {{ guttsFodNodeDefinitions, executeGuttsApi }} from '@dinilmusick/gutts/api';
+import {{ createAikoRuntime as buildAikoRuntime, createAikoServiceFacade }} from './aikoRuntime.js';
 
 export const {camel}Worker = new WorkerExecutionBoundary('{pascal}Worker');
 
@@ -134,124 +296,12 @@ export const createFodRuntime = (workspaceId: string) => {{
 
 export const FodServiceFacade = createFodServiceFacadeForWorkspace(createFodRuntime);
 
-export const createAikoRuntime = (workspaceId: string) => {{
-  const fod = createFodRuntime(workspaceId);
-  const host = scanBackendFacadeToNodes({pascal}Backend as any);
-  const engineUrl = process.env.AIKO_ENGINE_URL;
-  const resolve = async (specId?: string, context?: any) => {{
-    if (!engineUrl) throw new Error('AIKO_ENGINE_URL is required for the embedded Aiko module.');
-    const response = await fetch(engineUrl.replace(/\/$/, '') + '/api/module/resolve-intelligence', {{
-      method: 'POST',
-      headers: {{
-        'Content-Type': 'application/json',
-        ...(process.env.AIKO_MODULE_TOKEN ? {{ 'x-aiko-module-token': process.env.AIKO_MODULE_TOKEN }} : {{}}),
-      }},
-      body: JSON.stringify({{ specId, ...context }}),
-    }});
-    if (!response.ok) throw new Error('Aiko Engine intelligence resolver request failed.');
-    return response.json();
-  }};
-  const capabilities = async (): Promise<AikoCapability[]> => {{
-    const endpointCapabilities: AikoCapability[] = host.endpoints
-      .filter((endpoint: any) =>
-        !String(endpoint.id).toLowerCase().includes('aiko') &&
-        !String(endpoint.serviceId).toLowerCase().includes('aiko') &&
-        !String(endpoint.serviceName).toLowerCase().includes('aiko')
-      )
-      .map((endpoint: any) => ({{
-        id: String(endpoint.id), name: endpoint.operationName || endpoint.id, description: endpoint.description,
-        sourceKind: 'endpoint' as AikoSourceKind, sourceId: String(endpoint.id), inputSchema: endpoint.inputSchema,
-        execute: (input: unknown) => endpoint.invoke(input),
-      }}));
-    const flowCapabilities: AikoCapability[] = (await fod.listFlows()).map((flow: any) => ({{
-      id: String(flow.id), name: flow.name, description: flow.description,
-      sourceKind: 'fod-flow' as AikoSourceKind, sourceId: String(flow.id), inputSchema: (flow as any).inputSchema,
-      execute: async (input: unknown) => {{
-        const result = await fod.executeFlow(String(flow.id), input);
-        if (!result.success) throw new Error(result.errors?.[0]?.message || 'Flow execution failed');
-        return result.output;
-      }},
-    }}));
-    const deriveInputSchema = (inputs?: any[]) => {{
-      if (!inputs || !Array.isArray(inputs) || inputs.length === 0) return {{ type: 'object' }};
-      const properties: Record<string, any> = {{}};
-      const required: string[] = [];
-      for (const port of inputs) {{
-        const propName = port.name || port.id;
-        properties[propName] = {{ type: port.dataType === 'number' ? 'number' : port.dataType === 'boolean' ? 'boolean' : 'string', description: port.description }};
-        if (port.required) required.push(propName);
-      }}
-      return {{ type: 'object', properties, required }};
-    }};
-    const guttsCapabilities: AikoCapability[] = guttsFodNodeDefinitions.map((node: any) => ({{
-      id: String(node.metadata.apiId), name: node.label, description: node.description,
-      sourceKind: 'gutts-api' as AikoSourceKind, sourceId: String(node.metadata.apiId), inputSchema: node.inputSchema || deriveInputSchema(node.inputs),
-      execute: (input: unknown) => executeGuttsApi(String(node.metadata.apiId), input as Record<string, unknown>),
-    }}));
-    return [...endpointCapabilities, ...flowCapabilities, ...guttsCapabilities];
-  }};
-  const resolveNaturalLanguage = async (agent: any, input: string) => {{
-    if (!engineUrl) throw new Error('AIKO_ENGINE_URL is required for natural-language Aiko execution.');
-    const response = await fetch(engineUrl.replace(/\/$/, '') + '/api/chat/completions', {{
-      method: 'POST', headers: {{ 'Content-Type': 'application/json' }},
-      body: JSON.stringify({{ messages: [{{ role: 'user', content: input }}], intelligenceSpec: agent.intelligenceSpec, tools: [{{ type: 'function', function: {{ name: agent.tool.id, description: agent.tool.description || agent.tool.name, parameters: agent.tool.inputSchema || {{ type: 'object' }} }} }}], tool_choice: {{ type: 'function', function: {{ name: agent.tool.id }} }} }}),
-    }});
-    if (!response.ok) throw new Error('Aiko Engine natural-language resolution failed.');
-    const payload = await response.json();
-    const argumentsText = payload.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-    if (!argumentsText) throw new Error('Aiko Engine did not return a structured tool payload.');
-    return JSON.parse(argumentsText);
-  }};
-  return new AikoRuntime({{
-    capabilities,
-    resolver: {{ resolve: async (specId, context) => resolve(specId, context) }},
-    resolveNaturalLanguage,
-    keys: {{
-      listKeys: async () => (AIKeyServiceFacade.getKeys() as any[]).map((key: any) => ({{ id: key.id, providerId: key.providerId, label: key.label, status: key.status, isActive: key.isActive, emailGroup: key.emailGroup, expiresAt: key.expiresAt }})),
-      getActiveKey: async (providerId: string) => {{
-        const facadeAny = AIKeyServiceFacade as any;
-        if (typeof facadeAny.getActiveKey === 'function') return (facadeAny.getActiveKey(providerId) as any) ?? null;
-        const {{ keyStore }} = await import('@ultrst-armada/kloks/ai-keys');
-        return (keyStore.getActiveKey(providerId) as any) ?? null;
-      }},
-      rotateKey: async (providerId: string) => {{
-        const facadeAny = AIKeyServiceFacade as any;
-        if (typeof facadeAny.rotateKey === 'function') return (facadeAny.rotateKey(providerId) as any) ?? null;
-        const {{ keyStore }} = await import('@ultrst-armada/kloks/ai-keys');
-        return (keyStore.getNextKey(providerId) as any) ?? null;
-      }},
-      addKey: async (input: any) => AIKeyServiceFacade.addKey(input) as any,
-      syncFromAikoEngine: async () => {{
-        if (!engineUrl) throw new Error('AIKO_ENGINE_URL is required for Aiko Engine key sync.');
-        const response = await fetch(engineUrl.replace(/\/$/, '') + '/api/module/keys/export', {{
-          headers: process.env.AIKO_MODULE_TOKEN ? {{ 'x-aiko-module-token': process.env.AIKO_MODULE_TOKEN }} : undefined,
-        }});
-        if (!response.ok) throw new Error('Aiko Engine key synchronization failed.');
-        const payload = await response.json();
-        const importer = (AIKeyServiceFacade as any).importKeys
-          ? (AIKeyServiceFacade as any).importKeys.bind(AIKeyServiceFacade)
-          : (await import('@ultrst-armada/kloks/ai-keys')).keyStore.importKeys.bind((await import('@ultrst-armada/kloks/ai-keys')).keyStore);
-        const imported = await importer(payload.backup);
-        return {{ synced: imported.importedCount, message: 'Aiko Engine keys synchronized.' }};
-      }},
-    }},
-  }});
-}};
+export const createAikoRuntime = (workspaceId: string) => buildAikoRuntime(workspaceId, {{
+  fod: createFodRuntime(workspaceId),
+  backend: {pascal}Backend,
+}});
 
-export const AikoServiceFacade = {{
-  id: 'kloks.aiko', name: 'AikoService', version: '1.0.0',
-  runtime: 'server' as const, deployment: 'local' as const,
-  execute: async (operation: string, input?: any) => {{
-    const runtime = createAikoRuntime(String(input?.workspaceId || 'default'));
-    if (operation === 'listAgents') return runtime.listAgents();
-    if (operation === 'executeAgent') return runtime.executeAgent(String(input?.agentId), input?.query);
-    if (operation === 'listKeys') return runtime.listKeys();
-    if (operation === 'syncFromAikoEngine') return runtime.syncFromAikoEngine();
-    if (operation === 'listCapabilities') return runtime.listCapabilities();
-    if (operation === 'createCustomAgent') return runtime.createCustomAgent(String(input?.name), input?.capabilityIds, input?.specId);
-    throw new Error('Unsupported Aiko operation: ' + operation);
-  }},
-}};
+export const AikoServiceFacade = createAikoServiceFacade(createAikoRuntime);
 
 export const {pascal}Backend = {{
   services: {{
@@ -279,7 +329,7 @@ export default {pascal}Backend;
         backend_file.write_text(backend_content, encoding="utf-8")
         created.append(backend_file)
 
-    # 2b. Canonical public backend barrel (Aspect 22 compliance)
+    # 2c. Canonical public backend barrel (Aspect 22 compliance)
     backend_barrel = target_root / "src" / "backend" / "index.ts"
     if not backend_barrel.exists():
         backend_barrel_content = f"""/**
@@ -288,10 +338,80 @@ export default {pascal}Backend;
  */
 
 export * from './{pascal}Backend.js';
+export * from './aikoRuntime.js';
 export {{ default }} from './{pascal}Backend.js';
 """
         backend_barrel.write_text(backend_barrel_content, encoding="utf-8")
         created.append(backend_barrel)
+
+    # 2d. src/backend/adapters/aikoRoutes.ts (Aiko API route adapter)
+    adapters_dir = target_root / "src" / "backend" / "adapters"
+    adapters_dir.mkdir(parents=True, exist_ok=True)
+    aiko_routes_file = adapters_dir / "aikoRoutes.ts"
+    if not aiko_routes_file.exists():
+        aiko_routes_content = """import { createAikoRuntime } from '../index.js';
+
+export async function handleAikoRoutes(request: Request): Promise<Response | null> {
+  const url = new URL(request.url);
+  if (url.pathname !== '/api/aiko') return null;
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  try {
+    const body = (await request.json()) as any;
+    const runtime = createAikoRuntime(String(body.workspaceId || 'default'));
+    let result: unknown;
+    switch (String(body.action)) {
+      case 'listAgents':
+        result = await runtime.listAgents();
+        break;
+      case 'executeAgent':
+        result = await runtime.executeAgent(String(body.agentId), body.query);
+        break;
+      case 'listKeys':
+        result = await runtime.listKeys();
+        break;
+      case 'getActiveKey':
+        result = await runtime.getActiveKey(String(body.providerId));
+        break;
+      case 'rotateKey':
+        result = await runtime.rotateKey(String(body.providerId));
+        break;
+      case 'addKey':
+        result = await runtime.addKey(body.input);
+        break;
+      case 'syncFromAikoEngine':
+        result = await runtime.syncFromAikoEngine();
+        break;
+      case 'listCapabilities':
+        result = await runtime.listCapabilities();
+        break;
+      case 'createCustomAgent':
+        result = await runtime.createCustomAgent(String(body.name), body.capabilityIds || [], body.specId);
+        break;
+      default:
+        return new Response(JSON.stringify({ error: 'Unsupported Aiko action' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+    }
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+}
+"""
+        aiko_routes_file.write_text(aiko_routes_content, encoding="utf-8")
+        created.append(aiko_routes_file)
 
     # 3. Canonical Skipo frontend page contract + component facade
     frontend_components = target_root / "src" / "frontend" / "components"
@@ -345,16 +465,16 @@ export {{ default }} from './{pascal}Backend.js';
         pages_root / "main" / "tabs" / "README.md": (
             "# Main Tabs\n\nFOD is mandatory. Application-specific working UI belongs in additional tab directories under this folder.\n"
         ),
-        pages_root / "main" / "tabs" / "aiko" / "aiko.tsx": (
+        pages_root / "main" / "tabs" / "aiko" / "page.tsx": (
             "import React from 'react';\n"
             "import { AikoModule } from '@ultrst-armada/floks/canvas-ui/aiko';\n\n"
             "export function AikoTab({ runtime, workspaceId }: { runtime: any; workspaceId: string }) { return <AikoModule runtime={runtime} workspaceId={workspaceId} />; }\n"
             "export default AikoTab;\n"
         ),
-        pages_root / "main" / "tabs" / "aiko" / "page.tsx": (
-            "export { AikoTab as default } from './aiko.js';\n"
+        pages_root / "main" / "tabs" / "aiko" / "aiko.tsx": (
+            "export { AikoTab as default, AikoTab } from './page.js';\n"
         ),
-        pages_root / "main" / "tabs" / "fod" / "fod.tsx": (
+        pages_root / "main" / "tabs" / "fod" / "page.tsx": (
             "import React from 'react';\n"
             "import { FodModule } from '@ultrst-armada/floks/canvas-ui/fod';\n"
             "import type { FodRuntimeLike } from '@ultrst-armada/floks/canvas-ui/fod';\n"
@@ -364,8 +484,8 @@ export {{ default }} from './{pascal}Backend.js';
             "}\n"
             "export default FodTab;\n"
         ),
-        pages_root / "main" / "tabs" / "fod" / "page.tsx": (
-            "export { FodTab as default } from './fod.js';\n"
+        pages_root / "main" / "tabs" / "fod" / "fod.tsx": (
+            "export { FodTab as default, FodTab } from './page.js';\n"
         ),
         pages_root / "settings" / "page.tsx": (
             "import React, { useState } from 'react';\n"

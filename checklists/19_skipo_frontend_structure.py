@@ -99,6 +99,10 @@ def validate_skipo_frontend_structure(root_dir: Path) -> ChecklistResult:
     if fod_page.exists():
         fod_text = fod_page.read_text(encoding="utf-8", errors="ignore")
         if "FodModule" not in fod_text or "@ultrst-armada/floks/canvas-ui/fod" not in fod_text:
+            sibling = fod_page.parent / "fod.tsx"
+            if sibling.exists():
+                fod_text += "\n" + sibling.read_text(encoding="utf-8", errors="ignore")
+        if "FodModule" not in fod_text or "@ultrst-armada/floks/canvas-ui/fod" not in fod_text:
             violations.append(Violation(
                 "invalid-fod-module-binding", "error",
                 "Mandatory FOD tab must bind to the canonical Floks FodModule.",
@@ -106,6 +110,10 @@ def validate_skipo_frontend_structure(root_dir: Path) -> ChecklistResult:
             ))
     if aiko_page.exists():
         aiko_text = aiko_page.read_text(encoding="utf-8", errors="ignore")
+        if "AikoModule" not in aiko_text or "@ultrst-armada/floks/canvas-ui/aiko" not in aiko_text:
+            sibling = aiko_page.parent / "aiko.tsx"
+            if sibling.exists():
+                aiko_text += "\n" + sibling.read_text(encoding="utf-8", errors="ignore")
         if "AikoModule" not in aiko_text or "@ultrst-armada/floks/canvas-ui/aiko" not in aiko_text:
             violations.append(Violation(
                 "invalid-aiko-module-binding", "error",

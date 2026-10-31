@@ -40,7 +40,16 @@ class SkipoFrontendStructureTests(unittest.TestCase):
             for rel in self.required:
                 p = root / rel
                 p.parent.mkdir(parents=True, exist_ok=True)
-                p.write_text("immersive mode; SRKL sync" if "main/page" in rel or "accounts/page" in rel else "")
+                if "main/page" in rel:
+                    p.write_text("immersive mode")
+                elif "accounts/page" in rel:
+                    p.write_text("SRKL sync")
+                elif "fod/page" in rel:
+                    p.write_text("import { FodModule } from '@ultrst-armada/floks/canvas-ui/fod';")
+                elif "aiko/page" in rel:
+                    p.write_text("import { AikoModule } from '@ultrst-armada/floks/canvas-ui/aiko';")
+                else:
+                    p.write_text("")
         return root
 
     def test_complete_structure_passes(self):
