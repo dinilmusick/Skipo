@@ -16,6 +16,7 @@ class AikoDirectChatScaffoldTests(unittest.TestCase):
             self.assertIn("createAikoRuntime",app)
             self.assertIn("listAgents",chat)
             self.assertIn("executeAgent",chat)
+        self.assertIn("skipo-application-agent",(root / "src/frontend/../backend/aikoRuntime.ts").resolve().read_text(encoding="utf-8"))
         finally:
             import shutil
             shutil.rmtree(root,ignore_errors=True)
