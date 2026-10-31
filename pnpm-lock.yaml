@@ -736,6 +736,14 @@ packages:
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
 
+  '@ultrst-armada/frnlts@0.4.1':
+    resolution: {integrity: sha512-HLWrsJubBRITVNFgsInLgaJ8ex9NaGxk9T+nJFQLqyQmJdLC8XGBWjPBs356tIf4FoKuLLhRYijB8FVuwdYVGw==}
+    engines: {node: '>=20.0.0'}
+    hasBin: true
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+
+
   '@ultrst-armada/frnlts@0.5.0':
     resolution: {}
     engines: {node: '>=20.0.0'}
@@ -1968,6 +1976,21 @@ snapshots:
       - ai
       - immer
       - use-sync-external-store
+
+  '@ultrst-armada/frnlts@0.4.1(@types/node@22.20.5)(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
+    dependencies:
+      '@dinilmusick/gutts': 1.2.1(@types/node@22.20.5)
+      react: 19.3.0
+      typescript: 5.9.3
+      zod: 3.25.76
+      zustand: 5.0.15(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
+    transitivePeerDependencies:
+      - '@types/node'
+      - '@types/react'
+      - ai
+      - immer
+      - use-sync-external-store
+
 
   '@ultrst-armada/frnlts@0.5.0(@types/node@22.20.5)(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
     dependencies:
