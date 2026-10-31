@@ -396,7 +396,7 @@ export {{ default }} from './{pascal}Backend.js';
             "import FodTab from './pages/main/tabs/fod/page.js';\n"
             "import AikoTab from './pages/main/tabs/aiko/page.js';\n"
             "import { createFodRuntime, createAikoRuntime } from '../backend/index.js';\n\n"
-            "export function App() { const workspaceId = typeof window === 'undefined' ? 'default' : localStorage.getItem('skipo-active-workspace') || 'default'; const fodRuntime = createFodRuntime(workspaceId); const aikoRuntime = createAikoRuntime(workspaceId); return <MainPage fod={<FodTab runtime={fodRuntime} workspaceId={workspaceId} />} aiko={<AikoTab runtime={aikoRuntime} workspaceId={workspaceId} />} />; }\n\n"
+            "export function App() { const workspaceId = typeof window === 'undefined' ? 'default' : localStorage.getItem('skipo-active-workspace') || 'default'; const fodRuntime = createFodRuntime(workspaceId); const aikoRuntime = createAikoRuntime(workspaceId); return <FrnlSemanticInputProvider value={{ workspace: workspaceId }}><MainPage fod={<FodTab runtime={fodRuntime} workspaceId={workspaceId} />} aiko={<AikoTab runtime={aikoRuntime} workspaceId={workspaceId} />} /></FrnlSemanticInputProvider>; }\n\n"
             "export default App;\n",
             encoding="utf-8",
         )
