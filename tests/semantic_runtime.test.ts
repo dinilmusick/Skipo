@@ -171,6 +171,48 @@ describe('Skipo semantic runtime', () => {
     expect(result.task.result).toBe(5);
   });
 
+  it('resumes an input-required task through the same context', async () => {
+    const runtime = createSkipoSemanticRuntime({ applicationId: 'resume-app' });
+    runtime.registerCapability({
+      id: 'profile.update',
+      name: 'Update profile',
+      description: 'Updates a profile',
+      kind: 'endpoint',
+      inputSchema: { type: 'object', properties: { displayName: { type: 'string' } }, required: ['displayName'] },
+    });
+    runtime.setPlanner({
+      async plan() {
+        return {
+          intent: 'profile.update',
+          nodes: [{ id: 'update-1', capabilityId: 'profile.update', dependsOn: [], input: { displayName: '$requirement:name' } }],
+          requirements: [{
+            id: 'name',
+            semanticType: 'displayName',
+            description: 'Display name',
+            required: true,
+            sourceCapability: 'profile.update',
+            sourceField: 'displayName',
+            constraints: { schema: { type: 'string' } },
+          }],
+        };
+      },
+    });
+    runtime.setExecutor({ async execute(_capability, input) { return input; } });
+
+    const first = await runtime.handle('update my profile', {
+      applicationId: 'resume-app',
+      sessionId: 'conversation-42',
+    });
+    expect(first.status).toBe('input-required');
+
+    const second = await runtime.continueTask('Monke', first.task.id, {
+      applicationId: 'resume-app',
+      sessionId: first.task.context.contextId!,
+    });
+    expect(second.status).toBe('completed');
+    expect(second.task.result).toEqual({ displayName: 'Monke' });
+  });
+
   it('verifies SkipoBackend semanticRuntime exposure and existing services', () => {
     expect(SkipoBackend.semanticRuntime).toBeDefined();
     expect(SkipoBackend.semanticRuntime).toBe(semanticRuntime);
