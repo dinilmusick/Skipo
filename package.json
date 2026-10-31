@@ -23,9 +23,9 @@
     "generate:graph-assets": "python3 scripts/skipo_builder.py generate-graph-assets"
   },
   "dependencies": {
-    "@dinilmusick/gutts": "^1.1.0",
-    "@ultrst-armada/floks": "^1.11.1",
-    "@ultrst-armada/frnlts": "^0.3.0",
+    "@dinilmusick/gutts": "^1.2.0",
+    "@ultrst-armada/floks": "^1.12.1",
+    "@ultrst-armada/frnlts": "^0.4.0",
     "@ultrst-armada/kloks": "^1.21.0",
     "@ultrst-armada/krnl": "^1.0.9",
     "lucide-react": "^1.55.0",
@@ -39,7 +39,8 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "typescript": "^5.7.3",
-    "vitest": "^3.1.0"
+    "vitest": "^3.1.0",
+    "zod": "^3.24.1"
   },
   "pnpm": {
     "overrides": {
