@@ -247,7 +247,7 @@ export class SkipoSemanticRuntime {
     return {intent:selected.id,nodes:[{id:`${selected.id}-0`,capabilityId:selected.id,dependsOn:[],input}],requirements};
   }
 
-  private async execute(capability:CapabilityDescriptor,input:unknown,context:AgentContext):Promise<unknown>{
+  async execute(capability:CapabilityDescriptor,input:unknown,context:AgentContext):Promise<unknown>{
     if(this.executor) return this.executor.execute(capability,input,context);
     if(capability.kind==='gutts') return executeGuttsApi(String(capability.metadata?.apiId??capability.id),input as Record<string,unknown>);
     if(capability.metadata?.service && capability.metadata?.operation)
