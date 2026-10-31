@@ -109,6 +109,17 @@ export class SkipoSemanticRuntime {
     }
   }
 
+
+  async registerFodRuntime(fod: {listFlows():Promise<any[]>;executeFlow(flowId:string,input?:unknown):Promise<any>}):Promise<void>{
+    for(const flow of await fod.listFlows()){
+      this.registerCapability({
+        id:String(flow.id),name:String(flow.name),description:String(flow.description??'Execute FOD flow'),kind:'fod-flow',
+        inputSchema:flow.inputSchema,outputSchema:flow.outputSchema,sideEffects:'external',
+        metadata:{source:'fod',flowId:String(flow.id),provides:[String(flow.id)]}
+      });
+    }
+  }
+
   createTask(request:string,parentTaskId?:string,contextId?:string){
     const task=this.tasks.create(request,parentTaskId);
     if(contextId) task.context.contextId=contextId;
@@ -241,6 +252,8 @@ export class SkipoSemanticRuntime {
     if(capability.kind==='gutts') return executeGuttsApi(String(capability.metadata?.apiId??capability.id),input as Record<string,unknown>);
     if(capability.metadata?.service && capability.metadata?.operation)
       return skipoExecutionEngine.executeService(String(capability.metadata.service),String(capability.metadata.operation),input);
+    if(capability.kind==='fod-flow' && capability.metadata?.flowExecutor)
+      return (capability.metadata.flowExecutor as (input:unknown)=>Promise<unknown>)(input);
     throw new Error(`NO_EXECUTOR:${capability.id}`);
   }
 
