@@ -77,6 +77,8 @@ for (const [name, svc] of Object.entries(services)) {
   semanticRuntime.registerService(name, svc);
 }
 
+semanticRuntime.registerGutTS();
+
 function resolveService(id: string): any {
   try {
     return backendFacade.getService(id);
