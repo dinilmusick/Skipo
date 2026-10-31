@@ -94,6 +94,25 @@ def validate_skipo_frontend_structure(root_dir: Path) -> ChecklistResult:
                 suggestion="Implement a shell toggle that removes the Main top and bottom bars while preserving tab content."
             ))
 
+    fod_page = root_dir / "src/frontend/pages/main/tabs/fod/page.tsx"
+    aiko_page = root_dir / "src/frontend/pages/main/tabs/aiko/page.tsx"
+    if fod_page.exists():
+        fod_text = fod_page.read_text(encoding="utf-8", errors="ignore")
+        if "FodModule" not in fod_text or "@ultrst-armada/floks/canvas-ui/fod" not in fod_text:
+            violations.append(Violation(
+                "invalid-fod-module-binding", "error",
+                "Mandatory FOD tab must bind to the canonical Floks FodModule.",
+                str(fod_page.relative_to(root_dir)),
+            ))
+    if aiko_page.exists():
+        aiko_text = aiko_page.read_text(encoding="utf-8", errors="ignore")
+        if "AikoModule" not in aiko_text or "@ultrst-armada/floks/canvas-ui/aiko" not in aiko_text:
+            violations.append(Violation(
+                "invalid-aiko-module-binding", "error",
+                "Mandatory Aiko tab must bind to the canonical Floks AikoModule.",
+                str(aiko_page.relative_to(root_dir)),
+            ))
+
     accounts_page = root_dir / "src/frontend/pages/settings/tabs/accounts/page.tsx"
     if accounts_page.exists():
         text = accounts_page.read_text(encoding="utf-8", errors="ignore")
