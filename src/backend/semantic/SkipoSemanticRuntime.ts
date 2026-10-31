@@ -1,5 +1,4 @@
 import {
-  CapabilityExecutionRuntime,
   CapabilityRegistry,
   ContextResolver,
   RequirementResolver,
@@ -159,6 +158,11 @@ export class SkipoSemanticRuntime {
     const plan=await this.plan(request,context);
     task.context.intent=plan.intent;
     if(plan.requirements?.length) task.context.requirements.push(...plan.requirements);
+    const plannedInput=plan.nodes[0]?.input;
+    if(plannedInput&&typeof plannedInput==='object') for(const requirement of task.context.requirements){
+      const field=requirement.sourceField;
+      if(field && Object.prototype.hasOwnProperty.call(plannedInput,field)) requirement.value=(plannedInput as Record<string,unknown>)[field];
+    }
 
     for(const requirement of task.context.requirements){
       if(!requirement.required || requirement.value!==undefined) continue;
