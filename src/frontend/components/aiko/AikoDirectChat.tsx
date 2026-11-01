@@ -22,12 +22,13 @@ export interface BugReportPayload {
 export interface AikoDirectChatRuntime {
   listAgents(): Promise<AikoDirectChatAgent[]>;
   executeAgent(agentId: string, input: string): Promise<unknown>;
-  reportBug?(report: BugReportPayload): Promise<unknown>;
+  reportBug?(report: BugReportPayload, authToken?: string): Promise<unknown>;
 }
 export interface AikoDirectChatProps {
   runtime: AikoDirectChatRuntime;
   workspaceId: string;
   applicationId?: string;
+  authToken?: string;
 }
 interface Message { id: string; role: 'user' | 'assistant' | 'system'; content: string; }
 
@@ -38,19 +39,23 @@ function mention(input: string, agents: AikoDirectChatAgent[]) {
   return { agent: agents.find(a => a.id.toLowerCase() === token || a.name.toLowerCase().replace(/\s+/g, '-') === token), query: match[2].trim() };
 }
 
-export function AikoDirectChat({ runtime, workspaceId, applicationId = 'skipo-app' }: AikoDirectChatProps) {
+export function AikoDirectChat({ runtime, workspaceId, applicationId = 'skipo-app', authToken }: AikoDirectChatProps) {
   const [open, setOpen] = useState(false);
   const [agents, setAgents] = useState<AikoDirectChatAgent[]>([]);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [busy, setBusy] = useState(false);
   const [suggestions, setSuggestions] = useState(false);
+  const diagnosticsRef = useRef<Record<string, unknown>>({});
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
+    const onError = (event: ErrorEvent) => { diagnosticsRef.current = { ...diagnosticsRef.current, errors: [...((diagnosticsRef.current.errors as string[]) || []), event.message], stackTraces: [...((diagnosticsRef.current.stackTraces as string[]) || []), event.error?.stack || event.message] }; };
+    const onReject = (event: PromiseRejectionEvent) => { diagnosticsRef.current = { ...diagnosticsRef.current, errors: [...((diagnosticsRef.current.errors as string[]) || []), String(event.reason)] }; };
+    window.addEventListener('error', onError); window.addEventListener('unhandledrejection', onReject);
     let active = true;
     void runtime.listAgents().then(value => active && setAgents(value)).catch(() => active && setAgents([]));
-    return () => { active = false; };
+    return () => { active = false; window.removeEventListener('error', onError); window.removeEventListener('unhandledrejection', onReject); };
   }, [runtime, workspaceId]);
 
   const filtered = useMemo(() => {
@@ -101,11 +106,12 @@ export function AikoDirectChat({ runtime, workspaceId, applicationId = 'skipo-ap
           correlationId,
           conversationId: messages[0]?.id,
           messageId: crypto.randomUUID(),
-          diagnostics: { activeRoute: route, timestamp: new Date().toISOString() },
+          diagnostics: { ...diagnosticsRef.current, activeRoute: route, timestamp: new Date().toISOString() },
         },
       };
       if (typeof runtime.reportBug === 'function') {
-        await runtime.reportBug(payload);
+        if (!authToken) throw new Error('Authenticated session token is required to report a bug.');
+        await runtime.reportBug(payload, authToken);
       }
       setMessages(m => [...m, { id: crypto.randomUUID(), role: 'system', content: `Bug reported: "${text}"` }]);
       setInput('');
