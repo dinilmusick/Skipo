@@ -39,15 +39,16 @@ export const FodServiceFacade = createFodServiceFacadeForWorkspace(createFodRunt
 
 export const bugReportService = {
   report: async (input: any, options?: any) => {
+    const authToken = options?.authToken ?? options?.auth?.token ?? '';
     const authId = options?.session?.userId ?? options?.auth?.user?.id ?? '';
     const baseUrl = process.env.KRUSBL_URL;
     if (!baseUrl) throw new Error('[Skipo:Bug] KRUSBL_URL is required.');
-    if (!authId) throw new Error('[Skipo:Bug] Authenticated user is required.');
+    if (!authId && !authToken) throw new Error('[Skipo:Bug] Authenticated session is required.');
     const response = await fetch(baseUrl.replace(/\\/$/, '') + '/api/bugs', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        authorization: options?.auth?.token ? 'Bearer ' + options.auth.token : 'Bearer sess::' + authId + '::skipo',
+        authorization: 'Bearer ' + authToken,
       },
       body: JSON.stringify({
         ...input,
@@ -72,7 +73,7 @@ export const createAikoRuntime = (workspaceId: string) => {
     fod: createFodRuntime(workspaceId),
     backend: { services, orchestrations },
   }) as any;
-  rt.reportBug = (report: any) => bugReportService.report(report, { auth: { user: { id: process.env.AUTH_USER_ID }, token: process.env.AUTH_TOKEN } });
+  rt.reportBug = (report: any, authToken?: string) => bugReportService.report(report, { authToken });
   return rt;
 };
 
