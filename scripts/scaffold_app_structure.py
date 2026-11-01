@@ -323,10 +323,31 @@ export const createFodRuntime = (workspaceId: string) => {{
 
 export const FodServiceFacade = createFodServiceFacadeForWorkspace(createFodRuntime);
 
-export const createAikoRuntime = (workspaceId: string) => buildAikoRuntime(workspaceId, {{
-  fod: createFodRuntime(workspaceId),
-  backend: {pascal}Backend,
-}});
+export const bugReportService = {{
+  report: async (input: any, options?: any) => {{
+    const authId = options?.session?.userId ?? options?.auth?.user?.id ?? 'authenticated_user';
+    const payload = {{
+      ...input,
+      reporterId: authId,
+      context: {{
+        applicationId: '{camel}-app',
+        applicationType: 'skipo' as const,
+        applicationVersion: '1.0.0',
+        ...input?.context,
+      }},
+    }};
+    return {{ success: true, id: `bug-${{Date.now().toString(36)}}`, report: payload }};
+  }},
+}};
+
+export const createAikoRuntime = (workspaceId: string) => {{
+  const rt = buildAikoRuntime(workspaceId, {{
+    fod: createFodRuntime(workspaceId),
+    backend: {pascal}Backend,
+  }}) as any;
+  rt.reportBug = (report: any) => bugReportService.report(report);
+  return rt;
+}};
 
 export const AikoServiceFacade = createAikoServiceFacade(createAikoRuntime);
 
@@ -341,6 +362,7 @@ export const {pascal}Backend = {{
     workspace: WorkspaceServiceFacade,
     fod: FodServiceFacade,
     aiko: AikoServiceFacade,
+    bugReport: bugReportService,
   }},
   orchestrations: {{
     orchestratorA: OrchestratorADefinition,
