@@ -44,7 +44,7 @@ export const bugReportService = {
     const baseUrl = process.env.KRUSBL_URL;
     if (!baseUrl) throw new Error('[Skipo:Bug] KRUSBL_URL is required.');
     if (!authId && !authToken) throw new Error('[Skipo:Bug] Authenticated session is required.');
-    const response = await fetch(baseUrl.replace(/\\/$/, '') + '/api/bugs', {
+    const response = await fetch(baseUrl.replace(/\/$/, '') + '/api/bugs', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
