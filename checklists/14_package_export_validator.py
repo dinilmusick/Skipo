@@ -23,16 +23,24 @@ ASPECT_TITLE = "Package Export Boundary & Sub-Path Governance"
 # Optional bootstrap fallback only if package metadata cannot be located on disk
 BOOTSTRAP_FALLBACK_EXPORTS: Dict[str, Set[str]] = {
     "@ultrst-armada/floks": {"ui", "canvas-ui", "contracts"},
-    "@ultrst-armada/kloks": {"services", "contracts", "backend", "client", "audio-midi", "functions", "orchestrations", "state-graph", "fod"},
+    "@ultrst-armada/kloks": {
+        "services", "contracts", "backend", "client", "audio-midi", "functions",
+        "orchestrations", "state-graph", "fod", "aiko", "krnl-ai-services",
+        "semantic-runtime", "development", "ai-provider", "ai-inference",
+        "ai-models", "ai-routing", "ai-keys", "ai-tools", "shared"
+    },
     "@ultrst-armada/krnl": set(),
 }
 
 def load_package_exports(root_dir: Path) -> Dict[str, Set[str]]:
     approved: Dict[str, Set[str]] = {}
+    skipo_root = Path(__file__).resolve().parent.parent
     search_dirs = [
         root_dir / "node_modules/@ultrst-armada",
         root_dir / "node_modules",
-        Path(__file__).resolve().parent.parent.parent,
+        skipo_root / "node_modules/@ultrst-armada",
+        skipo_root / "node_modules",
+        skipo_root.parent,
     ]
     for base in search_dirs:
         if not base.exists():
