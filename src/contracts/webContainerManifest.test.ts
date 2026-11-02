@@ -8,7 +8,7 @@ describe('Skipo WebContainer manifest', () => {
     expect(manifest.commands.install).toEqual(['pnpm', 'install', '--no-frozen-lockfile']);
     expect(manifest.commands.dev).toEqual(['pnpm', 'dev', '--host', '0.0.0.0']);
     expect(manifest.commands.validate).toEqual(['pnpm', 'lint']);
-    expect(manifest.browserInspection.enabled).toBe(false);
+    expect(manifest.browserInspection.enabled).toBe(true);
     expect(manifest.browserInspection.routes).toEqual(['/']);
     expect(manifest.browserInspection.viewports).toEqual([{ width: 1440, height: 900 }, { width: 390, height: 844 }]);
   });
