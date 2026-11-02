@@ -6,6 +6,16 @@ export const SkipoWebContainerManifestSchema = z.object({
   version: z.literal(1).default(1),
   workspaceRoot: z.string().min(1).default('/workspace'),
   packageManager: z.enum(['pnpm', 'npm', 'yarn']).default('pnpm'),
+  browserInspection: z.object({
+    enabled: z.boolean().default(false),
+    routes: z.array(z.string().min(1)).default(['/']),
+    viewports: z.array(z.object({ width: z.number().int().positive(), height: z.number().int().positive() })).default([
+      { width: 1440, height: 900 },
+      { width: 390, height: 844 },
+    ]),
+    captureDom: z.boolean().default(true),
+    screenshotDirectory: z.string().min(1).optional(),
+  }).default({}),
   commands: z.object({
     install: commandSchema.optional(),
     dev: commandSchema.optional(),
