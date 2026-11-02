@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { createRequire } from 'node:module';
 
 export function resolvePreviewInspectionConfig(manifest) {
   const config = manifest?.browserInspection;
@@ -41,7 +42,10 @@ function safeName(value) {
 }
 
 async function loadInspector() {
-  const module = await import('@ultrst-armada/kloks/browser-inspection');
+  const appRoot = resolve(process.env.SKIPO_APP_ROOT || process.cwd());
+  const require = createRequire(join(appRoot, 'package.json'));
+  const entry = require.resolve('@ultrst-armada/kloks/browser-inspection');
+  const module = await import(pathToFileURL(entry).href);
   return new module.PlaywrightInspectionRuntime();
 }
 
