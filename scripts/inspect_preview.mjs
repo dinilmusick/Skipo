@@ -29,7 +29,7 @@ export function buildPreviewTargets(baseUrl, config) {
   }
   if (!base.pathname.endsWith('/')) base.pathname += '/';
   return config.viewports.flatMap(viewport => config.routes.map(route => ({
-    url: new URL(route.replace(/^\\/+/, ''), base).toString(), viewport,
+    url: new URL(route.slice(1), base).toString(), viewport,
   })));
 }
 
