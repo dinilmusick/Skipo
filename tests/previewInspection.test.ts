@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildPreviewTargets, resolvePreviewInspectionConfig, runPreviewInspection } from '../scripts/inspect_preview.mjs';
 
-const temporaryDirectories = [];
+const temporaryDirectories: string[] = [];
 afterEach(async () => {
   await Promise.all(temporaryDirectories.splice(0).map(path => rm(path, { recursive: true, force: true })));
 });
@@ -42,56 +42,46 @@ describe('Skipo rendered preview inspection contract', () => {
     expect(() => buildPreviewTargets('https://preview.example.test', malformedConfig)).toThrow(/begin with/);
   });
 
-  it('persists real browser console, page, network and rendered DOM evidence', async () => {
+  it('delegates each real preview target to the canonical Kloks inspector and persists evidence', async () => {
     const outputDirectory = await mkdtemp(join(tmpdir(), 'skipo-preview-'));
     temporaryDirectories.push(outputDirectory);
-    const inspectedRequests = [];
-    const inspector = { inspect: async request => {
-      inspectedRequests.push(request);
-      return {
-        ok: false, url: request.url, title: 'Preview app', status: 200, durationMs: 8,
-        logs: [{ type: 'warning', message: 'layout warning' }, { type: 'error', message: 'render failure' }],
-        errors: [
-          { kind: 'console', message: 'render failure' },
-          { kind: 'pageerror', message: 'uncaught render exception' },
-          { kind: 'requestfailed', message: 'net::ERR_FAILED' },
-          { kind: 'http', message: 'HTTP 503' },
-        ],
-        checks: [{ selector: 'main', passed: true }], screenshots: [request.screenshotDirectory + '/inspection-800x600.png'],
-        reportPath: request.reportPath, domSnapshot: '<html><body>Workspace home</body></html>',
-      };
-    } };
-    const page = {
-      on: (event, handler) => listeners.set(event, handler),
-      goto: async () => {
-        listeners.get('console')?.({ type: () => 'warning', text: () => 'layout warning', location: () => ({ url: 'https://preview.test', lineNumber: 1 }) });
-        listeners.get('console')?.({ type: () => 'error', text: () => 'render failure', location: () => ({ url: 'https://preview.test', lineNumber: 2 }) });
-        listeners.get('pageerror')?.(new Error('uncaught render exception'));
-        listeners.get('requestfailed')?.({ url: () => 'https://preview.test/api', method: () => 'GET', failure: () => ({ errorText: 'net::ERR_FAILED' }) });
-        listeners.get('response')?.({ status: () => 503, url: () => 'https://preview.test/api' });
-        return { status: () => 200 };
+    const inspectedRequests: Array<Record<string, unknown>> = [];
+    const inspector = {
+      inspect: async (request: Record<string, any>) => {
+        inspectedRequests.push(request);
+        return {
+          ok: false, url: request.url, title: 'Preview app', status: 200, durationMs: 8,
+          logs: [{ type: 'warning', message: 'layout warning' }, { type: 'error', message: 'render failure' }],
+          errors: [
+            { kind: 'console', message: 'render failure' },
+            { kind: 'pageerror', message: 'uncaught render exception' },
+            { kind: 'requestfailed', message: 'net::ERR_FAILED' },
+            { kind: 'http', message: 'HTTP 503' },
+          ],
+          checks: [{ selector: 'main', passed: true }],
+          screenshots: [request.screenshotDirectory + '/inspection-800x600.png'],
+          reportPath: request.reportPath,
+          domSnapshot: '<html><body>Workspace home</body></html>',
+        };
       },
-      title: async () => 'Preview app',
-      locator: () => ({ first() { return this; }, count: async () => 1, isVisible: async () => true, innerText: async () => 'Workspace home' }),
-      content: async () => '<html><body>Workspace home</body></html>',
-      screenshot: async ({ path }) => { const { writeFile } = await import('node:fs/promises'); await writeFile(path, 'png'); },
-      close: async () => {},
     };
-    const browser = { newPage: async () => page, close: async () => {} };
-    void listeners; void page; void browser;
     const result = await runPreviewInspection({
       baseUrl: 'https://preview.test', outputDirectory,
-      manifest: { browserInspection: { enabled: true, routes: ['/'], viewports: [{ width: 800, height: 600 }], checks: [{ selector: 'main', visible: true, text: 'Workspace' }] } },
+      manifest: { browserInspection: {
+        enabled: true, routes: ['/'], viewports: [{ width: 800, height: 600 }],
+        checks: [{ selector: 'main', visible: true, text: 'Workspace' }],
+      } },
       inspector,
     });
     const persisted = JSON.parse(await readFile(result.reportPath, 'utf8'));
     expect(result.ok).toBe(false);
     expect(result.summary.consoleLogs).toBe(2);
     expect(result.summary.errors).toBe(4);
+    expect(persisted.schemaVersion).toBe(2);
     expect(persisted.results[0].title).toBe('Preview app');
     expect(persisted.results[0].domSnapshot).toContain('Workspace home');
     expect(persisted.results[0].checks[0].passed).toBe(true);
-    expect(persisted.results[0].errors.map(error => error.kind)).toEqual(['console', 'pageerror', 'requestfailed', 'http']);
+    expect(persisted.results[0].errors.map((error: { kind: string }) => error.kind)).toEqual(['console', 'pageerror', 'requestfailed', 'http']);
     expect(inspectedRequests[0].viewports).toEqual([{ width: 800, height: 600 }]);
     expect(inspectedRequests[0].reportPath).toContain('reports');
   });
