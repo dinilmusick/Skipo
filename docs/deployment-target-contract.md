@@ -1,6 +1,6 @@
 # Deployment Target Contract
 
-Skipo owns the application-level declaration of supported deployment targets. This contract is metadata only: it does not execute builds or depend on the WebContainer runtime.
+Skipo owns the application-level declaration of supported deployment targets. This contract is metadata only; execution is delegated to Kelt and Krusbl through the canonical Kloks WebContainer runtime.
 
 ## Providers
 
@@ -15,15 +15,16 @@ Skipo owns the application-level declaration of supported deployment targets. Th
 - Secrets are never stored in this manifest.
 - A missing provider configuration is reported as not configured, not silently treated as compatible.
 - Static preflight checks are distinct from provider-native build verification.
-- Runtime execution is intentionally deferred until the canonical Kloks WebContainer integration is merged.
+- The WebContainer workspace root comes from the Skipo WebContainer manifest (default: `/workspace`); provider target root directories resolve beneath that root.
 
 Schema: schemas/deployment-target.schema.json.
+WebContainer command and workspace contract: `src/contracts/webContainerManifest.ts`.
 
 ## Validation stages
 
 1. Static configuration and manifest inspection.
-2. Provider CLI build (vercel build / wrangler deploy --dry-run) in the canonical isolated execution environment.
+2. Provider CLI build (`vercel build` / `wrangler deploy --dry-run`) inside the canonical Kloks WebContainer runtime.
 3. Runtime smoke tests against the generated provider artifacts.
 4. Optional preview deployment and remote verification.
 
-Only stage 1 is enabled by the preparation work. Stages 2–4 must be connected after WebContainer integration; do not add a second execution provider.
+Kelt owns application-level provider builds. Krusbl owns ecosystem-level validation evidence and promotion gating. Neither may create a competing sandbox or deploy production from pull-request validation.
