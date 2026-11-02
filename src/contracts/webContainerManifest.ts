@@ -15,6 +15,14 @@ export const SkipoWebContainerManifestSchema = z.object({
     ]),
     captureDom: z.boolean().default(true),
     screenshotDirectory: z.string().min(1).optional(),
+    timeoutMs: z.number().int().positive().default(30000),
+    waitUntil: z.enum(['load', 'domcontentloaded', 'networkidle']).default('domcontentloaded'),
+    maxDomCharacters: z.number().int().positive().default(200000),
+    checks: z.array(z.object({
+      selector: z.string().min(1),
+      visible: z.boolean().optional(),
+      text: z.string().optional(),
+    })).default([]),
   }).default({}),
   commands: z.object({
     install: commandSchema.optional(),
