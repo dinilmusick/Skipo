@@ -25,7 +25,7 @@ export function buildPreviewTargets(baseUrl, config) {
   if (!['http:', 'https:'].includes(base.protocol)) throw new Error('Preview URL must use HTTP or HTTPS.');
   if (!base.pathname.endsWith('/')) base.pathname += '/';
   return config.viewports.flatMap(viewport => config.routes.map(route => ({
-    url: new URL(route.replace(/^\\/+/, ''), base).toString(), viewport,
+    url: new URL(route.replace(/^\/+/, ''), base).toString(), viewport,
   })));
 }
 
@@ -127,7 +127,7 @@ export async function runPreviewInspection({ baseUrl, manifest, outputDirectory 
   };
   await mkdir(outputDirectory, { recursive: true });
   const reportPath = join(outputDirectory, 'report.json');
-  await writeFile(reportPath, JSON.stringify(report, null, 2) + '\\n');
+  await writeFile(reportPath, JSON.stringify(report, null, 2) + '\n');
   return { ...report, reportPath };
 }
 
