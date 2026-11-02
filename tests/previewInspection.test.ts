@@ -35,9 +35,11 @@ describe('Skipo rendered preview inspection contract', () => {
 
   it('rejects disabled inspection, non-http URLs and malformed routes', () => {
     expect(() => resolvePreviewInspectionConfig({ browserInspection: { enabled: false } })).toThrow(/disabled/);
-    const config = resolvePreviewInspectionConfig({ browserInspection: { enabled: true, routes: ['bad-route'] } });
-    expect(() => buildPreviewTargets('file:///tmp/app', config)).toThrow(/HTTP or HTTPS/);
-    expect(() => buildPreviewTargets('https://preview.example.test', config)).toThrow(/begin with/);
+    const validConfig = resolvePreviewInspectionConfig({ browserInspection: { enabled: true } });
+    const malformedConfig = { ...validConfig, routes: ['bad-route'] };
+    expect(() => buildPreviewTargets('file:///tmp/app', validConfig)).toThrow(/HTTP or HTTPS/);
+    expect(() => resolvePreviewInspectionConfig({ browserInspection: { enabled: true, routes: ['bad-route'] } })).toThrow(/begin with/);
+    expect(() => buildPreviewTargets('https://preview.example.test', malformedConfig)).toThrow(/begin with/);
   });
 
   it('persists real browser console, page, network and rendered DOM evidence', async () => {
