@@ -130,7 +130,7 @@ jobs:
       - name: Inspect actual application routes and viewports
         working-directory: skipo
         env:
-          PLAYWRIGHT_MODULE_PATH: /tmp/skipo-playwright/node_modules/playwright/index.mjs
+          NODE_PATH: /tmp/skipo-playwright/node_modules
           SKIPO_APP_ROOT: ${{ github.workspace }}/app
           PREVIEW_URL: ${{ steps.preview.outputs.url }}
           MANIFEST_PATH: ${{ inputs.manifest_path }}
