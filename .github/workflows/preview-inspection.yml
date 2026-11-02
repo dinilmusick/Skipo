@@ -1,6 +1,24 @@
 name: Skipo Real Application Browser Inspection
 
 on:
+  workflow_call:
+    inputs:
+      repository:
+        description: Forge application repository to build and inspect
+        required: true
+        type: string
+      ref:
+        description: Branch or commit SHA to inspect
+        required: true
+        type: string
+      manifest_path:
+        description: App-relative Skipo browser inspection manifest
+        required: true
+        type: string
+      preview_url:
+        description: Optional deployed preview URL; when empty, start the checked-out app on the runner
+        required: false
+        type: string
   workflow_dispatch:
     inputs:
       repository:
@@ -37,6 +55,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: dinilmusick/Skipo
+          ref: main
           path: skipo
 
       - name: Validate target repository and manifest path
@@ -110,7 +130,7 @@ jobs:
       - name: Inspect actual application routes and viewports
         working-directory: skipo
         env:
-          PLAYWRIGHT_MODULE_PATH: /tmp/skipo-playwright/node_modules/playwright/index.mjs
+          NODE_PATH: /tmp/skipo-playwright/node_modules
           SKIPO_APP_ROOT: ${{ github.workspace }}/app
           PREVIEW_URL: ${{ steps.preview.outputs.url }}
           MANIFEST_PATH: ${{ inputs.manifest_path }}
