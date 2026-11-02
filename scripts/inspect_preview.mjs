@@ -23,6 +23,9 @@ export function resolvePreviewInspectionConfig(manifest) {
 export function buildPreviewTargets(baseUrl, config) {
   const base = new URL(baseUrl);
   if (!['http:', 'https:'].includes(base.protocol)) throw new Error('Preview URL must use HTTP or HTTPS.');
+  for (const route of config.routes) {
+    if (typeof route !== 'string' || !route.startsWith('/')) throw new Error(`Inspection route must begin with "/": ${route}`);
+  }
   if (!base.pathname.endsWith('/')) base.pathname += '/';
   return config.viewports.flatMap(viewport => config.routes.map(route => ({
     url: new URL(route.replace(/^\/+/, ''), base).toString(), viewport,
