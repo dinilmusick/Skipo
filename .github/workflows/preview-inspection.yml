@@ -1,0 +1,47 @@
+name: Skipo Preview Browser Inspection
+
+on:
+  workflow_dispatch:
+    inputs:
+      preview_url:
+        description: Publicly reachable HTTP(S) preview URL for the generated application
+        required: true
+        type: string
+      manifest_path:
+        description: Repository path to the generated application's Skipo manifest JSON
+        required: true
+        default: skipo.browser-inspection.json
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install isolated Playwright runtime
+        run: npm install --prefix /tmp/skipo-playwright --no-save playwright@1.58.2
+      - name: Install Chromium
+        run: /tmp/skipo-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Inspect deployed application routes
+        env:
+          PLAYWRIGHT_MODULE_PATH: /tmp/skipo-playwright/node_modules/playwright/index.mjs
+        run: |
+          node scripts/inspect_preview.mjs \
+            --url "${{ inputs.preview_url }}" \
+            --manifest "${{ inputs.manifest_path }}" \
+            --output artifacts/browser-inspection
+      - name: Upload browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: skipo-preview-browser-inspection
+          path: artifacts/browser-inspection/
+          if-no-files-found: warn
+          retention-days: 14
