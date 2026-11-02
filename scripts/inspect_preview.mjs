@@ -99,7 +99,7 @@ export async function runPreviewInspection({
   };
   await mkdir(outputDirectory, { recursive: true });
   const reportPath = join(outputDirectory, 'report.json');
-  await writeFile(reportPath, JSON.stringify(report, null, 2) + '\\n');
+  await writeFile(reportPath, JSON.stringify(report, null, 2) + '\n');
   return { ...report, reportPath };
 }
 
@@ -113,10 +113,10 @@ async function main() {
   if (!baseUrl || !manifestPath) throw new Error('Provide --url and --manifest (or SKIPO_PREVIEW_URL and SKIPO_INSPECTION_MANIFEST).');
   const manifest = JSON.parse(await readFile(resolve(manifestPath), 'utf8'));
   const result = await runPreviewInspection({ baseUrl, manifest, outputDirectory: args.output || 'artifacts/browser-inspection' });
-  process.stdout.write(JSON.stringify({ ok: result.ok, summary: result.summary, reportPath: result.reportPath }, null, 2) + '\\n');
+  process.stdout.write(JSON.stringify({ ok: result.ok, summary: result.summary, reportPath: result.reportPath }, null, 2) + '\n');
   if (!result.ok) process.exitCode = 1;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  main().catch(error => { process.stderr.write(messageOf(error) + '\\n'); process.exitCode = 1; });
+  main().catch(error => { process.stderr.write(messageOf(error) + '\n'); process.exitCode = 1; });
 }
