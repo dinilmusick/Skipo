@@ -45,7 +45,22 @@ describe('Skipo rendered preview inspection contract', () => {
   it('persists real browser console, page, network and rendered DOM evidence', async () => {
     const outputDirectory = await mkdtemp(join(tmpdir(), 'skipo-preview-'));
     temporaryDirectories.push(outputDirectory);
-    const listeners = new Map();
+    const inspectedRequests = [];
+    const inspector = { inspect: async request => {
+      inspectedRequests.push(request);
+      return {
+        ok: false, url: request.url, title: 'Preview app', status: 200, durationMs: 8,
+        logs: [{ type: 'warning', message: 'layout warning' }, { type: 'error', message: 'render failure' }],
+        errors: [
+          { kind: 'console', message: 'render failure' },
+          { kind: 'pageerror', message: 'uncaught render exception' },
+          { kind: 'requestfailed', message: 'net::ERR_FAILED' },
+          { kind: 'http', message: 'HTTP 503' },
+        ],
+        checks: [{ selector: 'main', passed: true }], screenshots: [request.screenshotDirectory + '/inspection-800x600.png'],
+        reportPath: request.reportPath, domSnapshot: '<html><body>Workspace home</body></html>',
+      };
+    } };
     const page = {
       on: (event, handler) => listeners.set(event, handler),
       goto: async () => {
@@ -63,10 +78,11 @@ describe('Skipo rendered preview inspection contract', () => {
       close: async () => {},
     };
     const browser = { newPage: async () => page, close: async () => {} };
+    void listeners; void page; void browser;
     const result = await runPreviewInspection({
       baseUrl: 'https://preview.test', outputDirectory,
       manifest: { browserInspection: { enabled: true, routes: ['/'], viewports: [{ width: 800, height: 600 }], checks: [{ selector: 'main', visible: true, text: 'Workspace' }] } },
-      playwright: { chromium: { launch: async () => browser } },
+      inspector,
     });
     const persisted = JSON.parse(await readFile(result.reportPath, 'utf8'));
     expect(result.ok).toBe(false);
@@ -76,5 +92,7 @@ describe('Skipo rendered preview inspection contract', () => {
     expect(persisted.results[0].domSnapshot).toContain('Workspace home');
     expect(persisted.results[0].checks[0].passed).toBe(true);
     expect(persisted.results[0].errors.map(error => error.kind)).toEqual(['console', 'pageerror', 'requestfailed', 'http']);
+    expect(inspectedRequests[0].viewports).toEqual([{ width: 800, height: 600 }]);
+    expect(inspectedRequests[0].reportPath).toContain('reports');
   });
 });
