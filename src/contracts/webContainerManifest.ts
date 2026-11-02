@@ -7,7 +7,7 @@ export const SkipoWebContainerManifestSchema = z.object({
   workspaceRoot: z.string().min(1).default('/workspace'),
   packageManager: z.enum(['pnpm', 'npm', 'yarn']).default('pnpm'),
   browserInspection: z.object({
-    enabled: z.boolean().default(false),
+    enabled: z.boolean().default(true),
     routes: z.array(z.string().min(1)).default(['/']),
     viewports: z.array(z.object({ width: z.number().int().positive(), height: z.number().int().positive() })).default([
       { width: 1440, height: 900 },
