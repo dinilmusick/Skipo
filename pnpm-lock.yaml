@@ -16,13 +16,13 @@ importers:
         version: 1.3.2(@types/node@22.20.5)
       '@ultrst-armada/floks':
         specifier: ^1.13.4
-        version: 1.13.4(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@ultrst-armada/kloks@1.24.4(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.11(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0)))(lucide-react@1.55.0(@types/react@19.3.0)(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
+        version: 1.13.4(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@ultrst-armada/kloks@1.24.5(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.11(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0)))(lucide-react@1.55.0(@types/react@19.3.0)(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
       '@ultrst-armada/frnlts':
         specifier: ^0.5.3
         version: 0.5.3(@types/node@22.20.5)(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
       '@ultrst-armada/kloks':
-        specifier: ^1.24.4
-        version: 1.24.4(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.11(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
+        specifier: ^1.24.5
+        version: 1.24.5(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.11(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
       '@ultrst-armada/krnl':
         specifier: ^1.0.11
         version: 1.0.11(@types/node@22.20.5)
@@ -744,8 +744,8 @@ packages:
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
 
-  '@ultrst-armada/kloks@1.24.4':
-    resolution: {integrity: sha512-J2EKK6Qx6gPQNEpCtgr391a06eZmch3OtOpJHTeex6gjUm/F/aB28Pl52rvo3KTxXiyMB5GFVkEmBosEHaIQRA==}
+  '@ultrst-armada/kloks@1.24.5':
+    resolution: {integrity: sha512-Tzi7YVr5jvUkAAYDoxyo70NMb0GHS5G4eILqza1PjgKF20bMrs0n9m/sr9hjTSswAdV+WqFWYhTaJBuEH9347g==}
     peerDependencies:
       '@neondatabase/serverless': ^0.10.0 || ^1.0.0
       '@supabase/supabase-js': ^2.45.0
@@ -1953,11 +1953,11 @@ snapshots:
     dependencies:
       csstype: 3.2.3
 
-  '@ultrst-armada/floks@1.13.4(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@ultrst-armada/kloks@1.24.4(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.11(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0)))(lucide-react@1.55.0(@types/react@19.3.0)(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
+  '@ultrst-armada/floks@1.13.4(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@ultrst-armada/kloks@1.24.5(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.11(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0)))(lucide-react@1.55.0(@types/react@19.3.0)(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
     dependencies:
       '@dinilmusick/gutts': 1.3.2(@types/node@22.20.5)
       '@ultrst-armada/frnlts': 0.5.3(@types/node@22.20.5)(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
-      '@ultrst-armada/kloks': 1.24.4(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.11(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
+      '@ultrst-armada/kloks': 1.24.5(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.11(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
       '@xyflow/react': 12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       d3-force: 3.0.0
       lucide-react: 1.55.0(@types/react@19.3.0)(react@19.3.0)
@@ -1987,7 +1987,7 @@ snapshots:
       - immer
       - use-sync-external-store
 
-  '@ultrst-armada/kloks@1.24.4(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.11(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
+  '@ultrst-armada/kloks@1.24.5(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.11(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
     dependencies:
       '@aws-sdk/client-s3': 3.1152.0
       '@webcontainer/api': 1.6.4
