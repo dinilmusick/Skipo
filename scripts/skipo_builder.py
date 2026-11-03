@@ -359,8 +359,8 @@ class SkipoBuilder:
 
         def registered_service_exports(source: str) -> set[str]:
             registered: set[str] = set()
-            for match in re.finditer(r"\bservices\s*:\s*\{([\s\S]*?)\}\s*(?:,|\n|;)", source):
-                registered.update(re.findall(r":\s*([A-Za-z_$][\w$]*)(?:\s+as\s+[A-Za-z_$][\w$]*)?\s*(?=,|}|$)", match.group(1)))
+            for match in re.finditer(r"\bservices(?:\s*:\s*[^=]+)?\s*(?:=|\:)\s*\{([\s\S]*?)\}\s*(?:,|\n|;)", source):
+                registered.update(re.findall(r":\s*([A-Za-z_$][\w$]*)(?:\s+as\s+[\s\S]*?)?\s*(?=,|}|$)", match.group(1)))
             return registered
 
         def registered_orchestration_exports(source: str) -> set[str]:

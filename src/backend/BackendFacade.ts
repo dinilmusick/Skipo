@@ -29,7 +29,7 @@ export class BackendFacade implements IBackendFacade {
   }
 
   public registerService(facade: IServiceFacade, alias?: string): this {
-    if (!facade || typeof facade !== 'object' || !facade.id) {
+    if (!facade || (typeof facade !== 'object' && typeof facade !== 'function') || !facade.id) {
       throw new Error('[BackendFacade] Invalid service facade provided for registration.');
     }
     const af = facade as any;

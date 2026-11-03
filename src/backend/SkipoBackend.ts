@@ -1,35 +1,13 @@
-// ══════════════════════════════════════════════════════════════════════════════
-// 1. IMPORTS & EXTERNAL DEPENDENCIES (@kloks/* PACKAGES & @ultrst-armada/krnl)
-// ══════════════════════════════════════════════════════════════════════════════
-
-import {
-  ServiceAFacade,
-  ServiceBFacade,
-  ServiceCFacade,
-  ServiceDFacade,
-} from '@ultrst-armada/kloks/services';
-import {
-  OrchestratorADefinition,
-  OrchestratorBDefinition,
-} from '@ultrst-armada/kloks/orchestrations';
-import {
-  AudioHardwareServiceFacade,
-  MidiServiceFacade,
-  AudioMidiOrchestratorDefinition,
-} from '@ultrst-armada/kloks/audio-midi';
+// Canonical application-level SkipoBackend aggregating Kloks & Krnl services
+import { ServiceAFacade, ServiceBFacade, ServiceCFacade, ServiceDFacade } from '@ultrst-armada/kloks/services';
+import { OrchestratorADefinition, OrchestratorBDefinition } from '@ultrst-armada/kloks/orchestrations';
+import { AudioHardwareServiceFacade, MidiServiceFacade, AudioMidiOrchestratorDefinition } from '@ultrst-armada/kloks/audio-midi';
 import { FunctionsServiceFacade } from '@ultrst-armada/kloks/functions';
-import {
-  AuthServiceFacade,
-  StorageServiceFacade,
-  WorkspaceServiceFacade,
-  ControlPlaneServiceFacade,
-} from '@ultrst-armada/kloks/backend/krnl-services';
-import {
-  StateLifecycleServiceFacade,
-  NodeGraphEngineServiceFacade,
-} from '@ultrst-armada/kloks/state-graph';
+import { AuthServiceFacade, StorageServiceFacade, WorkspaceServiceFacade, ControlPlaneServiceFacade, SrklServiceFacade } from '@ultrst-armada/kloks/backend/krnl-services';
+import { StateLifecycleServiceFacade, NodeGraphEngineServiceFacade } from '@ultrst-armada/kloks/state-graph';
 import { WorkerExecutionBoundary, type IServiceFacade } from '@ultrst-armada/krnl';
-import { FodRuntime, scanBackendFacadeToNodes } from '@ultrst-armada/kloks/fod';
+import { FodRuntime, FodServiceFacade, scanBackendFacadeToNodes } from '@ultrst-armada/kloks/fod';
+import { AikoRuntime } from '@ultrst-armada/kloks/aiko';
 import { workingWorkspaceService } from '@ultrst-armada/kloks/backend';
 import { createSkipoAikoRuntime } from './semantic/SkipoAikoBridge.js';
 import { WorkspaceSemanticTaskStore, WorkspaceSemanticConversationStore } from './semantic/SkipoSemanticPersistence.js';
@@ -58,6 +36,11 @@ export const semanticRuntime = createSkipoSemanticRuntime({
   applicationVersion: '1.0.0',
 });
 
+if (AikoRuntime && !(AikoRuntime as any).id) {
+  (AikoRuntime as any).id = 'aiko';
+  (AikoRuntime as any).version = '1.0.0';
+}
+
 export const services: Record<string, ServiceExecutableFacade> = {
   serviceA: ServiceAFacade as ServiceExecutableFacade,
   serviceB: ServiceBFacade as ServiceExecutableFacade,
@@ -69,9 +52,12 @@ export const services: Record<string, ServiceExecutableFacade> = {
   auth: AuthServiceFacade as ServiceExecutableFacade,
   storage: StorageServiceFacade as ServiceExecutableFacade,
   workspace: WorkspaceServiceFacade as ServiceExecutableFacade,
+  srkl: SrklServiceFacade as ServiceExecutableFacade,
   controlPlane: ControlPlaneServiceFacade as ServiceExecutableFacade,
   stateLifecycle: StateLifecycleServiceFacade as ServiceExecutableFacade,
   nodeGraphEngine: NodeGraphEngineServiceFacade as ServiceExecutableFacade,
+  fod: FodServiceFacade as ServiceExecutableFacade,
+  aiko: AikoRuntime as unknown as ServiceExecutableFacade,
 };
 
 // Register domain services in BackendFacade & SkipoExecutionEngine
