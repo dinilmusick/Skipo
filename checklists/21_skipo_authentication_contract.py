@@ -156,14 +156,19 @@ for framework in ("nextjs", "vite"):
             if not source_file.is_file() or source_file.suffix not in {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}:
                 continue
             source = source_file.read_text(encoding="utf-8", errors="replace")
-            for pattern in (
-                r"localStorage\\.getItem\\(['\"]skipo-auth-token['\"]\\)",
-                r"Bearer\\s+sess::",
-                r"\\b(?:hashPassword|verifyPassword|createSession)\\s*\\(",
-                r"\\bpassword_hash\\b",
-                r"\\bbcrypt(?:js)?\\b",
-            ):
-                if re.search(pattern, source, re.IGNORECASE):
-                    raise SystemExit(f"Generated {framework} source contains local auth authority: {source_file.relative_to(root)} ({pattern})")
+            forbidden_markers = (
+                "localStorage.getItem('skipo-auth-token')",
+                'localStorage.getItem("skipo-auth-token")',
+                "Bearer sess::",
+                "hashPassword(",
+                "verifyPassword(",
+                "createSession(",
+                "password_hash",
+                "bcrypt",
+                "bcryptjs",
+            )
+            for marker in forbidden_markers:
+                if marker.lower() in source.lower():
+                    raise SystemExit(f"Generated {framework} source contains local auth authority: {source_file.relative_to(root)} ({marker})")
 
 print("Canonical Luth scaffold architecture: PASS")
