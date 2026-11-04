@@ -80,7 +80,6 @@ export const services = {
   serviceB: ServiceBFacade,
   audioHardware: AudioHardwareServiceFacade,
   midi: MidiServiceFacade,
-  auth: AuthServiceFacade,
   storage: StorageServiceFacade,
   workspace: WorkspaceServiceFacade,
   fod: FodServiceFacade,
