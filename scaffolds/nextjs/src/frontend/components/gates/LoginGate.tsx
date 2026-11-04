@@ -1,5 +1,6 @@
 import React from 'react';
 import { LuthAuthPage, type AuthResult } from '@ultrst-armada/floks/auth';
+import { getSkipoApplicationId } from '../../../libraries/client/luthAuthClient.js';
 
 export interface LoginGateProps {
   appName?: string;
@@ -9,7 +10,7 @@ export interface LoginGateProps {
 
 export const LoginGate: React.FC<LoginGateProps> = ({
   appName = 'SKIPO APP',
-  applicationId = 'skipo-app',
+  applicationId = getSkipoApplicationId(),
   onSuccess,
 }) => (
   <LuthAuthPage
