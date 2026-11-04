@@ -34,16 +34,18 @@ FORBIDDEN_SOURCE_PATTERNS = (
 )
 
 def source_files(root: Path):
-    bases = [root / "app", root / "src"]
     scaffolds = root / "scaffolds"
-    if scaffolds.is_dir():
-        for scaffold in scaffolds.iterdir():
-            if scaffold.is_dir():
-                bases.extend((scaffold / "app", scaffold / "src"))
+    bases = [root / "app"]
+    if not scaffolds.is_dir():
+        bases.append(root / "src")
+    else:
+        bases.extend(path for path in scaffolds.iterdir() if path.is_dir())
     for base in bases:
         if not base.exists():
             continue
         for path in base.rglob("*"):
+            if any(part in {"node_modules", ".git", ".next", "dist", "build"} for part in path.parts):
+                continue
             if path.is_file() and path.suffix.lower() in SOURCE_SUFFIXES:
                 yield path
 
@@ -95,6 +97,7 @@ def validate_repository(root: Path) -> list[str]:
         "scaffolds/nextjs/src/frontend/pages/auth/LuthAuthPage.tsx",
         "scaffolds/nextjs/src/backend/AppBackend.ts",
         "scaffolds/nextjs/src/backend/auth/luthSession.ts",
+        "scaffolds/nextjs/middleware.ts",
         "scaffolds/vite/src/backend/auth/luthSession.ts",
         "scripts/scaffold_app_structure.py",
         "architecture/authentication/SKILL.md",
@@ -127,6 +130,13 @@ def validate_repository(root: Path) -> list[str]:
     for backend in (root / "scaffolds").glob("*/src/backend/AppBackend.ts"):
         if "AuthServiceFacade" in backend.read_text(encoding="utf-8"):
             errors.append(f"{backend.relative_to(root)} must not expose the legacy Kloks local-auth facade")
+
+    middleware = root / "scaffolds/nextjs/middleware.ts"
+    if middleware.is_file():
+        source = middleware.read_text(encoding="utf-8")
+        for marker in ("getLuthSession", "x-user-id", "x-user-role", "matcher"):
+            if marker not in source:
+                errors.append(f"Next.js middleware missing Luth protection behavior: {marker}")
 
     guard = root / "scaffolds/nextjs/src/backend/auth/luthSession.ts"
     if guard.is_file():
