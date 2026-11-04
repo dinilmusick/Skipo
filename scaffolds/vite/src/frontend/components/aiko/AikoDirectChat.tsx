@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { luthAuthClient } from '../../../libraries/client/luthAuthClient.js';
 
 export interface AikoDirectChatAgent { id: string; name: string; description?: string; }
 export interface BugReportContext {
@@ -110,8 +111,10 @@ export function AikoDirectChat({ runtime, workspaceId, applicationId = 'skipo-ap
         },
       };
       if (typeof runtime.reportBug === 'function') {
-        if (!authToken) throw new Error('Authenticated session token is required to report a bug.');
-        await runtime.reportBug(payload, authToken);
+        const authorization = new Headers(luthAuthClient.getAuthHeaders()).get('authorization');
+        const token = authToken || authorization?.replace(/^Bearer\\s+/i, '');
+        if (!token) throw new Error('A verified Luth session is required to report a bug.');
+        await runtime.reportBug(payload, token);
       }
       setMessages(m => [...m, { id: crypto.randomUUID(), role: 'system', content: `Bug reported: "${text}"` }]);
       setInput('');
