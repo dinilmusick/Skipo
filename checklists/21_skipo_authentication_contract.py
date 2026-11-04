@@ -1,16 +1,62 @@
 from pathlib import Path
+import json
+import re
 import sys
 
-root = Path(sys.argv[1] if len(sys.argv) > 1 else ".")
-doc = root / "architecture" / "authentication" / "SKILL.md"
-text = doc.read_text(encoding="utf-8") if doc.exists() else ""
-required = [
-    "FLOKS", "KLOKS", "SRKL", "Better Auth", "Google sign-in", "Google Drive",
-    "SRKL_AUTH_BASE_URL", "password hashing", "session",
-    "Auth state is never stored in application-local", "Google Drive authorization is separate",
-    "legacy password hashes", "Completion gate",
-]
-missing = [item for item in required if item not in text]
-if missing:
-    raise SystemExit("Missing canonical auth markers: " + ", ".join(missing))
-print("Canonical authentication architecture contract: PASS")
+root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
+
+def read_json(path: Path):
+    if not path.is_file():
+        raise SystemExit(f"Missing required manifest: {path}")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+root_pkg = read_json(root / "package.json")
+scaffold_pkg = read_json(root / "scaffolds" / "nextjs" / "package.json")
+baseline = {
+    "@dinilmusick/gutts": "^1.4.3",
+    "@ultrst-armada/floks": "^1.13.14",
+    "@ultrst-armada/frnlts": "^0.5.5",
+    "@ultrst-armada/kloks": "^1.24.9",
+}
+for name, version in baseline.items():
+    if root_pkg.get("dependencies", {}).get(name) != version:
+        raise SystemExit(f"Root package baseline mismatch: {name}")
+    if scaffold_pkg.get("dependencies", {}).get(name) != version:
+        raise SystemExit(f"Next.js scaffold package baseline mismatch: {name}")
+
+gutts_spec = root_pkg.get("dependencies", {}).get("@dinilmusick/gutts", "")
+gutts_override = root_pkg.get("pnpm", {}).get("overrides", {}).get("@dinilmusick/gutts", "")
+if gutts_spec.startswith("git+") or gutts_override:
+    raise SystemExit("GutTS must resolve from the published npm package, not a Git SHA or override.")
+
+for manifest_name, manifest in (("root", root_pkg), ("Next.js scaffold", scaffold_pkg)):
+    for section in ("dependencies", "devDependencies"):
+        for dependency in (manifest.get(section) or {}):
+            if dependency.lower() in {"bcrypt", "bcryptjs", "@types/bcryptjs"}:
+                raise SystemExit(f"{manifest_name} must not install app-local password hashing: {dependency}")
+
+login = (root / "scaffolds/nextjs/app/login/page.tsx").read_text(encoding="utf-8")
+if "LuthAuthPage" not in login or "UserAuthPage" in login:
+    raise SystemExit("Next.js scaffold login page must use integrated Floks LuthAuthPage.")
+
+route = (root / "scaffolds/nextjs/app/api/auth/login/route.ts").read_text(encoding="utf-8")
+if "DEFAULT_LUTH_URL" not in route or "appBackend.services.auth.loginUser" in route:
+    raise SystemExit("Scaffold auth route must proxy to Luth and must not call local login services.")
+for forbidden in (r"hashPassword\s*\(", r"verifyPassword\s*\(", r"bcrypt", r"createSession\s*\("):
+    if re.search(forbidden, route + login, re.IGNORECASE):
+        raise SystemExit(f"Local authentication implementation detected: {forbidden}")
+
+skill = (root / "architecture/authentication/SKILL.md").read_text(encoding="utf-8")
+if "SYSTEM_DATABASE_URL" not in skill:
+    raise SystemExit("Canonical auth contract must preserve SYSTEM_DATABASE_URL configuration.")
+for forbidden in ("SRKL_AUTH_BASE_URL", "LUTH_AUTH_URL"):
+    if forbidden in skill:
+        raise SystemExit(f"Per-app auth URL environment variable is forbidden: {forbidden}")
+
+generator = (root / "scripts/scaffold_app_structure.py").read_text(encoding="utf-8")
+for old in ('"@dinilmusick/gutts": "^1.3.2"', '"@ultrst-armada/kloks": "^1.24.0"',
+            '"@ultrst-armada/floks": "^1.13.3"', '"@ultrst-armada/frnlts": "^0.5.3"'):
+    if old in generator:
+        raise SystemExit(f"Scaffold generator contains stale package baseline: {old}")
+
+print("Canonical Luth scaffold architecture: PASS")
