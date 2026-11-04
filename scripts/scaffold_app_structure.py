@@ -80,6 +80,41 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
         tsconfig_file.write_text(json.dumps(tsconfig_data, indent=2) + "\n", encoding="utf-8")
         created.append(tsconfig_file)
 
+    # 1c. Luth-backed server-side session validation for protected application routes
+    auth_guard_file = target_root / "src" / "backend" / "auth" / "luthSession.ts"
+    if not auth_guard_file.exists():
+        auth_guard_file.parent.mkdir(parents=True, exist_ok=True)
+        auth_guard_file.write_text("""import { DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth';
+
+export async function getLuthSession(request: Request) {
+  const headers = new Headers();
+  for (const name of ['authorization', 'cookie', 'origin']) {
+    const value = request.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+  let response: Response;
+  try {
+    response = await fetch(DEFAULT_LUTH_URL + '/api/session', {
+      method: 'GET', headers, cache: 'no-store', redirect: 'manual',
+    });
+  } catch { return null; }
+  if (!response.ok) return null;
+  const session = await response.json().catch(() => null) as any;
+  if (session?.authenticated !== true || typeof session?.user?.id !== 'string' ||
+      typeof session?.session?.id !== 'string') return null;
+  return session;
+}
+
+export async function requireLuthSession(request: Request) {
+  const session = await getLuthSession(request);
+  if (session) return session;
+  throw new Response(JSON.stringify({ error: 'Unauthenticated' }), {
+    status: 401, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
+  });
+}
+""", encoding="utf-8")
+        created.append(auth_guard_file)
+
     # 2. src/backend/aikoRuntime.ts
     aiko_runtime_file = target_root / "src" / "backend" / "aikoRuntime.ts"
     if not aiko_runtime_file.exists():
@@ -293,7 +328,6 @@ import {{
   AudioMidiOrchestratorDefinition,
 }} from '@ultrst-armada/kloks/audio-midi';
 import {{
-  AuthServiceFacade,
   StorageServiceFacade,
   WorkspaceServiceFacade,
   workingWorkspaceService,
@@ -357,7 +391,6 @@ export const {pascal}Backend = {{
     serviceB: ServiceBFacade,
     audioHardware: AudioHardwareServiceFacade,
     midi: MidiServiceFacade,
-    auth: AuthServiceFacade,
     storage: StorageServiceFacade,
     workspace: WorkspaceServiceFacade,
     fod: FodServiceFacade,
@@ -491,11 +524,59 @@ export async function handleAikoRoutes(request: Request): Promise<Response | nul
         created.append(components_file)
 
     page_templates = {
+        pages_root / "auth" / "LuthAuthPage.tsx": """'use client';
+
+import React, { useEffect, useMemo } from 'react';
+import { AuthPage, type AuthResult } from '@ultrst-armada/floks/auth';
+import { createLuthAuthClient } from '@ultrst-armada/kloks/auth';
+
+export function LuthAuthPage({ applicationId, appName, onAuthenticated }: {
+  applicationId: string;
+  appName: string;
+  onAuthenticated?: (user: unknown) => void;
+}) {
+  const client = useMemo(() => createLuthAuthClient({
+    ecosystemId: 'ultrst-armada', applicationId, autoRegister: true,
+  }), [applicationId]);
+
+  useEffect(() => {
+    let active = true;
+    void client.getSession().then((session) => {
+      if (active && session.authenticated) onAuthenticated?.(session.user);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [client, onAuthenticated]);
+
+  const normalize = (value: unknown): AuthResult => {
+    const payload = (value && typeof value === 'object' ? value : {}) as Record<string, any>;
+    const data = (payload.data && typeof payload.data === 'object' ? payload.data : {}) as Record<string, any>;
+    const session = (payload.session && typeof payload.session === 'object' ? payload.session : {}) as Record<string, any>;
+    return { success: true, user: payload.user ?? data.user, token: payload.token ?? session.token,
+      redirectUrl: payload.url ?? payload.redirectURL ?? data.url };
+  };
+
+  return <AuthPage appName={appName}
+    onLogin={async (email, password) => normalize(await client.signInWithEmail({ email, password }))}
+    onRegister={async ({ name, email, password }) => normalize(await client.signUpWithEmail({ name, email, password }))}
+    onGoogleSignIn={async () => {
+      const result = normalize(await client.signInWithGoogle({
+        callbackURL: typeof window === 'undefined' ? undefined : window.location.origin,
+      }));
+      if (result.redirectUrl && typeof window !== 'undefined') window.location.assign(result.redirectUrl);
+      return result;
+    }}
+    onSuccess={(result) => onAuthenticated?.(result.user)}
+    enableGoogleSignIn
+  />;
+}
+
+export default LuthAuthPage;
+""",
         pages_root / "auth" / "page.tsx": (
             "import React from 'react';\n"
-            "import { LuthAuthPage } from '@ultrst-armada/floks/auth';\n\n"
+            "import { LuthAuthPage } from './LuthAuthPage.js';\n\n"
             f"export function AuthPage(props: {{ onAuthenticated?: (user: unknown) => void }}) {{\n"
-            f"  return <LuthAuthPage ecosystemId=\"ultrst-armada\" applicationId=\"{app_name.lower().replace(' ', '-')}\" appName=\"{pascal}\" onAuthenticated={{props.onAuthenticated}} />;\n"
+            f"  return <LuthAuthPage applicationId=\"{app_name.lower().replace(' ', '-')}\" appName=\"{pascal}\" onAuthenticated={{props.onAuthenticated}} />;\n"
             "}\n\n"
             "export default AuthPage;\n"
         ),
