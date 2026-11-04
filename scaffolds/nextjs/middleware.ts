@@ -25,7 +25,7 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    const headers = new Headers({ 'x-app-id': 'skipo-app' });
+    const headers = new Headers({ 'x-app-id': request.nextUrl.host });
     if (authorization) headers.set('authorization', authorization);
     if (cookie) headers.set('cookie', cookie);
     const response = await fetch(`${DEFAULT_LUTH_URL}/api/session`, {
