@@ -14,7 +14,7 @@ root_pkg = read_json(root / "package.json")
 scaffold_pkg = read_json(root / "scaffolds" / "nextjs" / "package.json")
 baseline = {
     "@dinilmusick/gutts": "^1.4.3",
-    "@ultrst-armada/floks": "^1.13.14",
+    "@ultrst-armada/floks": "^1.13.15",
     "@ultrst-armada/frnlts": "^0.5.5",
     "@ultrst-armada/kloks": "^1.24.9",
 }
