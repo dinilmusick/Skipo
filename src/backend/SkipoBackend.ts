@@ -56,7 +56,7 @@ export const services: Record<string, ServiceExecutableFacade> = {
   controlPlane: ControlPlaneServiceFacade as ServiceExecutableFacade,
   stateLifecycle: StateLifecycleServiceFacade as ServiceExecutableFacade,
   nodeGraphEngine: NodeGraphEngineServiceFacade as ServiceExecutableFacade,
-  fod: FodServiceFacade as ServiceExecutableFacade,
+
   aiko: AikoRuntime as unknown as ServiceExecutableFacade,
 };
 
