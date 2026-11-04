@@ -17,6 +17,7 @@ baseline = {
     "@ultrst-armada/floks": "^1.13.15",
     "@ultrst-armada/frnlts": "^0.5.5",
     "@ultrst-armada/kloks": "^1.24.9",
+    "@ultrst-armada/krnl": "^1.0.11",
 }
 for name, version in baseline.items():
     if root_pkg.get("dependencies", {}).get(name) != version:
@@ -55,7 +56,7 @@ for forbidden in ("SRKL_AUTH_BASE_URL", "LUTH_AUTH_URL"):
 
 generator = (root / "scripts/scaffold_app_structure.py").read_text(encoding="utf-8")
 for old in ('"@dinilmusick/gutts": "^1.3.2"', '"@ultrst-armada/kloks": "^1.24.0"',
-            '"@ultrst-armada/floks": "^1.13.3"', '"@ultrst-armada/frnlts": "^0.5.3"'):
+            '"@ultrst-armada/floks": "^1.13.3"', '"@ultrst-armada/frnlts": "^0.5.3"', '"@ultrst-armada/krnl": "^1.0.9"'):
     if old in generator:
         raise SystemExit(f"Scaffold generator contains stale package baseline: {old}")
 
