@@ -6,7 +6,6 @@ import { ServiceAFacade, ServiceBFacade } from '@ultrst-armada/kloks/services';
 import { OrchestratorADefinition, AudioMidiOrchestratorDefinition } from '@ultrst-armada/kloks/orchestrations';
 import { AudioHardwareServiceFacade, MidiServiceFacade } from '@ultrst-armada/kloks/audio-midi';
 import {
-  AuthServiceFacade,
   StorageServiceFacade,
   WorkspaceServiceFacade,
 } from '@ultrst-armada/kloks/backend/krnl-services';
