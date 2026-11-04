@@ -10,7 +10,7 @@ async function proxy(req: NextRequest) {
       const value = req.headers.get(name);
       if (value) headers.set(name, value);
     }
-    headers.set('x-app-id', req.nextUrl.host);
+    headers.set('x-app-id', 'my-app');
     const init: RequestInit = {
       method: req.method,
       headers,
