@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-app-id': 'my-app',
+        'x-app-id': req.nextUrl.host,
         ...(req.headers.get('cookie') ? { cookie: req.headers.get('cookie')! } : {}),
         ...(req.headers.get('origin') ? { origin: req.headers.get('origin')! } : {}),
       },
