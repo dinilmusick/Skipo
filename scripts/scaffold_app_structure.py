@@ -526,26 +526,53 @@ export async function handleAikoRoutes(request: Request): Promise<Response | nul
     page_templates = {
         pages_root / "auth" / "LuthAuthPage.tsx": """'use client';
 
-import React from 'react';
-import { LuthAuthPage as FloksLuthAuthPage } from '@ultrst-armada/floks/auth';
+import React, { useEffect, useMemo } from 'react';
+import { AuthPage, type AuthResult } from '@ultrst-armada/floks/auth';
+import { createLuthAuthClient } from '@ultrst-armada/kloks/auth';
 
 export function LuthAuthPage({ applicationId, appName, onAuthenticated }: {
   applicationId: string;
   appName: string;
   onAuthenticated?: (user: unknown) => void;
 }) {
-  return (
-    <FloksLuthAuthPage
-      ecosystemId="ultrst-armada"
-      applicationId={applicationId}
-      appName={appName}
-      onAuthenticated={onAuthenticated}
-    />
-  );
+  const client = useMemo(() => createLuthAuthClient({
+    ecosystemId: 'ultrst-armada', applicationId, autoRegister: true,
+  }), [applicationId]);
+
+  useEffect(() => {
+    let active = true;
+    void client.getSession().then((session) => {
+      if (active && session.authenticated) onAuthenticated?.(session.user);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [client, onAuthenticated]);
+
+  const normalize = (value: unknown): AuthResult => {
+    const payload = (value && typeof value === 'object' ? value : {}) as Record<string, any>;
+    const data = (payload.data && typeof payload.data === 'object' ? payload.data : {}) as Record<string, any>;
+    const session = (payload.session && typeof payload.session === 'object' ? payload.session : {}) as Record<string, any>;
+    return { success: true, user: payload.user ?? data.user, token: payload.token ?? session.token,
+      redirectUrl: payload.url ?? payload.redirectURL ?? data.url };
+  };
+
+  return <AuthPage appName={appName}
+    onLogin={async (email, password) => normalize(await client.signInWithEmail({ email, password }))}
+    onRegister={async ({ name, email, password }) => normalize(await client.signUpWithEmail({ name, email, password }))}
+    onGoogleSignIn={async () => {
+      const result = normalize(await client.signInWithGoogle({
+        callbackURL: typeof window === 'undefined' ? undefined : window.location.origin,
+      }));
+      if (result.redirectUrl && typeof window !== 'undefined') window.location.assign(result.redirectUrl);
+      return result;
+    }}
+    onSuccess={(result) => onAuthenticated?.(result.user)}
+    enableGoogleSignIn
+  />;
 }
 
 export default LuthAuthPage;
 """,
+,
         pages_root / "auth" / "luthFetch.ts": """'use client';
 
 import { createLuthAuthClient } from '@ultrst-armada/kloks/auth';
