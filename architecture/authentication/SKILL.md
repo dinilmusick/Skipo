@@ -8,14 +8,17 @@ Skipo applications consume one ecosystem authentication system. Applications MUS
 FLOKS
   auth UI
      |
-KLOKS
+KLOKS / Luth Client (createLuthAuthClient)
   canonical auth client/service contract
+  automatic origin discovery & self-registration
      |
-SRKL
+Luth (Canonical Identity Substrate, formerly SRKL auth router)
+  Self-registration endpoint (/api/registry/register)
   Better Auth server + Neon control-plane persistence
      |
 Neon
   Better Auth user/account/session tables
+  + luth_ecosystems, luth_auth_origins, luth_auth_providers
   + existing ULTRST application metadata
 ```
 
@@ -34,17 +37,28 @@ Neon
 
 ## Application integration
 
-Backend:
-- consume `@ultrst-armada/kloks/backend` auth services;
-- configure `SRKL_AUTH_BASE_URL`;
-- never query `ultrst-users.password_hash` for authentication;
-- never mint application-specific session tokens.
-
-Frontend:
+Frontend & Client:
 - consume the FLOKS reusable auth UI;
-- provide the canonical auth service/client callback;
+- use the canonical Luth Auth Client (`createLuthAuthClient` from `luth/client`):
+  ```typescript
+  import { createLuthAuthClient } from 'luth/client';
+
+  const auth = createLuthAuthClient({
+    ecosystemId: 'ultrst-armada',
+    applicationId: 'srkl',
+  });
+  ```
+- the client automatically derives runtime origin (`window.location.origin`) and environment;
+- automatically and idempotently registers origin via `POST /api/registry/register` in Luth;
+- never manually hard-code deployment origins into Neon or Luth databases;
 - use credentials/cookies when calling the canonical auth server;
 - do not implement Google OAuth directly.
+
+Backend:
+- consume `@ultrst-armada/kloks/backend` auth services;
+- configure `SRKL_AUTH_BASE_URL` or `LUTH_AUTH_URL`;
+- never query `ultrst-users.password_hash` for authentication;
+- never mint application-specific session tokens.
 
 ## Completion gate
 
