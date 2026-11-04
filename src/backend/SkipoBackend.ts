@@ -6,7 +6,7 @@ import { FunctionsServiceFacade } from '@ultrst-armada/kloks/functions';
 import { AuthServiceFacade, StorageServiceFacade, WorkspaceServiceFacade, ControlPlaneServiceFacade, SrklServiceFacade } from '@ultrst-armada/kloks/backend/krnl-services';
 import { StateLifecycleServiceFacade, NodeGraphEngineServiceFacade } from '@ultrst-armada/kloks/state-graph';
 import { WorkerExecutionBoundary, type IServiceFacade } from '@ultrst-armada/krnl';
-import { FodRuntime, FodServiceFacade, scanBackendFacadeToNodes } from '@ultrst-armada/kloks/fod';
+import { FodRuntime, scanBackendFacadeToNodes } from '@ultrst-armada/kloks/fod';
 import { AikoRuntime } from '@ultrst-armada/kloks/aiko';
 import { workingWorkspaceService } from '@ultrst-armada/kloks/backend';
 import { createSkipoAikoRuntime } from './semantic/SkipoAikoBridge.js';
