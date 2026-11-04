@@ -545,7 +545,7 @@ export function LuthAuthPage({ applicationId, appName, onAuthenticated }: {
 }
 
 export default LuthAuthPage;
-,
+""",
         pages_root / "auth" / "luthFetch.ts": """'use client';
 
 import { createLuthAuthClient } from '@ultrst-armada/kloks/auth';
