@@ -10,6 +10,7 @@ import { handleVaultRoutes } from './vaultRoutes';
 import { handleFodRoutes } from './fodRoutes';
 import { handleAikoRoutes } from './aikoRoutes';
 import { handleConversationRoutes } from './conversationRoutes';
+import { authenticateLuthRequest, proxyLuthAuthRequest } from '../auth/luthSession';
 
 export interface Env {
   ENVIRONMENT?: string;
@@ -36,13 +37,9 @@ async function parseBody(req: Request): Promise<any> {
   try { return await req.json(); } catch { return {}; }
 }
 
-function getUserId(req: Request, url: URL): string {
-  const auth = req.headers.get('authorization') || '';
-  if (auth.startsWith('Bearer sess::')) {
-    const p = auth.replace('Bearer sess::', '').split('::');
-    if (p[0]) return p[0];
-  }
-  return req.headers.get('x-user-id') || url.searchParams.get('userId') || '';
+function getUserId(req: Request, _url: URL): string {
+  // This header is injected only after authenticateLuthRequest verifies the bearer/cookie with Luth.
+  return req.headers.get('x-user-id') || '';
 }
 
 export async function fetchHandler(request: Request, env: Env = {}): Promise<Response> {
@@ -51,6 +48,17 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
   const { method } = request;
 
   if (method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
+
+  const luthProxyResponse = await proxyLuthAuthRequest(request);
+  if (luthProxyResponse) {
+    const headers = new Headers(luthProxyResponse.headers);
+    Object.entries(CORS_HEADERS).forEach(([key, value]) => headers.set(key, value));
+    return new Response(luthProxyResponse.body, { status: luthProxyResponse.status, headers });
+  }
+
+  const auth = await authenticateLuthRequest(request);
+  if (auth.status) return jsonRes({ success: false, error: auth.error }, auth.status);
+  if (auth.request) request = auth.request;
 
   const fodResponse = await handleFodRoutes(request);
   if (fodResponse) return fodResponse;
