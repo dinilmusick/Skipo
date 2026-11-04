@@ -578,7 +578,7 @@ import { createLuthAuthClient } from '@ultrst-armada/kloks/auth';
 
 const luthClient = createLuthAuthClient({
   ecosystemId: 'ultrst-armada',
-  applicationId: '{app_name.lower().replace(' ', '-')}',
+  applicationId: "__SKIPO_APPLICATION_ID__",
   autoRegister: true,
 });
 
@@ -671,6 +671,8 @@ export async function luthFetch(input: RequestInfo | URL, init: RequestInit = {}
     # app tab directory is created lazily so the template file has a parent.
     for page_file, content in page_templates.items():
         page_file.parent.mkdir(parents=True, exist_ok=True)
+        if page_file.name == "luthFetch.ts":
+            content = content.replace("__SKIPO_APPLICATION_ID__", app_name.lower().replace(" ", "-"))
         if not page_file.exists():
             page_file.write_text(content, encoding="utf-8")
             created.append(page_file)
