@@ -1,6 +1,5 @@
 import { DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth';
 
-const APP_ID = 'skipo-app';
 const APP_AUTH_PATHS = [
   '/api/auth/workspaces',
   '/api/auth/storage/',
@@ -27,7 +26,7 @@ export async function proxyLuthAuthRequest(request: Request): Promise<Response |
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
-  headers.set('x-app-id', APP_ID);
+  headers.set('x-app-id', url.host);
 
   try {
     const upstream = await fetch(`${DEFAULT_LUTH_URL}${targetPath}${url.search}`, {
@@ -68,7 +67,7 @@ export async function authenticateLuthRequest(request: Request): Promise<{
   if (!authorization && !cookie) return { status: 401, error: 'A verified Luth session is required.' };
 
   try {
-    const headers = new Headers({ 'x-app-id': APP_ID });
+    const headers = new Headers({ 'x-app-id': url.host });
     if (authorization) headers.set('authorization', authorization);
     if (cookie) headers.set('cookie', cookie);
     const response = await fetch(`${DEFAULT_LUTH_URL}/api/session`, {
