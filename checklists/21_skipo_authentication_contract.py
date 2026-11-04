@@ -74,4 +74,13 @@ if "DEFAULT_LUTH_URL" not in catch_all_source:
 if "LuthAuthPage" not in generator or "export { AuthPage } from '@ultrst-armada/floks/ui'" in generator:
     raise SystemExit("Generic Skipo generator must generate the integrated Floks LuthAuthPage.")
 
+
+backend_scaffold = (root / "scaffolds/nextjs/src/backend/AppBackend.ts").read_text(encoding="utf-8")
+if "process.env." in backend_scaffold:
+    raise SystemExit("Generated backend facade must not depend on per-app environment variables.")
+if "sess::" in backend_scaffold or "AUTH_TOKEN" in backend_scaffold or "AUTH_USER_ID" in backend_scaffold:
+    raise SystemExit("Generated backend facade must not synthesize or inject application-local auth tokens.")
+if "AuthServiceFacade" not in backend_scaffold:
+    raise SystemExit("Generated backend must expose the canonical Kloks/Luth auth facade.")
+
 print("Canonical Luth scaffold architecture: PASS")
