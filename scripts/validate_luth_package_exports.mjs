@@ -6,7 +6,7 @@ const requiredExports = [
   ['@ultrst-armada/kloks', []],
   ['@ultrst-armada/kloks/auth', ['createLuthAuthClient', 'LuthAuthClient', 'DEFAULT_LUTH_URL']],
   ['@ultrst-armada/floks', []],
-  ['@ultrst-armada/floks/auth', ['AuthPage']],
+  ['@ultrst-armada/floks/auth', ['AuthPage', 'LuthAuthPage', 'LuthProtectedRoute', 'useLuthAuth']],
 ];
 
 for (const [specifier, names] of requiredExports) {
