@@ -101,3 +101,11 @@ def test_vite_scaffold_uses_luth_for_backend_identity_and_session_validation():
     assert "DEFAULT_LUTH_URL" in guard
     assert "session.session?.id" in guard
     assert "proxyLuthAuthRequest" in guard
+
+
+def test_nextjs_middleware_verifies_luth_and_overwrites_untrusted_identity_headers():
+    middleware = (ROOT / "scaffolds/nextjs/middleware.ts").read_text(encoding="utf-8")
+    assert "getLuthSession" in middleware
+    assert "x-user-id" in middleware
+    assert "x-user-role" in middleware
+    assert "NextResponse.next({ request: { headers: forwarded } })" in middleware
