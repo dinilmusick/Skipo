@@ -102,4 +102,68 @@ for source_root in (root / "scaffolds" / "nextjs" / "app", root / "scaffolds" / 
             if re.search(pattern, source, re.IGNORECASE):
                 raise SystemExit(f"Generated application contains local authentication authority: {source_file.relative_to(root)} ({pattern})")
 
+
+# The Vite scaffold is a first-class generated application target and must satisfy
+# the same canonical Luth contract as the Next.js scaffold.
+vite_pkg = read_json(root / "scaffolds" / "vite" / "package.json")
+for name, version in baseline.items():
+    if vite_pkg.get("dependencies", {}).get(name) != version:
+        raise SystemExit(f"Vite scaffold package baseline mismatch: {name}")
+for section in ("dependencies", "devDependencies"):
+    for dependency in (vite_pkg.get(section) or {}):
+        if dependency.lower() in {"bcrypt", "bcryptjs", "@types/bcryptjs"}:
+            raise SystemExit(f"Vite scaffold must not install local password hashing: {dependency}")
+
+vite_login = (root / "scaffolds/vite/src/frontend/components/gates/LoginGate.tsx").read_text(encoding="utf-8")
+if "LuthAuthPage" not in vite_login or "AuthPage" in vite_login.replace("LuthAuthPage", ""):
+    raise SystemExit("Vite scaffold LoginGate must use integrated Floks LuthAuthPage.")
+for framework in ("nextjs", "vite"):
+    auth_client = (root / f"scaffolds/{framework}/src/libraries/client/luthAuthClient.ts").read_text(encoding="utf-8")
+    if "VITE_LUTH_URL" in auth_client or "NEXT_PUBLIC_LUTH_URL" in auth_client or "process.env" in auth_client:
+        raise SystemExit(f"{framework} scaffold must use Kloks DEFAULT_LUTH_URL, not per-app auth URL environment variables.")
+    if "luthAuthClient.getAuthHeaders()" not in auth_client:
+        raise SystemExit(f"{framework} scaffold must provide the canonical Luth bearer transport.")
+
+next_middleware = root / "scaffolds/nextjs/middleware.ts"
+if not next_middleware.is_file():
+    raise SystemExit("Next.js scaffold must enforce Luth session validation at the API boundary.")
+next_middleware_source = next_middleware.read_text(encoding="utf-8")
+if "/api/session" not in next_middleware_source or "session.user.id" not in next_middleware_source:
+    raise SystemExit("Next.js API middleware must validate Luth and inject verified identity.")
+if "forwarded.set('x-user-id', session.user.id)" not in next_middleware_source:
+    raise SystemExit("Next.js middleware must overwrite caller-supplied identity headers.")
+
+vite_session = (root / "scaffolds/vite/src/backend/auth/luthSession.ts").read_text(encoding="utf-8")
+vite_adapter = (root / "scaffolds/vite/src/backend/adapters/httpsAdapter.ts").read_text(encoding="utf-8")
+if "authenticateLuthRequest" not in vite_adapter or "proxyLuthAuthRequest" not in vite_adapter:
+    raise SystemExit("Vite API adapter must enforce Luth validation and proxy canonical auth routes.")
+if "/api/session" not in vite_session or "session.user.id" not in vite_session:
+    raise SystemExit("Vite API boundary must validate Luth and inject verified identity.")
+if "sess::" in vite_adapter or "url.searchParams.get('userId')" in vite_adapter:
+    raise SystemExit("Vite scaffold must not derive identity from synthetic tokens or caller query parameters.")
+if "DepmBackend.services.auth.loginUser" in vite_adapter:
+    raise SystemExit("Vite scaffold must not issue application-local login sessions.")
+
+for framework in ("nextjs", "vite"):
+    source_roots = (
+        root / "scaffolds" / framework / "app",
+        root / "scaffolds" / framework / "src",
+    )
+    for source_root in source_roots:
+        if not source_root.exists():
+            continue
+        for source_file in source_root.rglob("*"):
+            if not source_file.is_file() or source_file.suffix not in {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}:
+                continue
+            source = source_file.read_text(encoding="utf-8", errors="replace")
+            for pattern in (
+                r"localStorage\\.getItem\\(['\"]skipo-auth-token['\"]\\)",
+                r"Bearer\\s+sess::",
+                r"\\b(?:hashPassword|verifyPassword|createSession)\\s*\\(",
+                r"\\bpassword_hash\\b",
+                r"\\bbcrypt(?:js)?\\b",
+            ):
+                if re.search(pattern, source, re.IGNORECASE):
+                    raise SystemExit(f"Generated {framework} source contains local auth authority: {source_file.relative_to(root)} ({pattern})")
+
 print("Canonical Luth scaffold architecture: PASS")
