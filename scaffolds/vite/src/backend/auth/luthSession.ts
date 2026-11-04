@@ -79,8 +79,9 @@ export async function authenticateLuthRequest(request: Request): Promise<{
     const session = await response.json() as {
       authenticated?: boolean;
       user?: { id?: string; email?: string; name?: string };
+      session?: { id?: string };
     };
-    if (!session.authenticated || !session.user?.id) {
+    if (!session.authenticated || !session.user?.id || !session.session?.id) {
       return { status: 401, error: 'Luth session is invalid or expired.' };
     }
 
