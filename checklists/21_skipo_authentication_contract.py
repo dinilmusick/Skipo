@@ -26,6 +26,9 @@ FORBIDDEN_SOURCE_PATTERNS = (
     (r"\bfrom\s+['\"]better-auth(?:/[^'\"]*)?['\"]|\bimport\s*\(\s*['\"]better-auth", "direct Better Auth integration outside Luth"),
     (r"\b(?:user_credentials|auth_credentials|auth_sessions|user_sessions)\b", "application-local authentication tables"),
     (r"\b(?:INSERT\s+INTO|UPDATE)\s+(?:users|accounts|sessions|credentials)\b", "direct authentication database mutation"),
+    (r"\bSELECT\b[\s\S]{0,240}\bFROM\s+(?:users|accounts|sessions|credentials)\b", "direct authentication database reads"),
+    (r"\bCREATE\s+TABLE\s+(?:users|accounts|sessions|credentials)\b", "application-local authentication schema"),
+    (r"\b(?:pgTable|mysqlTable|sqliteTable)\s*\(\s*["'](?:users|accounts|sessions|credentials)["']", "application-local authentication ORM table"),
     (r"\bappBackend\.services\.auth\.(?:login|loginUser|register|registerUser|createSession)", "legacy application-local auth service"),
     (r"\bAuthServiceFacade\b", "legacy Kloks application-local AuthServiceFacade"),
 )
@@ -103,7 +106,7 @@ def validate_repository(root: Path) -> list[str]:
             if marker not in source:
                 errors.append(f"LuthAuthPage adapter missing canonical integration: {marker}")
 
-    for rel in ("scaffolds/nextjs/app/api/auth/login/route.ts", "scaffolds/nextjs/app/api/auth/register/route.ts"):
+    for rel in ("scaffolds/nextjs/app/api/auth/login/route.ts", "scaffolds/nextjs/app/api/auth/register/route.ts", "scaffolds/nextjs/app/api/login/route.ts", "scaffolds/nextjs/app/api/register/route.ts"):
         if (root / rel).exists():
             errors.append(f"Dedicated app-local login/registration endpoint must be absent: {rel}")
 
