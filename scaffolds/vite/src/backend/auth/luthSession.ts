@@ -26,7 +26,7 @@ export async function proxyLuthAuthRequest(request: Request): Promise<Response |
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
-  headers.set('x-app-id', url.host);
+  headers.set('x-app-id', 'my-app');
 
   try {
     const upstream = await fetch(`${DEFAULT_LUTH_URL}${targetPath}${url.search}`, {
@@ -68,7 +68,7 @@ export async function authenticateLuthRequest(request: Request): Promise<{
   if (!authorization && !cookie) return { status: 401, error: 'A verified Luth session is required.' };
 
   try {
-    const headers = new Headers({ 'x-app-id': url.host });
+    const headers = new Headers({ 'x-app-id': 'my-app' });
     if (authorization) headers.set('authorization', authorization);
     if (cookie) headers.set('cookie', cookie);
     const response = await fetch(`${DEFAULT_LUTH_URL}/api/session`, {
