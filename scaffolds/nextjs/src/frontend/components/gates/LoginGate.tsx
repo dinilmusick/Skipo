@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { LuthAuthPage, type AuthResult } from '@ultrst-armada/floks/auth';
 import { getSkipoApplicationId } from '../../../libraries/client/luthAuthClient.js';
