@@ -34,7 +34,13 @@ FORBIDDEN_SOURCE_PATTERNS = (
 )
 
 def source_files(root: Path):
-    for base in (root / "app", root / "src", root / "scaffolds" / "nextjs" / "app", root / "scaffolds" / "nextjs" / "src"):
+    bases = [root / "app", root / "src"]
+    scaffolds = root / "scaffolds"
+    if scaffolds.is_dir():
+        for scaffold in scaffolds.iterdir():
+            if scaffold.is_dir():
+                bases.extend((scaffold / "app", scaffold / "src"))
+    for base in bases:
         if not base.exists():
             continue
         for path in base.rglob("*"):
@@ -58,12 +64,15 @@ def read_manifest(path: Path) -> dict:
 def validate_repository(root: Path) -> list[str]:
     errors: list[str] = []
     try:
-        root_manifest = read_manifest(root / "package.json")
-        next_manifest = read_manifest(root / "scaffolds" / "nextjs" / "package.json")
+        manifests = [("root", read_manifest(root / "package.json"))]
+        scaffold_root = root / "scaffolds"
+        if scaffold_root.is_dir():
+            for manifest_path in sorted(scaffold_root.glob("*/package.json")):
+                manifests.append((manifest_path.parent.name + " scaffold", read_manifest(manifest_path)))
     except (ValueError, json.JSONDecodeError) as error:
         return [str(error)]
 
-    for label, manifest in (("root", root_manifest), ("Next.js scaffold", next_manifest)):
+    for label, manifest in manifests:
         dependencies = {}
         dependencies.update(manifest.get("dependencies") or {})
         dependencies.update(manifest.get("devDependencies") or {})
@@ -86,6 +95,7 @@ def validate_repository(root: Path) -> list[str]:
         "scaffolds/nextjs/src/frontend/pages/auth/LuthAuthPage.tsx",
         "scaffolds/nextjs/src/backend/AppBackend.ts",
         "scaffolds/nextjs/src/backend/auth/luthSession.ts",
+        "scaffolds/vite/src/backend/auth/luthSession.ts",
         "scripts/scaffold_app_structure.py",
         "architecture/authentication/SKILL.md",
     )
@@ -114,9 +124,9 @@ def validate_repository(root: Path) -> list[str]:
     if catch_all.is_file() and "DEFAULT_LUTH_URL" not in catch_all.read_text(encoding="utf-8"):
         errors.append("Optional auth catch-all must proxy only to DEFAULT_LUTH_URL")
 
-    backend = root / "scaffolds/nextjs/src/backend/AppBackend.ts"
-    if backend.is_file() and "AuthServiceFacade" in backend.read_text(encoding="utf-8"):
-        errors.append("Next.js backend must not expose the legacy Kloks local-auth facade")
+    for backend in (root / "scaffolds").glob("*/src/backend/AppBackend.ts"):
+        if "AuthServiceFacade" in backend.read_text(encoding="utf-8"):
+            errors.append(f"{backend.relative_to(root)} must not expose the legacy Kloks local-auth facade")
 
     guard = root / "scaffolds/nextjs/src/backend/auth/luthSession.ts"
     if guard.is_file():
