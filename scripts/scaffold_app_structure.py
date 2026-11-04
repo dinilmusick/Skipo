@@ -495,7 +495,7 @@ export async function handleAikoRoutes(request: Request): Promise<Response | nul
             "import React from 'react';\n"
             "import { LuthAuthPage } from '@ultrst-armada/floks/auth';\n\n"
             f"export function AuthPage(props: {{ onAuthenticated?: (user: unknown) => void }}) {{\n"
-            f"  return <LuthAuthPage ecosystemId=\"ultrst-armada\" applicationId=\"{app_name.lower()}\" appName=\"{pascal}\" onAuthenticated={{props.onAuthenticated}} />;\n"
+            f"  return <LuthAuthPage ecosystemId=\"ultrst-armada\" applicationId=\"{app_name.lower().replace(' ', '-')}\" appName=\"{pascal}\" onAuthenticated={{props.onAuthenticated}} />;\n"
             "}\n\n"
             "export default AuthPage;\n"
         ),
