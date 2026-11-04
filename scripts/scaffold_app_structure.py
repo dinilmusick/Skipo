@@ -426,16 +426,57 @@ export {{ default }} from './{pascal}Backend.js';
         backend_barrel.write_text(backend_barrel_content, encoding="utf-8")
         created.append(backend_barrel)
 
-    # 2d. src/backend/adapters/aikoRoutes.ts (Aiko API route adapter)
+    # 2d. Canonical server-side Luth session boundary for generated API handlers.
+    auth_dir = target_root / "src" / "backend" / "auth"
+    auth_dir.mkdir(parents=True, exist_ok=True)
+    luth_session_file = auth_dir / "luthSession.ts"
+    if not luth_session_file.exists():
+        luth_session_content = f"""import {{ DEFAULT_LUTH_URL }} from '@ultrst-armada/kloks/auth';
+
+export type LuthGuardResult =
+  | {{ authenticated: true; userId: string }}
+  | {{ authenticated: false; response: Response }};
+
+/** Verify the bearer session with Luth; never trust a caller-supplied user ID. */
+export async function requireLuthSession(request: Request): Promise<LuthGuardResult> {{
+  const authorization = request.headers.get('authorization');
+  if (!authorization) {{
+    return {{ authenticated: false, response: Response.json({{ error: 'A verified Luth session is required.' }}, {{ status: 401 }}) }};
+  }}
+  try {{
+    const response = await fetch(`${{DEFAULT_LUTH_URL}}/api/session`, {{
+      headers: {{ authorization, 'x-app-id': '{app_name.lower().replace(' ', '-')}' }},
+      cache: 'no-store',
+    }});
+    if (!response.ok) {{
+      return {{ authenticated: false, response: Response.json({{ error: 'Luth session is invalid or expired.' }}, {{ status: 401 }}) }};
+    }}
+    const session = await response.json() as {{ authenticated?: boolean; user?: {{ id?: string }} }};
+    if (session.authenticated !== true || !session.user?.id) {{
+      return {{ authenticated: false, response: Response.json({{ error: 'Luth session is invalid or expired.' }}, {{ status: 401 }}) }};
+    }}
+    return {{ authenticated: true, userId: session.user.id }};
+  }} catch {{
+    return {{ authenticated: false, response: Response.json({{ error: 'Canonical Luth authentication service unavailable.' }}, {{ status: 503 }}) }};
+  }}
+}}
+"""
+        luth_session_file.write_text(luth_session_content, encoding="utf-8")
+        created.append(luth_session_file)
+
+    # 2e. src/backend/adapters/aikoRoutes.ts (Aiko API route adapter)
     adapters_dir = target_root / "src" / "backend" / "adapters"
     adapters_dir.mkdir(parents=True, exist_ok=True)
     aiko_routes_file = adapters_dir / "aikoRoutes.ts"
     if not aiko_routes_file.exists():
         aiko_routes_content = """import { createAikoRuntime } from '../index.js';
+import { requireLuthSession } from '../auth/luthSession.js';
 
 export async function handleAikoRoutes(request: Request): Promise<Response | null> {
   const url = new URL(request.url);
   if (url.pathname !== '/api/aiko') return null;
+  const auth = await requireLuthSession(request);
+  if (!auth.authenticated) return auth.response;
   if (request.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
