@@ -15,8 +15,6 @@ import { authenticateLuthRequest, proxyLuthAuthRequest } from '../auth/luthSessi
 export interface Env {
   ENVIRONMENT?: string;
   APP_NAME?: string;
-  DEPM_GATEWAY_DOMAIN?: string;
-  SYSTEM_DATABASE_URL_1?: string;
   SYSTEM_DATABASE_URL_2?: string;
   SYSTEM_DATABASE_URL_3?: string;
   ASSETS?: { fetch: (request: Request) => Promise<Response> };
@@ -76,20 +74,8 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
     return jsonRes({ status: 'ok', service: 'depm-unified-engine', timestamp: new Date().toISOString() });
   }
 
-  // 1. Auth routes
-  if (pathname === '/api/auth/login' && method === 'POST') {
-    const b = await parseBody(request);
-    const res = await DepmBackend.services.auth.loginUser(b.email || b.identifier, b.password, false, env);
-    return jsonRes(res, res.status);
-  }
-  if (pathname === '/api/auth/admin/login' && method === 'POST') {
-    const b = await parseBody(request);
-    const res = await DepmBackend.services.auth.loginUser(b.email || b.identifier, b.password, true, env);
-    return jsonRes(res, res.status);
-  }
-  if (pathname === '/api/auth/users' && method === 'GET') {
-    return jsonRes(await DepmBackend.services.auth.getUsers(env));
-  }
+  // Authentication is proxied to Luth before this application router.
+  // App-owned workspace and storage endpoints are protected by the verified session boundary.
 
   // 2. Workspace & Cloud Storage routes
   if (pathname === '/api/workspace/storage-details' && method === 'GET') {
