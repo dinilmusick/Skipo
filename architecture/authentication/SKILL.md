@@ -1,82 +1,71 @@
 # Canonical Authentication Contract
 
-Skipo applications consume one ecosystem authentication system. Applications MUST NOT implement their own password hashing, session issuance, credential tables, or Google identity flow.
+Skipo applications consume one ecosystem authentication system. Applications MUST NOT implement their own password hashing, session issuance, credential tables, registration flow, or Google identity flow.
 
 ## Canonical ownership
 
 ```
-FLOKS
-  auth UI
-     |
-KLOKS / Luth Client (createLuthAuthClient)
-  canonical auth client/service contract
-  automatic origin discovery & self-registration
-     |
-Luth (Canonical Identity Substrate, formerly SRKL auth router)
-  Self-registration endpoint (/api/registry/register)
-  Better Auth server + Neon control-plane persistence
-     |
-Neon
-  Better Auth user/account/session tables
-  + luth_ecosystems, luth_auth_origins, luth_auth_providers
-  + existing ULTRST application metadata
+Luth
+  Better Auth identity, credentials, OAuth and sessions
+    |
+GutTS
+  Shared auth contracts and Luth client primitives
+    |
+Kloks
+  Public backend/client integration surface
+    |
+Floks
+  Integrated auth UI + client + session lifecycle
+    |
+Skipo
+  Mandatory canonical scaffold + generated-app enforcement
+    |
+Every application
+  Application profile/workspace data only; no local identity authority
 ```
 
 ## Required capabilities
 
-- Email/password sign-up and sign-in.
-- Live email-format validation in reusable auth UI.
-- Secure Better Auth sessions and logout.
-- Google sign-in through the canonical Google OAuth provider.
-- Google sign-in must not require a second manual email-verification link.
-- Google Drive authorization is separate from Google identity and MUST be requested incrementally only when a user selects Google Drive as a workspace storage provider.
-- Existing `ultrst-users` application metadata remains authoritative for application/workspace data and is synchronized from Better Auth users.
-- Existing legacy password hashes are accepted during migration; newly created/changed passwords use the canonical Better Auth password hashing configuration.
-- Account linking is centralized.
-- Auth state is never stored in application-local `localStorage` tokens when Better Auth session cookies are available.
+- Email/password registration and sign-in through Luth.
+- Google sign-in through Luth's configured Better Auth provider.
+- Secure session hydration, logout and revocation through Luth.
+- Application origin registration through the canonical client.
+- Google Drive authorization is separate from Google identity and is requested incrementally only when selected as a workspace storage provider.
+- Application profile/workspace records may be stored in the application's system database, but credentials and sessions remain owned by Luth.
+- Legacy password hashes may be migrated only inside Luth through an explicit, tested migration path.
 
 ## Application integration
 
-Frontend & Client:
-- consume the FLOKS reusable auth UI;
-- use the canonical Luth Auth Client (`createLuthAuthClient` from `luth/client`):
-  ```typescript
-  import { createLuthAuthClient } from 'luth/client';
-
-  const auth = createLuthAuthClient({
-    ecosystemId: 'ultrst-armada',
-    applicationId: 'srkl',
-  });
-  ```
-- the client automatically derives runtime origin (`window.location.origin`) and environment;
-- automatically and idempotently registers origin via `POST /api/registry/register` in Luth;
-- never manually hard-code deployment origins into Neon or Luth databases;
-- use credentials/cookies when calling the canonical auth server;
-- do not implement Google OAuth directly.
+Frontend:
+- Import the integrated `LuthAuthPage` from `@ultrst-armada/floks/auth`.
+- Configure only `ecosystemId` and the stable `applicationId`; presentation remains app-specific.
+- Do not supply arbitrary login/register/Google callbacks from application code.
+- Do not implement local session hydration or credential storage.
+- Use the canonical Kloks/GutTS Luth client for authenticated API calls.
 
 Backend:
-- consume `@ultrst-armada/kloks/backend` auth services;
-- configure `SRKL_AUTH_BASE_URL` or `LUTH_AUTH_URL`;
-- never query `ultrst-users.password_hash` for authentication;
-- never mint application-specific session tokens.
+- Import `DEFAULT_LUTH_URL` and canonical auth contracts from `@ultrst-armada/kloks/auth`.
+- Validate the incoming Luth session with Luth; a user ID alone is never an authentication credential.
+- Compatibility routes may proxy requests to Luth but must never verify passwords, create credentials, or mint application sessions.
+- Never query an application profile table's password field for authentication.
+
+Configuration:
+- `SYSTEM_DATABASE_URL` is the only application configuration environment variable.
+- Luth's canonical service URL is supplied by the published Kloks auth integration; do not introduce `LUTH_AUTH_URL`, `SRKL_AUTH_BASE_URL`, or per-app auth URL variables.
+- Never commit secrets or hard-code deployment origins. The canonical client discovers the runtime origin and registers it idempotently.
 
 ## Completion gate
 
-A Skipo app is auth-compliant only when:
-1. no app-local password verification remains on an authentication path;
-2. no app-local session token is minted;
-3. email/password routes resolve to canonical Better Auth;
-4. Google sign-in resolves to canonical Better Auth;
-5. Google Drive authorization is incremental and provider-specific;
-6. CI validates the auth integration and the app still passes the canonical Skipo architecture validator.
+A generated Skipo app is compliant only when:
+1. Its login page uses integrated Floks Luth UI.
+2. Its auth routes proxy to Luth or are absent.
+3. It has no app-local password hashing/verification, registration, credential persistence, token minting or session issuance.
+4. It has no bcrypt dependency for authentication.
+5. Backend authorization validates a real Luth session.
+6. The generated application passes source-governance tests and lifecycle integration tests.
 
+Marker checks against this document are supplementary. CI must inspect actual scaffold and generated source, package dependencies, imports and behavior.
 
-## Security and release verification
+## Runtime verification
 
-- A stored plaintext password MUST never be accepted as a password hash. Legacy hashed credentials may be supported only through an explicit migration path with tests; do not silently lock out existing users.
-- Session verification MUST use a canonical Better Auth session cookie or another explicitly supported server-to-server credential. A user ID alone is not an authentication credential.
-- Server-side HTTP clients MUST explicitly propagate the required cookie/session credential; `credentials: "include"` alone does not create a shared cookie jar between independent server requests.
-- Production configuration MUST define the canonical auth base URL, allowed origins, OAuth callback URLs, and required secrets without committing secret values.
-- CI must execute unit tests, type checks, package builds, and architecture checks. Source-marker checks are supplementary and do not replace runtime integration tests.
-- Before declaring rollout complete, exercise registration, sign-in, session retrieval, role/authorization enforcement, sign-out, expired/invalid sessions, and incremental Google Drive authorization against a disposable test environment.
-- Preserve reproducible dependency installation. Use the repository's committed lockfile and its matching package manager/CI install command where a lockfile exists.
+Exercise email registration/login, Google OAuth callback, session hydration after refresh, logout/revocation, expired and invalid sessions, application origin registration, backend authorization, and incremental Google Drive authorization. Use a disposable environment. A successful compile is not proof of authentication consolidation.
