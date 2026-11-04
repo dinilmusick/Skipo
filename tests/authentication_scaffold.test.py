@@ -31,7 +31,8 @@ def test_generic_scaffold_generates_canonical_floks_kloks_auth(tmp_path):
 
     assert auth_page.is_file() and adapter.is_file() and guard.is_file() and fetcher.is_file()
     assert "@ultrst-armada/floks/auth" in adapter.read_text(encoding="utf-8")
-    assert "@ultrst-armada/kloks/auth" in adapter.read_text(encoding="utf-8")
+    assert "LuthAuthPage as FloksLuthAuthPage" in adapter.read_text(encoding="utf-8")
+    assert "@ultrst-armada/kloks/auth" in fetcher.read_text(encoding="utf-8")
     assert "LuthAuthPage" in auth_page.read_text(encoding="utf-8")
     assert "requireLuthSession" in guard.read_text(encoding="utf-8")
     assert "getAuthHeaders" in fetcher.read_text(encoding="utf-8")
@@ -88,6 +89,7 @@ def test_nextjs_scaffold_uses_luth_adapter_and_has_no_local_auth_endpoints():
     login = (ROOT / "scaffolds/nextjs/app/login/page.tsx").read_text(encoding="utf-8")
     backend = (ROOT / "scaffolds/nextjs/src/backend/AppBackend.ts").read_text(encoding="utf-8")
     assert "src/frontend/pages/auth/LuthAuthPage" in login
+    assert "LuthAuthPage as FloksLuthAuthPage" in (ROOT / "scaffolds/nextjs/src/frontend/pages/auth/LuthAuthPage.tsx").read_text(encoding="utf-8")
     assert "AuthServiceFacade" not in backend
     assert not (ROOT / "scaffolds/nextjs/app/api/auth/login/route.ts").exists()
     assert not (ROOT / "scaffolds/nextjs/app/api/auth/register/route.ts").exists()
