@@ -7,7 +7,6 @@ import { AuthServiceFacade, StorageServiceFacade, WorkspaceServiceFacade, Contro
 import { StateLifecycleServiceFacade, NodeGraphEngineServiceFacade } from '@ultrst-armada/kloks/state-graph';
 import { WorkerExecutionBoundary, type IServiceFacade } from '@ultrst-armada/krnl';
 import { FodRuntime, scanBackendFacadeToNodes } from '@ultrst-armada/kloks/fod';
-import { AikoRuntime } from '@ultrst-armada/kloks/aiko';
 import { workingWorkspaceService } from '@ultrst-armada/kloks/backend';
 import { createSkipoAikoRuntime } from './semantic/SkipoAikoBridge.js';
 import { WorkspaceSemanticTaskStore, WorkspaceSemanticConversationStore } from './semantic/SkipoSemanticPersistence.js';
@@ -36,11 +35,6 @@ export const semanticRuntime = createSkipoSemanticRuntime({
   applicationVersion: '1.0.0',
 });
 
-if (AikoRuntime && !(AikoRuntime as any).id) {
-  (AikoRuntime as any).id = 'aiko';
-  (AikoRuntime as any).version = '1.0.0';
-}
-
 export const services: Record<string, ServiceExecutableFacade> = {
   serviceA: ServiceAFacade as ServiceExecutableFacade,
   serviceB: ServiceBFacade as ServiceExecutableFacade,
@@ -57,7 +51,6 @@ export const services: Record<string, ServiceExecutableFacade> = {
   stateLifecycle: StateLifecycleServiceFacade as ServiceExecutableFacade,
   nodeGraphEngine: NodeGraphEngineServiceFacade as ServiceExecutableFacade,
 
-  aiko: AikoRuntime as unknown as ServiceExecutableFacade,
 };
 
 // Register domain services in BackendFacade & SkipoExecutionEngine
