@@ -3,9 +3,9 @@
 Every generated Skipo application composes one authentication authority:
 
 ```
-Floks Auth UI
+Skipo app identity + branding
     ↓
-Skipo LuthAuthPage composition adapter
+Floks LuthAuthPage + lifecycle hooks
     ↓
 Kloks LuthAuthClient (re-exported from GutTS)
     ↓
@@ -29,13 +29,14 @@ Applications own application identity, branding, protected-route presentation, a
 
 The generated authentication surface MUST use:
 
-- `AuthPage` from `@ultrst-armada/floks/auth` for UI.
-- `createLuthAuthClient` from `@ultrst-armada/kloks/auth` for email sign-in, registration, Google sign-in, session hydration and logout/session operations.
+- `LuthAuthPage` from `@ultrst-armada/floks/auth` as the complete authentication experience.
+- Floks-owned lifecycle hooks for email sign-in, registration, Google sign-in, session hydration, loading/error states and logout.
+- Kloks' `LuthAuthClient` only through Floks or the shared canonical API transport; applications must not wire login/register callbacks themselves.
 - A stable `ecosystemId` and application-specific `applicationId`.
 - Runtime-origin discovery and canonical application registration through the client.
 - Luth session validation for every protected backend route. A user ID, application profile row, or client-supplied identity is never an authentication credential.
 
-The Skipo adapter may translate Floks UI callbacks into Kloks client calls. It must not implement the underlying protocol, persist credentials, mint tokens, or create/validate sessions itself. Backend route guards must call Luth's session endpoint and reject requests unless Luth returns an authenticated user and a real session.
+The Skipo adapter may supply stable application identity and presentation props only. It must not create callback-based login/register flows, implement the protocol, persist credentials, mint tokens, or create/validate sessions itself. Backend route guards must call Luth's session endpoint and reject requests unless Luth returns an authenticated user and a real session.
 
 ## Prohibited application behavior
 
@@ -54,7 +55,7 @@ Authentication API routes should be absent. If a compatibility proxy is explicit
 
 ## Package contract
 
-The root package and Next.js scaffold must use compatible published npm dependencies for `@dinilmusick/gutts`, `@ultrst-armada/kloks`, and `@ultrst-armada/floks`. Repository CI must install these packages from npm and resolve the exact public subpath exports used by generated source. Package availability and export resolution are executable checks, not documentation assumptions.
+The root package, Next.js scaffold and Vite scaffold must use compatible published npm dependencies for `@dinilmusick/gutts`, `@ultrst-armada/kloks`, and `@ultrst-armada/floks`. Repository CI must install these packages from npm and resolve the exact public subpath exports used by generated source. Package availability and export resolution are executable checks, not documentation assumptions.
 
 ## Enforcement and completion gate
 
@@ -62,12 +63,12 @@ CI must inspect actual scaffold and generated source, manifests, imports and rou
 
 A generated application is compliant only when:
 
-1. Its login surface composes Floks `AuthPage` with the Kloks Luth client.
-2. Email registration/sign-in and Google sign-in delegate to Luth.
-3. Session hydration and protected-route validation delegate to Luth.
+1. Its login surface composes Floks `LuthAuthPage` without application-owned authentication callbacks.
+2. Email registration/sign-in and Google sign-in are owned by Floks and delegate to Luth.
+3. Session hydration and protected-route validation delegate to Luth through Floks and the shared backend session guard.
 4. It contains no app-local password, credential, identity, token or session authority.
 5. It does not import the legacy Kloks `AuthServiceFacade`.
 6. Its package exports resolve from the published npm packages.
-7. Scaffold-generation tests, negative architecture tests, build, typecheck and CI pass.
+7. Scaffold-generation tests, negative architecture tests, Next.js and Vite builds, typecheck and CI pass.
 
 Runtime verification in a disposable environment should exercise email registration/login, Google OAuth callback, session hydration after refresh, logout/revocation, expired and invalid sessions, application-origin registration, protected backend authorization, and incremental Google Drive authorization. A successful compile is not proof of authentication consolidation.
