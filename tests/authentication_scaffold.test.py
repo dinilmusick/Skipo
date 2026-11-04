@@ -109,3 +109,18 @@ def test_nextjs_middleware_verifies_luth_and_overwrites_untrusted_identity_heade
     assert "x-user-id" in middleware
     assert "x-user-role" in middleware
     assert "NextResponse.next({ request: { headers: forwarded } })" in middleware
+
+
+def test_negative_scaffold_with_direct_auth_database_reads_is_rejected(tmp_path):
+    source = tmp_path / "src/auth/repository.ts"
+    source.parent.mkdir(parents=True)
+    source.write_text("const result = await db.query('SELECT * FROM users WHERE id = ?', [id]);\\n")
+    assert any("authentication database reads" in item for item in scan_source_tree(tmp_path))
+
+
+def test_negative_scaffold_with_local_auth_schema_is_rejected(tmp_path):
+    source = tmp_path / "src/auth/schema.ts"
+    source.parent.mkdir(parents=True)
+    source.write_text("export const credentials = pgTable('credentials', { passwordHash: text() });\\n")
+    violations = scan_source_tree(tmp_path)
+    assert any("authentication ORM table" in item or "credential hash" in item for item in violations)
