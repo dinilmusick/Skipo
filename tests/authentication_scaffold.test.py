@@ -25,14 +25,17 @@ def test_generic_scaffold_generates_canonical_floks_kloks_auth(tmp_path):
     auth_page = target / "src/frontend/pages/auth/page.tsx"
     adapter = target / "src/frontend/pages/auth/LuthAuthPage.tsx"
     guard = target / "src/backend/auth/luthSession.ts"
+    fetcher = target / "src/frontend/pages/auth/luthFetch.ts"
     backend = target / "src/backend/CanonicalDemoBackend.ts"
     manifest = json.loads((target / "package.json").read_text(encoding="utf-8"))
 
-    assert auth_page.is_file() and adapter.is_file() and guard.is_file()
+    assert auth_page.is_file() and adapter.is_file() and guard.is_file() and fetcher.is_file()
     assert "@ultrst-armada/floks/auth" in adapter.read_text(encoding="utf-8")
     assert "@ultrst-armada/kloks/auth" in adapter.read_text(encoding="utf-8")
     assert "LuthAuthPage" in auth_page.read_text(encoding="utf-8")
     assert "requireLuthSession" in guard.read_text(encoding="utf-8")
+    assert "getAuthHeaders" in fetcher.read_text(encoding="utf-8")
+    assert "canonicaldemo" in fetcher.read_text(encoding="utf-8")
     assert "AuthServiceFacade" not in backend.read_text(encoding="utf-8")
     assert manifest["dependencies"]["@ultrst-armada/krnl"] == "^1.0.11"
     assert scan_source_tree(target) == []
@@ -79,3 +82,13 @@ def test_negative_scaffold_with_local_credential_storage_is_rejected(tmp_path):
     source.parent.mkdir(parents=True)
     source.write_text("localStorage.setItem('app-password', password);\n")
     assert any("credential persistence" in item for item in scan_source_tree(tmp_path))
+
+
+def test_nextjs_scaffold_uses_luth_adapter_and_has_no_local_auth_endpoints():
+    login = (ROOT / "scaffolds/nextjs/app/login/page.tsx").read_text(encoding="utf-8")
+    backend = (ROOT / "scaffolds/nextjs/src/backend/AppBackend.ts").read_text(encoding="utf-8")
+    assert "src/frontend/pages/auth/LuthAuthPage" in login
+    assert "AuthServiceFacade" not in backend
+    assert not (ROOT / "scaffolds/nextjs/app/api/auth/login/route.ts").exists()
+    assert not (ROOT / "scaffolds/nextjs/app/api/auth/register/route.ts").exists()
+    assert "DEFAULT_LUTH_URL" in (ROOT / "scaffolds/nextjs/src/backend/auth/luthSession.ts").read_text(encoding="utf-8")
