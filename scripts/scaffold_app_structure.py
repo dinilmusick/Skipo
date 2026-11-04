@@ -492,7 +492,12 @@ export async function handleAikoRoutes(request: Request): Promise<Response | nul
 
     page_templates = {
         pages_root / "auth" / "page.tsx": (
-            "export { AuthPage } from '@ultrst-armada/floks/ui';\n"
+            "import React from 'react';\n"
+            "import { LuthAuthPage } from '@ultrst-armada/floks/auth';\n\n"
+            f"export function AuthPage(props: { { 'onAuthenticated?: (user: unknown) => void' } }) {{\n"
+            f"  return <LuthAuthPage ecosystemId=\"ultrst-armada\" applicationId=\"{app_name.lower()}\" appName=\"{pascal}\" onAuthenticated={{props.onAuthenticated}} />;\n"
+            "}\n\n"
+            "export default AuthPage;\n"
         ),
         pages_root / "menus" / "workspaces" / "page.tsx": (
             "export { WorkspaceTilesMenu } from '@ultrst-armada/floks/ui';\n"
