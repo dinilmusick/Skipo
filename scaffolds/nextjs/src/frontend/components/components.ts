@@ -4,8 +4,6 @@ export {
   BaseCard,
   WorkspaceTilesMenu,
   type WorkspaceRecord,
-  type AuthResult,
-  AuthPage,
 } from '@ultrst-armada/floks/ui';
 
 export {
