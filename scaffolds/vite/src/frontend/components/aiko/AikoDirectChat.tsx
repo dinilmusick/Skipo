@@ -112,7 +112,7 @@ export function AikoDirectChat({ runtime, workspaceId, applicationId = 'skipo-ap
       };
       if (typeof runtime.reportBug === 'function') {
         const authorization = new Headers(luthAuthClient.getAuthHeaders()).get('authorization');
-        const token = authToken || authorization?.replace(/^Bearer\\s+/i, '');
+        const token = authToken || authorization?.replace(/^Bearer\s+/i, '');
         if (!token) throw new Error('A verified Luth session is required to report a bug.');
         await runtime.reportBug(payload, token);
       }
