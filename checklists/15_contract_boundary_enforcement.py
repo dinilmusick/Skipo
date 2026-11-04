@@ -110,6 +110,7 @@ VALID_KLOKS_SUBPATHS = {
     "krnl-ai-services",
     "fod",
     "aiko",
+    "auth",
 }
 
 DATABASE_PACKAGES = {
@@ -141,6 +142,7 @@ VALID_FLOKS_SUBPATHS = {
     "canvas-ui/fod",
     "canvas-ui/aiko",
     "contracts",
+    "auth",
 }
 
 IMPORT_REGEX = re.compile(

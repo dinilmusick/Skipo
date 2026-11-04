@@ -33,13 +33,8 @@ async function parseBody(req: Request): Promise<any> {
   try { return await req.json(); } catch { return {}; }
 }
 
-function getUserId(req: Request, url: URL): string {
-  const auth = req.headers.get('authorization') || '';
-  if (auth.startsWith('Bearer sess::')) {
-    const p = auth.replace('Bearer sess::', '').split('::');
-    if (p[0]) return p[0];
-  }
-  return req.headers.get('x-user-id') || url.searchParams.get('userId') || '';
+function getUserId(req: Request, _url: URL): string {
+  return req.headers.get('x-user-id') || '';
 }
 
 export async function fetchHandler(request: Request, env: Env = {}): Promise<Response> {
@@ -54,21 +49,6 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
 
   if (pathname === '/api/health' || pathname === '/health') {
     return jsonRes({ status: 'ok', service: 'depm-unified-engine', timestamp: new Date().toISOString() });
-  }
-
-  // 1. Auth routes
-  if (pathname === '/api/auth/login' && method === 'POST') {
-    const b = await parseBody(request);
-    const res = await DepmBackend.services.auth.loginUser(b.email || b.identifier, b.password, false, env);
-    return jsonRes(res, res.status);
-  }
-  if (pathname === '/api/auth/admin/login' && method === 'POST') {
-    const b = await parseBody(request);
-    const res = await DepmBackend.services.auth.loginUser(b.email || b.identifier, b.password, true, env);
-    return jsonRes(res, res.status);
-  }
-  if (pathname === '/api/auth/users' && method === 'GET') {
-    return jsonRes(await DepmBackend.services.auth.getUsers(env));
   }
 
   // 2. Workspace & Cloud Storage routes

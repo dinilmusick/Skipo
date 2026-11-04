@@ -17,7 +17,7 @@ PACKAGE_BASELINE = {
 }
 SOURCE_SUFFIXES = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
 FORBIDDEN_SOURCE_PATTERNS = (
-    (r"\b(?:bcrypt|bcryptjs)\b", "password hashing dependency or implementation"),
+    (r"\b(?:bcrypt|bcryptjs)\b", "bcrypt password hashing dependency or implementation"),
     (r"\b(?:hashPassword|verifyPassword|comparePassword|checkPassword)\s*\(", "local password verification/hashing"),
     (r"\bpassword_hash\b|\bpasswordHash\b", "application credential hash storage"),
     (r"(?:localStorage|sessionStorage)\s*\.\s*setItem\s*\(\s*['\"][^'\"]*(?:password|credential|refresh.?token)", "browser credential persistence"),
@@ -30,7 +30,7 @@ FORBIDDEN_SOURCE_PATTERNS = (
     (r"\bCREATE\s+TABLE\s+(?:users|accounts|sessions|credentials)\b", "application-local authentication schema"),
     (r'\b(?:pgTable|mysqlTable|sqliteTable)\s*\(\s*["\'](?:users|accounts|sessions|credentials)["\']', "application-local authentication ORM table"),
     (r"\bappBackend\.services\.auth\.(?:login|loginUser|register|registerUser|createSession)", "legacy application-local auth service"),
-    (r"\bAuthServiceFacade\b", "legacy Kloks application-local auth facade"),
+    (r"\bAuthServiceFacade\b", "legacy Kloks application-local auth facade (AuthServiceFacade)"),
     (r"Bearer\s+sess::", "synthetic application-local session token"),
 )
 

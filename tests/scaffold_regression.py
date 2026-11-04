@@ -93,7 +93,10 @@ class ScaffoldRegressionTest(unittest.TestCase):
             self.assertTrue(ws_gate.exists(), f"WorkspaceGate missing in {scaffold_name}")
 
             login_content = login_gate.read_text(encoding="utf-8")
-            self.assertIn("@ultrst-armada/floks/ui", login_content)
+            self.assertTrue(
+                "@ultrst-armada/floks/auth" in login_content or "@ultrst-armada/floks/ui" in login_content,
+                f"Expected @ultrst-armada/floks/auth or @ultrst-armada/floks/ui in {scaffold_name} LoginGate"
+            )
             self.assertIn("AuthPage", login_content)
             self.assertNotIn("@floks/ui", login_content)
 

@@ -26,7 +26,8 @@ export async function proxyLuthAuthRequest(request: Request): Promise<Response |
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
-  headers.set('x-app-id', 'my-app');
+  const appId = request.headers.get('x-app-id') || url.hostname || 'my-app';
+  headers.set('x-app-id', appId);
 
   try {
     const upstream = await fetch(`${DEFAULT_LUTH_URL}${targetPath}${url.search}`, {
@@ -68,7 +69,8 @@ export async function authenticateLuthRequest(request: Request): Promise<{
   if (!authorization && !cookie) return { status: 401, error: 'A verified Luth session is required.' };
 
   try {
-    const headers = new Headers({ 'x-app-id': 'my-app' });
+    const appId = request.headers.get('x-app-id') || url.hostname || 'my-app';
+    const headers = new Headers({ 'x-app-id': appId });
     if (authorization) headers.set('authorization', authorization);
     if (cookie) headers.set('cookie', cookie);
     const response = await fetch(`${DEFAULT_LUTH_URL}/api/session`, {
@@ -81,13 +83,14 @@ export async function authenticateLuthRequest(request: Request): Promise<{
       user?: { id?: string; email?: string; name?: string };
       session?: { id?: string };
     };
-    if (!session.authenticated || !session.user?.id || !session.session?.id) {
+    if (session.authenticated !== true || !session.user?.id) {
       return { status: 401, error: 'Luth session is invalid or expired.' };
     }
 
     const forwarded = new Headers(request.headers);
     forwarded.set('x-user-id', session.user.id);
     if (session.user.email) forwarded.set('x-user-email', session.user.email);
+    if (session.session?.id) forwarded.set('x-session-id', session.session.id);
     forwarded.set('x-user-role', 'user');
     return { request: new Request(request, { headers: forwarded }) };
   } catch {
