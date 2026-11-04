@@ -53,6 +53,11 @@ Generated applications MUST NOT:
 
 Authentication API routes should be absent. If a compatibility proxy is explicitly required, it may only forward requests to Luth and must not inspect credentials, query authentication tables, or issue sessions.
 
+
+## Upstream Kloks packaging constraint
+
+The current published Kloks backend entrypoints re-export `krnl-services`, and that module still defines the legacy `AuthServiceFacade` alongside storage/workspace services. Skipo must never call or expose that facade. Because the storage/workspace imports currently share that module, removing the legacy code from the generated runtime dependency graph requires an upstream Kloks package split into auth-free storage/workspace exports and a new published package version. Track this as an upstream release dependency; do not reintroduce application-owned auth as a workaround.
+
 ## Package contract
 
 The root package, Next.js scaffold and Vite scaffold must use compatible published npm dependencies for `@dinilmusick/gutts`, `@ultrst-armada/kloks`, and `@ultrst-armada/floks`. Repository CI must install these packages from npm and resolve the exact public subpath exports used by generated source. Package availability and export resolution are executable checks, not documentation assumptions.
