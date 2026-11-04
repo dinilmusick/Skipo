@@ -3,7 +3,7 @@ import { ServiceAFacade, ServiceBFacade, ServiceCFacade, ServiceDFacade } from '
 import { OrchestratorADefinition, OrchestratorBDefinition } from '@ultrst-armada/kloks/orchestrations';
 import { AudioHardwareServiceFacade, MidiServiceFacade, AudioMidiOrchestratorDefinition } from '@ultrst-armada/kloks/audio-midi';
 import { FunctionsServiceFacade } from '@ultrst-armada/kloks/functions';
-import { AuthServiceFacade, StorageServiceFacade, WorkspaceServiceFacade, ControlPlaneServiceFacade, SrklServiceFacade } from '@ultrst-armada/kloks/backend/krnl-services';
+import { StorageServiceFacade, WorkspaceServiceFacade, ControlPlaneServiceFacade, SrklServiceFacade } from '@ultrst-armada/kloks/backend/krnl-services';
 import { StateLifecycleServiceFacade, NodeGraphEngineServiceFacade } from '@ultrst-armada/kloks/state-graph';
 import { WorkerExecutionBoundary, type IServiceFacade } from '@ultrst-armada/krnl';
 import { FodRuntime, scanBackendFacadeToNodes } from '@ultrst-armada/kloks/fod';
@@ -43,7 +43,6 @@ export const services: Record<string, ServiceExecutableFacade> = {
   audioHardware: AudioHardwareServiceFacade as ServiceExecutableFacade,
   midi: MidiServiceFacade as ServiceExecutableFacade,
   functions: FunctionsServiceFacade as ServiceExecutableFacade,
-  auth: AuthServiceFacade as ServiceExecutableFacade,
   storage: StorageServiceFacade as ServiceExecutableFacade,
   workspace: WorkspaceServiceFacade as ServiceExecutableFacade,
   srkl: SrklServiceFacade as ServiceExecutableFacade,
