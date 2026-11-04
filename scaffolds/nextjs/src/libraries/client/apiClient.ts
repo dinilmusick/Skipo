@@ -4,12 +4,13 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { useInspectionStore } from '../../frontend-state/inspectionStore';
+import { luthAuthClient, luthFetch } from './luthAuthClient';
 
 async function wrappedFetch(url: string, init?: RequestInit): Promise<Response> {
   const store = useInspectionStore.getState();
   store.incrementApiCount();
   try {
-    const res = await fetch(url, init);
+    const res = await luthFetch(url, init);
     return res;
   } finally {
     store.decrementApiCount();
@@ -18,43 +19,32 @@ async function wrappedFetch(url: string, init?: RequestInit): Promise<Response> 
 
 export const apiClient = {
   async login(email?: string, password?: string, isAdmin: boolean = false) {
-    const res = await wrappedFetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, isAdmin }),
-    });
-    return res.json();
+    if (isAdmin) throw new Error('Administrative authentication is not provided by Luth user login.');
+    await luthAuthClient.signInWithEmail({ email: email || '', password: password || '' });
+    return luthAuthClient.getSession();
   },
 
   async register(data: { name: string; email: string; password: string; role?: string }) {
-    const res = await wrappedFetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    return res.json();
+    await luthAuthClient.signUpWithEmail({ name: data.name, email: data.email, password: data.password });
+    return luthAuthClient.getSession();
   },
 
   async getWorkspaces(userId?: string) {
-    const headers: Record<string, string> = {};
-    if (userId) headers['x-user-id'] = userId;
-    const res = await wrappedFetch('/api/auth/workspaces', { headers });
+    const res = await wrappedFetch('/api/auth/workspaces');
     return res.json();
   },
 
   async createWorkspace(userId: string, data: Record<string, unknown>) {
     const res = await wrappedFetch('/api/auth/workspaces', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
     return res.json();
   },
 
   async getStorageConnections(userId?: string) {
-    const headers: Record<string, string> = {};
-    if (userId) headers['x-user-id'] = userId;
-    const res = await wrappedFetch('/api/auth/storage/connections', { headers });
+    const res = await wrappedFetch('/api/auth/storage/connections');
     return res.json();
   },
 
