@@ -83,4 +83,23 @@ if "sess::" in backend_scaffold or "AUTH_TOKEN" in backend_scaffold or "AUTH_USE
 if "AuthServiceFacade" not in backend_scaffold:
     raise SystemExit("Generated backend must expose the canonical Kloks/Luth auth facade.")
 
+# Scan the complete generated source tree, not just documentation markers or known routes.
+for source_root in (root / "scaffolds" / "nextjs" / "app", root / "scaffolds" / "nextjs" / "src"):
+    for source_file in source_root.rglob("*"):
+        if not source_file.is_file() or source_file.suffix not in {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}:
+            continue
+        source = source_file.read_text(encoding="utf-8", errors="replace")
+        forbidden_patterns = (
+            r"\bbcrypt(?:js)?\b",
+            r"\b(?:verifyPassword|hashPassword|rotateRefreshToken)\s*\(",
+            r"\bpassword_hash\b",
+            r"\bcreateSession\s*\(",
+            r"appBackend\.services\.auth\.(?:loginUser|registerUser)",
+            r"\bUserAuthPage\b",
+            r"\b(?:jsonwebtoken|jwt)\.sign\s*\(",
+        )
+        for pattern in forbidden_patterns:
+            if re.search(pattern, source, re.IGNORECASE):
+                raise SystemExit(f"Generated application contains local authentication authority: {source_file.relative_to(root)} ({pattern})")
+
 print("Canonical Luth scaffold architecture: PASS")
