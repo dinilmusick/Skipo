@@ -59,4 +59,19 @@ for old in ('"@dinilmusick/gutts": "^1.3.2"', '"@ultrst-armada/kloks": "^1.24.0"
     if old in generator:
         raise SystemExit(f"Scaffold generator contains stale package baseline: {old}")
 
+
+register_route = (root / "scaffolds/nextjs/app/api/auth/register/route.ts").read_text(encoding="utf-8")
+if "DEFAULT_LUTH_URL" not in register_route or "registerUser" in register_route:
+    raise SystemExit("Scaffold registration route must proxy to Luth and must not call local registration services.")
+
+catch_all = root / "scaffolds/nextjs/app/api/auth/[...auth]/route.ts"
+if not catch_all.is_file():
+    raise SystemExit("Scaffold must include a canonical Luth auth catch-all proxy.")
+catch_all_source = catch_all.read_text(encoding="utf-8")
+if "DEFAULT_LUTH_URL" not in catch_all_source:
+    raise SystemExit("Auth catch-all must forward to the canonical Luth URL.")
+
+if "LuthAuthPage" not in generator or "export { AuthPage } from '@ultrst-armada/floks/ui'" in generator:
+    raise SystemExit("Generic Skipo generator must generate the integrated Floks LuthAuthPage.")
+
 print("Canonical Luth scaffold architecture: PASS")
