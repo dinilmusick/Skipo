@@ -173,6 +173,13 @@ def validate_repository(root: Path) -> list[str]:
             errors.append("Vite API adapter contains legacy local authentication")
 
     for framework in ("nextjs", "vite"):
+        frontend = root / "scaffolds" / framework / "src" / "frontend"
+        if frontend.exists():
+            for source_file in frontend.rglob("*"):
+                if source_file.is_file() and source_file.suffix.lower() in SOURCE_SUFFIXES:
+                    source = source_file.read_text(encoding="utf-8", errors="replace")
+                    if re.search(r"['\"]x-user-id['\"]\\s*:", source):
+                        errors.append(f"{framework} frontend must not send caller-supplied x-user-id: {source_file.relative_to(root)}")
         client = root / "scaffolds" / framework / "src" / "libraries" / "client" / "luthAuthClient.ts"
         if client.is_file():
             source = client.read_text(encoding="utf-8")
