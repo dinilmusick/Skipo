@@ -51,7 +51,7 @@ Backend:
 
 Configuration:
 - `SYSTEM_DATABASE_URL` is the only application configuration environment variable.
-- Luth's canonical service URL is supplied by the published Kloks auth integration; do not introduce `LUTH_AUTH_URL`, `SRKL_AUTH_BASE_URL`, or per-app auth URL variables.
+- Luth's canonical service URL is supplied by the published Kloks auth integration; applications must not introduce per-app authentication URL environment variables.
 - Never commit secrets or hard-code deployment origins. The canonical client discovers the runtime origin and registers it idempotently.
 
 ## Completion gate
