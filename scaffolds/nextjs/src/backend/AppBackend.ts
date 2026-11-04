@@ -39,25 +39,23 @@ export const FodServiceFacade = createFodServiceFacadeForWorkspace(createFodRunt
 
 export const bugReportService = {
   report: async (input: any, options?: any) => {
-    const authId = options?.session?.userId ?? options?.auth?.user?.id ?? '';
-    const baseUrl = process.env.KRUSBL_URL;
-    if (!baseUrl) throw new Error('[Skipo:Bug] KRUSBL_URL is required.');
-    if (!authId) throw new Error('[Skipo:Bug] Authenticated user is required.');
+    const authId = options?.session?.userId ?? options?.auth?.user?.id;
+    const authToken = options?.auth?.token;
+    const baseUrl = options?.serviceOrigin;
+    if (!baseUrl) throw new Error('[Skipo:Bug] Krusbl origin must be resolved from the system database.');
+    if (!authId || !authToken) throw new Error('[Skipo:Bug] A verified Luth identity and bearer token are required.');
     const response = await fetch(baseUrl.replace(/\/$/, '') + '/api/bugs', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        authorization: options?.auth?.token ? 'Bearer ' + options.auth.token : 'Bearer sess::' + authId + '::skipo',
+        authorization: 'Bearer ' + authToken,
       },
       body: JSON.stringify({
         ...input,
         reporterId: authId,
         context: {
-          applicationId: process.env.APPLICATION_ID || 'skipo-app',
+          applicationId: options?.applicationId ?? input?.context?.applicationId ?? 'skipo-app',
           applicationType: 'skipo' as const,
-          applicationVersion: process.env.APPLICATION_VERSION,
-          deploymentId: process.env.DEPLOYMENT_ID,
-          sourceRevision: process.env.SOURCE_REVISION,
           ...input?.context,
         },
       }),
@@ -72,7 +70,7 @@ export const createAikoRuntime = (workspaceId: string) => {
     fod: createFodRuntime(workspaceId),
     backend: { services, orchestrations },
   }) as any;
-  rt.reportBug = (report: any) => bugReportService.report(report, { auth: { user: { id: process.env.AUTH_USER_ID }, token: process.env.AUTH_TOKEN } });
+  rt.reportBug = (report: any, context: any) => bugReportService.report(report, context);
   return rt;
 };
 
