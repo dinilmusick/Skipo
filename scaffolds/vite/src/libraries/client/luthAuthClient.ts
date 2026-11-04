@@ -1,8 +1,10 @@
 import { LuthAuthClient } from '@dinilmusick/gutts';
 
 export const SKIPO_ECOSYSTEM_ID = 'ultrst-armada';
+export const SKIPO_APPLICATION_ID = 'my-app';
+
 export function getSkipoApplicationId(): string {
-  return typeof window !== 'undefined' ? window.location.host : 'skipo-app';
+  return SKIPO_APPLICATION_ID;
 }
 
 export const luthAuthClient = new LuthAuthClient({
