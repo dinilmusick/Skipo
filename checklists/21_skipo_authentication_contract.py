@@ -28,7 +28,7 @@ FORBIDDEN_SOURCE_PATTERNS = (
     (r"\b(?:INSERT\s+INTO|UPDATE)\s+(?:users|accounts|sessions|credentials)\b", "direct authentication database mutation"),
     (r"\bSELECT\b[\s\S]{0,240}\bFROM\s+(?:users|accounts|sessions|credentials)\b", "direct authentication database reads"),
     (r"\bCREATE\s+TABLE\s+(?:users|accounts|sessions|credentials)\b", "application-local authentication schema"),
-    (r"\b(?:pgTable|mysqlTable|sqliteTable)\s*\(\s*["'](?:users|accounts|sessions|credentials)["']", "application-local authentication ORM table"),
+    (r'\b(?:pgTable|mysqlTable|sqliteTable)\s*\(\s*["\'](?:users|accounts|sessions|credentials)["\']', "application-local authentication ORM table"),
     (r"\bappBackend\.services\.auth\.(?:login|loginUser|register|registerUser|createSession)", "legacy application-local auth service"),
     (r"\bAuthServiceFacade\b", "legacy Kloks application-local AuthServiceFacade"),
 )
