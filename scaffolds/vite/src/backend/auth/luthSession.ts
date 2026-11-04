@@ -54,6 +54,7 @@ export async function authenticateLuthRequest(request: Request): Promise<{
 }> {
   const url = new URL(request.url);
   const pathname = url.pathname;
+  if (!pathname.startsWith('/api/')) return { request };
   if (
     request.method === 'OPTIONS' ||
     pathname === '/health' ||
