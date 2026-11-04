@@ -572,6 +572,28 @@ export function LuthAuthPage({ applicationId, appName, onAuthenticated }: {
 
 export default LuthAuthPage;
 """,
+        pages_root / "auth" / "luthFetch.ts": """'use client';
+
+import { createLuthAuthClient } from '@ultrst-armada/kloks/auth';
+
+const luthClient = createLuthAuthClient({
+  ecosystemId: 'ultrst-armada',
+  applicationId: '{app_name.lower().replace(' ', '-')}',
+  autoRegister: true,
+});
+
+/** Attach the canonical Luth bearer token to protected application API requests. */
+export async function luthFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers);
+  new Headers(luthClient.getAuthHeaders()).forEach((value, key) => headers.set(key, value));
+  return fetch(input, {
+    ...init,
+    headers,
+    credentials: init.credentials ?? 'include',
+    cache: init.cache ?? 'no-store',
+  });
+}
+""",
         pages_root / "auth" / "page.tsx": (
             "import React from 'react';\n"
             "import { LuthAuthPage } from './LuthAuthPage.js';\n\n"
