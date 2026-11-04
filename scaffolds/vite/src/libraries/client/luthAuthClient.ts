@@ -1,4 +1,4 @@
-import { LuthAuthClient } from '@ultrst-armada/floks/ui';
+import { LuthAuthClient } from '@dinilmusick/gutts';
 
 const env = import.meta.env;
 
