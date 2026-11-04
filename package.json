@@ -23,10 +23,10 @@
     "generate:graph-assets": "python3 scripts/skipo_builder.py generate-graph-assets"
   },
   "dependencies": {
-    "@dinilmusick/gutts": "git+https://github.com/dinilmusick/GutTS.git#2ccc70f0026e77ef85717c6fb8696c23a6779499",
-    "@ultrst-armada/floks": "^1.13.8",
-    "@ultrst-armada/frnlts": "^0.5.3",
-    "@ultrst-armada/kloks": "^1.24.4",
+    "@dinilmusick/gutts": "^1.4.3",
+    "@ultrst-armada/floks": "^1.13.14",
+    "@ultrst-armada/frnlts": "^0.5.5",
+    "@ultrst-armada/kloks": "^1.24.9",
     "@ultrst-armada/krnl": "^1.0.11",
     "lucide-react": "^1.55.0",
     "p-queue": "^10.0.0",
@@ -44,8 +44,7 @@
   },
   "pnpm": {
     "overrides": {
-      "bullmq": "6.3.16",
-      "@dinilmusick/gutts": "git+https://github.com/dinilmusick/GutTS.git#2ccc70f0026e77ef85717c6fb8696c23a6779499"
+      "bullmq": "6.3.16"
     },
     "onlyBuiltDependencies": [
       "@dinilmusick/gutts"
