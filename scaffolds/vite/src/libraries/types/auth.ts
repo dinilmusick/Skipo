@@ -47,7 +47,6 @@ export interface UserAccount {
   createdAt: string;
   lastLoginAt?: string;
   updatedAt?: string;
-  passwordHash?: string;
   emailVerified?: boolean;
   trustLevel?: TrustLevel;
   status?: AccountStatus;
@@ -60,14 +59,12 @@ export interface UserAccount {
 }
 
 export interface UserSession {
-  user: Omit<UserAccount, 'passwordHash'>;
-  token: string;
-  expiresAt: number;
+  user: UserAccount;
+  authenticated: boolean;
 }
 
 export interface AuthState {
-  currentUser: Omit<UserAccount, 'passwordHash'> | null;
-  token: string | null;
+  currentUser: UserAccount | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
 }
