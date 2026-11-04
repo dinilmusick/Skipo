@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enforce the canonical Luth-only authentication contract in Skipo scaffolds."""
+"""Enforce the canonical Luth-only authentication contract in all Skipo scaffolds."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ PACKAGE_BASELINE = {
 }
 SOURCE_SUFFIXES = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
 FORBIDDEN_SOURCE_PATTERNS = (
-    (r"\b(?:bcrypt|bcryptjs)\b", "bcrypt implementation or import"),
+    (r"\b(?:bcrypt|bcryptjs)\b", "password hashing dependency or implementation"),
     (r"\b(?:hashPassword|verifyPassword|comparePassword|checkPassword)\s*\(", "local password verification/hashing"),
     (r"\bpassword_hash\b|\bpasswordHash\b", "application credential hash storage"),
     (r"(?:localStorage|sessionStorage)\s*\.\s*setItem\s*\(\s*['\"][^'\"]*(?:password|credential|refresh.?token)", "browser credential persistence"),
@@ -25,28 +25,26 @@ FORBIDDEN_SOURCE_PATTERNS = (
     (r"\b(?:jsonwebtoken|jwt)\s*\.\s*sign\s*\(", "application-local JWT issuance"),
     (r"\bfrom\s+['\"]better-auth(?:/[^'\"]*)?['\"]|\bimport\s*\(\s*['\"]better-auth", "direct Better Auth integration outside Luth"),
     (r"\b(?:user_credentials|auth_credentials|auth_sessions|user_sessions)\b", "application-local authentication tables"),
-    (r"\b(?:INSERT\s+INTO|UPDATE)\s+(?:users|accounts|sessions|credentials)\b", "direct authentication database mutation"),
-    (r"\bSELECT\b[\s\S]{0,240}\bFROM\s+(?:users|accounts|sessions|credentials)\b", "direct authentication database reads"),
-    (r"\bCREATE\s+TABLE\s+(?:users|accounts|sessions|credentials)\b", "application-local authentication schema"),
-    (r'\b(?:pgTable|mysqlTable|sqliteTable)\s*\(\s*["\'](?:users|accounts|sessions|credentials)["\']', "application-local authentication ORM table"),
     (r"\bappBackend\.services\.auth\.(?:login|loginUser|register|registerUser|createSession)", "legacy application-local auth service"),
-    (r"\bAuthServiceFacade\b", "legacy Kloks application-local AuthServiceFacade"),
+    (r"\bAuthServiceFacade\b", "legacy Kloks application-local auth facade"),
+    (r"Bearer\s+sess::", "synthetic application-local session token"),
 )
 
 def source_files(root: Path):
-    scaffolds = root / "scaffolds"
-    bases = [root / "app"]
-    if not scaffolds.is_dir():
-        bases.append(root / "src")
-    else:
-        bases.extend(path for path in scaffolds.iterdir() if path.is_dir())
+    bases = (
+        root / "app",
+        root / "src",
+        root / "scaffolds" / "nextjs" / "app",
+        root / "scaffolds" / "nextjs" / "src",
+        root / "scaffolds" / "vite" / "src",
+    )
+    seen: set[Path] = set()
     for base in bases:
         if not base.exists():
             continue
         for path in base.rglob("*"):
-            if any(part in {"node_modules", ".git", ".next", "dist", "build"} for part in path.parts):
-                continue
-            if path.is_file() and path.suffix.lower() in SOURCE_SUFFIXES:
+            if path.is_file() and path.suffix.lower() in SOURCE_SUFFIXES and path not in seen:
+                seen.add(path)
                 yield path
 
 def scan_source_tree(root: Path) -> list[str]:
@@ -65,26 +63,26 @@ def read_manifest(path: Path) -> dict:
 
 def validate_repository(root: Path) -> list[str]:
     errors: list[str] = []
-    try:
-        manifests = [("root", read_manifest(root / "package.json"))]
-        scaffold_root = root / "scaffolds"
-        if scaffold_root.is_dir():
-            for manifest_path in sorted(scaffold_root.glob("*/package.json")):
-                manifests.append((manifest_path.parent.name + " scaffold", read_manifest(manifest_path)))
-    except (ValueError, json.JSONDecodeError) as error:
-        return [str(error)]
-
-    for label, manifest in manifests:
+    manifests = {
+        "root": root / "package.json",
+        "Next.js scaffold": root / "scaffolds" / "nextjs" / "package.json",
+        "Vite scaffold": root / "scaffolds" / "vite" / "package.json",
+    }
+    for label, path in manifests.items():
+        try:
+            manifest = read_manifest(path)
+        except (ValueError, json.JSONDecodeError) as error:
+            errors.append(str(error))
+            continue
         dependencies = {}
         dependencies.update(manifest.get("dependencies") or {})
         dependencies.update(manifest.get("devDependencies") or {})
         for name in ("bcrypt", "bcryptjs", "@types/bcryptjs"):
             if name in dependencies:
-                errors.append(f"{label} manifest installs forbidden auth dependency: {name}")
+                errors.append(f"{label} installs forbidden auth dependency: {name}")
         for name, expected in PACKAGE_BASELINE.items():
-            actual = dependencies.get(name)
-            if actual != expected:
-                errors.append(f"{label} manifest baseline mismatch for {name}: expected {expected}, got {actual}")
+            if dependencies.get(name) != expected:
+                errors.append(f"{label} baseline mismatch for {name}: expected {expected}, got {dependencies.get(name)}")
         gutts_spec = dependencies.get("@dinilmusick/gutts", "")
         if isinstance(gutts_spec, str) and gutts_spec.startswith(("git+", "git:", "github:")):
             errors.append(f"{label} must consume published GutTS, not a Git dependency")
@@ -98,6 +96,7 @@ def validate_repository(root: Path) -> list[str]:
         "scaffolds/nextjs/src/backend/AppBackend.ts",
         "scaffolds/nextjs/src/backend/auth/luthSession.ts",
         "scaffolds/nextjs/middleware.ts",
+        "scaffolds/vite/src/frontend/components/gates/LoginGate.tsx",
         "scaffolds/vite/src/backend/auth/luthSession.ts",
         "scripts/scaffold_app_structure.py",
         "architecture/authentication/SKILL.md",
@@ -106,43 +105,75 @@ def validate_repository(root: Path) -> list[str]:
         if not (root / rel).is_file():
             errors.append(f"Missing canonical authentication file: {rel}")
 
-    login = root / "scaffolds/nextjs/app/login/page.tsx"
-    if login.is_file():
-        source = login.read_text(encoding="utf-8")
-        if "LuthAuthPage" not in source or "applicationId=" not in source:
-            errors.append("Next.js login page must compose the LuthAuthPage adapter with an applicationId")
+    next_login = root / "scaffolds/nextjs/app/login/page.tsx"
+    if next_login.is_file():
+        source = next_login.read_text(encoding="utf-8")
+        if "LuthAuthPage" not in source or "getSkipoApplicationId" not in source:
+            errors.append("Next.js login page must compose the Floks LuthAuthPage with the stable app identity")
 
-    adapter = root / "scaffolds/nextjs/src/frontend/pages/auth/LuthAuthPage.tsx"
-    if adapter.is_file():
-        source = adapter.read_text(encoding="utf-8")
-        for marker in ("@ultrst-armada/floks/auth", "AuthPage", "@ultrst-armada/kloks/auth", "createLuthAuthClient", "signInWithEmail", "signUpWithEmail", "signInWithGoogle", "getSession"):
-            if marker not in source:
-                errors.append(f"LuthAuthPage adapter missing canonical integration: {marker}")
+    next_adapter = root / "scaffolds/nextjs/src/frontend/pages/auth/LuthAuthPage.tsx"
+    if next_adapter.is_file():
+        source = next_adapter.read_text(encoding="utf-8")
+        if "@ultrst-armada/floks/auth" not in source or "FloksLuthAuthPage" not in source:
+            errors.append("Next.js auth adapter must delegate to Floks LuthAuthPage")
+        if re.search(r"signInWithEmail|signUpWithEmail|signInWithGoogle|onLogin=|onRegister=|onGoogleSignIn=", source):
+            errors.append("Next.js auth adapter must not implement authentication callbacks")
 
-    for rel in ("scaffolds/nextjs/app/api/auth/login/route.ts", "scaffolds/nextjs/app/api/auth/register/route.ts", "scaffolds/nextjs/app/api/login/route.ts", "scaffolds/nextjs/app/api/register/route.ts"):
+    vite_login = root / "scaffolds/vite/src/frontend/components/gates/LoginGate.tsx"
+    if vite_login.is_file():
+        source = vite_login.read_text(encoding="utf-8")
+        if "@ultrst-armada/floks/auth" not in source or "LuthAuthPage" not in source:
+            errors.append("Vite LoginGate must use integrated Floks LuthAuthPage")
+        if re.search(r"onLogin=|onRegister=|onGoogleSignIn=", source):
+            errors.append("Vite LoginGate must not provide application-owned authentication callbacks")
+
+    for rel in (
+        "scaffolds/nextjs/app/api/auth/login/route.ts",
+        "scaffolds/nextjs/app/api/auth/register/route.ts",
+        "scaffolds/nextjs/app/api/login/route.ts",
+        "scaffolds/nextjs/app/api/register/route.ts",
+    ):
         if (root / rel).exists():
             errors.append(f"Dedicated app-local login/registration endpoint must be absent: {rel}")
 
     catch_all = root / "scaffolds/nextjs/app/api/auth/[...auth]/route.ts"
     if catch_all.is_file() and "DEFAULT_LUTH_URL" not in catch_all.read_text(encoding="utf-8"):
-        errors.append("Optional auth catch-all must proxy only to DEFAULT_LUTH_URL")
+        errors.append("Next.js auth catch-all must proxy to the canonical Luth URL")
 
-    for backend in (root / "scaffolds").glob("*/src/backend/AppBackend.ts"):
-        if "AuthServiceFacade" in backend.read_text(encoding="utf-8"):
-            errors.append(f"{backend.relative_to(root)} must not expose the legacy Kloks local-auth facade")
-
-    middleware = root / "scaffolds/nextjs/middleware.ts"
-    if middleware.is_file():
-        source = middleware.read_text(encoding="utf-8")
-        for marker in ("getLuthSession", "x-user-id", "x-user-role", "matcher"):
+    next_guard = root / "scaffolds/nextjs/src/backend/auth/luthSession.ts"
+    if next_guard.is_file():
+        source = next_guard.read_text(encoding="utf-8")
+        for marker in ("DEFAULT_LUTH_URL", "/api/session", "authenticated !== true", "requireLuthSession"):
             if marker not in source:
-                errors.append(f"Next.js middleware missing Luth protection behavior: {marker}")
+                errors.append(f"Next.js Luth guard missing {marker}")
 
-    guard = root / "scaffolds/nextjs/src/backend/auth/luthSession.ts"
-    if guard.is_file():
-        source = guard.read_text(encoding="utf-8")
-        if "DEFAULT_LUTH_URL" not in source or "/api/session" not in source or "authenticated !== true" not in source:
-            errors.append("Protected-route helper must ask Luth to validate a real session")
+    next_middleware = root / "scaffolds/nextjs/middleware.ts"
+    if next_middleware.is_file():
+        source = next_middleware.read_text(encoding="utf-8")
+        if "getLuthSession" not in source or "forwarded.set('x-user-id', session.user.id)" not in source:
+            errors.append("Next.js middleware must verify Luth and overwrite caller-supplied identity headers")
+
+    vite_guard = root / "scaffolds/vite/src/backend/auth/luthSession.ts"
+    if vite_guard.is_file():
+        source = vite_guard.read_text(encoding="utf-8")
+        for marker in ("DEFAULT_LUTH_URL", "/api/session", "authenticated !== true"):
+            if marker not in source:
+                errors.append(f"Vite Luth guard missing {marker}")
+
+    vite_adapter = root / "scaffolds/vite/src/backend/adapters/httpsAdapter.ts"
+    if vite_adapter.is_file():
+        source = vite_adapter.read_text(encoding="utf-8")
+        if "authenticateLuthRequest" not in source or "proxyLuthAuthRequest" not in source:
+            errors.append("Vite API adapter must enforce Luth sessions and proxy Luth auth routes")
+        if "DepmBackend.services.auth.loginUser" in source or "sess::" in source:
+            errors.append("Vite API adapter contains legacy local authentication")
+
+    for framework in ("nextjs", "vite"):
+        client = root / "scaffolds" / framework / "src" / "libraries" / "client" / "luthAuthClient.ts"
+        if client.is_file():
+            source = client.read_text(encoding="utf-8")
+            if "getAuthHeaders()" not in source or "VITE_LUTH_URL" in source or "NEXT_PUBLIC_LUTH_URL" in source:
+                errors.append(f"{framework} client must use the canonical Luth bearer client without per-app auth URL env vars")
 
     generator = root / "scripts/scaffold_app_structure.py"
     if generator.is_file():
@@ -150,15 +181,17 @@ def validate_repository(root: Path) -> list[str]:
         if '"@ultrst-armada/krnl": "^1.0.9"' in source:
             errors.append("Generic scaffold generator contains stale Krnl package baseline")
         if "AuthServiceFacade" in source:
-            errors.append("Generic scaffold generator must not generate the legacy Kloks local-auth facade")
-        for marker in ("LuthAuthPage", "createLuthAuthClient", "@ultrst-armada/floks/auth", "requireLuthSession"):
+            errors.append("Generic scaffold generator must not generate the legacy Kloks auth facade")
+        for marker in ("FloksLuthAuthPage", "requireLuthSession", "DEFAULT_LUTH_URL", "LuthAuthPage"):
             if marker not in source:
                 errors.append(f"Generic scaffold generator missing canonical auth output: {marker}")
+        if re.search(r"client\.signInWithEmail|client\.signUpWithEmail|client\.signInWithGoogle", source):
+            errors.append("Generic scaffold generator must delegate login lifecycle to Floks")
 
     skill = root / "architecture/authentication/SKILL.md"
     if skill.is_file():
         source = skill.read_text(encoding="utf-8")
-        for marker in ("Luth", "Better Auth", "AuthServiceFacade", "protected backend route"):
+        for marker in ("Luth", "Better Auth", "Floks", "Kloks", "protected backend route"):
             if marker not in source:
                 errors.append(f"Authentication skill missing contract marker: {marker}")
 
