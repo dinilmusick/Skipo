@@ -6,26 +6,27 @@ settings:
 
 overrides:
   bullmq: 6.3.16
+  '@dinilmusick/gutts': git+https://github.com/dinilmusick/GutTS.git#2ccc70f0026e77ef85717c6fb8696c23a6779499
 
 importers:
 
   .:
     dependencies:
       '@dinilmusick/gutts':
-        specifier: ^1.4.1
-        version: 1.4.1(@types/node@22.20.5)
+        specifier: git+https://github.com/dinilmusick/GutTS.git#2ccc70f0026e77ef85717c6fb8696c23a6779499
+        version: https://codeload.github.com/dinilmusick/GutTS/tar.gz/2ccc70f0026e77ef85717c6fb8696c23a6779499(@types/node@22.20.5)
       '@ultrst-armada/floks':
-        specifier: ^1.13.8
-        version: 1.13.8(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@ultrst-armada/kloks@1.24.4(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.11(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0)))(lucide-react@1.55.0(@types/react@19.3.0)(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
+        specifier: ^1.13.13
+        version: 1.13.13(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@ultrst-armada/kloks@1.24.5(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.13(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0)))(lucide-react@1.55.0(@types/react@19.3.0)(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
       '@ultrst-armada/frnlts':
-        specifier: ^0.5.3
-        version: 0.5.3(@types/node@22.20.5)(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
+        specifier: ^0.5.4
+        version: 0.5.4(@types/node@22.20.5)(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
       '@ultrst-armada/kloks':
-        specifier: ^1.24.4
-        version: 1.24.4(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.11(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
+        specifier: ^1.24.5
+        version: 1.24.5(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.13(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
       '@ultrst-armada/krnl':
-        specifier: ^1.0.11
-        version: 1.0.11(@types/node@22.20.5)
+        specifier: ^1.0.13
+        version: 1.0.13(@types/node@22.20.5)
       lucide-react:
         specifier: ^1.55.0
         version: 1.55.0(@types/react@19.3.0)(react@19.3.0)
@@ -139,11 +140,9 @@ packages:
     resolution: {integrity: sha512-sl4Bm6yiMNYrZKkqqDFWN0UfnWhlS8ivKxrYl+6t0gCLrqr8y3B2IqZZbFRkfaVVp7C/baApyh71P+LeE1A2sQ==}
     engines: {node: '>=18.0.0'}
 
-  '@dinilmusick/gutts@1.4.1':
-    resolution: {}
-
-  '@dinilmusick/gutts@1.3.2':
-    resolution: {integrity: sha512-MMUFUtSd+ayEEekv96t/jZIR0DybaTwKJXyAw+xmXBgYsVJE1pF+6doLJRexWG5Y269ygX7xCocl/t0faUAR7A==}
+  '@dinilmusick/gutts@https://codeload.github.com/dinilmusick/GutTS/tar.gz/2ccc70f0026e77ef85717c6fb8696c23a6779499':
+    resolution: {tarball: https://codeload.github.com/dinilmusick/GutTS/tar.gz/2ccc70f0026e77ef85717c6fb8696c23a6779499}
+    version: 1.4.2
 
   '@emnapi/runtime@1.11.3':
     resolution: {integrity: sha512-Xz4Tpyki7XyrpbUK1jR1AhdAdaXyhhY4lZ3neLodmhpuWfy2PAQN5B46sAiU4liOXGLkHypn/qU+jvfWSCYYLA==}
@@ -732,23 +731,23 @@ packages:
   '@types/react@19.3.0':
     resolution: {integrity: sha512-N0rFCuH9YoxG9/m61l9MfpJKfmLOVU0em7ipIz6TRgSSkvReLB9vL85GB+yr8Bs5leqpvg96JSwF4ZS1s4viQg==}
 
-  '@ultrst-armada/floks@1.13.7':
-    resolution: {sha512-PH1aylxqFyXSb/xrQgAd0ch9UP+Uuf9hYxzUYE/ya4GYUCcZQVYjR4ceMJpj/s6/C5UpBYgkSyM1L2/QIOo8pw==}
+  '@ultrst-armada/floks@1.13.13':
+    resolution: {integrity: sha512-MVD1BRnb79LwQiWKs+LgsKqBQCGbDwCi23HMrShD5Iokx8LLnjyLKm+iKL+T2CVoUmltczzENDxLH/e3xZuM7g==}
     peerDependencies:
       '@ultrst-armada/kloks': ^1.17.0
       lucide-react: '>=0.300.0'
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
 
-  '@ultrst-armada/frnlts@0.5.3':
-    resolution: {integrity: sha512-4BHow5tkLmlX+qYm4Jyg8476TRtYP/hzxzc9LAdG0U2JnKjp95QA8DDtRmbQXDR+haq0NlVRdoM3ktBTMAU1Mw==}
+  '@ultrst-armada/frnlts@0.5.4':
+    resolution: {integrity: sha512-4+khfES6qxxHugy9i8yDaNRrt+OSDYE/NOP46i6sb1Ie3alVUZFXqags2CtATP7/veUJlqUGJ2JAvJU6M5SYgw==}
     engines: {node: '>=20.0.0'}
     hasBin: true
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
 
-  '@ultrst-armada/kloks@1.24.4':
-    resolution: {integrity: sha512-J2EKK6Qx6gPQNEpCtgr391a06eZmch3OtOpJHTeex6gjUm/F/aB28Pl52rvo3KTxXiyMB5GFVkEmBosEHaIQRA==}
+  '@ultrst-armada/kloks@1.24.5':
+    resolution: {integrity: sha512-Tzi7YVr5jvUkAAYDoxyo70NMb0GHS5G4eILqza1PjgKF20bMrs0n9m/sr9hjTSswAdV+WqFWYhTaJBuEH9347g==}
     peerDependencies:
       '@neondatabase/serverless': ^0.10.0 || ^1.0.0
       '@supabase/supabase-js': ^2.45.0
@@ -767,8 +766,8 @@ packages:
       react:
         optional: true
 
-  '@ultrst-armada/krnl@1.0.11':
-    resolution: {integrity: sha512-j/yFxHJuYh/3+JXCmhxRFFLCiYW/irCCMGNwhNb+YlxQPq8p2UqTbMWBwsSa6H83A60Qzjl+fYhb3w1b5VvL+w==}
+  '@ultrst-armada/krnl@1.0.13':
+    resolution: {integrity: sha512-peZa/J4i+BLOZxM3uhyV7IIIrOhetMP5YwVTzLcd59I4Pdg5YK2dCHJvLmmu/p5//WQERyHpmPtP5rmdX6obuQ==}
     hasBin: true
 
   '@vitest/expect@3.2.7':
@@ -1548,17 +1547,7 @@ snapshots:
 
   '@aws/lambda-invoke-store@0.3.0': {}
 
-  '@dinilmusick/gutts@1.4.1(@types/node@22.20.5)':
-    dependencies:
-      '@huggingface/transformers': 4.3.2(@types/node@22.20.5)
-      cactus-needle: 0.3.0
-      lodash-es: 4.18.1
-      validator: 13.15.35
-    transitivePeerDependencies:
-      - '@types/node'
-      - ai
-
-  '@dinilmusick/gutts@1.3.2(@types/node@22.20.5)':
+  '@dinilmusick/gutts@https://codeload.github.com/dinilmusick/GutTS/tar.gz/2ccc70f0026e77ef85717c6fb8696c23a6779499(@types/node@22.20.5)':
     dependencies:
       '@huggingface/transformers': 4.3.2(@types/node@22.20.5)
       cactus-needle: 0.3.0
@@ -1966,11 +1955,11 @@ snapshots:
     dependencies:
       csstype: 3.2.3
 
-  '@ultrst-armada/floks@1.13.7(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@ultrst-armada/kloks@1.24.4(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.11(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0)))(lucide-react@1.55.0(@types/react@19.3.0)(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
+  '@ultrst-armada/floks@1.13.13(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@ultrst-armada/kloks@1.24.5(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.13(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0)))(lucide-react@1.55.0(@types/react@19.3.0)(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
     dependencies:
-      '@dinilmusick/gutts': 1.4.0(@types/node@22.20.5)
-      '@ultrst-armada/frnlts': 0.5.3(@types/node@22.20.5)(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
-      '@ultrst-armada/kloks': 1.24.4(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.11(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
+      '@dinilmusick/gutts': https://codeload.github.com/dinilmusick/GutTS/tar.gz/2ccc70f0026e77ef85717c6fb8696c23a6779499(@types/node@22.20.5)
+      '@ultrst-armada/frnlts': 0.5.4(@types/node@22.20.5)(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
+      '@ultrst-armada/kloks': 1.24.5(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.13(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
       '@xyflow/react': 12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       d3-force: 3.0.0
       lucide-react: 1.55.0(@types/react@19.3.0)(react@19.3.0)
@@ -1986,9 +1975,9 @@ snapshots:
       - immer
       - use-sync-external-store
 
-  '@ultrst-armada/frnlts@0.5.3(@types/node@22.20.5)(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
+  '@ultrst-armada/frnlts@0.5.4(@types/node@22.20.5)(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
     dependencies:
-      '@dinilmusick/gutts': 1.3.2(@types/node@22.20.5)
+      '@dinilmusick/gutts': https://codeload.github.com/dinilmusick/GutTS/tar.gz/2ccc70f0026e77ef85717c6fb8696c23a6779499(@types/node@22.20.5)
       react: 19.3.0
       typescript: 5.9.3
       zod: 3.25.76
@@ -2000,7 +1989,7 @@ snapshots:
       - immer
       - use-sync-external-store
 
-  '@ultrst-armada/kloks@1.24.4(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.11(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
+  '@ultrst-armada/kloks@1.24.5(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.13(@types/node@22.20.5))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
     dependencies:
       '@aws-sdk/client-s3': 3.1152.0
       '@webcontainer/api': 1.6.4
@@ -2009,7 +1998,7 @@ snapshots:
       zod: 3.25.76
       zustand: 5.0.15(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
     optionalDependencies:
-      '@ultrst-armada/krnl': 1.0.11(@types/node@22.20.5)
+      '@ultrst-armada/krnl': 1.0.13(@types/node@22.20.5)
       react: 19.3.0
     transitivePeerDependencies:
       - '@types/react'
@@ -2018,9 +2007,9 @@ snapshots:
       - use-sync-external-store
       - utf-8-validate
 
-  '@ultrst-armada/krnl@1.0.11(@types/node@22.20.5)':
+  '@ultrst-armada/krnl@1.0.13(@types/node@22.20.5)':
     dependencies:
-      '@dinilmusick/gutts': 1.3.2(@types/node@22.20.5)
+      '@dinilmusick/gutts': https://codeload.github.com/dinilmusick/GutTS/tar.gz/2ccc70f0026e77ef85717c6fb8696c23a6779499(@types/node@22.20.5)
       esbuild: 0.28.2
       ts-morph: 25.0.1
       ws: 8.22.0
