@@ -1,11 +1,23 @@
 import { LuthAuthClient } from '@dinilmusick/gutts';
 
-const env = import.meta.env;
+export const SKIPO_ECOSYSTEM_ID = 'ultrst-armada';
+export const SKIPO_APPLICATION_ID = 'skipo-app';
 
 export const luthAuthClient = new LuthAuthClient({
-  ecosystemId: env.VITE_LUTH_ECOSYSTEM_ID || 'ultrst-armada',
-  applicationId: env.VITE_LUTH_APPLICATION_ID || window.location.hostname,
-  luthUrl: env.VITE_LUTH_URL || 'https://luth.blueprint-ninjastudios.workers.dev',
-  origin: window.location.origin,
+  ecosystemId: SKIPO_ECOSYSTEM_ID,
+  applicationId: SKIPO_APPLICATION_ID,
+  origin: typeof window !== 'undefined' ? window.location.origin : undefined,
   autoRegister: true,
 });
+
+/** All same-origin application API requests carry the active Luth session. */
+export async function luthFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers);
+  new Headers(luthAuthClient.getAuthHeaders()).forEach((value, key) => headers.set(key, value));
+  return fetch(input, {
+    ...init,
+    headers,
+    credentials: init.credentials ?? 'include',
+    cache: init.cache ?? 'no-store',
+  });
+}
