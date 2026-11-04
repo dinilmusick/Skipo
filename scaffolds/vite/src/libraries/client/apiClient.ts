@@ -29,12 +29,12 @@ export const apiClient = {
     return luthAuthClient.getSession();
   },
 
-  async getWorkspaces(userId?: string) {
+  async getWorkspaces(_userId?: string) {
     const res = await wrappedFetch('/api/auth/workspaces');
     return res.json();
   },
 
-  async createWorkspace(userId: string, data: Record<string, unknown>) {
+  async createWorkspace(_userId: string, data: Record<string, unknown>) {
     const res = await wrappedFetch('/api/auth/workspaces', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -43,15 +43,15 @@ export const apiClient = {
     return res.json();
   },
 
-  async getStorageConnections(userId?: string) {
+  async getStorageConnections(_userId?: string) {
     const res = await wrappedFetch('/api/auth/storage/connections');
     return res.json();
   },
 
-  async saveStorageConnection(userId: string, data: Record<string, unknown>) {
+  async saveStorageConnection(_userId: string, data: Record<string, unknown>) {
     const res = await wrappedFetch('/api/auth/storage/connections', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
     return res.json();
