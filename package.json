@@ -23,7 +23,7 @@
     "generate:graph-assets": "python3 scripts/skipo_builder.py generate-graph-assets"
   },
   "dependencies": {
-    "@dinilmusick/gutts": "^1.4.1",
+    "@dinilmusick/gutts": "^1.4.2",
     "@ultrst-armada/floks": "^1.13.8",
     "@ultrst-armada/frnlts": "^0.5.3",
     "@ultrst-armada/kloks": "^1.24.4",
