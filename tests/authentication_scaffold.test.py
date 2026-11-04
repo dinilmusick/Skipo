@@ -90,6 +90,7 @@ def test_nextjs_scaffold_uses_luth_adapter_and_has_no_local_auth_endpoints():
     backend = (ROOT / "scaffolds/nextjs/src/backend/AppBackend.ts").read_text(encoding="utf-8")
     assert "src/frontend/pages/auth/LuthAuthPage" in login
     assert "LuthAuthPage as FloksLuthAuthPage" in (ROOT / "scaffolds/nextjs/src/frontend/pages/auth/LuthAuthPage.tsx").read_text(encoding="utf-8")
+    assert "LuthAuthPage as FloksLuthAuthPage" in (ROOT / "scaffolds/nextjs/src/frontend/pages/auth/LuthAuthPage.tsx").read_text(encoding="utf-8")
     assert "AuthServiceFacade" not in backend
     assert not (ROOT / "scaffolds/nextjs/app/api/auth/login/route.ts").exists()
     assert not (ROOT / "scaffolds/nextjs/app/api/auth/register/route.ts").exists()
