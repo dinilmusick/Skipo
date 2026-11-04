@@ -62,6 +62,7 @@ export const services: Record<string, ServiceExecutableFacade> = {
 
 // Register domain services in BackendFacade & SkipoExecutionEngine
 for (const [name, svc] of Object.entries(services)) {
+  if (!svc || typeof svc !== 'object' || !svc.id) throw new Error(`[SkipoBackend] Invalid service export: ${name}`);
   backendFacade.registerService(svc as unknown as IServiceFacade, name);
   skipoExecutionEngine.registerService(name, svc);
   semanticRuntime.registerService(name, svc);
