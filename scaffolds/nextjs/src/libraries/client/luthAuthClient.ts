@@ -1,4 +1,4 @@
-import { LuthAuthClient } from '@ultrst-armada/floks/ui';
+import { LuthAuthClient } from '@dinilmusick/gutts';
 
 export const luthAuthClient = new LuthAuthClient({
   ecosystemId: process.env.NEXT_PUBLIC_LUTH_ECOSYSTEM_ID || 'ultrst-armada',
