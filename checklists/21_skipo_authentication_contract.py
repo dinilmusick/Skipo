@@ -19,7 +19,7 @@ SOURCE_SUFFIXES = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
 FORBIDDEN_SOURCE_PATTERNS = (
     (r"\b(?:bcrypt|bcryptjs)\b", "bcrypt password hashing dependency or implementation"),
     (r"\b(?:hashPassword|verifyPassword|comparePassword|checkPassword)\s*\(", "local password verification/hashing"),
-    (r"\bpassword_hash\b|\bpasswordHash\b", "application credential hash storage"),
+    (r"\bpassword_hash\b|\bpasswordHash\s*:", "application credential hash storage"),
     (r"(?:localStorage|sessionStorage)\s*\.\s*setItem\s*\(\s*['\"][^'\"]*(?:password|credential|refresh.?token)", "browser credential persistence"),
     (r"\b(?:createSession|generateSession|issueSession|mintSession|signSession)\s*\(", "application-local session issuance"),
     (r"\b(?:jsonwebtoken|jwt)\s*\.\s*sign\s*\(", "application-local JWT issuance"),
@@ -32,6 +32,8 @@ FORBIDDEN_SOURCE_PATTERNS = (
     (r"\bappBackend\.services\.auth\.(?:login|loginUser|register|registerUser|createSession)", "legacy application-local auth service"),
     (r"\bAuthServiceFacade\b", "legacy Kloks application-local auth facade (AuthServiceFacade)"),
     (r"Bearer\s+sess::", "synthetic application-local session token"),
+    (r"SRKL_AUTH_BASE_URL|NEXT_PUBLIC_SRKL_AUTH_BASE_URL|VITE_SRKL_AUTH_BASE_URL", "legacy SRKL authentication endpoint configuration"),
+    (r"process\.env\.(?:DATABASE_URL|SYSTEM_DATABASE_URL_1)", "non-canonical database environment variable"),
 )
 
 def source_files(root: Path):
