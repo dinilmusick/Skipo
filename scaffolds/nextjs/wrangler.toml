@@ -1,7 +1,7 @@
 name = "my-app-worker"
 main = "api/index.js"
 compatibility_date = "2024-10-01"
-compatibility_flags = ["nodejs_compat"]
+compatibility_flags = ["nodejs_compat", "nodejs_compat_populate_process_env"]
 
 [assets]
 directory = "./dist/client"
@@ -12,9 +12,4 @@ not_found_handling = "single-page-application"
 [build]
 command = "npm run build"
 
-[vars]
-API_ENV = "cloudflare"
-BUILD_TARGET = "api"
-ENVIRONMENT = "production"
-APP_NAME = "MY_APP"
-SYSTEM_DATABASE_URL_1 = ""
+[vars]\nAPP_URL = "http://localhost:3000"\n
