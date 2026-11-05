@@ -13,3 +13,5 @@ not_found_handling = "single-page-application"
 command = "npm run build"
 
 [vars]\nAPP_URL = "http://localhost:3000"\n
+[secrets]
+required = ["SYSTEM_DATABASE_URL"]
