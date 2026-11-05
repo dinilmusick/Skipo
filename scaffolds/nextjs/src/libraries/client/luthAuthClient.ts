@@ -10,7 +10,6 @@ export function getSkipoApplicationId(): string {
 export const luthAuthClient = new LuthAuthClient({
   ecosystemId: SKIPO_ECOSYSTEM_ID,
   applicationId: getSkipoApplicationId(),
-  origin: typeof window !== 'undefined' ? window.location.origin : undefined,
   autoRegister: true,
 });
 
