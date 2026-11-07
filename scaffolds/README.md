@@ -79,3 +79,9 @@ Every canonical scaffold must pass:
 7. workspace strategy integration tests
 
 Law L9 remains applicable to generated source files.
+
+## Default storage providers
+
+Both canonical scaffolds (Next.js and Vite) include the Kloks Google Drive workspace adapter by default. The backend exposes `AppBackend.storageProviders.googleDrive.create(connection, oauthConfig)`. The returned handle contains the Kloks `GoogleDriveStorageService` adapter and the connection updated with any refreshed access-token metadata.
+
+The adapter is server-only. The OAuth client secret must come from deployment secrets or another server-owned credential store and must never be exposed to browser code. User authorization and storage-connection ownership remain with SRKL; adding the provider to a scaffold does not silently connect or grant access to a user's Drive. Other providers continue through the canonical Kloks storage service and workspace adapter.

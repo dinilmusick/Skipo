@@ -14,6 +14,7 @@ import { WorkerExecutionBoundary } from '@ultrst-armada/krnl';
 import { FodRuntime, createFodServiceFacadeForWorkspace, scanBackendFacadeToNodes } from '@ultrst-armada/kloks/fod';
 import { guttsFodNodeDefinitions, executeGuttsApi } from '@dinilmusick/gutts/api';
 import { createAikoRuntime as buildAikoRuntime, createAikoServiceFacade } from './aikoRuntime.js';
+import { createGoogleDriveWorkspaceStorage } from './storage/googleDriveWorkspaceStorage.js';
 
 export const orchestrations = {
   orchestratorA: OrchestratorADefinition,
@@ -87,8 +88,13 @@ export const services = {
   bugReport: bugReportService,
 };
 
+export const storageProviders = {
+  googleDrive: { create: createGoogleDriveWorkspaceStorage },
+};
+
 export const AppBackend = {
   services,
+  storageProviders,
   orchestrations,
   worker: appWorkerBoundary,
   WorkerExecutionBoundary: appWorkerBoundary,
