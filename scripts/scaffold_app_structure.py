@@ -46,7 +46,7 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
                 "@ultrst-armada/krnl": "^1.0.11",
                 "@ultrst-armada/kloks": "^1.26.0",
                 "@dinilmusick/gutts": "^1.6.0",
-                "@ultrst-armada/floks": "^1.13.15",
+                "@ultrst-armada/floks": "^1.13.18",
                 "react": "^19.0.1",
                 "react-dom": "^19.0.1",
                 "@ultrst-armada/frnlts": "^0.5.5"
@@ -60,6 +60,53 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
         }
         pkg_json_file.write_text(json.dumps(pkg_data, indent=2) + "\n", encoding="utf-8")
         created.append(pkg_json_file)
+
+    # 1a. Canonical Floks workspace creation gate. Apps supply only their API callbacks.
+    workspace_gate_dir = target_root / "src" / "frontend" / "components" / "gates"
+    workspace_gate_dir.mkdir(parents=True, exist_ok=True)
+    workspace_gate_file = workspace_gate_dir / "WorkspaceGate.tsx"
+    if not workspace_gate_file.exists():
+        workspace_gate_content = """import React from 'react';
+import {
+  WorkspaceTilesMenu,
+  type WorkspaceCreateInput,
+  type WorkspaceRecord,
+  type WorkspaceStorageOption,
+} from '@ultrst-armada/floks/ui';
+
+export interface WorkspaceGateProps {
+  workspaces: WorkspaceRecord[];
+  userId?: string;
+  currentUser?: { id: string; email?: string; name?: string; username?: string } | null;
+  storageOptions?: WorkspaceStorageOption[];
+  onManageStorage?: () => void;
+  activeWorkspaceId?: string | null;
+  onSelectWorkspace: (workspace: WorkspaceRecord) => void;
+  onCreateWorkspace: (input: WorkspaceCreateInput) => Promise<void> | void;
+  onDeleteWorkspace?: (workspaceId: string) => Promise<void> | void;
+  onLogout?: () => void;
+  appName?: string;
+}
+
+export function WorkspaceGate(props: WorkspaceGateProps) {
+  return <WorkspaceTilesMenu
+    workspaces={props.workspaces}
+    userId={props.userId || props.currentUser?.id}
+    currentUser={props.currentUser}
+    storageOptions={props.storageOptions}
+    onManageStorage={props.onManageStorage}
+    activeWorkspaceId={props.activeWorkspaceId}
+    onSelectWorkspace={props.onSelectWorkspace}
+    onCreateWorkspace={props.onCreateWorkspace}
+    onDeleteWorkspace={props.onDeleteWorkspace}
+    onLogout={props.onLogout}
+    appName={props.appName || 'SKIPO APP'}
+    mode="working-workspace"
+  />;
+}
+"""
+        workspace_gate_file.write_text(workspace_gate_content, encoding="utf-8")
+        created.append(workspace_gate_file)
 
     # 1b. tsconfig.json
     tsconfig_file = target_root / "tsconfig.json"
