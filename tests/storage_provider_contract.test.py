@@ -25,7 +25,7 @@ def test_workspace_creation_dialog_is_owned_by_floks_for_all_skipo_scaffolds():
         assert "@ultrst-armada/floks/ui" in gate
         assert "WorkspaceTilesMenu" in gate
         assert "storageOptions" in gate
-        assert "onManageStorage" in gate
+        assert "onManageStorage={onManageStorage}" in gate
         assert package["dependencies"]["@ultrst-armada/floks"] == "^1.13.18"
 
     generator = (ROOT / "scripts/scaffold_app_structure.py").read_text()
