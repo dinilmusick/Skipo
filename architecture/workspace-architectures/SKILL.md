@@ -20,7 +20,7 @@ flowchart TD
     AS --> R[Storage Reconciliation]
     R --> P[Workspace Storage Adapter]
     P --> F[Local Folder]
-    P --> B[Backblaze B2]
+    P --> B[S3-compatible Bucket]
     P --> G[Google Drive]
 ```
 
@@ -51,14 +51,14 @@ Large binary assets are hydrated lazily. Opening or switching workspaces does no
 | Provider | Role |
 |---|---|
 | Local Folder / OPFS | Active local working representation and local persistence |
-| Backblaze B2 | Durable bucket-backed persistence |
+| S3-compatible Bucket | Durable bucket-backed persistence (including providers such as Backblaze B2) |
 | Google Drive | User-authorized durable workspace persistence |
 
 Provider-specific credentials, OAuth, APIs, and synchronization logic stay behind the workspace storage adapter/service.
 
 **Application invariant:** Skipo application code never reads or writes a provider directly.
 
-Amazon S3 is not a selectable Skipo workspace provider at this time.
+S3-compatible bucket storage is a selectable Skipo workspace provider. Provider-specific SDKs and credentials remain behind the canonical Kloks storage service.
 
 ## 4. Runtime relationship
 
