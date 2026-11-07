@@ -53,7 +53,7 @@ flowchart TD
     F --> R[Autosave / Save / Lifecycle Reconciliation]
     R --> S[Workspace Storage Adapter]
     S --> L[Local Folder]
-    S --> B[Backblaze B2]
+    S --> B[S3-compatible Bucket]
     S --> G[Google Drive]
     W --> X[WebContainer or Other Runtime]
 ```
