@@ -31,6 +31,14 @@ jobs:
           echo "pnpm lockfile refresh exit code: $status" >> "$GITHUB_STEP_SUMMARY"
           cat lock-refresh-debug.log >> "$GITHUB_STEP_SUMMARY"
           exit 0
+      - name: Upload lockfile diagnostic output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: floks-lock-refresh-diagnostic
+          path: lock-refresh-debug.log
+          if-no-files-found: warn
+
       - name: Commit lockfile and diagnostic output
         shell: bash
         run: |
