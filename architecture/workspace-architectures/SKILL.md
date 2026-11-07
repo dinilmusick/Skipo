@@ -82,3 +82,19 @@ Redundant clones are replication/backup mechanisms; they do not create a second 
 - [Skipo Application Contract](../app-architecture/SKILL.md)
 - [Backend Architecture](../../backend/SKILL.md)
 - [State & Execution](../state-execution-spec/SKILL.md)
+
+
+## 7. Workspace Creation UI Ownership
+
+The workspace creation dialogue is a Floks-owned UI contract. Applications MUST
+import and render `WorkspaceCreateDialog` (normally through
+`WorkspaceTilesMenu`) from `@ultrst-armada/floks/ui`. Applications may adapt
+the emitted `WorkspaceCreateInput` to their own workspace API, authentication
+boundary, and storage service; they MUST NOT create app-local workspace
+creation forms or duplicate the dialogue's layout, fields, validation, provider
+selection, or canonical folder preview.
+
+Every Skipo scaffold and the minimal scaffold generator MUST ship the Floks
+workspace gate and connect the current user's authorized storage connections
+to it. Changes to the dialogue's presentation or creation contract are made in
+Floks first and consumed through its published package version.
