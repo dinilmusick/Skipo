@@ -1,6 +1,6 @@
 ---
 name: workspace-storage-architecture
-description: Workspace Storage Architecture specification governing User -> AppUserContext -> Workspace storage hierarchy, decoupled WorkspaceStorageAdapters (OPFS/Local, Backblaze B2, Google Drive), provider-independent WorkspaceFS, high-reliability SyncEngine, conflict resolution, and safe detachment semantics. Workspaces use PURE FILESYSTEM STORAGE with ZERO DATABASE ENGINES.
+description: Workspace Storage Architecture specification governing User -> AppUserContext -> Workspace storage hierarchy, decoupled WorkspaceStorageAdapters (OPFS/Local, S3-compatible Bucket, Google Drive), provider-independent WorkspaceFS, high-reliability SyncEngine, conflict resolution, and safe detachment semantics. Workspaces use PURE FILESYSTEM STORAGE with ZERO DATABASE ENGINES.
 ---
 
 # WORKSPACE STORAGE ARCHITECTURE (DENSE)
@@ -33,7 +33,7 @@ interface Workspace {
   id: string;
   name: string;
   appId: string;
-  primaryStorage: StorageEndpoint;      // Backblaze B2 or Google Drive
+  primaryStorage: StorageEndpoint;      // S3-compatible Bucket or Google Drive
   backupStorages: StorageEndpoint[];     // optional redundant replicas
   syncStatus: 'SYNCED' | 'OUT_OF_SYNC' | 'REPLICATING' | 'ERROR';
 }
@@ -61,12 +61,12 @@ Client Write -> Primary Storage (Synchronous Commit)
 
 1. **System Buckets vs User Workspace Buckets**:
    - `ultrst-system-buckets` is reserved exclusively for global system-level assets (theme packs, font caches, shared system manifests). It MUST NEVER be used or presented as a workspace storage option for end-users.
-   - User workspace cloud storage must be selected from the user's private service accounts (e.g. Backblaze B2 or Google Drive) registered under their authenticated account in SRKL.
+   - User workspace cloud storage must be selected from the user's private service accounts (e.g. an S3-compatible bucket such as Backblaze B2 or Google Drive) registered under their authenticated account in SRKL.
 2. **SRKL Brokering & User-Isolation**:
    - Consumer apps query SRKL directly via the canonical endpoint `https://srkl-engine.vercel.app` (or resolved from `ultrst-srkl-deployments`).
    - All queries pass the user's active session token / user ID so users only see their own storage accounts and buckets.
 3. **Zero Passive Polling & Request Minimization**:
-   - Storage option dialogs fetch available accounts/buckets once on open (`hasFetchedRef`).
+   - Storage option dialogs fetch available storage accounts/buckets once on open (`hasFetchedRef`).
    - Subsequent synchronization is strictly user-triggered via an icon-only `<RefreshCw />` button. No polling on tab or window switches.
 
 ## 5. CHECKLIST GATE
