@@ -79,6 +79,7 @@ export interface WorkspaceGateProps {
   userId?: string;
   currentUser?: { id: string; email?: string; name?: string; username?: string } | null;
   storageOptions?: WorkspaceStorageOption[];
+  onManageStorage?: () => void;
   activeWorkspaceId?: string | null;
   onSelectWorkspace: (workspace: WorkspaceRecord) => void;
   onCreateWorkspace: (input: WorkspaceCreateInput) => Promise<void> | void;
@@ -93,6 +94,7 @@ export function WorkspaceGate(props: WorkspaceGateProps) {
     userId={props.userId || props.currentUser?.id}
     currentUser={props.currentUser}
     storageOptions={props.storageOptions}
+    onManageStorage={props.onManageStorage}
     activeWorkspaceId={props.activeWorkspaceId}
     onSelectWorkspace={props.onSelectWorkspace}
     onCreateWorkspace={props.onCreateWorkspace}

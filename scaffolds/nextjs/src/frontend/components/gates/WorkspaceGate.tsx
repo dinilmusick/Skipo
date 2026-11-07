@@ -12,6 +12,7 @@ export interface WorkspaceGateProps {
   userId?: string;
   currentUser?: { id: string; email?: string; name?: string; username?: string } | null;
   storageOptions?: WorkspaceStorageOption[];
+  onManageStorage?: () => void;
   activeWorkspaceId?: string | null;
   onSelectWorkspace: (ws: WorkspaceRecord) => void;
   onCreateWorkspace?: (input: WorkspaceCreateInput) => Promise<void> | void;
