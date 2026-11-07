@@ -53,6 +53,7 @@ export interface UserStorageConnection {
   googleClientId?: string;
   googleRedirectUri?: string;
   googleAccessToken?: string;
+  googleAccessTokenExpiresAt?: number;
   googleRefreshToken?: string;
   googleAccountEmail?: string;
   googleRootFolderId?: string;
