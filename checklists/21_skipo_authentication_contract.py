@@ -9,8 +9,8 @@ import sys
 from pathlib import Path
 
 PACKAGE_BASELINE = {
-    "@dinilmusick/gutts": "^1.4.4",
-    "@ultrst-armada/kloks": "^1.24.11",
+    "@dinilmusick/gutts": "^1.6.0",
+    "@ultrst-armada/kloks": "^1.26.0",
     "@ultrst-armada/floks": "^1.13.15",
     "@ultrst-armada/frnlts": "^0.5.5",
     "@ultrst-armada/krnl": "^1.0.11",

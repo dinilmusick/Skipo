@@ -58,7 +58,7 @@ Provider-specific credentials, OAuth, APIs, and synchronization logic stay behin
 
 **Application invariant:** Skipo application code never reads or writes a provider directly.
 
-S3-compatible bucket storage is a selectable Skipo workspace provider. Provider-specific SDKs and credentials remain behind the canonical Kloks storage service.
+S3-compatible bucket storage is a selectable Skipo workspace provider. All provider-specific SDKs and credentials remain behind the canonical Kloks storage service.
 
 ## 4. Runtime relationship
 

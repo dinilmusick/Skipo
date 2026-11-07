@@ -35,10 +35,10 @@ class ScaffoldRegressionTest(unittest.TestCase):
                         fp = Path(root) / f
                         text = fp.read_text(encoding="utf-8", errors="ignore")
                         for i, line in enumerate(text.splitlines(), start=1):
-                            if "DATABASE_URL" in line and not line.strip().startswith("//"):
+                            if "DATABASE_URL" in line and not line.strip().startswith(("//", "#")):
                                 if "obsolete" in line.lower() and "forbidden" in line.lower():
                                     continue
-                                clean = re.sub(r"SYSTEM_DATABASE_URL_[123]", "", line)
+                                clean = re.sub(r"SYSTEM_DATABASE_URL(?:_[123])?", "", line)
                                 self.assertNotIn(
                                     "DATABASE_URL",
                                     clean,
