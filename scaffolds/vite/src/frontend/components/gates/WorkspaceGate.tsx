@@ -26,6 +26,7 @@ export const WorkspaceGate: React.FC<WorkspaceGateProps> = ({
   userId,
   currentUser,
   storageOptions,
+  onManageStorage,
   activeWorkspaceId,
   onSelectWorkspace,
   onCreateWorkspace,
@@ -38,6 +39,7 @@ export const WorkspaceGate: React.FC<WorkspaceGateProps> = ({
     userId={userId || currentUser?.id}
     currentUser={currentUser}
     storageOptions={storageOptions}
+    onManageStorage={onManageStorage}
     activeWorkspaceId={activeWorkspaceId}
     onSelectWorkspace={onSelectWorkspace}
     onCreateWorkspace={async (input) => {

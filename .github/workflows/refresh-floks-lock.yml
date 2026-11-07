@@ -3,6 +3,9 @@ name: Refresh Floks lockfile
 on:
   push:
     branches: [feat/floks-workspace-create-dialog]
+    paths:
+      - "package.json"
+      - ".github/workflows/refresh-floks-lock.yml"
 
 permissions:
   contents: write
@@ -19,14 +22,22 @@ jobs:
         with:
           node-version: 22
       - name: Refresh pnpm lockfile
-        run: pnpm install --lockfile-only --no-frozen-lockfile
-      - name: Commit refreshed lockfile
+        shell: bash
+        run: |
+          set +e
+          pnpm install --lockfile-only --no-frozen-lockfile > lock-refresh-debug.log 2>&1
+          status=$?
+          echo "exit_code=$status" >> lock-refresh-debug.log
+          echo "pnpm lockfile refresh exit code: $status" >> "$GITHUB_STEP_SUMMARY"
+          cat lock-refresh-debug.log >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+      - name: Commit lockfile and diagnostic output
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pnpm-lock.yaml
+          git add pnpm-lock.yaml lock-refresh-debug.log
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "chore(deps): refresh Floks and Kloks lockfile versions"
+          git commit -m "chore(deps): refresh Floks lockfile and record result"
           git push origin "HEAD:${GITHUB_REF_NAME}"
