@@ -42,7 +42,7 @@ export const WorkspaceGate: React.FC<WorkspaceGateProps> = ({
     onCreateWorkspace={async (input) => {
       if (onCreateWorkspace) await onCreateWorkspace(input);
       else {
-        const result = await apiClient.createWorkspace(userId || currentUser?.id || 'system', input);
+        const result = await apiClient.createWorkspace(userId || currentUser?.id || 'system', input as unknown as Record<string, unknown>);
         if (!result?.success) throw new Error(result?.error || 'Workspace creation failed.');
       }
     }}
