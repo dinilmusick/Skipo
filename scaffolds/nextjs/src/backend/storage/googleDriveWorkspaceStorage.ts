@@ -5,7 +5,7 @@ import {
 
 export interface GoogleDriveOAuthConfig {
   clientId: string;
-  clientSecret: string;
+  clientSecret?: string;
   redirectUri?: string;
 }
 
@@ -28,10 +28,10 @@ export function getGoogleDriveOAuthConfigFromEnv(): GoogleDriveOAuthConfig {
   const clientId = process.env.GOOGLE_DRIVE_CLIENT_ID || '';
   const clientSecret = process.env.GOOGLE_DRIVE_CLIENT_SECRET || '';
   const redirectUri = process.env.GOOGLE_DRIVE_REDIRECT_URI || undefined;
-  if (!clientId || !clientSecret) {
-    throw new Error('GOOGLE_DRIVE_CLIENT_ID and GOOGLE_DRIVE_CLIENT_SECRET must be configured in the server secret store.');
+  if (!clientId) {
+    throw new Error('GOOGLE_DRIVE_CLIENT_ID must be configured in the server secret store.');
   }
-  return { clientId, clientSecret, redirectUri };
+  return { clientId, clientSecret: clientSecret || undefined, redirectUri };
 }
 
 /**
@@ -46,8 +46,8 @@ export async function createGoogleDriveWorkspaceStorage(
   if (source.provider !== 'google_drive') {
     throw new Error('A Google Drive workspace connection is required.');
   }
-  if (!oauth.clientId || !oauth.clientSecret) {
-    throw new Error('Google Drive OAuth client credentials are not configured.');
+  if (!oauth.clientId) {
+    throw new Error('Google Drive OAuth client ID is not configured.');
   }
 
   const connection = { ...source };
@@ -56,8 +56,8 @@ export async function createGoogleDriveWorkspaceStorage(
   const shouldRefresh = !accessToken || (expiresAt > 0 && expiresAt <= Date.now() + 60_000);
 
   if (shouldRefresh) {
-    if (!connection.googleRefreshToken) {
-      throw new Error('The Google Drive connection has expired. Reconnect the account through SRKL.');
+    if (!connection.googleRefreshToken || !oauth.clientSecret) {
+      throw new Error('Google Drive token refresh requires the connection refresh token and a server-owned OAuth client secret. Reconnect through SRKL or configure the secret.');
     }
     const tokenSet = await refreshGoogleDriveAccessToken(
       oauth.clientId,
