@@ -20,7 +20,8 @@
     "ecosystem:end-session": "python3 scripts/ecosystem_sync.py end-session",
     "ecosystem:cleanup": "python3 scripts/ecosystem_sync.py cleanup",
     "ecosystem:checkpoint": "python3 scripts/ecosystem_sync.py checkpoint",
-    "generate:graph-assets": "python3 scripts/skipo_builder.py generate-graph-assets"
+    "generate:graph-assets": "python3 scripts/skipo_builder.py generate-graph-assets",
+    "boundary": "node scripts/architecture-boundary.mjs"
   },
   "dependencies": {
     "@dinilmusick/gutts": "^1.6.0",
