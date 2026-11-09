@@ -38,6 +38,21 @@ IMPORT_REGEX = re.compile(
 DYNAMIC_IMPORT_REGEX = re.compile(r"""import\(\s*['"]([^'"]+)['"]\s*\)""")
 REQUIRE_REGEX = re.compile(r"""require\(\s*['"]([^'"]+)['"]\s*\)""")
 
+FORBIDDEN_BROWSER_EXTERNALS = (
+    "@ultrst-armada/kloks",
+    "@ultrst-armada/krnl",
+    "@kloks/",
+    "@dinilmusick/gutts/server",
+    "@dinilmusick/gutts/storage",
+    "@dinilmusick/gutts/models",
+    "@dinilmusick/gutts/semantic-input",
+    "@aws-sdk/",
+    "googleapis",
+    "onnxruntime-node",
+    "node:",
+)
+
+
 
 def _source_plane(target: Path, path: Path) -> Optional[str]:
     try:
