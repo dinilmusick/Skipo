@@ -141,6 +141,18 @@ def validate_import_direction(target: Path) -> ChecklistResult:
             continue
 
         rel_path = fpath.relative_to(target).as_posix()
+        if source_plane in {"frontend", "libraries"}:
+            for specifier, line_no in _iter_imports(content):
+                if any(specifier == forbidden or specifier.startswith(forbidden) for forbidden in FORBIDDEN_BROWSER_EXTERNALS):
+                    violations.append(Violation(
+                        rule_id="22.4-browser-server-boundary",
+                        severity="error",
+                        message=f"Browser/shared source imports forbidden server implementation '{specifier}'.",
+                        file_path=rel_path,
+                        line=line_no,
+                        snippet=specifier,
+                        suggestion="Use a browser-safe library/client or a shared contract; server implementations belong behind the backend boundary.",
+                    ))
         for specifier, line_no in _iter_imports(content):
             imported = _resolve_local_import(fpath, specifier)
             target_plane = _source_plane(target, imported) if imported else None
