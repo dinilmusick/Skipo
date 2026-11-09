@@ -96,6 +96,33 @@ class ImportDirectionTest(unittest.TestCase):
         )
         self.assertTrue(validate_import_direction(self.root).passed)
 
+    def test_frontend_and_shared_code_reject_server_only_external_packages(self):
+        forbidden = (
+            "@neondatabase/serverless",
+            "@supabase/supabase-js",
+            "@google/genai",
+            "@google-cloud/storage",
+            "better-auth",
+            "pg",
+            "kysely",
+            "kysely-neon",
+        )
+        for package in forbidden:
+            with self.subTest(package=package):
+                self.write(
+                    "src/frontend/server-dependency.ts",
+                    f"import dependency from '{package}';\\nexport const value = dependency;\\n",
+                )
+                self.assert_rule(self.root, "22.4-browser-server-boundary")
+                (self.root / "src/frontend/server-dependency.ts").unlink()
+
+    def test_backend_may_use_server_only_database_dependencies(self):
+        self.write(
+            "src/backend/database.ts",
+            "import { neon } from '@neondatabase/serverless';\\nexport const db = neon;\\n",
+        )
+        self.assertTrue(validate_import_direction(self.root).passed)
+
     def test_frontend_to_public_backend_barrel_is_allowed(self):
         self.write(
             "src/frontend/page.ts",
