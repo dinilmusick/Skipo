@@ -32,7 +32,7 @@ def test_generic_scaffold_generates_canonical_floks_kloks_auth(tmp_path):
     assert auth_page.is_file() and adapter.is_file() and guard.is_file() and fetcher.is_file()
     assert "@ultrst-armada/floks/auth" in adapter.read_text(encoding="utf-8")
     assert "LuthAuthPage as FloksLuthAuthPage" in adapter.read_text(encoding="utf-8")
-    assert "@ultrst-armada/kloks/auth" in fetcher.read_text(encoding="utf-8")
+    assert "@dinilmusick/gutts/auth" in fetcher.read_text(encoding="utf-8")
     assert "LuthAuthPage" in auth_page.read_text(encoding="utf-8")
     assert "requireLuthSession" in guard.read_text(encoding="utf-8")
     assert "getAuthHeaders" in fetcher.read_text(encoding="utf-8")
