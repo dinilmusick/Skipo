@@ -60,6 +60,42 @@ class ImportDirectionTest(unittest.TestCase):
         )
         self.assertTrue(validate_import_direction(self.root).passed)
 
+
+    def test_frontend_to_kloks_is_rejected(self):
+        self.write(
+            "src/frontend/page.ts",
+            "import { Service } from '@ultrst-armada/kloks';\nexport const value = Service;\n",
+        )
+        self.assert_rule(self.root, "22.4-browser-server-boundary")
+
+    def test_frontend_to_krnl_is_rejected(self):
+        self.write(
+            "src/frontend/page.ts",
+            "import { Service } from '@ultrst-armada/krnl';\nexport const value = Service;\n",
+        )
+        self.assert_rule(self.root, "22.4-browser-server-boundary")
+
+    def test_frontend_to_server_gutts_is_rejected(self):
+        self.write(
+            "src/frontend/page.ts",
+            "import { storage } from '@dinilmusick/gutts/storage';\nexport const value = storage;\n",
+        )
+        self.assert_rule(self.root, "22.4-browser-server-boundary")
+
+    def test_shared_library_to_server_gutts_is_rejected(self):
+        self.write(
+            "src/libraries/domain.ts",
+            "import { storage } from '@dinilmusick/gutts/storage';\nexport const value = storage;\n",
+        )
+        self.assert_rule(self.root, "22.4-browser-server-boundary")
+
+    def test_frontend_to_browser_gutts_is_allowed(self):
+        self.write(
+            "src/frontend/page.ts",
+            "import { slugify } from '@dinilmusick/gutts/browser';\nexport const value = slugify;\n",
+        )
+        self.assertTrue(validate_import_direction(self.root).passed)
+
     def test_frontend_to_public_backend_barrel_is_allowed(self):
         self.write(
             "src/frontend/page.ts",
