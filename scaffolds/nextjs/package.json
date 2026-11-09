@@ -33,7 +33,7 @@
     "@ultrst-armada/kloks": "^1.26.0",
     "@ultrst-armada/floks": "^1.13.18",
     "@ultrst-armada/frnlts": "^0.5.5",
-    "@dinilmusick/gutts": "^1.6.0"
+    "@dinilmusick/gutts": "^2.0.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.1.11",
