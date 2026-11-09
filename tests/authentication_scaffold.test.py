@@ -119,14 +119,14 @@ def test_nextjs_middleware_verifies_luth_and_overwrites_untrusted_identity_heade
 def test_negative_scaffold_with_direct_auth_database_reads_is_rejected(tmp_path):
     source = tmp_path / "src/auth/repository.ts"
     source.parent.mkdir(parents=True)
-    source.write_text("const result = await db.query('SELECT * FROM users WHERE id = ?', [id]);\\n")
+    source.write_text("const result = await db.query('SELECT * FROM users WHERE id = ?', [id]);\n")
     assert any("authentication database reads" in item for item in scan_source_tree(tmp_path))
 
 
 def test_negative_scaffold_with_local_auth_schema_is_rejected(tmp_path):
     source = tmp_path / "src/auth/schema.ts"
     source.parent.mkdir(parents=True)
-    source.write_text("export const credentials = pgTable('credentials', { passwordHash: text() });\\n")
+    source.write_text("export const credentials = pgTable('credentials', { passwordHash: text() });\n")
     violations = scan_source_tree(tmp_path)
     assert any("authentication ORM table" in item or "credential hash" in item for item in violations)
 
@@ -147,7 +147,7 @@ def test_gutts_release_baseline_is_aligned_across_root_scaffolds_and_lockfile():
     lockfile = (ROOT / "pnpm-lock.yaml").read_text(encoding="utf-8")
     root_importer = lockfile.split("packages:", 1)[0]
     locked = re.search(
-        r"(?m)^      '@dinilmusick/gutts':\\n        specifier: ([^\\n]+)\\n        version: ([^\\n]+)",
+        r"(?m)^      '@dinilmusick/gutts':\n        specifier: ([^\n]+)\n        version: ([^\n]+)",
         root_importer,
     )
     assert locked, "pnpm-lock.yaml is missing the root GutTS importer"
