@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -39,6 +40,7 @@ def test_generic_scaffold_generates_canonical_floks_kloks_auth(tmp_path):
     assert "canonicaldemo" in fetcher.read_text(encoding="utf-8")
     assert "AuthServiceFacade" not in backend.read_text(encoding="utf-8")
     assert manifest["dependencies"]["@ultrst-armada/krnl"] == "^1.0.11"
+    assert manifest["dependencies"]["@dinilmusick/gutts"] == AUTH_CONTRACT.PACKAGE_BASELINE["@dinilmusick/gutts"]
     assert scan_source_tree(target) == []
 
 
@@ -117,13 +119,37 @@ def test_nextjs_middleware_verifies_luth_and_overwrites_untrusted_identity_heade
 def test_negative_scaffold_with_direct_auth_database_reads_is_rejected(tmp_path):
     source = tmp_path / "src/auth/repository.ts"
     source.parent.mkdir(parents=True)
-    source.write_text("const result = await db.query('SELECT * FROM users WHERE id = ?', [id]);\\n")
+    source.write_text("const result = await db.query('SELECT * FROM users WHERE id = ?', [id]);\n")
     assert any("authentication database reads" in item for item in scan_source_tree(tmp_path))
 
 
 def test_negative_scaffold_with_local_auth_schema_is_rejected(tmp_path):
     source = tmp_path / "src/auth/schema.ts"
     source.parent.mkdir(parents=True)
-    source.write_text("export const credentials = pgTable('credentials', { passwordHash: text() });\\n")
+    source.write_text("export const credentials = pgTable('credentials', { passwordHash: text() });\n")
     violations = scan_source_tree(tmp_path)
     assert any("authentication ORM table" in item or "credential hash" in item for item in violations)
+
+
+
+def test_gutts_release_baseline_is_aligned_across_root_scaffolds_and_lockfile():
+    expected = AUTH_CONTRACT.PACKAGE_BASELINE["@dinilmusick/gutts"]
+    manifests = (
+        ROOT / "package.json",
+        ROOT / "scaffolds/nextjs/package.json",
+        ROOT / "scaffolds/vite/package.json",
+    )
+
+    for manifest_path in manifests:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        assert manifest["dependencies"].get("@dinilmusick/gutts") == expected, str(manifest_path)
+
+    lockfile = (ROOT / "pnpm-lock.yaml").read_text(encoding="utf-8")
+    root_importer = lockfile.split("packages:", 1)[0]
+    locked = re.search(
+        r"(?m)^      '@dinilmusick/gutts':\n        specifier: ([^\n]+)\n        version: ([^\n]+)",
+        root_importer,
+    )
+    assert locked, "pnpm-lock.yaml is missing the root GutTS importer"
+    assert locked.group(1) == expected
+    assert locked.group(2).startswith("2."), locked.group(2)

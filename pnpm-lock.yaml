@@ -12,8 +12,8 @@ importers:
   .:
     dependencies:
       '@dinilmusick/gutts':
-        specifier: ^1.6.0
-        version: 1.6.0(@types/node@22.20.5)
+        specifier: ^2.0.2
+        version: 2.0.3(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(cactus-needle@0.3.0)(googleapis@189.0.0)
       '@ultrst-armada/floks':
         specifier: ^1.13.18
         version: 1.13.18(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.11(@types/node@22.20.5))(lucide-react@1.55.0(@types/react@19.3.0)(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
@@ -141,6 +141,23 @@ packages:
 
   '@dinilmusick/gutts@1.6.0':
     resolution: {integrity: sha512-HE5dL/CZUNiB7wF5xhzJ6UL6jLMv3Tp9BgcSgaUEKd2dZGRPEbCkB8XfCdSpdJKrmks/KB75U/GAunOREikfgg==}
+
+  '@dinilmusick/gutts@2.0.3':
+    resolution: {integrity: sha512-nOzfztCls6GfhIqJGA/hjVIbd7tGrezXWM5sMYrb8KJo/H1fmXQINO6ZK4i22hSEyXjKKn7A//qb6tdbeZ8rIg==}
+    peerDependencies:
+      '@aws-sdk/client-s3': ^3.1164.0
+      '@huggingface/transformers': ^4.3.2
+      cactus-needle: ^0.3.0
+      googleapis: ^189.0.0
+    peerDependenciesMeta:
+      '@aws-sdk/client-s3':
+        optional: true
+      '@huggingface/transformers':
+        optional: true
+      cactus-needle:
+        optional: true
+      googleapis:
+        optional: true
 
   '@emnapi/runtime@1.11.3':
     resolution: {integrity: sha512-Xz4Tpyki7XyrpbUK1jR1AhdAdaXyhhY4lZ3neLodmhpuWfy2PAQN5B46sAiU4liOXGLkHypn/qU+jvfWSCYYLA==}
@@ -1703,6 +1720,16 @@ snapshots:
       - '@types/node'
       - ai
       - supports-color
+
+  '@dinilmusick/gutts@2.0.3(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(cactus-needle@0.3.0)(googleapis@189.0.0)':
+    dependencies:
+      lodash-es: 4.18.1
+      validator: 13.15.35
+    optionalDependencies:
+      '@aws-sdk/client-s3': 3.1164.0
+      '@huggingface/transformers': 4.3.2(@types/node@22.20.5)
+      cactus-needle: 0.3.0
+      googleapis: 189.0.0
 
   '@emnapi/runtime@1.11.3':
     dependencies:
