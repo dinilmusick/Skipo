@@ -17,17 +17,26 @@ LEGACY_PATTERNS = (
     r"AIKO_ENGINE_URL|AIKO_MODULE_TOKEN",
     r"/api/aiko|/api/fod",
     r"data-skipo-aiko-chat-trigger|data-skipo-aiko-direct-chat",
+    r"\\bAiko\\b|\\bFOD\\b",
 )
 LEGACY_RE = re.compile("|".join(f"(?:{pattern})" for pattern in LEGACY_PATTERNS), re.IGNORECASE)
 
 
 def _text_files(*roots):
+    if not roots:
+        roots = (".",)
     for root in roots:
         path = ROOT / root
         if path.is_file():
             yield path
         elif path.is_dir():
-            yield from (item for item in path.rglob("*") if item.is_file())
+            for item in path.rglob("*"):
+                if not item.is_file():
+                    continue
+                relative = item.relative_to(ROOT)
+                if any(part in {".git", "node_modules", ".venv", "dist", "build", "__pycache__", "tests"} for part in relative.parts):
+                    continue
+                yield item
 
 
 def test_generated_scaffold_does_not_register_aiko_or_fod_tabs(tmp_path):
@@ -58,7 +67,7 @@ def test_vite_and_nextjs_templates_have_no_legacy_tabs_or_routes():
 
 
 def test_no_legacy_workspace_menu_or_top_right_shortcut_remains():
-    files = list(_text_files("src", "scaffolds", "scripts", "generators"))
+    files = list(_text_files())
     offenders = []
     for path in files:
         if path.suffix.lower() not in {".ts", ".tsx", ".js", ".jsx", ".py", ".json", ".md"}:
@@ -70,7 +79,7 @@ def test_no_legacy_workspace_menu_or_top_right_shortcut_remains():
 
 
 def test_no_obsolete_aiko_or_fod_runtime_imports_remain():
-    for path in _text_files("src", "scaffolds", "scripts", "generators"):
+    for path in _text_files():
         if path.suffix.lower() not in {".ts", ".tsx", ".js", ".jsx", ".py"}:
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
