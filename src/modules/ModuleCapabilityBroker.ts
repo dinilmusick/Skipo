@@ -11,8 +11,7 @@ function matchesSchema(value: unknown, schema: JsonSchema): boolean {
     for (const [key, child] of Object.entries(schema.properties ?? {})) {
       if (key in record && !matchesSchema(record[key], child)) return false;
     }
-    return schema.additionalProperties !== false ||
-      Object.keys(record).every((key) => key in (schema.properties ?? {}));
+    return schema.additionalProperties !== false || Object.keys(record).every((key) => key in (schema.properties ?? {}));
   }
   if (schema.type === "array") return Array.isArray(value) && (!schema.items || value.every((item) => matchesSchema(item, schema.items!)));
   if (schema.type === "integer") return typeof value === "number" && Number.isInteger(value);
@@ -20,6 +19,10 @@ function matchesSchema(value: unknown, schema: JsonSchema): boolean {
   if (schema.type === "string") return typeof value === "string";
   if (schema.type === "boolean") return typeof value === "boolean";
   return false;
+}
+
+function copyDescriptor(descriptor: CapabilityDescriptor): CapabilityDescriptor {
+  return JSON.parse(JSON.stringify(descriptor)) as CapabilityDescriptor;
 }
 
 export class ModuleCapabilityBroker implements ModuleBackendAccess {
@@ -30,24 +33,30 @@ export class ModuleCapabilityBroker implements ModuleBackendAccess {
     private readonly backend: BackendFacade,
     private readonly moduleId: string,
     private readonly applicationId: string,
+    requestedCapabilities: readonly string[],
     approvedCapabilities: readonly string[],
     private readonly userId?: string,
   ) {
-    this.descriptors = new Map(backend.discoverCapabilities().map((item) => [item.name, item]));
+    this.descriptors = new Map(backend.discoverCapabilities().map((item) => [item.name, copyDescriptor(item)] as const));
+    for (const name of requestedCapabilities) {
+      if (!this.descriptors.has(name)) throw new Error(`Module ${moduleId} requires unavailable capability: ${name}`);
+    }
     this.approved = new Set(approvedCapabilities);
     for (const name of this.approved) {
-      if (!this.descriptors.has(name)) throw new Error(`Module ${moduleId} requests unknown capability: ${name}`);
+      if (!requestedCapabilities.includes(name)) throw new Error(`Host approved undeclared capability: ${name}`);
     }
   }
 
   discoverCapabilities(): readonly DiscoveredCapability[] {
-    return [...this.descriptors.values()].map((descriptor) => ({ ...descriptor, approved: this.approved.has(descriptor.name) }));
+    return [...this.descriptors.values()].map((descriptor) => ({
+      ...copyDescriptor(descriptor), approved: this.approved.has(descriptor.name),
+    }));
   }
 
   inspectCapability(name: string): DiscoveredCapability {
     const descriptor = this.descriptors.get(name);
     if (!descriptor) throw new Error(`Unknown backend capability: ${name}`);
-    return { ...descriptor, approved: this.approved.has(name) };
+    return { ...copyDescriptor(descriptor), approved: this.approved.has(name) };
   }
 
   async invoke<TInput = unknown, TOutput = unknown>(name: string, input: TInput): Promise<TOutput> {
