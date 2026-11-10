@@ -69,3 +69,13 @@ it("bridges external calls through the canonical BackendFacade executor", async 
     metadata: { externalInterface: true, transport: "mcp", principal: { userId: "u1", roles: [], sessionId: undefined } },
   });
 });
+
+it("supports MCP initialized notifications and structured tool errors", async () => {
+  const s = setup();
+  const notification = await s.mcp(new Request("https://app.test/mcp", { method: "POST", body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) }));
+  expect(notification!.status).toBe(202);
+  const failedRegistry = new CapabilityRegistry({ execute: async () => { throw new Error("private detail"); } }).register({ id: "fails", description: "Fails.", inputSchema, outputSchema, invocation: { serviceId: "x", operationId: "y" }, access: "public" });
+  const failedMcp = createMcpHandler({ registry: failedRegistry, authenticate: async () => null });
+  const result = await failedMcp(new Request("https://app.test/mcp", { method: "POST", body: JSON.stringify({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "fails", arguments: { value: 1 } } }) }));
+  expect((await result!.json()).result.structuredContent).toEqual({ error: { code: "INTERNAL_ERROR", message: "Internal server error" } });
+});
