@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import type { CSSProperties, ReactNode } from 'react';
 import { getNamespacedModuleUIId } from './contract.js';
 import { skipoModuleUIRegistry } from './registry.js';
@@ -11,6 +12,10 @@ const dockStyle: CSSProperties = {
   border: '1px solid var(--skipo-border, #454545)',
   borderRadius: 12, background: 'var(--skipo-surface, #171717)',
   boxShadow: '0 4px 18px #0005',
+};
+
+const inlineDockStyle: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 4, marginLeft: 8, flexShrink: 0,
 };
 
 function surfaceStyle(type: string, stackIndex: number): CSSProperties {
@@ -47,12 +52,25 @@ export function ModuleUIHost() {
     [contributions],
   );
   const [openIds, setOpenIds] = useState<string[]>([]);
+  const [dockTarget, setDockTarget] = useState<HTMLElement | null>(null);
   const availableIds = useMemo(() => new Set(exports.map((item) => item.namespacedId)), [exports]);
   const topOpenId = openIds[openIds.length - 1];
 
   useEffect(() => {
     setOpenIds((current) => current.filter((id) => availableIds.has(id)));
   }, [availableIds]);
+
+  useEffect(() => {
+    const findDockTarget = () => {
+      const footer = document.querySelector<HTMLElement>('[data-frnl-component="frnlBottomBar"]');
+      const target = footer?.lastElementChild instanceof HTMLElement ? footer.lastElementChild : null;
+      setDockTarget((current) => current === target ? current : target);
+    };
+    findDockTarget();
+    const observer = new MutationObserver(findDockTarget);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!topOpenId) return;
@@ -102,9 +120,8 @@ export function ModuleUIHost() {
   );
   if (!exports.length) return null;
 
-  return (
-    <>
-      <nav aria-label="Module controls" data-skipo-module-dock="true" style={dockStyle}>
+  const dock = (
+      <nav aria-label="Module controls" data-skipo-module-dock="true" style={dockTarget ? inlineDockStyle : dockStyle}>
         {exports.map((item) => (
           <button
             key={item.namespacedId}
@@ -115,7 +132,7 @@ export function ModuleUIHost() {
             onClick={() => toggle(item.namespacedId)}
             data-module-ui-id={item.namespacedId}
             style={{
-              display: 'grid', placeItems: 'center', width: 36, height: 36,
+              display: 'grid', placeItems: 'center', width: dockTarget ? 24 : 36, height: dockTarget ? 24 : 36,
               borderRadius: 8, border: '1px solid var(--skipo-border, #555)',
               color: 'inherit', background: openIds.includes(item.namespacedId)
                 ? 'var(--skipo-accent-soft, #333)' : 'transparent',
@@ -126,6 +143,11 @@ export function ModuleUIHost() {
           </button>
         ))}
       </nav>
+  );
+
+  return (
+    <>
+      {dockTarget ? createPortal(dock, dockTarget) : dock}
       {openIds.map((id, index) => {
         const item = exports.find((entry) => entry.namespacedId === id);
         if (!item) return null;
