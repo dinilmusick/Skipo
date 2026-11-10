@@ -1,3 +1,1 @@
-export * from './contract.js';
-export * from './registry.js';
-export { ModuleUIHost } from './ModuleUIHost.js';
+export * from './contract.js';export * from './registry.js';export * from './ModuleUIHost.js';
