@@ -101,6 +101,7 @@ describe('ModuleUIHost integration', () => {
     for (const path of paths) {
       const source = readFileSync(new URL(path, import.meta.url), 'utf8');
       expect(source).toContain('ModuleUIHost');
+      if (path.includes('/scaffolds/')) expect(source.startsWith("'use client';")).toBe(true);
     }
   });
 
