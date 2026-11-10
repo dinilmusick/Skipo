@@ -75,8 +75,24 @@ export class ModuleHost {
     if (this.instances.has(id)) {
       throw new Error(`Module '${id}' is already mounted.`);
     }
-    this.definitions.set(id, definition);
-    return definition.manifest;
+    const manifest = Object.freeze({
+      ...definition.manifest,
+      dependencies: definition.manifest.dependencies
+        ? Object.freeze([...definition.manifest.dependencies])
+        : undefined,
+      capabilities: definition.manifest.capabilities
+        ? Object.freeze([...definition.manifest.capabilities])
+        : undefined,
+      metadata: definition.manifest.metadata
+        ? Object.freeze({ ...definition.manifest.metadata })
+        : undefined
+    });
+    const registered = Object.freeze({
+      manifest,
+      mount: definition.mount
+    });
+    this.definitions.set(id, registered);
+    return manifest;
   }
 
   listDiscovered(): readonly string[] {

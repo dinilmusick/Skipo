@@ -42,6 +42,31 @@ describe('Skipo generic ModuleHost', () => {
     expect(host.listDiscovered()).toEqual([]);
   });
 
+  it('snapshots a discovered manifest against caller mutation', async () => {
+    const manifest = {
+      id: 'immutable-app',
+      name: 'Immutable',
+      version: '1.0.0',
+      kind: 'skipo-application' as const,
+      capabilities: ['backend.library:initial'],
+      metadata: { label: 'initial' }
+    };
+    const host = new ModuleHost({ parent: { backend: parentBackend() } });
+    host.discover({
+      manifest,
+      mount: () => undefined
+    });
+    manifest.name = 'mutated';
+    manifest.capabilities[0] = 'backend.library:mutated';
+    manifest.metadata.label = 'mutated';
+    const instance = await host.mount('immutable-app');
+    expect(instance.context.metadata.name).toBe('Immutable');
+    expect(instance.context.metadata.capabilities).toEqual([
+      'backend.library:initial'
+    ]);
+    expect(instance.context.metadata.metadata?.label).toBe('initial');
+  });
+
   it('discovers, validates, mounts, and injects parent resources', async () => {
     const workspace = { id: 'workspace-1' };
     const authentication = { subject: 'user-1', authenticated: true };
