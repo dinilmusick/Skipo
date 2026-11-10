@@ -22,6 +22,8 @@ export interface CapabilityOwnerInfo {
 export interface CrossServiceExecutionOptions extends OperationContext {
   timeoutMs?: number;
   abortSignal?: AbortSignal;
+  /** Selects an exact registered owner when capability names are duplicated. */
+  serviceId?: string;
 }
 
 export interface IBackendFacade {
@@ -31,6 +33,7 @@ export interface IBackendFacade {
   readonly orchestrations: Record<string, unknown>;
 
   registerService(facade: IServiceFacade, alias?: string): this;
+  listCapabilities(): readonly import('./ModuleBackendAdapterTypes.js').BackendCapabilityDescriptor[];
   getLibrary<TLib = unknown>(name: string, serviceNamespace?: string): TLib;
   getFunctionality<TFunc = unknown>(name: string, serviceNamespace?: string): TFunc;
   getOrchestration<TOrch = unknown>(name: string, serviceNamespace?: string): TOrch;

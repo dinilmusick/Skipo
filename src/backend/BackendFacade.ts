@@ -6,6 +6,7 @@
  */
 
 import type { IServiceFacade, ServiceNamespace } from '@ultrst-armada/krnl';
+import { listBackendCapabilities } from './BackendCapabilityCatalog.js';
 import type {
   IBackendFacade,
   CapabilityCategory,
@@ -110,7 +111,15 @@ export class BackendFacade implements IBackendFacade {
     const targetOp = operation || capabilityName;
     let targetService: IServiceFacade | undefined;
 
-    if (this.services.has(capabilityName)) {
+    if (options?.serviceId) {
+      targetService = this.services.get(options.serviceId);
+      if (!targetService) throw new Error(`[BackendFacade] Service '${options.serviceId}' not found.`);
+      const ownsCapability = [
+        ...(this.capabilityOwners.get(`functionalities:${capabilityName}`) || []),
+        ...(this.capabilityOwners.get(`orchestrations:${capabilityName}`) || []),
+      ].some((owner) => owner.serviceId === targetService!.id);
+      if (!ownsCapability) throw new Error(`[BackendFacade] Service '${options.serviceId}' does not own capability '${capabilityName}'.`);
+    } else if (this.services.has(capabilityName)) {
       targetService = this.services.get(capabilityName);
     } else {
       const owners = [
@@ -131,6 +140,11 @@ export class BackendFacade implements IBackendFacade {
     if (typeof targetService.call === 'function') return (await targetService.call<TIn, TOut>(targetOp, input, options)) as TOut;
     if (typeof af.execute === 'function') return (await af.execute(targetOp, input, options)) as TOut;
     throw new Error(`[BackendFacade] Service '${targetService.id}' provides neither call() nor execute().`);
+  }
+
+  /** Returns metadata only; executable service objects are never included. */
+  public listCapabilities() {
+    return listBackendCapabilities(this.services, this.namespaces);
   }
 
   public getService(nameOrId: string): IServiceFacade {
