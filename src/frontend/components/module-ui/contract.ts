@@ -32,5 +32,5 @@ export interface SkipoModuleUIContribution {
 }
 
 export function getNamespacedModuleUIId(moduleId: string, exportId: string): string {
-  return `${moduleId}:${exportId}`;
+  return `${encodeURIComponent(moduleId)}:${encodeURIComponent(exportId)}`;
 }
