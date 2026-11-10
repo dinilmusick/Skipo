@@ -34,9 +34,11 @@ function applyMapping(source: unknown, mapping?: Readonly<Record<string, string>
  * It exposes metadata, never service implementations or library objects.
  */
 export class ModuleBackendAdapter {
-  private readonly declarations: ReadonlyMap<string, ModuleCapabilityDeclaration>;
+  readonly #declarations: ReadonlyMap<string, ModuleCapabilityDeclaration>;
+  readonly #options: ModuleBackendAdapterOptions;
 
-  constructor(private readonly options: ModuleBackendAdapterOptions) {
+  constructor(options: ModuleBackendAdapterOptions) {
+    this.#options = options;
     if (!options?.backend || !options.manifest?.moduleId ||
         !Array.isArray(options.manifest.capabilities) || !options.authorization ||
         typeof options.authorization.canDiscover !== 'function' ||
@@ -46,7 +48,7 @@ export class ModuleBackendAdapter {
         'INVALID_CONFIGURATION'
       );
     }
-    this.declarations = new Map();
+    this.#declarations = new Map();
     for (const declaration of options.manifest.capabilities) {
       if (!declaration?.capabilityId || this.declarations.has(declaration.capabilityId)) {
         throw new ModuleBackendAdapterError('Capability declarations require unique non-empty IDs.', 'INVALID_MANIFEST');
@@ -57,7 +59,7 @@ export class ModuleBackendAdapter {
 
   async discover(): Promise<readonly DiscoveredModuleCapability[]> {
     const result: DiscoveredModuleCapability[] = [];
-    for (const capability of this.options.backend.listCapabilities()) {
+    for (const capability of this.#options.backend.listCapabilities()) {
       const declaration = this.declarations.get(capability.id);
       if (!declaration) continue;
       if (await this.options.authorization.canDiscover(this.context(capability))) {
