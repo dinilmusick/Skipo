@@ -16,6 +16,7 @@ $$\text{Route}(\tau) = \arg\max_{s \in \mathcal{S}_{\text{arch}}} |\text{Keyword
 | [`skeleton-components/SKILL.md`](./skeleton-components/SKILL.md) | Inheritance (Skeleton) vs Composition (Component) |
 | [`code-limits/SKILL.md`](./code-limits/SKILL.md) | $\le 200$L/file, $\le 30$L helpers, $\le 20$L orchestrators |
 | [`sub-app-engine/SKILL.md`](./sub-app-engine/SKILL.md) | Drag-and-drop zero-server engine (`subapp.json`, `register.ts`) |
+| [`module-development/SKILL.md`](./module-development/SKILL.md) | Generic Skipo application modules: manifest, discovery, host context, capability grants, UI surfaces, lifecycle |
 | [`state-execution-spec/SKILL.md`](./state-execution-spec/SKILL.md) | State & Execution: Zustand + Lifecycle Graph, BullMQ Queue, Worker Boundary, Facade |
 | [`app-architecture-spec/SKILL.md`](./app-architecture-spec/SKILL.md) | 40-section canonical spec: runtime model, facade, service layers, import purity |
 | [`multi-target-build-spec/SKILL.md`](./multi-target-build-spec/SKILL.md) | Multi-Target build specification: Protocol Adapters (`httpsAdapter.ts`), Cloudflare Workers & Vercel |
@@ -34,7 +35,7 @@ def route_arch(intent: str) -> str:
         "dedup": "deduplication/SKILL.md", "layer": "function-layers/SKILL.md",
         "entity": "entity-functionality/SKILL.md", "concept": "libraries-concepts/SKILL.md",
         "skeleton": "skeleton-components/SKILL.md", "limit": "code-limits/SKILL.md",
-        "subapp": "sub-app-engine/SKILL.md", "graph": "graph-application-contract/SKILL.md", "node-graph": "graph-application-contract/SKILL.md", "force-graph": "graph-application-contract/SKILL.md", "gate": "../api/SKILL.md"
+        "subapp": "sub-app-engine/SKILL.md", "module": "module-development/SKILL.md", "module-host": "module-development/SKILL.md", "module-development": "module-development/SKILL.md", "graph": "graph-application-contract/SKILL.md", "node-graph": "graph-application-contract/SKILL.md", "force-graph": "graph-application-contract/SKILL.md", "gate": "../api/SKILL.md"
     }
     return next((path for k, path in routes.items() if k in intent.lower()), "app-architecture-spec/SKILL.md")
 ```
