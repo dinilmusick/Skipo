@@ -393,7 +393,7 @@ export async function requireLuthSession(request: Request): Promise<LuthGuardRes
     if not components_file.exists():
         components_file.write_text(
             "export * from '@ultrst-armada/floks/ui';\n"
-            "export * from '@ultrst-armada/floks/canvas-ui';\n",
+            "export { InfiniteCanvas, DockBar, FrnlEditableNodeGraph } from '@ultrst-armada/floks/canvas-ui';\n",
             encoding="utf-8",
         )
         created.append(components_file)
