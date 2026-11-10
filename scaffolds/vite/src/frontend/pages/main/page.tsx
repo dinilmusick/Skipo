@@ -1,5 +1,5 @@
-import { ModuleUIHost } from '../../components/module-ui/ModuleUIHost.js';
 'use client';
+import { ModuleUIHost } from '../../components/module-ui/ModuleUIHost.js';
 import {useState} from 'react';
 import FodTab from './tabs/fod/page.js';
 import AikoTab from './tabs/aiko/page.js';
