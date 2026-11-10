@@ -16,7 +16,7 @@ export function createAppExternalInterfaces(backend: { services: Record<string, 
   const authenticate = async (request: Request) => {
     const session = await getLuthSession(request);
     if (!session?.user?.id) return null;
-    return { userId: String(session.user.id), sessionId: String(session.session?.id ?? "") };
+    return { userId: String(session.user.id), sessionId: String(session.session?.id ?? ""), roles: Array.isArray(session.user.roles) ? session.user.roles.map(String) : Array.isArray(session.roles) ? session.roles.map(String) : [] };
   };
   return {
     registry,
