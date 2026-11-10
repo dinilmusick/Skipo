@@ -6,6 +6,7 @@
  */
 
 import type { IServiceFacade, ServiceNamespace } from '@ultrst-armada/krnl';
+import type { BackendCapabilityDescriptor } from './ModuleBackendAdapterTypes.js';
 import type {
   IBackendFacade,
   CapabilityCategory,
@@ -110,7 +111,7 @@ export class BackendFacade implements IBackendFacade {
     const targetOp = operation || capabilityName;
     let targetService: IServiceFacade | undefined;
 
-    if (this.services.has(capabilityName)) {
+    if (options?.serviceId) {\n      targetService = this.services.get(options.serviceId);\n      if (!targetService) throw new Error(`[BackendFacade] Service '${options.serviceId}' not found.`);\n      const ownsCapability = [\n        ...(this.capabilityOwners.get(`functionalities:${capabilityName}`) || []),\n        ...(this.capabilityOwners.get(`orchestrations:${capabilityName}`) || []),\n      ].some((owner) => owner.serviceId === targetService!.id);\n      if (!ownsCapability) throw new Error(`[BackendFacade] Service '${options.serviceId}' does not own capability '${capabilityName}'.`);\n    } else if (this.services.has(capabilityName)) {
       targetService = this.services.get(capabilityName);
     } else {
       const owners = [
@@ -131,6 +132,50 @@ export class BackendFacade implements IBackendFacade {
     if (typeof targetService.call === 'function') return (await targetService.call<TIn, TOut>(targetOp, input, options)) as TOut;
     if (typeof af.execute === 'function') return (await af.execute(targetOp, input, options)) as TOut;
     throw new Error(`[BackendFacade] Service '${targetService.id}' provides neither call() nor execute().`);
+  }
+
+  /** Returns metadata only; executable service objects are never included. */
+  public listCapabilities(): readonly BackendCapabilityDescriptor[] {
+    const descriptors: BackendCapabilityDescriptor[] = [];
+    for (const [serviceId, facade] of this.uniqueServices()) {
+      const ns = this.namespaces[serviceId];
+      for (const category of ['functionalities', 'orchestrations'] as const) {
+        const entries = category === 'functionalities'
+          ? Object.entries(ns.functionalities || {})
+          : Object.entries(ns.functionalityOrchestrations || {});
+        for (const [name, item] of entries) {
+          const value = item as any;
+          const definition = value?.definition || value;
+          const id = `${serviceId}/${category}/${name}`;
+          descriptors.push(Object.freeze({
+            id, name, serviceId, serviceName: ns.serviceName,
+            serviceVersion: ns.version, category,
+            description: String(value?.description || definition?.description || ''),
+            inputSchema: definition?.inputSchema && typeof definition.inputSchema === 'object'
+              ? Object.freeze({ ...definition.inputSchema }) : undefined,
+            outputSchema: definition?.outputSchema && typeof definition.outputSchema === 'object'
+              ? Object.freeze({ ...definition.outputSchema }) : undefined,
+            invocation: Object.freeze({
+              kind: category === 'functionalities' ? 'functionality' as const : 'orchestration' as const,
+              operation: name,
+            }),
+            capabilities: Object.freeze([
+              ...(Array.isArray(value?.capabilities) ? value.capabilities : []),
+              ...(Array.isArray(definition?.capabilities) ? definition.capabilities : []),
+            ].filter((entry): entry is string => typeof entry === 'string')),
+            protocols: Object.freeze((ns.capabilities || []).flatMap((capability: any) =>
+              Array.isArray(capability.protocols) ? capability.protocols : [])),
+          }));
+        }
+      }
+    }
+    return Object.freeze(descriptors);
+  }
+
+  private uniqueServices(): Array<[string, IServiceFacade]> {
+    const unique = new Map<string, IServiceFacade>();
+    for (const facade of this.services.values()) unique.set(facade.id, facade);
+    return Array.from(unique.entries());
   }
 
   public getService(nameOrId: string): IServiceFacade {
