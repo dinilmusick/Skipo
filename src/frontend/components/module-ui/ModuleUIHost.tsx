@@ -48,19 +48,54 @@ export function ModuleUIHost() {
   );
   const [openIds, setOpenIds] = useState<string[]>([]);
   const availableIds = useMemo(() => new Set(exports.map((item) => item.namespacedId)), [exports]);
+  const topOpenId = openIds[openIds.length - 1];
 
   useEffect(() => {
     setOpenIds((current) => current.filter((id) => availableIds.has(id)));
   }, [availableIds]);
 
   useEffect(() => {
-    if (!openIds.length) return;
+    if (!topOpenId) return;
+    const dialog = Array.from(document.querySelectorAll<HTMLElement>('[data-module-surface-id]'))
+      .find((element) => element.dataset.moduleSurfaceId === topOpenId);
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialog?.focus();
+    return () => previousFocus?.focus();
+  }, [topOpenId]);
+
+  useEffect(() => {
+    if (!topOpenId) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpenIds((current) => current.slice(0, -1));
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setOpenIds((current) => current.slice(0, -1));
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const dialog = Array.from(document.querySelectorAll<HTMLElement>('[data-module-surface-id]'))
+        .find((element) => element.dataset.moduleSurfaceId === topOpenId);
+      if (!dialog) return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ));
+      if (!focusable.length) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [openIds.length]);
+  }, [topOpenId]);
 
   const toggle = (id: string) => setOpenIds((current) =>
     current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id],
@@ -95,12 +130,14 @@ export function ModuleUIHost() {
         const item = exports.find((entry) => entry.namespacedId === id);
         if (!item) return null;
         const Surface = item.component;
+        const isTopLayer = index === openIds.length - 1;
         return (
           <section
             key={id}
             role="dialog"
             aria-label={item.label}
-            aria-modal={item.surfaceType === 'overlay' || item.surfaceType === 'full-screen'}
+            aria-modal={isTopLayer && (item.surfaceType === 'overlay' || item.surfaceType === 'full-screen')}
+            tabIndex={-1}
             data-module-surface-id={id}
             data-module-surface-type={item.surfaceType}
             style={surfaceStyle(item.surfaceType, index)}
