@@ -46,10 +46,13 @@ def test_generated_scaffold_does_not_register_aiko_or_fod_tabs(tmp_path):
     assert not (target / "src/frontend/pages/main/tabs/aiko").exists()
     assert not (target / "src/frontend/pages/main/tabs/fod").exists()
     backend = (target / "src/backend/DemoAppBackend.ts").read_text()
+    components = (target / "src/frontend/components/components.ts").read_text()
     app = (target / "src/frontend/App.tsx").read_text()
     main = (target / "src/frontend/pages/main/page.tsx").read_text()
     assert "Aiko" not in backend + app + main
     assert "FOD" not in backend + app + main
+    assert "AikoModule" not in components
+    assert "FodModule" not in components
     assert not (target / "src/backend/aikoRuntime.ts").exists()
     assert not (target / "src/backend/adapters/aikoRoutes.ts").exists()
 
