@@ -20,25 +20,39 @@ export class ModuleUIRegistry {
     if (this.modules.has(contribution.moduleId)) {
       throw new Error(`Module UI contribution already registered: ${contribution.moduleId}`);
     }
-    this.modules.set(contribution.moduleId, contribution);
+    const registered = Object.freeze({
+      moduleId: contribution.moduleId,
+      exports: Object.freeze(contribution.exports.map((item) => Object.freeze({
+        ...item,
+        metadata: item.metadata ? Object.freeze({ ...item.metadata }) : undefined,
+      }))),
+    });
+    this.modules.set(registered.moduleId, registered);
     this.publish();
     return () => {
-      if (this.modules.get(contribution.moduleId) !== contribution) return;
-      this.modules.delete(contribution.moduleId);
+      if (this.modules.get(registered.moduleId) !== registered) return;
+      this.modules.delete(registered.moduleId);
       this.publish();
     };
   }
 
   private validate(contribution: SkipoModuleUIContribution): void {
-    if (!contribution.moduleId?.trim()) throw new Error('Module UI contribution requires a stable moduleId.');
+    if (!contribution.moduleId?.trim() || contribution.moduleId !== contribution.moduleId.trim()) {
+      throw new Error('Module UI contribution requires a stable, whitespace-free moduleId.');
+    }
     if (!Array.isArray(contribution.exports)) throw new Error('Module UI exports must be an array.');
     const ids = new Set<string>();
     for (const item of contribution.exports) {
-      if (!item.id?.trim()) throw new Error(`Module ${contribution.moduleId} has an export without a stable id.`);
+      if (!item.id?.trim() || item.id !== item.id.trim()) {
+        throw new Error(`Module ${contribution.moduleId} has an export without a stable, whitespace-free id.`);
+      }
       if (ids.has(item.id)) throw new Error(`Duplicate module UI export id: ${getNamespacedModuleUIId(contribution.moduleId, item.id)}`);
       ids.add(item.id);
       if (!item.label?.trim()) throw new Error(`Module UI export ${item.id} requires a label.`);
-      if (typeof item.component !== 'function') throw new Error(`Module UI export ${item.id} requires a component.`);
+      const component = item.component as unknown;
+      const isComponent = typeof component === 'function' ||
+        (typeof component === 'object' && component !== null && '$$typeof' in component);
+      if (!isComponent) throw new Error(`Module UI export ${item.id} requires a React component.`);
       if (!['floating-panel', 'overlay', 'drawer', 'full-screen'].includes(item.surfaceType)) {
         throw new Error(`Module UI export ${item.id} has an unsupported surface type.`);
       }
