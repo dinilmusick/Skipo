@@ -130,18 +130,6 @@ export class SkipoSemanticRuntime {
   }
 
 
-  async registerFodRuntime(fod: {listFlows():Promise<any[]>;executeFlow(flowId:string,input?:unknown):Promise<any>}):Promise<void>{
-    for(const flow of await fod.listFlows()){
-      this.registerCapability({
-        id:String(flow.id),name:String(flow.name),description:String(flow.description??'Execute FOD flow'),kind:'fod-flow',
-        inputSchema:flow.inputSchema,outputSchema:flow.outputSchema,sideEffects:'external',
-        metadata:{source:'fod',flowId:String(flow.id),provides:[String(flow.id)],flowExecutor:(input:unknown)=>fod.executeFlow(String(flow.id),input)}
-      });
-    }
-  }
-
-  async registerFod(fod:any){return this.registerFodRuntime(fod);}
-
   createTask(request:string,parentTaskId?:string,contextId?:string){
     const task=this.tasks.create(request,parentTaskId);
     if(contextId) task.context.contextId=contextId;
