@@ -393,7 +393,7 @@ export async function requireLuthSession(request: Request): Promise<LuthGuardRes
     if not components_file.exists():
         components_file.write_text(
             "export * from '@ultrst-armada/floks/ui';\n"
-            "export * from '@ultrst-armada/floks/canvas-ui';\n"
+            "export * from '@ultrst-armada/floks/canvas-ui';\n",
             encoding="utf-8",
         )
         created.append(components_file)
@@ -449,21 +449,29 @@ export async function luthFetch(input: RequestInfo | URL, init: RequestInit = {}
         pages_root / "menus" / "workspaces" / "page.tsx": (
             "export { WorkspaceTilesMenu } from '@ultrst-armada/floks/ui';\n"
         ),
-        pages_root / "main" / "page.tsx": (
-            "import React, { useState } from 'react';\\n"
-            "import { frnlPage as FrnlPage } from '../../components/components.js';\\n\\n"
-            "export function MainPage({ children }: { children?: React.ReactNode }) {\\n"
-            "  const [immersive, setImmersive] = useState(false);\\n"
-            "  const [settingsOpen, setSettingsOpen] = useState(false);\\n"
-            "  return (\\n"
-            "    <div data-skipo-main-page=\\\"true\\\" data-immersive={immersive}>\\n"
-            "      <nav><button type=\\\"button\\\" onClick={() => setSettingsOpen((value) => !value)}>Settings</button><button type=\\\"button\\\" data-skipo-immersive-toggle=\\\"true\\\" onClick={() => setImmersive((value) => !value)}>{immersive ? 'Exit immersive' : 'Immersive'}</button></nav>\\n"
-            "      <FrnlPage showTopBar={!immersive} showBottomBar={!immersive}>{settingsOpen ? <div>Settings</div> : children}</FrnlPage>\\n"
-            "    </div>\\n"
-            "  );\\n"
-            "}\\n\\n"
-            "export default MainPage;\\n"
-        ),
+        pages_root / "main" / "page.tsx": """import React, { useState } from 'react';
+import { frnlPage as FrnlPage } from '../../components/components.js';
+
+export function MainPage({ children }: { children?: React.ReactNode }) {
+  const [immersive, setImmersive] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  return (
+    <div data-skipo-main-page="true" data-immersive={immersive}>
+      <nav>
+        <button type="button" onClick={() => setSettingsOpen((value) => !value)}>Settings</button>
+        <button type="button" data-skipo-immersive-toggle="true" onClick={() => setImmersive((value) => !value)}>
+          {immersive ? 'Exit immersive' : 'Immersive'}
+        </button>
+      </nav>
+      <FrnlPage showTopBar={!immersive} showBottomBar={!immersive}>
+        {settingsOpen ? <div>Settings</div> : children}
+      </FrnlPage>
+    </div>
+  );
+}
+
+export default MainPage;
+""",
         pages_root / "main" / "tabs" / "README.md": (
             "# Main Tabs\\n\\nApplication-specific working UI belongs in additional tab directories under this folder.\\n"
         ),
@@ -495,10 +503,16 @@ export async function luthFetch(input: RequestInfo | URL, init: RequestInit = {}
     app_tsx = target_root / "src" / "frontend" / "App.tsx"
     if not app_tsx.exists():
         app_tsx.write_text(
-            "import MainPage from './pages/main/page.js';\\n"
-            "import { FrnlSemanticInputProvider } from '@ultrst-armada/frnlts';\\n\\n"
-            "export function App() { const workspaceId = typeof window === 'undefined' ? 'default' : localStorage.getItem('skipo-active-workspace') || 'default'; return <FrnlSemanticInputProvider value={{ workspace: workspaceId }}><MainPage /></FrnlSemanticInputProvider>; }\\n\\n"
-            "export default App;\\n",
+            """import MainPage from './pages/main/page.js';
+import { FrnlSemanticInputProvider } from '@ultrst-armada/frnlts';
+
+export function App() {
+  const workspaceId = typeof window === 'undefined' ? 'default' : localStorage.getItem('skipo-active-workspace') || 'default';
+  return <FrnlSemanticInputProvider value={{ workspace: workspaceId }}><MainPage /></FrnlSemanticInputProvider>;
+}
+
+export default App;
+""",
             encoding="utf-8",
         )
         created.append(app_tsx)
