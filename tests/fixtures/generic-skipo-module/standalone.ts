@@ -14,5 +14,5 @@ export async function runStandaloneFixture() {
     approvedCapabilities: module.manifest.capabilities,
   });
   const overview = await mounted.activateSurface("overview");
-  return { discovered, mounted, backend, overview };
+  return { discovered, mounted, backend, module, overview };
 }
