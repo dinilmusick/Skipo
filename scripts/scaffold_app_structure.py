@@ -131,7 +131,7 @@ export function WorkspaceGate(props: WorkspaceGateProps) {
     auth_guard_file = target_root / "src" / "backend" / "auth" / "luthSession.ts"
     if not auth_guard_file.exists():
         auth_guard_file.parent.mkdir(parents=True, exist_ok=True)
-        auth_guard_file.write_text("""import { DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth';
+        auth_guard_file.write_text("""import { DEFAULT_LUTH_URL } from '@dinilmusick/gutts/auth';
 
 export async function getLuthSession(request: Request) {
   const headers = new Headers();
@@ -569,7 +569,7 @@ export {{ default }} from './{pascal}Backend.js';
     auth_dir.mkdir(parents=True, exist_ok=True)
     luth_session_file = auth_dir / "luthSession.ts"
     if not luth_session_file.exists():
-        luth_session_content = f"""import {{ DEFAULT_LUTH_URL }} from '@ultrst-armada/kloks/auth';
+        luth_session_content = f"""import {{ DEFAULT_LUTH_URL }} from '@dinilmusick/gutts/auth';
 
 export type LuthGuardResult =
   | {{ authenticated: true; userId: string }}
@@ -722,7 +722,7 @@ export default LuthAuthPage;
 """,
         pages_root / "auth" / "luthFetch.ts": """'use client';
 
-import { createLuthAuthClient } from '@ultrst-armada/kloks/auth';
+import { createLuthAuthClient } from '@dinilmusick/gutts/auth';
 
 const luthClient = createLuthAuthClient({
   ecosystemId: 'ultrst-armada',
