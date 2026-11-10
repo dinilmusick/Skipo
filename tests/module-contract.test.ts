@@ -31,7 +31,11 @@ async function tempRoot() { const root = await mkdtemp(join(tmpdir(), 'skipo-mod
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
 
 describe('Skipo Module Contract v1', () => {
-  it('exports the versioned JSON Schema used by manifest tooling', () => {\n    expect(SKIPO_MODULE_MANIFEST_SCHEMA.properties.contractVersion.const).toBe('1.0.0');\n    expect(SKIPO_MODULE_MANIFEST_SCHEMA.required).toContain('module');\n  });\n  it('accepts a complete standalone-capable module', () => {
+  it('exports the versioned JSON Schema used by manifest tooling', () => {
+    expect(SKIPO_MODULE_MANIFEST_SCHEMA.properties.contractVersion.const).toBe('1.0.0');
+    expect(SKIPO_MODULE_MANIFEST_SCHEMA.required).toContain('module');
+  });
+  it('accepts a complete standalone-capable module', () => {
     expect(validateModuleManifest(fixture()).valid).toBe(true);
   });
   it('rejects malformed identity, version and non-module-capable applications', () => {
