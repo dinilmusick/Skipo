@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { BackendFacade } from '../src/backend/BackendFacade.js';
 import {
@@ -29,7 +31,29 @@ function parentBackend() {
   return new BackendFacade();
 }
 
+function moduleSourceFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    return entry.isDirectory()
+      ? moduleSourceFiles(path)
+      : path.endsWith('.ts') ? [path] : [];
+  });
+}
+
 describe('Skipo generic ModuleHost', () => {
+  it('keeps module implementation imports independent of parent app internals', () => {
+    const files = moduleSourceFiles(join(process.cwd(), 'src/modules'));
+    expect(files.length).toBeGreaterThan(0);
+    for (const file of files) {
+      const source = readFileSync(file, 'utf8');
+      expect(source, file).not.toMatch(
+        /from\s+['"][^'"]*(?:SkipoBackend|BackendFacade\\.js|frontend|semantic|Aiko|Fod)/i
+      );
+      expect(source, file).not.toMatch(
+        /import\s*\(['"][^'"]*(?:SkipoBackend|BackendFacade\\.js|frontend|semantic|Aiko|Fod)/i
+      );
+    }
+  });
   it('creates a host with a stable identity and requires a parent backend', () => {
     expect(() => new ModuleHost({ parent: {} as never })).toThrow(
       /requires a parent BackendFacade/
