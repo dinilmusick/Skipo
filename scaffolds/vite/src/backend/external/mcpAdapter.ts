@@ -10,7 +10,11 @@ export function createMcpHandler(options: McpAdapterOptions) {
     if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405, headers: { allow: "POST" } });
     let rpc: RpcRequest;
     try { rpc = await request.json() as RpcRequest; } catch { return rpcError(null, -32700, "Parse error"); }
-    if (rpc.jsonrpc !== "2.0" || typeof rpc.method !== "string" || !("id" in rpc)) return rpcError(rpc.id ?? null, -32600, "Invalid Request");
+    if (rpc.jsonrpc !== "2.0" || typeof rpc.method !== "string") return rpcError(rpc.id ?? null, -32600, "Invalid Request");
+    if (!("id" in rpc)) {
+      if (rpc.method === "notifications/initialized") return new Response(null, { status: 202, headers: { "cache-control": "no-store" } });
+      return rpcError(null, -32600, "Invalid Request");
+    }
     try {
       const principal = await options.authenticate(request);
       const context: ExternalCapabilityContext = { principal, transport: "mcp", requestId: request.headers.get("x-request-id") ?? crypto.randomUUID() };
@@ -24,8 +28,9 @@ export function createMcpHandler(options: McpAdapterOptions) {
           const output = await options.registry.invoke(name, params.arguments ?? {}, context);
           return response(rpc.id, { content: [{ type: "text", text: JSON.stringify(output) }], structuredContent: output, isError: false });
         } catch (error) {
-          const message = error instanceof ExternalInterfaceError ? error.message : "Internal server error";
-          return response(rpc.id, { content: [{ type: "text", text: message }], isError: true });
+          const code = error instanceof ExternalInterfaceError ? error.code : "INTERNAL_ERROR";
+          const message = error instanceof ExternalInterfaceError && error.expose ? error.message : "Internal server error";
+          return response(rpc.id, { content: [{ type: "text", text: message }], structuredContent: { error: { code, message } }, isError: true });
         }
       }
       return rpcError(rpc.id, -32601, "Method not found");
