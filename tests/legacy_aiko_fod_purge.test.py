@@ -92,3 +92,12 @@ def test_frontend_architecture_checklist_does_not_require_legacy_modules():
     assert "tabs/aiko" not in source
     assert "AikoDirectChat" not in source
     assert "FodModule" not in source
+
+def test_no_replacement_aiko_module_or_fod_reimplementation_was_added():
+    assert not (ROOT / "src/modules/aiko").exists()
+    assert not (ROOT / "scaffolds/vite/src/modules/aiko").exists()
+    assert not (ROOT / "scaffolds/nextjs/src/modules/aiko").exists()
+    for name in ("vite", "nextjs"):
+        base = ROOT / "scaffolds" / name
+        assert not (base / "src/frontend/components/aiko").exists()
+        assert not (base / "src/frontend/components/fod").exists()
