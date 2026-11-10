@@ -1,5 +1,7 @@
 export * from './BackendFacadeTypes.js';
 export * from './BackendFacade.js';
+export * from './ModuleBackendAdapterTypes.js';
+export * from './ModuleBackendAdapter.js';
 export {
   SkipoBackend,
   services,
