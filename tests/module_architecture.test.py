@@ -36,7 +36,7 @@ export const module: SkipoModule = {
 import { module } from './module.js';
 export async function runStandalone() { const host = createStandaloneModuleHost({ 'catalog.read': () => [] }); await module.activate(host); }
 """)
-        self.write("src/modules/catalog/module.test.ts", "// module-local isolated host test\n")
+        self.write("src/modules/catalog/module.test.ts", "import { module } from './module.js';\nimport { createStandaloneModuleHost } from '../module-contract.js';\nvoid module.activate(createStandaloneModuleHost({ 'catalog.read': () => [] }));\n")
 
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
@@ -110,6 +110,14 @@ export async function runStandalone() { const host = createStandaloneModuleHost(
     def test_module_local_test_is_required(self):
         (self.tmp / "src/modules/catalog/module.test.ts").unlink()
         self.assertIn("24.10-independent-test", self.rules())
+
+    def test_module_local_test_must_exercise_an_isolated_host(self):
+        self.write("src/modules/catalog/module.test.ts", "it('exists', () => expect(true).toBe(true));")
+        self.assertIn("24.10-independent-test", self.rules())
+
+    def test_standalone_runner_must_activate_module(self):
+        self.write("src/modules/catalog/standalone.ts", "import { createStandaloneModuleHost } from '../module-contract.js'; export async function runStandalone() { createStandaloneModuleHost(); }")
+        self.assertIn("24.9-standalone-invocation", self.rules())
 
     def test_contract_file_must_define_required_contract_surfaces(self):
         self.write("src/modules/module-contract.ts", "export interface SkipoModule {}")

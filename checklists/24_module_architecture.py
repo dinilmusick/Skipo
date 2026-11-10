@@ -13,7 +13,7 @@ except ImportError:
 EXT = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
 IMPORT = re.compile(r"(?:\bimport\s+(?:type\s+)?(?:[^'\"]*?\s+from\s*)?|\bexport\s+[^'\"]*?\s+from\s*|\bimport\s*\(|\brequire\s*\()\s*['\"]([^'\"]+)['\"]")
 CONTRACT_IMPORTS = {"../module-contract.js", "../module-contract", "../module-contract.ts"}
-FORBIDDEN = re.compile(r"\b(?:BackendFacade|backendFacade|bottomBar|BottomBar|BottomStrip|DockBar|AppShellStore|useAppShellStore)\b")
+FORBIDDEN = re.compile(r"\b(?:BackendFacade|backendFacade|bottom[-_]?bar|BottomStrip|DockBar|AppShellStore|useAppShellStore)\b|[#.]bottom-bar", re.IGNORECASE)
 NETWORK = re.compile(r"\bfetch\s*\(|\baxios\s*\.|\bXMLHttpRequest\b|\bWebSocket\s*\(|\bsendBeacon\s*\(")
 FACADE = re.compile(r"\bhost\s*\.\s*backend\s*\.\s*(?:invoke|has)\s*\(")
 CONTRACT_TYPES = re.compile(r"\b(?:SkipoModule|SkipoModuleHost|SkipoModuleManifest)\b")
@@ -89,10 +89,22 @@ def validate_module_architecture(root: Path) -> ChecklistResult:
             if "createStandaloneModuleHost" not in standalone:
                 add("24.9-standalone-host", "Standalone execution must use createStandaloneModuleHost().", standalone_file,
                     fix="Use createStandaloneModuleHost from the canonical module contract.")
+            if not re.search(r"\bmodule\s*\.\s*activate\s*\(\s*host", standalone):
+                add("24.9-standalone-invocation", "runStandalone() must activate the module using the standalone host.", standalone_file,
+                    fix="Call module.activate(host) from runStandalone().")
         code = [p for p in folder.rglob("*") if p.is_file() and p.suffix in EXT and not any(x in p.parts for x in ("node_modules", "dist", "build", ".git"))]
-        if not any(".test." in p.name or ".spec." in p.name or "__tests__" in p.parts for p in code):
+        test_sources = [p for p in code if ".test." in p.name or ".spec." in p.name or "__tests__" in p.parts]
+        if not test_sources:
             add("24.10-independent-test", f"Module '{mid}' has no module-local test/spec.", folder,
                 fix="Add a test that runs the module with a fake or standalone SkipoModuleHost.")
+        elif not any(
+            ("createStandaloneModuleHost" in p.read_text(encoding="utf-8", errors="replace") or
+             "SkipoModuleHost" in p.read_text(encoding="utf-8", errors="replace")) and
+            re.search(r"\bmodule\s*\.\s*(?:activate|createUI)\s*\(", p.read_text(encoding="utf-8", errors="replace"))
+            for p in test_sources
+        ):
+            add("24.10-independent-test", f"Module '{mid}' tests do not exercise the module against an isolated host.", folder,
+                fix="Import module and exercise activate()/createUI() with createStandaloneModuleHost() or a SkipoModuleHost fake.")
         package_deps = set(manifest.get("packageDependencies", [])) if isinstance(manifest.get("packageDependencies", []), list) else set()
         caps = set(manifest.get("capabilities", [])) if isinstance(manifest.get("capabilities", []), list) else set()
         for source in code:
@@ -121,11 +133,11 @@ def validate_module_architecture(root: Path) -> ChecklistResult:
                                               line.strip(), "Declare a capability and call host.backend.invoke().")
         if entry_file.is_file():
             entry = entry_file.read_text(encoding="utf-8")
-            calls = set(re.findall(r"host\s*\.\s*backend\s*\.\s*invoke\s*\(\s*['\"]([^'\"]+)", entry))
+            calls = set(re.findall(r"host\s*\.\s*backend\s*\.\s*(?:invoke|has)\s*\(\s*['\"]([^'\"]+)", entry))
             for cap in sorted(calls - caps): add("24.15-undeclared-capability", f"Invoked capability '{cap}' is not declared in module.json.", entry_file,
-                                                fix=f"Declare '{cap}' in capabilities or remove the invocation.")
+                                               fix=f"Declare '{cap}' in capabilities or remove the invocation.")
             if caps and not FACADE.search(entry): add("24.15-facade-required", "Declared capabilities must be invoked through host.backend.", entry_file,
-                                                       fix="Route capability operations through host.backend.invoke()/has().")
+                                                     fix="Route capability operations through host.backend.invoke()/has().")
     return ChecklistResult("aspect_24", "Skipo Module Architecture Enforcement", not errors, errors, scanned,
                            (time.time() - started) * 1000, max(0.0, 100.0 - len(errors) * 5.0))
 
