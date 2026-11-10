@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { getNamespacedModuleUIId } from './contract.js';
