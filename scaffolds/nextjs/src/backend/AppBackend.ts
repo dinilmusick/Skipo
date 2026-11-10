@@ -15,6 +15,7 @@ import { FodRuntime, createFodServiceFacadeForWorkspace, scanBackendFacadeToNode
 import { guttsFodNodeDefinitions, executeGuttsApi } from '@dinilmusick/gutts/api';
 import { createAikoRuntime as buildAikoRuntime, createAikoServiceFacade } from './aikoRuntime.js';
 import { createGoogleDriveWorkspaceStorage } from './storage/googleDriveWorkspaceStorage.js';
+import { createAppExternalInterfaces } from './externalInterfaces.js';
 
 export const orchestrations = {
   orchestratorA: OrchestratorADefinition,
@@ -88,6 +89,8 @@ export const services = {
   bugReport: bugReportService,
 };
 
+export const externalInterfaces = createAppExternalInterfaces({ services });
+
 export const storageProviders = {
   googleDrive: { create: createGoogleDriveWorkspaceStorage },
 };
@@ -95,6 +98,7 @@ export const storageProviders = {
 export const AppBackend = {
   services,
   storageProviders,
+  externalInterfaces,
   orchestrations,
   worker: appWorkerBoundary,
   WorkerExecutionBoundary: appWorkerBoundary,
