@@ -1,3 +1,4 @@
+import { ModuleUIHost } from '../../components/module-ui/ModuleUIHost.js';
 import { useState } from 'react';
 import {
   FrnlPage,
@@ -65,6 +66,7 @@ export function HomePage() {
         />
         <DockBar items={[]} />
       </BaseCard>
+      <ModuleUIHost />
     </FrnlPage>
   );
 }
