@@ -44,7 +44,7 @@ export class SkipoModuleHost {
   async mount(module: SkipoModule, options: ModuleMountOptions): Promise<MountedModule> {
     const broker = new ModuleCapabilityBroker(
       options.backend, module.manifest.id, options.application.applicationId,
-      options.approvedCapabilities ?? module.manifest.capabilities, options.application.userId,
+      module.manifest.capabilities, options.approvedCapabilities ?? [], options.application.userId,
     );
     const context: ModuleRuntimeContext = {
       mode: options.mode, moduleId: module.manifest.id, application: options.application, backend: broker,
@@ -52,8 +52,14 @@ export class SkipoModuleHost {
     let state: ModuleLifecycleState = "discovered";
     await module.initialize(context);
     state = "initialized";
-    await module.mount(context);
-    state = "mounted";
+    try {
+      await module.mount(context);
+      state = "mounted";
+    } catch (error) {
+      await module.dispose();
+      state = "disposed";
+      throw error;
+    }
     return {
       module, context,
       get state() { return state; },
