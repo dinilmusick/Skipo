@@ -72,7 +72,7 @@ def test_vite_and_nextjs_templates_have_no_legacy_tabs_or_routes():
 
 
 def test_no_legacy_workspace_menu_or_top_right_shortcut_remains():
-    files = list(_text_files("src", "scaffolds", "scripts", "generators", "checklists", "README.md", "package.json"))
+    files = list(_text_files("src", "scaffolds", "scripts", "generators", "checklists", ".github", "config", "README.md", "package.json", ".env.example"))
     offenders = []
     for path in files:
         if path.suffix.lower() not in {".ts", ".tsx", ".js", ".jsx", ".py", ".json", ".md"}:
@@ -84,7 +84,7 @@ def test_no_legacy_workspace_menu_or_top_right_shortcut_remains():
 
 
 def test_no_obsolete_aiko_or_fod_runtime_imports_remain():
-    for path in _text_files("src", "scaffolds", "scripts", "generators", "checklists", "README.md", "package.json"):
+    for path in _text_files("src", "scaffolds", "scripts", "generators", "checklists", ".github", "config", "README.md", "package.json", ".env.example"):
         if path.suffix.lower() not in {".ts", ".tsx", ".js", ".jsx", ".py"}:
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
