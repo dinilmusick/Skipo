@@ -30,7 +30,7 @@ Call the returned disposer when the module is unloaded. The host closes and unmo
 
 ## Bottom-right module dock
 
-`ModuleUIHost` renders one icon button per discovered export in the fixed bottom-right module region. The bottom-center inspection channel remains untouched. Selecting a button opens its surface; selecting it again closes it. Multiple surfaces may remain open and are stacked by activation order. The host traps keyboard focus within the top surface, restores prior focus when it closes, and Escape closes the most recently opened surface.
+`ModuleUIHost` renders one icon button per discovered export in the bottom bar's right-hand control group, adjacent to the existing API request control. It discovers the canonical `frnlBottomBar` right slot and portals its dock there; if no bottom bar is mounted, it falls back to a fixed bottom-right dock. The bottom-center inspection channel remains untouched. Selecting a button opens its surface; selecting it again closes it. Multiple surfaces may remain open and are stacked by activation order. The host traps keyboard focus within the top surface, restores prior focus when it closes, and Escape closes the most recently opened surface.
 
 ## Genericity
 
