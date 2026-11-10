@@ -73,3 +73,7 @@ Every generated Skipo application includes mandatory Main → FOD and Main → A
 ## Universal conversational runtime
 
 Generated Skipo applications expose one application agent backed by the semantic runtime. Endpoint, GutTS, and FOD capabilities are registered automatically; tasks and conversation history persist under the active workspace `SEMANTIC/` directory; `/api/converse` provides the transport boundary; global Aiko Direct Chat is mounted above application pages.
+
+## Generic Skipo Module Contract
+
+Complete Skipo applications may declare module capability and be placed under `src/modules/<module-directory>/`. Each module carries a `skipo.module.json` manifest; the contract, validator, discovery API and host-neutral lifecycle interfaces are defined in [`architecture/module-contract/SKILL.md`](./architecture/module-contract/SKILL.md) and exported from `src/module-contract/`. Modules remain complete standalone applications. This generic contract has no Aiko, FOD, MCP or module-host runtime dependency.

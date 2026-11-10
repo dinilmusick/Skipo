@@ -143,3 +143,7 @@ GitHub CI passes
 ```
 
 The validator is authoritative for machine-checkable architecture. This document is the canonical orientation layer for humans and coding agents.
+
+## 8. Embedded modules
+
+A complete application may opt into the generic Skipo Module Contract by declaring `application.moduleCapable: true` in `skipo.module.json`. Embedded module candidates are located under `src/modules/<module-directory>/`. The module retains its complete application planes and standalone execution capability. See [Skipo Module Contract](../module-contract/SKILL.md). Module discovery validates declarations and does not execute module code.
