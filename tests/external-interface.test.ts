@@ -58,3 +58,14 @@ describe("Skipo external interfaces", () => {
     expect(await s.mcp(new Request("https://app.test/other", { method: "POST", body: "{}" }))).toBeNull();
   });
 });
+
+import { createBackendCapabilityExecutor } from "../src/backend/external/backendExecutor.js";
+it("bridges external calls through the canonical BackendFacade executor", async () => {
+  const executeCapability = vi.fn(async () => ({ doubled: 10 }));
+  const executor = createBackendCapabilityExecutor({ executeCapability });
+  await executor.execute("math", "double", { value: 5 }, { principal: { userId: "u1" }, transport: "mcp", requestId: "req-1" });
+  expect(executeCapability).toHaveBeenCalledWith("math", "double", { value: 5 }, {
+    correlationId: "req-1",
+    metadata: { externalInterface: true, transport: "mcp", principal: { userId: "u1", roles: [], sessionId: undefined } },
+  });
+});
