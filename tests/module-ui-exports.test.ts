@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { ModuleUIHost } from '../src/frontend/components/module-ui/ModuleUIHost.js';
 import { ModuleUIRegistry, registerSkipoModuleUI } from '../src/frontend/components/module-ui/registry.js';
+import { getNamespacedModuleUIId } from '../src/frontend/components/module-ui/contract.js';
 import type { ModuleUIExport, SkipoModuleUIContribution } from '../src/frontend/components/module-ui/contract.js';
 
 function surface() { return null; }
@@ -23,6 +24,10 @@ function contribution(moduleId: string, exports: Partial<ModuleUIExport>[] = [{}
 }
 
 describe('ModuleUIRegistry', () => {
+  it('namespaces IDs without delimiter collisions', () => {
+    expect(getNamespacedModuleUIId('module:one', 'surface')).not.toBe(getNamespacedModuleUIId('module', 'one:surface'));
+    expect(getNamespacedModuleUIId('calendar', 'agenda')).toBe('calendar:agenda');
+  });
   it('discovers multiple exports from one module', () => {
     const registry = new ModuleUIRegistry();
     registry.register(contribution('calendar', [{ id: 'agenda' }, { id: 'settings' }]));
