@@ -1,0 +1,12 @@
+{
+  "id": "example.inventory",
+  "name": "Generic Inventory Example",
+  "version": "1.0.0",
+  "description": "A framework-neutral Skipo application fixture demonstrating standalone and embedded module execution.",
+  "capabilities": ["inventory.list", "inventory.reserve"],
+  "uiSurfaces": [
+    { "id": "overview", "title": "Inventory Overview" },
+    { "id": "activity", "title": "Inventory Activity" },
+    { "id": "settings", "title": "Inventory Settings" }
+  ]
+}
