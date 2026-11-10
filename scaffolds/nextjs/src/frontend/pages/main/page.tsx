@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ModuleUIHost } from '../../components/module-ui/ModuleUIHost.js';
 
 export function MainPage({ children }: { children?: React.ReactNode }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -8,7 +9,8 @@ export function MainPage({ children }: { children?: React.ReactNode }) {
         <button type="button" onClick={() => setSettingsOpen(value => !value)}>Settings</button>
       </header>
       <main>{settingsOpen ? <div>Settings</div> : children}</main>
-    </div>
+          <ModuleUIHost />
+</div>
   );
 }
 

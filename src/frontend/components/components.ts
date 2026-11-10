@@ -15,3 +15,6 @@ export {
   DockBar,
   FrnlEditableNodeGraph,
 } from '@ultrst-armada/floks/canvas-ui';
+
+export { ModuleUIHost, registerSkipoModuleUI } from './module-ui/index.js';
+export type { ModuleUIExport, ModuleSurfaceProps, ModuleSurfaceType, SkipoModuleUIContribution } from './module-ui/index.js';

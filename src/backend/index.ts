@@ -13,6 +13,8 @@ export {
   executeService,
   executeOrchestration,
   converse,
+  createFodRuntime,
+  createAikoRuntime,
   getWorkspaceSemanticRuntime,
   type SkipoBackendFacade,
   type ServiceExecutableFacade,
