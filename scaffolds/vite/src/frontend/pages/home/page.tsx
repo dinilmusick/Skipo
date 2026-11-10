@@ -1,3 +1,4 @@
+import { ModuleUIHost } from '../../components/module-ui/ModuleUIHost.js';
 import { useEffect, useState } from 'react';
 import {
   FrnlPage,
@@ -84,6 +85,7 @@ export function HomePage() {
         <InfiniteCanvas items={[]} transform={canvasTransform} onTransformChange={setCanvasTransform} />
         <DockBar items={[]} />
       </BaseCard>
+      <ModuleUIHost />
     </FrnlPage>
   );
 }
