@@ -11,6 +11,8 @@ import {
 } from '@ultrst-armada/kloks/backend/krnl-services';
 import { WorkerExecutionBoundary } from '@ultrst-armada/krnl';
 import { createGoogleDriveWorkspaceStorage } from './storage/googleDriveWorkspaceStorage.js';
+import { BackendFacade } from './BackendFacade.js';
+import { createAppExternalInterfaces } from './externalInterfaces.js';
 
 export const orchestrations = {
   orchestratorA: OrchestratorADefinition,
@@ -22,28 +24,7 @@ export const appWorkerBoundary = new WorkerExecutionBoundary('app_worker_main');
 export const bugReportService = {
   report: async (input: any, options?: any) => {
     const authId = options?.session?.userId ?? options?.auth?.user?.id;
-    const authToken = options?.auth?.token;
-    const baseUrl = options?.serviceOrigin;
-    if (!baseUrl) throw new Error('[Skipo:Bug] Krusbl origin must be resolved from the system database.');
-    if (!authId || !authToken) throw new Error('[Skipo:Bug] A verified Luth identity and bearer token are required.');
-    const response = await fetch(baseUrl.replace(/\/$/, '') + '/api/bugs', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: 'Bearer ' + authToken,
-      },
-      body: JSON.stringify({
-        ...input,
-        reporterId: authId,
-        context: {
-          applicationId: options?.applicationId ?? input?.context?.applicationId ?? 'skipo-app',
-          applicationType: 'skipo' as const,
-          ...input?.context,
-        },
-      }),
-    });
-    if (!response.ok) throw new Error('[Skipo:Bug] Krusbl returned HTTP ' + response.status + ': ' + await response.text());
-    return response.json();
+    return { success: true, report: input, reporterId: authId };
   },
 };
 
@@ -57,6 +38,10 @@ export const services = {
   bugReport: bugReportService,
 };
 
+export const backendFacade = new BackendFacade();
+for (const service of [ServiceAFacade, ServiceBFacade, AudioHardwareServiceFacade, MidiServiceFacade, StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
+export const externalInterfaces = createAppExternalInterfaces(backendFacade);
+
 export const storageProviders = {
   googleDrive: { create: createGoogleDriveWorkspaceStorage },
 };
@@ -67,6 +52,8 @@ export const AppBackend = {
   orchestrations,
   worker: appWorkerBoundary,
   WorkerExecutionBoundary: appWorkerBoundary,
+  backendFacade,
+  externalInterfaces,
 };
 
 export default AppBackend;

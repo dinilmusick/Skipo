@@ -34,7 +34,7 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
             readme_file.write_text(f"# {dir_path.name}\n\n{desc}\n", encoding="utf-8")
             created.append(readme_file)
 
-    # 1. package.json declaring unified @ultrst-armada/kloks, @ultrst-armada/floks
+    # Canonical embedded-module discovery root. Complete applications remain standalone.\n    modules_dir = target_root / "src" / "modules"\n    modules_dir.mkdir(parents=True, exist_ok=True)\n    modules_readme = modules_dir / "README.md"\n    if not modules_readme.exists():\n        modules_readme.write_text("# Embedded Skipo modules\\n\\nPlace complete module-capable Skipo applications in immediate child directories. Each must contain skipo.module.json.\\n", encoding="utf-8")\n        created.append(modules_readme)\n\n    # 1. package.json declaring unified @ultrst-armada/kloks, @ultrst-armada/floks
     pkg_json_file = target_root / "package.json"
     if not pkg_json_file.exists():
         pkg_data = {
@@ -386,19 +386,21 @@ export async function requireLuthSession(request: Request): Promise<LuthGuardRes
         pages_root / "settings" / "tabs" / "accounts",
     ]
     frontend_components.mkdir(parents=True, exist_ok=True)
-    for page_dir in required_page_dirs:
+    # Copy generic module/runtime infrastructure from the canonical Skipo framework.\n    module_ui_source = SKIPO_ROOT / "src" / "frontend" / "components" / "module-ui"\n    module_ui_target = frontend_components / "module-ui"\n    module_ui_target.mkdir(parents=True, exist_ok=True)\n    for source in module_ui_source.glob("*.ts*"):\n        target = module_ui_target / source.name\n        if not target.exists():\n            target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")\n            created.append(target)\n\n    for page_dir in required_page_dirs:
         page_dir.mkdir(parents=True, exist_ok=True)
 
     components_file = frontend_components / "components.ts"
     if not components_file.exists():
         components_file.write_text(
             "export * from '@ultrst-armada/floks/ui';\n"
-            "export { InfiniteCanvas, DockBar, FrnlEditableNodeGraph } from '@ultrst-armada/floks/canvas-ui';\n",
+            "export { InfiniteCanvas, DockBar, FrnlEditableNodeGraph } from '@ultrst-armada/floks/canvas-ui';\n"
+            "export { ModuleUIHost, registerSkipoModuleUI } from './module-ui/index.js';\n"
+            "export type { ModuleUIExport, ModuleSurfaceProps, ModuleSurfaceType, SkipoModuleUIContribution } from './module-ui/index.js';\n",
             encoding="utf-8",
         )
         created.append(components_file)
 
-    page_templates = {
+    # Generic backend/module framework files are copied verbatim from the canonical framework.\n    for relative_dir in ("module-contract", "modules/runtime", "backend/external"):\n        source_dir = SKIPO_ROOT / "src" / relative_dir\n        target_dir = target_root / "src" / relative_dir\n        if source_dir.is_dir():\n            for source in source_dir.rglob("*"):\n                if source.is_file():\n                    target = target_dir / source.relative_to(source_dir)\n                    target.parent.mkdir(parents=True, exist_ok=True)\n                    if not target.exists():\n                        target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")\n                        created.append(target)\n    for relative_file in (\n        "schemas/skipo.module.schema.json",\n        "src/backend/BackendFacade.ts", "src/backend/BackendFacadeTypes.ts",\n        "src/backend/BackendCapabilityCatalog.ts", "src/backend/ModuleBackendAdapter.ts",\n        "src/backend/ModuleBackendAdapterTypes.ts", "src/backend/externalInterfaces.ts",\n    ):\n        source = SKIPO_ROOT / relative_file\n        target = target_root / relative_file\n        if source.is_file() and not target.exists():\n            target.parent.mkdir(parents=True, exist_ok=True)\n            target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")\n            created.append(target)\n\n    page_templates = {
         pages_root / "auth" / "LuthAuthPage.tsx": """'use client';
 
 import React from 'react';
@@ -451,6 +453,7 @@ export async function luthFetch(input: RequestInfo | URL, init: RequestInit = {}
         ),
         pages_root / "main" / "page.tsx": """import React, { useState } from 'react';
 import { frnlPage as FrnlPage } from '../../components/components.js';
+import { ModuleUIHost } from '../../components/module-ui/ModuleUIHost.js';
 
 export function MainPage({ children }: { children?: React.ReactNode }) {
   const [immersive, setImmersive] = useState(false);
@@ -466,6 +469,7 @@ export function MainPage({ children }: { children?: React.ReactNode }) {
       <FrnlPage showTopBar={!immersive} showBottomBar={!immersive}>
         {settingsOpen ? <div>Settings</div> : children}
       </FrnlPage>
+      <ModuleUIHost />
     </div>
   );
 }

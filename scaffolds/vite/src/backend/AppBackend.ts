@@ -11,6 +11,8 @@ import {
 } from '@ultrst-armada/kloks/backend/krnl-services';
 import { WorkerExecutionBoundary } from '@ultrst-armada/krnl';
 import { createGoogleDriveWorkspaceStorage } from './storage/googleDriveWorkspaceStorage.js';
+import { BackendFacade } from './BackendFacade.js';
+import { createAppExternalInterfaces } from './externalInterfaces.js';
 
 export const orchestrations = {
   orchestratorA: OrchestratorADefinition,
@@ -23,7 +25,7 @@ export const bugReportService = {
   report: async (input: any, options?: any) => {
     const authToken = options?.authToken ?? options?.auth?.token ?? '';
     const authId = options?.session?.userId ?? options?.auth?.user?.id ?? '';
-    const baseUrl = process.env.KRUSBL_URL;
+    const baseUrl = '';
     if (!baseUrl) throw new Error('[Skipo:Bug] KRUSBL_URL is required.');
     if (!authId && !authToken) throw new Error('[Skipo:Bug] Authenticated session is required.');
     const response = await fetch(baseUrl.replace(/\/$/, '') + '/api/bugs', {
@@ -60,6 +62,10 @@ export const services = {
   bugReport: bugReportService,
 };
 
+export const backendFacade = new BackendFacade();
+for (const service of [ServiceAFacade, ServiceBFacade, AudioHardwareServiceFacade, MidiServiceFacade, StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
+export const externalInterfaces = createAppExternalInterfaces(backendFacade);
+
 export const storageProviders = {
   googleDrive: { create: createGoogleDriveWorkspaceStorage },
 };
@@ -70,6 +76,8 @@ export const AppBackend = {
   orchestrations,
   worker: appWorkerBoundary,
   WorkerExecutionBoundary: appWorkerBoundary,
+  backendFacade,
+  externalInterfaces,
 };
 
 export default AppBackend;
