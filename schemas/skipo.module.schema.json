@@ -1,0 +1,300 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://skipo.dev/schemas/module-v1.json",
+  "title": "Skipo Module Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "module",
+    "application",
+    "api",
+    "capabilities",
+    "runtime",
+    "resources",
+    "ui",
+    "lifecycle"
+  ],
+  "properties": {
+    "contractVersion": {
+      "const": "1.0.0"
+    },
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "application": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "framework",
+        "root",
+        "standalone",
+        "moduleCapable",
+        "execution"
+      ],
+      "properties": {
+        "framework": {
+          "const": "skipo"
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1
+        },
+        "standalone": {
+          "const": true
+        },
+        "moduleCapable": {
+          "const": true
+        },
+        "execution": {
+          "enum": [
+            "standalone",
+            "embedded",
+            "both"
+          ]
+        }
+      }
+    },
+    "api": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseRoute",
+        "backendFacade"
+      ],
+      "properties": {
+        "baseRoute": {
+          "type": "string",
+          "pattern": "^/api(?:/[a-zA-Z0-9._~-]+)*$"
+        },
+        "backendFacade": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "entry",
+            "consumes"
+          ],
+          "properties": {
+            "mode": {
+              "const": "declared"
+            },
+            "entry": {
+              "type": "string",
+              "minLength": 1
+            },
+            "consumes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            }
+          }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "description"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targets",
+        "requirements"
+      ],
+      "properties": {
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "range": {
+                "type": "string"
+              },
+              "optional": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requires",
+        "optional"
+      ],
+      "properties": {
+        "requires": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/resource"
+          }
+        },
+        "optional": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/resource"
+          }
+        }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exports"
+      ],
+      "properties": {
+        "exports": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "entry",
+              "kind"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "entry": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "enum": [
+                  "page",
+                  "panel",
+                  "widget",
+                  "navigation"
+                ]
+              },
+              "route": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supported"
+      ],
+      "properties": {
+        "supported": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "validate",
+              "initialize",
+              "start",
+              "stop",
+              "dispose"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "required"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

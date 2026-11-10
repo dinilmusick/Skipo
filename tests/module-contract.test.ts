@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { discoverModules, validateModuleManifest, type SkipoModuleManifest } from '../src/module-contract/index.js';
+import { discoverModules, validateModuleManifest, SKIPO_MODULE_MANIFEST_SCHEMA, type SkipoModuleManifest } from '../src/module-contract/index.js';
 
 const fixture = (): SkipoModuleManifest => ({
   contractVersion: '1.0.0',
@@ -31,7 +31,7 @@ async function tempRoot() { const root = await mkdtemp(join(tmpdir(), 'skipo-mod
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
 
 describe('Skipo Module Contract v1', () => {
-  it('accepts a complete standalone-capable module', () => {
+  it('exports the versioned JSON Schema used by manifest tooling', () => {\n    expect(SKIPO_MODULE_MANIFEST_SCHEMA.properties.contractVersion.const).toBe('1.0.0');\n    expect(SKIPO_MODULE_MANIFEST_SCHEMA.required).toContain('module');\n  });\n  it('accepts a complete standalone-capable module', () => {
     expect(validateModuleManifest(fixture()).valid).toBe(true);
   });
   it('rejects malformed identity, version and non-module-capable applications', () => {
