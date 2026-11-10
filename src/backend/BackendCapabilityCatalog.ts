@@ -1,6 +1,18 @@
 import type { IServiceFacade, ServiceNamespace } from '@ultrst-armada/krnl';
 import type { BackendCapabilityDescriptor } from './ModuleBackendAdapterTypes.js';
 
+function cloneFrozenSchema(value: unknown): unknown {
+  if (Array.isArray(value)) return Object.freeze(value.map(cloneFrozenSchema));
+  if (!value || typeof value !== 'object') return value;
+  const copy: Record<string, unknown> = {};
+  for (const [key, nested] of Object.entries(value)) {
+    if (key !== '__proto__' && key !== 'prototype' && key !== 'constructor') {
+      copy[key] = cloneFrozenSchema(nested);
+    }
+  }
+  return Object.freeze(copy);
+}
+
 export function listBackendCapabilities(
   services: ReadonlyMap<string, IServiceFacade>,
   namespaces: Readonly<Record<string, ServiceNamespace>>
@@ -23,9 +35,9 @@ export function listBackendCapabilities(
           name, serviceId, serviceName: ns.serviceName, serviceVersion: ns.version,
           category, description: String(value?.description || definition?.description || ''),
           inputSchema: definition?.inputSchema && typeof definition.inputSchema === 'object'
-            ? Object.freeze({ ...definition.inputSchema }) : undefined,
+            ? cloneFrozenSchema(definition.inputSchema) as Readonly<Record<string, unknown>> : undefined,
           outputSchema: definition?.outputSchema && typeof definition.outputSchema === 'object'
-            ? Object.freeze({ ...definition.outputSchema }) : undefined,
+            ? cloneFrozenSchema(definition.outputSchema) as Readonly<Record<string, unknown>> : undefined,
           invocation: Object.freeze({
             kind: category === 'functionalities' ? 'functionality' as const : 'orchestration' as const,
             operation: name,
