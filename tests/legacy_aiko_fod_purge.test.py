@@ -17,7 +17,7 @@ LEGACY_PATTERNS = (
     r"AIKO_ENGINE_URL|AIKO_MODULE_TOKEN",
     r"/api/aiko|/api/fod",
     r"data-skipo-aiko-chat-trigger|data-skipo-aiko-direct-chat",
-    r"\\bAiko\\b|\\bFOD\\b",
+    r"\bAiko\b|\bFOD\b",
 )
 LEGACY_RE = re.compile("|".join(f"(?:{pattern})" for pattern in LEGACY_PATTERNS), re.IGNORECASE)
 
