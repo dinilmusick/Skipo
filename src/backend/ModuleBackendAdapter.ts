@@ -50,19 +50,19 @@ export class ModuleBackendAdapter {
     }
     this.#declarations = new Map();
     for (const declaration of options.manifest.capabilities) {
-      if (!declaration?.capabilityId || this.declarations.has(declaration.capabilityId)) {
+      if (!declaration?.capabilityId || this.#declarations.has(declaration.capabilityId)) {
         throw new ModuleBackendAdapterError('Capability declarations require unique non-empty IDs.', 'INVALID_MANIFEST');
       }
-      this.declarations.set(declaration.capabilityId, Object.freeze({ ...declaration }));
+      this.#declarations.set(declaration.capabilityId, Object.freeze({ ...declaration }));
     }
   }
 
   async discover(): Promise<readonly DiscoveredModuleCapability[]> {
     const result: DiscoveredModuleCapability[] = [];
     for (const capability of this.#options.backend.listCapabilities()) {
-      const declaration = this.declarations.get(capability.id);
+      const declaration = this.#declarations.get(capability.id);
       if (!declaration) continue;
-      if (await this.options.authorization.canDiscover(this.context(capability))) {
+      if (await this.#options.authorization.canDiscover(this.context(capability))) {
         result.push(Object.freeze({
           ...capability,
           representation: declaration.representation
@@ -77,16 +77,16 @@ export class ModuleBackendAdapter {
     capabilityId: string,
     input: TInput
   ): Promise<TOutput> {
-    const declaration = this.declarations.get(capabilityId);
+    const declaration = this.#declarations.get(capabilityId);
     if (!declaration) {
-      throw new ModuleBackendAdapterError(`Module '${this.options.manifest.moduleId}' has not declared '${capabilityId}'.`, 'CAPABILITY_NOT_DECLARED');
+      throw new ModuleBackendAdapterError(`Module '${this.#options.manifest.moduleId}' has not declared '${capabilityId}'.`, 'CAPABILITY_NOT_DECLARED');
     }
     const capability = this.findCapability(capabilityId);
-    if (!await this.options.authorization.canInvoke(this.context(capability))) {
+    if (!await this.#options.authorization.canInvoke(this.context(capability))) {
       throw new ModuleBackendAdapterError(`Module is not authorized to invoke '${capabilityId}'.`, 'FORBIDDEN');
     }
     const mappedInput = applyMapping(input, declaration.inputMapping);
-    const output = await this.options.backend.executeCapability(
+    const output = await this.#options.backend.executeCapability(
       capability.name,
       capability.invocation.operation,
       mappedInput,
@@ -96,12 +96,12 @@ export class ModuleBackendAdapter {
   }
 
   private findCapability(id: string): BackendCapabilityDescriptor {
-    const capability = this.options.backend.listCapabilities().find((item) => item.id === id);
+    const capability = this.#options.backend.listCapabilities().find((item) => item.id === id);
     if (!capability) throw new ModuleBackendAdapterError(`Parent capability '${id}' is unavailable.`, 'CAPABILITY_NOT_FOUND');
     return capability;
   }
 
   private context(capability: BackendCapabilityDescriptor) {
-    return { moduleId: this.options.manifest.moduleId, capability };
+    return { moduleId: this.#options.manifest.moduleId, capability };
   }
 }
