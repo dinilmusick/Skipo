@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { SkipoModuleHost } from "../src/modules/SkipoModuleHost.js";
 import type { BackendFacade, SkipoModule } from "../src/modules/ModuleContracts.js";
 import { GenericSkipoModule } from "./fixtures/generic-skipo-module/module.js";
@@ -6,6 +7,23 @@ import { MockBackendFacade } from "./fixtures/generic-skipo-module/backend.js";
 import { runStandaloneFixture } from "./fixtures/generic-skipo-module/standalone.js";
 
 describe("generic Skipo module development and testing fixture", () => {
+  it("keeps the fixture manifest aligned with its executable module declaration", () => {
+    const manifest = JSON.parse(readFileSync(
+      new URL("./fixtures/generic-skipo-module/skipo.module.json", import.meta.url), "utf8",
+    )) as { id: string; name: string; version: string; capabilities: string[]; uiSurfaces: Array<{ id: string; title: string }> };
+    expect(new GenericSkipoModule().manifest).toMatchObject(manifest);
+  });
+
+  it("defaults to no capability grants unless the host explicitly approves them", async () => {
+    const module = new GenericSkipoModule();
+    const mounted = await new SkipoModuleHost().mount(module, {
+      mode: "embedded", application: { applicationId: "parent.crm" }, backend: new MockBackendFacade(),
+    });
+    expect(mounted.context.backend.inspectCapability("inventory.list").approved).toBe(false);
+    await expect(module.listInventory("hardware")).rejects.toThrow(/Unauthorized capability/);
+    await mounted.dispose();
+  });
+
   it("runs as a complete standalone application without a parent application", async () => {
     const result = await runStandaloneFixture();
     expect(result.discovered).toHaveLength(1);
@@ -162,6 +180,6 @@ describe("generic Skipo module development and testing fixture", () => {
     };
     await expect(new SkipoModuleHost().mount(module, {
       mode: "embedded", application: { applicationId: "parent.crm" }, backend: restrictedBackend,
-    })).rejects.toThrow(/requests unknown capability: inventory.reserve/);
+    })).rejects.toThrow(/requires unavailable capability: inventory.reserve/);
   });
 });
