@@ -47,10 +47,10 @@ describe('Skipo generic ModuleHost', () => {
     for (const file of files) {
       const source = readFileSync(file, 'utf8');
       expect(source, file).not.toMatch(
-        /from\s+['"][^'"]*(?:SkipoBackend|BackendFacade\\.js|frontend|semantic|Aiko|Fod)/i
+        /from\s+['"][^'"]*(?:SkipoBackend|BackendFacade[.]js|frontend|semantic|Aiko|Fod)/i
       );
       expect(source, file).not.toMatch(
-        /import\s*\(['"][^'"]*(?:SkipoBackend|BackendFacade\\.js|frontend|semantic|Aiko|Fod)/i
+        /import\s*\(['"][^'"]*(?:SkipoBackend|BackendFacade[.]js|frontend|semantic|Aiko|Fod)/i
       );
     }
   });
