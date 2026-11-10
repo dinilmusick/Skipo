@@ -310,8 +310,6 @@ export class SkipoSemanticRuntime {
     if(capability.kind==='gutts') return executeGuttsApi(String(capability.metadata?.apiId??capability.id),input as Record<string,unknown>);
     if(capability.metadata?.service && capability.metadata?.operation)
       return skipoExecutionEngine.executeService(String(capability.metadata.service),String(capability.metadata.operation),input);
-    if(capability.kind==='fod-flow' && capability.metadata?.flowExecutor)
-      return (capability.metadata.flowExecutor as (input:unknown)=>Promise<unknown>)(input);
     throw new Error(`NO_EXECUTOR:${capability.id}`);};
     const res = await new CapabilityExecutionRuntime(this.authorizationPolicy).execute(capability,input,agentContext,{execute});
     return {value:res.artifact.value,artifact:res.artifact};
