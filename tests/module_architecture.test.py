@@ -99,6 +99,14 @@ export async function runStandalone() { const host = createStandaloneModuleHost(
         self.write("src/modules/catalog/module.ts", "import { secret } from '@/backend/internal';\nexport const module = secret;")
         self.assertIn("24.11-parent-import", self.rules())
 
+    def test_parent_application_package_import_is_rejected(self):
+        self.write("src/modules/catalog/module.ts", "import { internal } from '@skipo/app-internals';\nexport const module = internal;")
+        self.assertIn("24.11-parent-import", self.rules())
+
+    def test_alternate_http_client_is_rejected(self):
+        self.write("src/modules/catalog/module.ts", "import ky from 'ky';\nexport const module = { run: () => ky('/api/private') };")
+        self.assertIn("24.14-direct-backend-access", self.rules())
+
     def test_module_outside_src_modules_is_rejected(self):
         self.write("src/features/rogue/module.json", '{"id":"rogue"}')
         self.assertIn("24.2-location", self.rules())

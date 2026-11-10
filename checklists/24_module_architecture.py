@@ -13,8 +13,8 @@ except ImportError:
 EXT = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
 IMPORT = re.compile(r"(?:\bimport\s+(?:type\s+)?(?:[^'\"]*?\s+from\s*)?|\bexport\s+[^'\"]*?\s+from\s*|\bimport\s*\(|\brequire\s*\()\s*['\"]([^'\"]+)['\"]")
 CONTRACT_IMPORTS = {"../module-contract.js", "../module-contract", "../module-contract.ts"}
-FORBIDDEN = re.compile(r"\b(?:BackendFacade|backendFacade|bottom[-_]?bar|BottomStrip|DockBar|AppShellStore|useAppShellStore)\b|[#.]bottom-bar", re.IGNORECASE)
-NETWORK = re.compile(r"\bfetch\s*\(|\baxios\s*\.|\bXMLHttpRequest\b|\bWebSocket\s*\(|\bsendBeacon\s*\(")
+FORBIDDEN = re.compile(r"\b(?:BackendFacade|backendFacade|bottom[-_]?bar|BottomStrip|DockBar|AppShellStore|useAppshellStore)\b|[#.]bottom-bar", re.IGNORECASE)
+NETWORK = re.compile(r"\bfetch\s*\(|\baxios\s*\.|\b(?:ky|got|request|superagent)\s*\(|\bXMLHttpRequest\b|\bWebSocket\s*\(|\bEventSource\s*\(|\bsendBeacon\s*\(|\bhttps?\.(?:get|request)\s*\(")
 FACADE = re.compile(r"\bhost\s*\.\s*backend\s*\.\s*(?:invoke|has)\s*\(")
 CONTRACT_TYPES = re.compile(r"\b(?:SkipoModule|SkipoModuleHost|SkipoModuleManifest)\b")
 
@@ -118,9 +118,12 @@ def validate_module_architecture(root: Path) -> ChecklistResult:
                     if not inside and spec.replace("\\", "/") not in CONTRACT_IMPORTS:
                         add("24.11-parent-import", f"Import '{spec}' crosses the module boundary into parent implementation.", source, line,
                             lines[line - 1].strip(), "Use only the canonical module contract and approved host interfaces.")
-                elif spec.startswith(("@/", "~/", "src/")) and re.search(r"(?:backend|frontend|application|app)/", spec):
-                    add("24.11-parent-import", f"Alias import '{spec}' reaches parent implementation.", source, line,
-                        lines[line - 1].strip(), "Use only SkipoModuleHost and the canonical module contract.")
+                elif spec.startswith(("@/", "~/", "src/")):
+                    add("24.11-parent-import", f"Root alias import '{spec}' can reach parent application implementation.", source, line,
+                        lines[line - 1].strip(), "Use module-local relative imports and the canonical module contract only.")
+                elif spec.startswith("@skipo/") or spec == "skipo":
+                    add("24.11-parent-import", f"Import '{spec}' depends on the parent application package.", source, line,
+                        lines[line - 1].strip(), "Use the canonical SkipoModuleHost contract instead of parent application packages.")
                 elif not spec.startswith(("node:", "#", "@types/")):
                     package = spec.split("/")[0] if not spec.startswith("@") else "/".join(spec.split("/")[:2])
                     if package not in package_deps and package != "typescript":
@@ -135,9 +138,9 @@ def validate_module_architecture(root: Path) -> ChecklistResult:
             entry = entry_file.read_text(encoding="utf-8")
             calls = set(re.findall(r"host\s*\.\s*backend\s*\.\s*(?:invoke|has)\s*\(\s*['\"]([^'\"]+)", entry))
             for cap in sorted(calls - caps): add("24.15-undeclared-capability", f"Invoked capability '{cap}' is not declared in module.json.", entry_file,
-                                               fix=f"Declare '{cap}' in capabilities or remove the invocation.")
+                                                fix=f"Declare '{cap}' in capabilities or remove the invocation.")
             if caps and not FACADE.search(entry): add("24.15-facade-required", "Declared capabilities must be invoked through host.backend.", entry_file,
-                                                     fix="Route capability operations through host.backend.invoke()/has().")
+                                                      fix="Route capability operations through host.backend.invoke()/has().")
     return ChecklistResult("aspect_24", "Skipo Module Architecture Enforcement", not errors, errors, scanned,
                            (time.time() - started) * 1000, max(0.0, 100.0 - len(errors) * 5.0))
 
