@@ -61,15 +61,3 @@ For arbitrary edits, cloud agents use `python3 assistant.py edit operations.json
 - Canonical authentication: `architecture/authentication/SKILL.md` (Better Auth via KLOKS/SRKL + FLOKS UI).
 
 
-## Mandatory FOD and Aiko modules
-
-Every generated Skipo application includes mandatory Main → FOD and Main → Aiko tabs.
-
-- **FOD** discovers host backend endpoints and GutTS APIs deterministically, persists flows under the workspace `FOD/` directory, exposes saved flows through the application backend facade, and supplies the shared capability surface.
-- **Aiko** consumes that same capability surface to generate endpoint agents, saved-flow agents, and GutTS API agents, resolves Intelligence Specs through Aiko Engine, and exposes key management/synchronization through the canonical Aiko runtime.
-- The canonical scaffold is the single source for these modules. Composite application generation must invoke the canonical scaffold rather than maintain a second incomplete application template.
-
-
-## Universal conversational runtime
-
-Generated Skipo applications expose one application agent backed by the semantic runtime. Endpoint, GutTS, and FOD capabilities are registered automatically; tasks and conversation history persist under the active workspace `SEMANTIC/` directory; `/api/converse` provides the transport boundary; global Aiko Direct Chat is mounted above application pages.
