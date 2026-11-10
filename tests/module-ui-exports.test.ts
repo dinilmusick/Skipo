@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { createElement } from 'react';
+import { createElement, memo } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { ModuleUIHost } from '../src/frontend/components/module-ui/ModuleUIHost.js';
@@ -7,6 +7,7 @@ import { ModuleUIRegistry, registerSkipoModuleUI } from '../src/frontend/compone
 import type { ModuleUIExport, SkipoModuleUIContribution } from '../src/frontend/components/module-ui/contract.js';
 
 function surface() { return null; }
+const MemoSurface = memo(function MemoSurface() { return null; });
 function contribution(moduleId: string, exports: Partial<ModuleUIExport>[] = [{}]): SkipoModuleUIContribution {
   return {
     moduleId,
@@ -56,6 +57,14 @@ describe('ModuleUIRegistry', () => {
     registry.register(contribution('calendar'));
     expect(listener).toHaveBeenCalledTimes(1);
     expect(Object.isFrozen(registry.getSnapshot())).toBe(true);
+    expect(Object.isFrozen(registry.getSnapshot()[0].exports)).toBe(true);
+    expect(Object.isFrozen(registry.getSnapshot()[0].exports[0])).toBe(true);
+  });
+
+  it('accepts memoized React surfaces and asset-backed icons', () => {
+    const registry = new ModuleUIRegistry();
+    registry.register(contribution('memoized', [{ component: MemoSurface, icon: { kind: 'asset', src: '/module.svg', alt: 'Module' } }]));
+    expect(registry.getSnapshot()[0].exports[0].component).toBe(MemoSurface);
   });
 
   it('unregisters a module and makes its exports unavailable', () => {
@@ -114,5 +123,7 @@ describe('ModuleUIHost integration', () => {
   it('keeps generic module UI implementation free of application-specific integrations', () => {
     const source = readFileSync(new URL('../src/frontend/components/module-ui/ModuleUIHost.tsx', import.meta.url), 'utf8');
     expect(source).not.toMatch(/Aiko|FOD/i);
+    expect(source).toContain('Escape');
+    expect(source).toContain('event.key === \'Tab\'');
   });
 });
