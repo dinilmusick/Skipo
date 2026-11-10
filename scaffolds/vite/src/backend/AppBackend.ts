@@ -50,6 +50,16 @@ export const bugReportService = {
   },
 };
 
+export const services = {
+  serviceA: ServiceAFacade,
+  serviceB: ServiceBFacade,
+  audioHardware: AudioHardwareServiceFacade,
+  midi: MidiServiceFacade,
+  storage: StorageServiceFacade,
+  workspace: WorkspaceServiceFacade,
+  bugReport: bugReportService,
+};
+
 export const storageProviders = {
   googleDrive: { create: createGoogleDriveWorkspaceStorage },
 };
