@@ -1,3 +1,4 @@
+import { ModuleUIHost } from '../../components/module-ui/ModuleUIHost.js';
 'use client';
 import {useState} from 'react';
 import FodTab from './tabs/fod/page.js';
@@ -13,6 +14,7 @@ export function MainPage(){
       <button type='button' onClick={()=>setTab('settings')}>Settings</button>
     </header>
     <main style={{flex:1,minHeight:0}}>{tab==='fod'?<FodTab workspaceId={workspaceId}/>:tab==='aiko'?<AikoTab workspaceId={workspaceId}/>:<div>Settings</div>}</main>
+    <ModuleUIHost />
   </div>;
 }
 export default MainPage;
