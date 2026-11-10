@@ -15,4 +15,3 @@ export { LoginGate } from './gates/LoginGate.js';
 export type { LoginGateProps } from './gates/LoginGate.js';
 export { WorkspaceGate } from './gates/WorkspaceGate.js';
 export type { WorkspaceGateProps } from './gates/WorkspaceGate.js';
-export { AikoDirectChat } from './aiko/AikoDirectChat.js';

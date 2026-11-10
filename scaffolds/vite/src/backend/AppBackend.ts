@@ -9,11 +9,7 @@ import {
   StorageServiceFacade,
   WorkspaceServiceFacade,
 } from '@ultrst-armada/kloks/backend/krnl-services';
-import { workingWorkspaceService } from '@ultrst-armada/kloks/backend';
 import { WorkerExecutionBoundary } from '@ultrst-armada/krnl';
-import { FodRuntime, createFodServiceFacadeForWorkspace, scanBackendFacadeToNodes } from '@ultrst-armada/kloks/fod';
-import { guttsFodNodeDefinitions, executeGuttsApi } from '@dinilmusick/gutts/api';
-import { createAikoRuntime as buildAikoRuntime, createAikoServiceFacade } from './aikoRuntime.js';
 import { createGoogleDriveWorkspaceStorage } from './storage/googleDriveWorkspaceStorage.js';
 
 export const orchestrations = {
@@ -22,20 +18,6 @@ export const orchestrations = {
 };
 
 export const appWorkerBoundary = new WorkerExecutionBoundary('app_worker_main');
-
-export const createFodRuntime = (workspaceId: string) => {
-  const runtime = new FodRuntime({ workspaceId, workspaceService: workingWorkspaceService });
-  const host = scanBackendFacadeToNodes({ services, orchestrations });
-  const guttsEndpoints = guttsFodNodeDefinitions.map((node: any) => ({
-    id: String(node.metadata.apiId), serviceId: '@dinilmusick/gutts', serviceName: 'GutTS',
-    operationId: String(node.metadata.apiId), operationName: node.label, description: node.description,
-    invoke: (input: Record<string, unknown>) => executeGuttsApi(String(node.metadata.apiId), input),
-  }));
-  runtime.setEndpoints([...host.endpoints, ...guttsEndpoints], [...host.nodes as any, ...guttsFodNodeDefinitions as any]);
-  return runtime;
-};
-
-export const FodServiceFacade = createFodServiceFacadeForWorkspace(createFodRuntime);
 
 export const bugReportService = {
   report: async (input: any, options?: any) => {
@@ -68,17 +50,6 @@ export const bugReportService = {
   },
 };
 
-export const createAikoRuntime = (workspaceId: string) => {
-  const rt = buildAikoRuntime(workspaceId, {
-    fod: createFodRuntime(workspaceId),
-    backend: { services, orchestrations },
-  }) as any;
-  rt.reportBug = (report: any, authToken?: string) => bugReportService.report(report, { authToken });
-  return rt;
-};
-
-export const AikoServiceFacade = createAikoServiceFacade(createAikoRuntime);
-
 export const services = {
   serviceA: ServiceAFacade,
   serviceB: ServiceBFacade,
@@ -86,8 +57,6 @@ export const services = {
   midi: MidiServiceFacade,
   storage: StorageServiceFacade,
   workspace: WorkspaceServiceFacade,
-  fod: FodServiceFacade,
-  aiko: AikoServiceFacade,
   bugReport: bugReportService,
 };
 

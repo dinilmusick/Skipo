@@ -23,21 +23,13 @@ REQUIRED_FILES = (
     "src/frontend/pages/auth/page.tsx",
     "src/frontend/pages/menus/workspaces/page.tsx",
     "src/frontend/pages/main/page.tsx",
-    "src/frontend/pages/main/tabs/fod/page.tsx",
-    "src/frontend/pages/main/tabs/aiko/page.tsx",
     "src/frontend/pages/settings/page.tsx",
     "src/frontend/pages/settings/tabs/themes/page.tsx",
     "src/frontend/pages/settings/tabs/accounts/page.tsx",
 )
 
-REQUIRED_COMPONENT_FILES = (
-    "src/frontend/components/aiko/AikoDirectChat.tsx",
-)
-
 REQUIRED_DIRS = (
     "src/frontend/pages/main/tabs",
-    "src/frontend/pages/main/tabs/fod",
-    "src/frontend/pages/main/tabs/aiko",
 )
 
 ALLOWED_PAGE_ROOTS = {"auth", "menus", "main", "settings"}
@@ -70,16 +62,6 @@ def validate_skipo_frontend_structure(root_dir: Path) -> ChecklistResult:
         if not (root_dir / rel).is_file():
             violations.append(Violation("missing-skipo-page", "error", f"Missing mandatory Skipo frontend page: {rel}", rel))
 
-    for rel in REQUIRED_COMPONENT_FILES:
-        if not (root_dir / rel).is_file():
-            violations.append(Violation("missing-skipo-aiko-direct-chat", "error", f"Missing mandatory global Aiko Direct Chat component: {rel}", rel))
-
-    app_entry = root_dir / "src/frontend/App.tsx"
-    if app_entry.exists():
-        app_text = app_entry.read_text(encoding="utf-8", errors="ignore")
-        if "AikoDirectChat" not in app_text:
-            violations.append(Violation("missing-skipo-aiko-direct-chat-mount", "error", "The application root must mount AikoDirectChat.", str(app_entry.relative_to(root_dir))))
-
     if pages.is_dir():
         for entry in pages.iterdir():
             if entry.is_file():
@@ -108,33 +90,6 @@ def validate_skipo_frontend_structure(root_dir: Path) -> ChecklistResult:
                 suggestion="Implement a shell toggle that removes the Main top and bottom bars while preserving tab content."
             ))
 
-    fod_page = root_dir / "src/frontend/pages/main/tabs/fod/page.tsx"
-    aiko_page = root_dir / "src/frontend/pages/main/tabs/aiko/page.tsx"
-    if fod_page.exists():
-        fod_text = fod_page.read_text(encoding="utf-8", errors="ignore")
-        if "FodModule" not in fod_text or "@ultrst-armada/floks/canvas-ui/fod" not in fod_text:
-            sibling = fod_page.parent / "fod.tsx"
-            if sibling.exists():
-                fod_text += "\n" + sibling.read_text(encoding="utf-8", errors="ignore")
-        if "FodModule" not in fod_text or "@ultrst-armada/floks/canvas-ui/fod" not in fod_text:
-            violations.append(Violation(
-                "invalid-fod-module-binding", "error",
-                "Mandatory FOD tab must bind to the canonical Floks FodModule.",
-                str(fod_page.relative_to(root_dir)),
-            ))
-    if aiko_page.exists():
-        aiko_text = aiko_page.read_text(encoding="utf-8", errors="ignore")
-        if "AikoModule" not in aiko_text or "@ultrst-armada/floks/canvas-ui/aiko" not in aiko_text:
-            sibling = aiko_page.parent / "aiko.tsx"
-            if sibling.exists():
-                aiko_text += "\n" + sibling.read_text(encoding="utf-8", errors="ignore")
-        if "AikoModule" not in aiko_text or "@ultrst-armada/floks/canvas-ui/aiko" not in aiko_text:
-            violations.append(Violation(
-                "invalid-aiko-module-binding", "error",
-                "Mandatory Aiko tab must bind to the canonical Floks AikoModule.",
-                str(aiko_page.relative_to(root_dir)),
-            ))
-
     accounts_page = root_dir / "src/frontend/pages/settings/tabs/accounts/page.tsx"
     if accounts_page.exists():
         text = accounts_page.read_text(encoding="utf-8", errors="ignore")
@@ -146,7 +101,7 @@ def validate_skipo_frontend_structure(root_dir: Path) -> ChecklistResult:
                 suggestion="Sync the authenticated user's app-relevant accounts from SRKL."
             ))
 
-    files_scanned = len(REQUIRED_FILES) + len(REQUIRED_DIRS) + len(REQUIRED_COMPONENT_FILES)
+    files_scanned = len(REQUIRED_FILES) + len(REQUIRED_DIRS)
     errors = sum(v.severity == "error" for v in violations)
     score = max(0.0, 100.0 - errors * 20.0)
     return ChecklistResult(ASPECT_ID, ASPECT_TITLE, errors == 0, violations, files_scanned, (time.time() - start) * 1000, score)

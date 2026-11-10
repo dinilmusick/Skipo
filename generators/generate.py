@@ -109,22 +109,21 @@ def generate_full_subapp(target_dir: Path, params: Dict[str, Any]) -> GeneratorR
     all_messages: List[str] = []
 
     # The composite app generator MUST start from the canonical Skipo scaffold.
-    # This keeps mandatory FOD, Aiko, Settings, auth, workspace, backend services,
-    # and semantic-input wiring identical across every generated application.
+    # This keeps the canonical application structure consistent across generated applications.
     if not params.get("dry_run", False):
         created = scaffold_structure(target_dir, app_name)
         all_files.extend(
             GeneratedFile(
                 relative_path=str(path.relative_to(target_dir)),
                 content=path.read_text(encoding="utf-8") if path.is_file() else "",
-                description="Canonical Skipo mandatory scaffold asset",
+                description="Canonical Skipo application scaffold asset",
             )
             for path in created
             if path.is_file()
         )
-        all_messages.append("Canonical mandatory FOD+Aiko application scaffold applied before composite generation.")
+        all_messages.append("Canonical Skipo application scaffold applied before composite generation.")
     else:
-        all_messages.append("Dry-run: canonical mandatory FOD+Aiko scaffold would be applied before composite generation.")
+        all_messages.append("Dry-run: canonical Skipo application scaffold would be applied before composite generation.")
 
     # 1. Structure (Aspect 01)
     res_struct = mod_01.generate_structure(target_dir, {**params, "name": app_name})
