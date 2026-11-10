@@ -62,9 +62,6 @@ def validate_skipo_frontend_structure(root_dir: Path) -> ChecklistResult:
         if not (root_dir / rel).is_file():
             violations.append(Violation("missing-skipo-page", "error", f"Missing mandatory Skipo frontend page: {rel}", rel))
 
-    app_entry = root_dir / "src/frontend/App.tsx"
-    if app_entry.exists():
-        app_text = app_entry.read_text(encoding="utf-8", errors="ignore")
     if pages.is_dir():
         for entry in pages.iterdir():
             if entry.is_file():
