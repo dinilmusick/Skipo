@@ -706,7 +706,10 @@ export async function handleAikoRoutes(request: Request): Promise<Response | nul
             "export * from '@ultrst-armada/floks/ui';\n"
             "export * from '@ultrst-armada/floks/canvas-ui';\n"
             "export * from '@ultrst-armada/floks/canvas-ui/aiko';\n"
-            "export { AikoDirectChat } from './aiko/AikoDirectChat.js';\n",
+            "export { AikoDirectChat } from './aiko/AikoDirectChat.js';\n"
+            "export { ModuleUIHost } from './module-ui/ModuleUIHost.js';\n"
+            "export { registerSkipoModuleUI } from './module-ui/registry.js';\n"
+            "export type { ModuleUIExport, ModuleSurfaceProps, ModuleSurfaceType, SkipoModuleUIContribution } from './module-ui/contract.js';\n",
             encoding="utf-8",
         )
         created.append(components_file)
