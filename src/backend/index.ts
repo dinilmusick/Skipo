@@ -20,3 +20,4 @@ export {
 export * from './orchestration/index.js';
 export * from './execution/index.js';
 export * from './semantic/SkipoSemanticRuntime.js';
+export * from './external/index.js';
