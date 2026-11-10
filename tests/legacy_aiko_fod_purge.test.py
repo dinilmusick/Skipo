@@ -99,6 +99,9 @@ def test_frontend_architecture_checklist_does_not_require_legacy_modules():
     assert "FodModule" not in source
 
 def test_no_replacement_aiko_module_or_fod_reimplementation_was_added():
+    assert not (ROOT / "src/frontend/pages/main/tabs/aiko").exists()
+    assert not (ROOT / "src/frontend/pages/main/tabs/fod").exists()
+    assert not (ROOT / "src/frontend/components/aiko").exists()
     assert not (ROOT / "src/modules/aiko").exists()
     assert not (ROOT / "scaffolds/vite/src/modules/aiko").exists()
     assert not (ROOT / "scaffolds/nextjs/src/modules/aiko").exists()
