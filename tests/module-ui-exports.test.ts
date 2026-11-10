@@ -130,5 +130,7 @@ describe('ModuleUIHost integration', () => {
     expect(source).not.toMatch(/Aiko|FOD/i);
     expect(source).toContain('Escape');
     expect(source).toContain('event.key === \'Tab\'');
+    expect(source).toContain('createPortal');
+    expect(source).toContain('data-frnl-component="frnlBottomBar"');
   });
 });
