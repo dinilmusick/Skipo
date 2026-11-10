@@ -111,7 +111,15 @@ export class BackendFacade implements IBackendFacade {
     const targetOp = operation || capabilityName;
     let targetService: IServiceFacade | undefined;
 
-    if (options?.serviceId) {\n      targetService = this.services.get(options.serviceId);\n      if (!targetService) throw new Error(`[BackendFacade] Service '${options.serviceId}' not found.`);\n      const ownsCapability = [\n        ...(this.capabilityOwners.get(`functionalities:${capabilityName}`) || []),\n        ...(this.capabilityOwners.get(`orchestrations:${capabilityName}`) || []),\n      ].some((owner) => owner.serviceId === targetService!.id);\n      if (!ownsCapability) throw new Error(`[BackendFacade] Service '${options.serviceId}' does not own capability '${capabilityName}'.`);\n    } else if (this.services.has(capabilityName)) {
+    if (options?.serviceId) {
+      targetService = this.services.get(options.serviceId);
+      if (!targetService) throw new Error(`[BackendFacade] Service '${options.serviceId}' not found.`);
+      const ownsCapability = [
+        ...(this.capabilityOwners.get(`functionalities:${capabilityName}`) || []),
+        ...(this.capabilityOwners.get(`orchestrations:${capabilityName}`) || []),
+      ].some((owner) => owner.serviceId === targetService!.id);
+      if (!ownsCapability) throw new Error(`[BackendFacade] Service '${options.serviceId}' does not own capability '${capabilityName}'.`);
+    } else if (this.services.has(capabilityName)) {
       targetService = this.services.get(capabilityName);
     } else {
       const owners = [
