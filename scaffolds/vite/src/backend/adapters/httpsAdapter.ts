@@ -55,14 +55,14 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
     return new Response(luthProxyResponse.body, { status: luthProxyResponse.status, headers });
   }
 
-  const auth = await authenticateLuthRequest(request);
-  if (auth.status) return jsonRes({ success: false, error: auth.error }, auth.status);
-  if (auth.request) request = auth.request;
-
   const mcpResponse = await externalInterfaces.mcp(request);
   if (mcpResponse) return mcpResponse;
   const externalHttpResponse = await externalInterfaces.http(request);
   if (externalHttpResponse) return externalHttpResponse;
+
+  const auth = await authenticateLuthRequest(request);
+  if (auth.status) return jsonRes({ success: false, error: auth.error }, auth.status);
+  if (auth.request) request = auth.request;
 
   const fodResponse = await handleFodRoutes(request);
   if (fodResponse) return fodResponse;
