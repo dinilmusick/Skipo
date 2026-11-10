@@ -79,3 +79,26 @@ it("supports MCP initialized notifications and structured tool errors", async ()
   const result = await failedMcp(new Request("https://app.test/mcp", { method: "POST", body: JSON.stringify({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "fails", arguments: { value: 1 } } }) }));
   expect((await result!.json()).result.structuredContent).toEqual({ error: { code: "INTERNAL_ERROR", message: "Internal server error" } });
 });
+
+it("serves authorized capability details and OpenAPI discovery", async () => {
+  const s = setup();
+  const detail = await s.http(new Request("https://app.test/api/capabilities/math.double"));
+  expect((await detail!.json()).invocation).toEqual({ serviceId: "math", operationId: "double" });
+  const openapi = await s.http(new Request("https://app.test/api/openapi.json"));
+  expect((await openapi!.json()).paths["/api/capabilities/math.double/invoke"].post.requestBody.content["application/json"].schema).toEqual(inputSchema);
+});
+it("does not disclose or invoke explicitly hidden capabilities", async () => {
+  const s = setup();
+  s.registry.register({ id: "internal.only", description: "Hidden.", inputSchema, outputSchema, invocation: { serviceId: "internal", operationId: "run" }, access: "public", discoverable: false });
+  expect(s.registry.list({ userId: "u1" }).map(cap => cap.id)).toEqual(["math.double"]);
+  await expect(s.registry.invoke("internal.only", { value: 1 }, { principal: { userId: "u1" }, transport: "mcp", requestId: "hidden" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+});
+it("rejects callers without the required capability role", async () => {
+  const registry = new CapabilityRegistry({ execute: vi.fn(async () => ({ doubled: 2 })) }).register({ id: "admin.run", description: "Admin operation.", inputSchema, outputSchema, invocation: { serviceId: "admin", operationId: "run" }, access: "roles", requiredRoles: ["admin"] });
+  await expect(registry.invoke("admin.run", { value: 1 }, { principal: { userId: "reader", roles: ["reader"] }, transport: "http", requestId: "forbidden" })).rejects.toMatchObject({ code: "FORBIDDEN", status: 403 });
+});
+it("initializes the MCP protocol with advertised tool support", async () => {
+  const s = setup();
+  const initialized = await s.mcp(new Request("https://app.test/mcp", { method: "POST", body: JSON.stringify({ jsonrpc: "2.0", id: 9, method: "initialize", params: { protocolVersion: "2025-03-26" } }) }));
+  expect((await initialized!.json()).result.capabilities.tools).toEqual({ listChanged: false });
+});
