@@ -12,7 +12,7 @@ LEGACY_PATTERNS = (
     r"@ultrst-armada/floks/canvas-ui/fod",
     r"@dinilmusick/gutts/api",
     r"createAikoRuntime|createSkipoAikoRuntime|AikoServiceFacade",
-    r"createFodRuntime|FodServiceFacade|FodRuntime",
+    r"createFodRuntime|FodServiceFacade|FodRuntime|handleFodRoutes",
     r"AikoDirectChat|AikoModule|FodModule",
     r"AIKO_ENGINE_URL|AIKO_MODULE_TOKEN",
     r"/api/aiko|/api/fod",
@@ -64,6 +64,8 @@ def test_vite_and_nextjs_templates_have_no_legacy_tabs_or_routes():
         assert "FOD" not in (base / "src/frontend/pages/main/page.tsx").read_text()
     assert not (ROOT / "scaffolds/nextjs/app/api/aiko").exists()
     assert not (ROOT / "scaffolds/vite/src/backend/adapters/aikoRoutes.ts").exists()
+    assert not (ROOT / "scaffolds/vite/src/backend/adapters/fodRoutes.ts").exists()
+    assert not (ROOT / "scaffolds/nextjs/app/api/fod").exists()
 
 
 def test_no_legacy_workspace_menu_or_top_right_shortcut_remains():
