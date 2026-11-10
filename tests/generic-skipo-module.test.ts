@@ -30,6 +30,7 @@ describe("generic Skipo module development and testing fixture", () => {
     expect(result.mounted.context.mode).toBe("standalone");
     expect(result.mounted.context.application.applicationId).toBe("generic-inventory-standalone");
     expect(result.overview).toMatchObject({ surface: "overview", mode: "standalone" });
+    await expect(result.module.listInventory("standalone")).resolves.toEqual({ items: ["gear", "sensor", "actuator"] });
     await result.mounted.dispose();
   });
 
