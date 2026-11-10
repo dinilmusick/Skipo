@@ -66,6 +66,9 @@ describe('ModuleBackendAdapter', () => {
     });
     expect(capabilities[0]).not.toHaveProperty('execute');
     expect(capabilities[0]).not.toHaveProperty('definition');
+    expect(capabilities[0].inputSchema?.properties).toBeDefined();
+    expect(Object.isFrozen(capabilities[0].inputSchema)).toBe(true);
+    expect(Object.isFrozen(capabilities[0].inputSchema?.properties)).toBe(true);
   });
 
   it('filters undeclared capabilities and denies discovery when policy rejects it', async () => {
@@ -86,6 +89,8 @@ describe('ModuleBackendAdapter', () => {
 
   it('maps inputs and outputs and invokes through the canonical parent BackendFacade', async () => {
     const { backend, adapter } = fixture();
+    expect(adapter).not.toHaveProperty('options');
+    expect(adapter).not.toHaveProperty('declarations');
     const execute = vi.spyOn(backend, 'executeCapability');
     const result = await adapter.invoke<{ payload: { id: string } }, { label: string }>(
       capabilityId, { payload: { id: '42' } }
