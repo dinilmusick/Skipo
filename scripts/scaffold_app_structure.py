@@ -688,6 +688,15 @@ export async function handleAikoRoutes(request: Request): Promise<Response | nul
     ]
     frontend_components.mkdir(parents=True, exist_ok=True)
     (frontend_components / "aiko").mkdir(parents=True, exist_ok=True)
+    # Copy the canonical host-managed module UI contract into every generated app.
+    module_ui_source = SKIPO_ROOT / "src" / "frontend" / "components" / "module-ui"
+    module_ui_target = frontend_components / "module-ui"
+    module_ui_target.mkdir(parents=True, exist_ok=True)
+    for module_ui_file in module_ui_source.glob("*.ts*"):
+        target_file = module_ui_target / module_ui_file.name
+        if not target_file.exists():
+            target_file.write_text(module_ui_file.read_text(encoding="utf-8"), encoding="utf-8")
+            created.append(target_file)
     for page_dir in required_page_dirs:
         page_dir.mkdir(parents=True, exist_ok=True)
 
@@ -755,7 +764,8 @@ export async function luthFetch(input: RequestInfo | URL, init: RequestInit = {}
         ),
         pages_root / "main" / "page.tsx": (
             "import React, { useState } from 'react';\n"
-            "import { frnlPage as FrnlPage } from '../../components/components.js';\n\n"
+            "import { frnlPage as FrnlPage } from '../../components/components.js';\n"
+            "import { ModuleUIHost } from '../../components/module-ui/ModuleUIHost.js';\n\n"
             "export function MainPage({ children, fod, aiko }: { children?: React.ReactNode; fod?: React.ReactNode; aiko?: React.ReactNode }) {\n"
             "  const [immersive, setImmersive] = useState(false);\n"
             "  const [tab, setTab] = useState<'main' | 'fod' | 'aiko' | 'settings'>('main');\n"
@@ -764,6 +774,7 @@ export async function luthFetch(input: RequestInfo | URL, init: RequestInit = {}
             "    <div data-skipo-main-page=\"true\" data-immersive={immersive}>\n"
             "      <nav><button type=\"button\" onClick={() => setTab('main')}>Main</button><button type=\"button\" onClick={() => setTab('fod')}>FOD</button><button type=\"button\" onClick={() => setTab('aiko')}>Aiko</button><button type=\"button\" onClick={() => setTab('settings')}>Settings</button><button type=\"button\" data-skipo-immersive-toggle=\"true\" onClick={() => setImmersive((value) => !value)}>{immersive ? 'Exit immersive' : 'Immersive'}</button></nav>\n"
             "      <FrnlPage showTopBar={!immersive} showBottomBar={!immersive}>{tab === 'settings' ? <div>Settings</div> : content}</FrnlPage>\n"
+            "      <ModuleUIHost />\n"
             "    </div>\n"
             "  );\n"
             "}\n\n"
