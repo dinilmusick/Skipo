@@ -7,29 +7,41 @@ from pathlib import Path
 from typing import Any
 
 
-APP_SOURCE = """/**
- * Canonical application contract: every provider delegates to this Fetch handler.
- * Keep application routing and business logic here; provider files are thin adapters.
- */
-import { fetchHandler } from "./backend/adapters/httpsAdapter.js";
-
-export const fetch = fetchHandler;
-export default { fetch };
-"""
-
 SCAFFOLD_APP_SOURCE = """/**
  * Canonical Web-standard application entrypoint.
- * Add application routes here; provider adapters delegate to this Fetch handler.
+ * All provider adapters delegate to this handler; add application routes here.
  */
-export async function fetch(request: Request): Promise<Response> {
-  const url = new URL(request.url);
-  if (url.pathname === "/health" || url.pathname === "/api/health") {
-    return Response.json({ status: "ok", runtime: "fetch" });
-  }
-  return new Response("Not Found", { status: 404 });
+export interface SkipoEnv {
+  ASSETS?: { fetch: (request: Request) => Promise<Response> };
+  [key: string]: unknown;
 }
+
+const cors = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+  "access-control-allow-headers": "content-type,authorization",
+};
+
+export async function fetch(
+  request: Request,
+  env: SkipoEnv = {},
+  _ctx?: unknown,
+): Promise<Response> {
+  const url = new URL(request.url);
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+  if (url.pathname === "/health" || url.pathname === "/api/health") {
+    return Response.json({ status: "ok", runtime: "fetch" }, { headers: cors });
+  }
+  if (env.ASSETS && !url.pathname.startsWith("/api/")) {
+    return env.ASSETS.fetch(request);
+  }
+  return Response.json({ error: "Not Found" }, { status: 404, headers: cors });
+}
+
 export default { fetch };
 """
+
+APP_SOURCE = SCAFFOLD_APP_SOURCE
 
 CLOUDFLARE_SOURCE = """import { fetch } from "../app.js";
 
@@ -146,12 +158,6 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(source, encoding="utf-8")
             created.append(path)
-
-    # Bind the single application entry to the generated HTTP contract when available.
-    adapter = target / "src/backend/adapters/httpsAdapter.ts"
-    app_entry = target / "src/app.ts"
-    if adapter.is_file() and app_entry.is_file():
-        app_entry.write_text(APP_SOURCE, encoding="utf-8")
 
     manifest = {
         "schemaVersion": 1,
