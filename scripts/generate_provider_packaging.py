@@ -101,6 +101,7 @@ if (has("next.config.js") || has("next.config.mjs") || has("next.config.ts")) {
   run("npx", ["vite", "build", "--outDir", "dist/client"]);
 }
 for (const path of [
+  "dist/client",
   "dist/providers/cloudflare",
   "dist/providers/vercel",
   "dist/providers/node",
@@ -206,7 +207,6 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
             "$schema": "https://openapi.vercel.sh/vercel.json",
             "buildCommand": "npm run build",
             "outputDirectory": "dist/client",
-            "functions": {"api/index.js": {"runtime": "edge"}},
         }, indent=2) + "\n", encoding="utf-8")
     if vercel not in created:
         created.append(vercel)
