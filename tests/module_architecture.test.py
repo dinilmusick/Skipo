@@ -43,6 +43,5 @@ def test_architecture_rejects_direct_network_and_parent_imports():
         (candidate / "entry.ts").write_text("import x from '../../../src/backend/BackendFacade.js'; fetch('/api/x');")
         result = architecture.validate_module_architecture(root)
         assert not result.passed
-        messages = "
-".join(v.message for v in result.violations)
+        messages = "\n".join(v.message for v in result.violations)
         assert "bypass" in messages or "network" in messages
