@@ -95,81 +95,17 @@ export async function adaptNodeRequest(
     ))
 
     # 1.1 httpsAdapter.ts (Universal Fetch API / Routing / Asset Fallback)
-    adapter_code = f"""/**
- * @file httpsAdapter.ts
- * @description Universal Protocol Adapter converting {backend_import} into a Web Standard Fetch HTTP Server.
- * Conforms to MULTI_TARGET_BUILD_SPEC & Inviolable Laws L8, L24 (< 200 lines).
+    adapter_code = """/**
+ * Compatibility adapter for existing Skipo backend route imports.
+ * The canonical application implementation lives only in src/app.ts.
  */
-
-import {{ {backend_import} }} from '../{backend_import}';
-export interface Env {{
-  ENVIRONMENT?: string;
-  APP_NAME?: string;
-  SYSTEM_DATABASE_URL_1?: string;
-  SYSTEM_DATABASE_URL_2?: string;
-  SYSTEM_DATABASE_URL_3?: string;
-  ASSETS?: {{ fetch: (request: Request) => Promise<Response> }};
-  [key: string]: unknown;
-}}
-
-const CORS_HEADERS = {{
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Id, X-Workspace-Id, X-Vault-Key',
-}};
-
-function jsonRes(data: unknown, status = 200): Response {{
-  return new Response(JSON.stringify(data), {{ status, headers: {{ 'Content-Type': 'application/json', ...CORS_HEADERS }} }});
-}}
-
-export async function fetchHandler(request: Request, env: Env = {{}}): Promise<Response> {{
-  const url = new URL(request.url);
-  const {{ pathname, method }} = url;
-
-  // CORS Preflight
-  if (method === 'OPTIONS') {{
-    return new Response(null, {{ status: 204, headers: CORS_HEADERS }});
-  }}
-
-  // Standard Health Probe Gate
-  if (pathname === '/api/health' || pathname === '/health') {{
-    return jsonRes({{
-      status: 'ok',
-      service: '{app_name.lower()}-engine',
-      timestamp: new Date().toISOString(),
-    }});
-  }}
-
-  // Non-API UI Asset Fallback (Cloudflare Workers with Assets)
-  // Law L24: Pass request as-is. not_found_handling='single-page-application' serves index.html natively.
-  // Manual /index.html rewrites are banned to prevent infinite redirect loops.
-  if (env.ASSETS && typeof env.ASSETS.fetch === 'function' && !pathname.startsWith('/api/')) {{
-    return await env.ASSETS.fetch(request);
-  }}
-
-  try {{
-    return jsonRes({{
-      success: true,
-      message: `${backend_import} ready for protocol execution`,
-      path: pathname,
-    }});
-  }} catch (err: unknown) {{
-    const message = err instanceof Error ? err.message : String(err);
-    return jsonRes({{ success: false, error: message }}, 500);
-  }}
-}}
-
-export default {{
-  async fetch(request: Request, env: Env = {{}}, ctx?: any): Promise<Response> {{
-    return fetchHandler(request, env);
-  }},
-}};
-
+export { fetch as fetchHandler, default } from '../../app.js';
+export type { SkipoEnv as Env } from '../../app.js';
 """
     files.append(GeneratedFile(
         relative_path="src/backend/adapters/httpsAdapter.ts",
         content=adapter_code,
-        description="Universal Protocol Adapter exposing Backend Facade via Web Standard Fetch API."
+        description="Compatibility re-export of the single Fetch application entry."
     ))
 
     # 1.2 universalEntry.ts (Single Universal Polyglot Entrypoint: CF Workers, Vercel, Node)
