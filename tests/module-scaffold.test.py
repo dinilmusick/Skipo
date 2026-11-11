@@ -34,6 +34,11 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         assert (target / "src/providers/cloudflare.ts").is_file()
         assert (target / "src/providers/vercel.ts").is_file()
         assert (target / "src/providers/node.ts").is_file()
+        assert 'from "../app.js"' in (target / "src/providers/cloudflare.ts").read_text(encoding="utf-8")
+        assert 'from "../app.js"' in (target / "src/providers/vercel.ts").read_text(encoding="utf-8")
+        assert 'node:http' in (target / "src/providers/node.ts").read_text(encoding="utf-8")
+        assert not (target / "config/build/manifests/fullstack.json").exists()
+        assert not (target / "config/build/manifests/api.json").exists()
 
         # The scaffold must not rewrite the canonical ecosystem dependency versions.
         dependencies = package["dependencies"]
@@ -42,3 +47,37 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         assert dependencies["@ultrst-armada/frnlts"] == "^0.5.5"
         assert dependencies["@ultrst-armada/kloks"] == "^1.26.0"
         assert dependencies["@ultrst-armada/floks"] == "^1.13.18"
+
+
+
+def test_multi_target_generation_uses_the_scaffold_fetch_entry_and_one_build():
+    import json
+
+    with tempfile.TemporaryDirectory() as tmp:
+        target = Path(tmp) / "FreshGeneratedApp"
+        scaffold = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "scaffold_app_structure.py"), str(target), "--name", "FreshGeneratedApp"],
+            cwd=ROOT, capture_output=True, text=True,
+        )
+        assert scaffold.returncode == 0, scaffold.stdout + scaffold.stderr
+
+        generated = subprocess.run(
+            [sys.executable, str(ROOT / "assistant.py"), "generate", "multi-target", str(target), "--name", "FreshGeneratedApp"],
+            cwd=ROOT, capture_output=True, text=True,
+        )
+        assert generated.returncode == 0, generated.stdout + generated.stderr
+
+        app = (target / "src/app.ts").read_text(encoding="utf-8")
+        assert 'from "./backend/adapters/httpsAdapter.js"' in app
+        assert (target / "src/backend/adapters/httpsAdapter.ts").is_file()
+        assert not (target / "src/backend/adapters/universalEntry.ts").exists()
+        assert not (target / "src/backend/adapters/nodeBridge.ts").exists()
+
+        package = json.loads((target / "package.json").read_text(encoding="utf-8"))
+        assert package["scripts"]["build"] == "node scripts/skipo-build.mjs"
+        assert "build:fullstack" not in package["scripts"]
+        assert "build:api" not in package["scripts"]
+
+        manifest = json.loads((target / "skipo.providers.json").read_text(encoding="utf-8"))
+        assert manifest["application"]["entry"] == "src/app.ts"
+        assert set(manifest["providers"]) == {"cloudflare", "vercel", "node"}
