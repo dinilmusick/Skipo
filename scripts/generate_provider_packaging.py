@@ -223,6 +223,8 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
         "config/build/manifests/api.json",
         "tsconfig.api.json",
         "src/backend/adapters/universalEntry.ts",
+        "src/backend/adapters/nodeBridge.ts",
+        "scripts/skipo-build.cjs",
     ):
         obsolete = target / relative
         if obsolete.is_file():
