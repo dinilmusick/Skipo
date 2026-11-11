@@ -102,8 +102,6 @@ export async function adaptNodeRequest(
  */
 
 import {{ {backend_import} }} from '../{backend_import}';
-import {{ adaptNodeRequest }} from './nodeBridge';
-
 export interface Env {{
   ENVIRONMENT?: string;
   APP_NAME?: string;
@@ -167,7 +165,6 @@ export default {{
   }},
 }};
 
-export {{ adaptNodeRequest }};
 """
     files.append(GeneratedFile(
         relative_path="src/backend/adapters/httpsAdapter.ts",
@@ -507,6 +504,18 @@ try {
         description="Unified build commands for Vercel, Cloudflare, and Node."
     ))
 
+    # Do not emit the retired polyglot/split-target artifacts. Provider packaging is
+    # generated after the single Fetch application has been emitted.
+    retired_paths = {
+        "src/backend/adapters/universalEntry.ts",
+        "src/backend/adapters/nodeBridge.ts",
+        "config/build/manifests/fullstack.json",
+        "config/build/manifests/api.json",
+        "tsconfig.api.json",
+        "scripts/skipo-build.cjs",
+    }
+    files = [item for item in files if item.relative_path not in retired_paths]
+
     result = emit_directory(
         target_dir=target_dir,
         files=files,
@@ -516,9 +525,12 @@ try {
     result.generator_id = GENERATOR_ID
     result.generator_title = GENERATOR_TITLE
     result.duration_ms = (time.time() - start_time) * 1000
-    if existing_package and not params.get("dry_run", False):
-        package_path.write_text(json.dumps(package_content, indent=2) + "\n", encoding="utf-8")
-        result.messages.append("Merged required universal build scripts into package.json")
+    if not params.get("dry_run", False):
+        from scripts.generate_provider_packaging import generate_provider_packaging
+        generated = generate_provider_packaging(target_dir, app_name)
+        result.messages.append(
+            f"Generated one Fetch application with {len(generated)} provider packaging assets."
+        )
     return result
 
 def main():
