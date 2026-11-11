@@ -37,7 +37,18 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
             readme_file.write_text(f"# {dir_path.name}\n\n{desc}\n", encoding="utf-8")
             created.append(readme_file)
 
-    # Canonical embedded-module discovery root. Complete applications remain standalone.\n    modules_dir = target_root / "src" / "modules"\n    modules_dir.mkdir(parents=True, exist_ok=True)\n    modules_readme = modules_dir / "README.md"\n    if not modules_readme.exists():\n        modules_readme.write_text("# Embedded Skipo modules\\n\\nPlace complete module-capable Skipo applications in immediate child directories. Each must contain skipo.module.json.\\n", encoding="utf-8")\n        created.append(modules_readme)\n\n    # 1. package.json declaring unified @ultrst-armada/kloks, @ultrst-armada/floks
+    # Canonical embedded-module discovery root. Complete applications remain standalone.
+    modules_dir = target_root / "src" / "modules"
+    modules_dir.mkdir(parents=True, exist_ok=True)
+    modules_readme = modules_dir / "README.md"
+    if not modules_readme.exists():
+        modules_readme.write_text(
+            "# Embedded Skipo modules\n\n"
+            "Place complete module-capable Skipo applications in immediate child directories. "
+            "Each must contain skipo.module.json.\n",
+            encoding="utf-8",
+        )
+        created.append(modules_readme)\n\n    # 1. package.json declaring unified @ultrst-armada/kloks, @ultrst-armada/floks
     pkg_json_file = target_root / "package.json"
     if not pkg_json_file.exists():
         pkg_data = {
