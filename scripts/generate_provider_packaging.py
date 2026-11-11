@@ -17,6 +17,20 @@ export const fetch = fetchHandler;
 export default { fetch };
 """
 
+SCAFFOLD_APP_SOURCE = """/**
+ * Canonical Web-standard application entrypoint.
+ * Add application routes here; provider adapters delegate to this Fetch handler.
+ */
+export async function fetch(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  if (url.pathname === "/health" || url.pathname === "/api/health") {
+    return Response.json({ status: "ok", runtime: "fetch" });
+  }
+  return new Response("Not Found", { status: 404 });
+}
+export default { fetch };
+"""
+
 CLOUDFLARE_SOURCE = """import { fetch } from "../app.js";
 
 /** Cloudflare Worker adapter; application behavior remains in ../app.ts. */
@@ -122,7 +136,10 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
         "src/providers/node.ts": NODE_SOURCE,
         "scripts/skipo-build.mjs": BUILD_SCRIPT,
     }
+    adapter_exists = (target / "src/backend/adapters/httpsAdapter.ts").is_file()
     for relative, source in files.items():
+        if relative == "src/app.ts" and not adapter_exists:
+            source = SCAFFOLD_APP_SOURCE
         path = target / relative
         if not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
