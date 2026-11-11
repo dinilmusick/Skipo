@@ -578,6 +578,7 @@ export default App;
         lib_index.write_text("// Application-specific custom libraries only (never duplicate @ultrst-armada/kloks or @ultrst-armada/floks)\nexport {};\n", encoding="utf-8")
         created.append(lib_index)
 
+    created.extend(generate_provider_packaging(target_root, app_name))
     return created
 
 def run_validators(target_root: Path) -> Tuple[bool, str]:
