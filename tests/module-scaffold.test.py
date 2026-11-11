@@ -68,8 +68,9 @@ def test_multi_target_generation_uses_the_scaffold_fetch_entry_and_one_build():
         assert generated.returncode == 0, generated.stdout + generated.stderr
 
         app = (target / "src/app.ts").read_text(encoding="utf-8")
-        assert 'from "./backend/adapters/httpsAdapter.js"' in app
-        assert (target / "src/backend/adapters/httpsAdapter.ts").is_file()
+        assert "export async function fetch" in app
+        adapter = (target / "src/backend/adapters/httpsAdapter.ts").read_text(encoding="utf-8")
+        assert "export { fetch as fetchHandler" in adapter
         assert not (target / "src/backend/adapters/universalEntry.ts").exists()
         assert not (target / "src/backend/adapters/nodeBridge.ts").exists()
 
