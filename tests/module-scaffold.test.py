@@ -36,7 +36,14 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         assert (target / "src/providers/node.ts").is_file()
         assert 'from "../app.js"' in (target / "src/providers/cloudflare.ts").read_text(encoding="utf-8")
         assert 'from "../app.js"' in (target / "src/providers/vercel.ts").read_text(encoding="utf-8")
-        assert 'node:http' in (target / "src/providers/node.ts").read_text(encoding="utf-8")
+        cloudflare = (target / "src/providers/cloudflare.ts").read_text(encoding="utf-8")
+        vercel = (target / "src/providers/vercel.ts").read_text(encoding="utf-8")
+        node = (target / "src/providers/node.ts").read_text(encoding="utf-8")
+        assert "node:" not in cloudflare
+        assert "node:" not in vercel
+        assert "node:http" in node
+        assert 'main = "dist/providers/cloudflare/worker.js"' in (target / "wrangler.toml").read_text(encoding="utf-8")
+        assert '"buildCommand": "npm run build"' in (target / "vercel.json").read_text(encoding="utf-8")
         assert not (target / "config/build/manifests/fullstack.json").exists()
         assert not (target / "config/build/manifests/api.json").exists()
 
