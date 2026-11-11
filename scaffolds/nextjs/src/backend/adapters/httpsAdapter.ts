@@ -5,6 +5,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { DepmBackend } from '../DepmBackend';
+import { externalInterfaces } from '../externalInterfaces.js';
 import { adaptNodeRequest } from './nodeBridge';
 import { handleVaultRoutes } from './vaultRoutes';
 
@@ -43,6 +44,11 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
   const { method } = request;
 
   if (method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
+
+  const mcp = await externalInterfaces.mcp(request);
+  if (mcp) return mcp;
+  const http = await externalInterfaces.http(request);
+  if (http) return http;
 
   const ingress = DepmBackend.services.routes.matchGatewayIngress(pathname);
   if (ingress) return Response.redirect(ingress.destinationUrl, 302);
