@@ -170,8 +170,7 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
     package_path.write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
 
     wrangler = target / "wrangler.toml"
-    if not wrangler.exists():
-        wrangler.write_text(
+    wrangler.write_text(
             f'name = "{app_name.lower()}-worker"\n'
             'main = "dist/providers/cloudflare/worker.js"\n'
             'compatibility_date = "2026-01-01"\n\n'
@@ -183,14 +182,26 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
             '[build]\ncommand = "npm run build"\n',
             encoding="utf-8",
         )
+    if wrangler not in created:
         created.append(wrangler)
     vercel = target / "vercel.json"
-    if not vercel.exists():
-        vercel.write_text(json.dumps({
+    vercel.write_text(json.dumps({
             "$schema": "https://openapi.vercel.sh/vercel.json",
             "buildCommand": "npm run build",
             "outputDirectory": "dist/client",
             "functions": {"api/index.js": {"runtime": "edge"}},
         }, indent=2) + "\n", encoding="utf-8")
+    if vercel not in created:
         created.append(vercel)
+
+    # Remove obsolete split-target manifests; provider packages are now derived from one app.
+    for relative in (
+        "config/build/manifests/fullstack.json",
+        "config/build/manifests/api.json",
+        "tsconfig.api.json",
+        "src/backend/adapters/universalEntry.ts",
+    ):
+        obsolete = target / relative
+        if obsolete.is_file():
+            obsolete.unlink()
     return created
