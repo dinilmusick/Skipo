@@ -48,7 +48,9 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
             "Each must contain skipo.module.json.\n",
             encoding="utf-8",
         )
-        created.append(modules_readme)\n\n    # 1. package.json declaring unified @ultrst-armada/kloks, @ultrst-armada/floks
+        created.append(modules_readme)
+
+    # 1. package.json declaring unified @ultrst-armada/kloks, @ultrst-armada/floks
     pkg_json_file = target_root / "package.json"
     if not pkg_json_file.exists():
         pkg_data = {
