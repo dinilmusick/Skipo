@@ -95,7 +95,7 @@ server.listen(port, () => console.log(`Skipo Fetch app listening on ${port}`));
 
 BUILD_SCRIPT = r'''#!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { mkdirSync, existsSync } from "node:fs";
+import { mkdirSync, existsSync, cpSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = process.cwd();
@@ -109,6 +109,9 @@ function has(name) { return existsSync(resolve(root, name)); }
 console.log("[skipo] Building the single Fetch application and provider packages");
 if (has("next.config.js") || has("next.config.mjs") || has("next.config.ts")) {
   run("npx", ["next", "build"]);
+  mkdirSync(resolve(root, "dist/client/_next"), { recursive: true });
+  if (has(".next/static")) cpSync(resolve(root, ".next/static"), resolve(root, "dist/client/_next/static"), { recursive: true });
+  if (has("public")) cpSync(resolve(root, "public"), resolve(root, "dist/client"), { recursive: true });
 } else if (has("vite.config.ts") || has("vite.config.js") || has("index.html")) {
   run("npx", ["vite", "build", "--outDir", "dist/client"]);
 }
