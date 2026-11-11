@@ -49,14 +49,11 @@ The contract is enforced by `checklists/19_skipo_frontend_structure.py` and incl
 Skipo is designed to run without non-standard Python dependencies in browser-hosted coding environments, including Google AI Studio build workspaces and Cloud Shell.
 Use `python3 assistant.py` as the entrypoint. Machine consumers must pass `--json`; that mode writes exactly one JSON document to stdout.
 
-All generated applications have two required deployment targets:
+Every generated application exposes one Web-standard Fetch application at `src/app.ts` and one canonical build command: `npm run build`. The scaffold automatically generates thin Cloudflare, Vercel Edge, and Node provider adapters from that shared Fetch contract.
 
-- `build:fullstack` deploys the full-stack application to Vercel-compatible hosting.
-- `build:api` emits the API target for Cloudflare Workers through `httpsAdapter.ts`.
+`python3 assistant.py generate multi-target <app-root> --name <AppName>` generates the provider manifest, provider adapters, Wrangler/Vercel configuration, and the single provider-aware build pipeline. Provider-specific packaging is generated output; application business logic is never duplicated across provider targets.
 
-`python3 assistant.py generate multi-target <app-root> --name <AppName>` creates the target manifests, Vercel and Wrangler configuration, API tsconfig, build scripts, and a non-secret `.env.example`. Real environment values are configured only in the hosting platform's secret store.
-
-For arbitrary edits, cloud agents use `python3 assistant.py edit operations.json`. The operation document is path-contained and each successful edit is recorded in `.skipo/actions/`, giving subsequent agents an explicit return message and audit trail.
+The ecosystem dependency DAG remains unchanged: GutTS underpins KrnlTS/FrnlTS, Kloks/Floks consume their public contracts, and Skipo consumes the published ecosystem packages. Generated applications must preserve the scaffold's declared dependency versions.
 
 - Canonical authentication: `architecture/authentication/SKILL.md` (Better Auth via KLOKS/SRKL + FLOKS UI).
 
