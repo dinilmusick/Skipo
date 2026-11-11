@@ -389,7 +389,17 @@ export async function requireLuthSession(request: Request): Promise<LuthGuardRes
         pages_root / "settings" / "tabs" / "accounts",
     ]
     frontend_components.mkdir(parents=True, exist_ok=True)
-    # Copy generic module/runtime infrastructure from the canonical Skipo framework.\n    module_ui_source = SKIPO_ROOT / "src" / "frontend" / "components" / "module-ui"\n    module_ui_target = frontend_components / "module-ui"\n    module_ui_target.mkdir(parents=True, exist_ok=True)\n    for source in module_ui_source.glob("*.ts*"):\n        target = module_ui_target / source.name\n        if not target.exists():\n            target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")\n            created.append(target)\n\n    for page_dir in required_page_dirs:
+    # Copy generic module/runtime infrastructure from the canonical Skipo framework.
+    module_ui_source = SKIPO_ROOT / "src" / "frontend" / "components" / "module-ui"
+    module_ui_target = frontend_components / "module-ui"
+    module_ui_target.mkdir(parents=True, exist_ok=True)
+    for source in module_ui_source.glob("*.ts*"):
+        target = module_ui_target / source.name
+        if not target.exists():
+            target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+            created.append(target)
+
+    for page_dir in required_page_dirs:
         page_dir.mkdir(parents=True, exist_ok=True)
 
     components_file = frontend_components / "components.ts"
@@ -403,7 +413,32 @@ export async function requireLuthSession(request: Request): Promise<LuthGuardRes
         )
         created.append(components_file)
 
-    # Generic backend/module framework files are copied verbatim from the canonical framework.\n    for relative_dir in ("module-contract", "modules/runtime", "backend/external"):\n        source_dir = SKIPO_ROOT / "src" / relative_dir\n        target_dir = target_root / "src" / relative_dir\n        if source_dir.is_dir():\n            for source in source_dir.rglob("*"):\n                if source.is_file():\n                    target = target_dir / source.relative_to(source_dir)\n                    target.parent.mkdir(parents=True, exist_ok=True)\n                    if not target.exists():\n                        target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")\n                        created.append(target)\n    for relative_file in (\n        "schemas/skipo.module.schema.json",\n        "src/backend/BackendFacade.ts", "src/backend/BackendFacadeTypes.ts",\n        "src/backend/BackendCapabilityCatalog.ts", "src/backend/ModuleBackendAdapter.ts",\n        "src/backend/ModuleBackendAdapterTypes.ts", "src/backend/externalInterfaces.ts",\n    ):\n        source = SKIPO_ROOT / relative_file\n        target = target_root / relative_file\n        if source.is_file() and not target.exists():\n            target.parent.mkdir(parents=True, exist_ok=True)\n            target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")\n            created.append(target)\n\n    page_templates = {
+    # Generic backend/module framework files are copied verbatim from the canonical framework.
+    for relative_dir in ("module-contract", "modules/runtime", "backend/external"):
+        source_dir = SKIPO_ROOT / "src" / relative_dir
+        target_dir = target_root / "src" / relative_dir
+        if source_dir.is_dir():
+            for source in source_dir.rglob("*"):
+                if source.is_file():
+                    target = target_dir / source.relative_to(source_dir)
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    if not target.exists():
+                        target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+                        created.append(target)
+    for relative_file in (
+        "schemas/skipo.module.schema.json",
+        "src/backend/BackendFacade.ts", "src/backend/BackendFacadeTypes.ts",
+        "src/backend/BackendCapabilityCatalog.ts", "src/backend/ModuleBackendAdapter.ts",
+        "src/backend/ModuleBackendAdapterTypes.ts", "src/backend/externalInterfaces.ts",
+    ):
+        source = SKIPO_ROOT / relative_file
+        target = target_root / relative_file
+        if source.is_file() and not target.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+            created.append(target)
+
+    page_templates = {
         pages_root / "auth" / "LuthAuthPage.tsx": """'use client';
 
 import React from 'react';
