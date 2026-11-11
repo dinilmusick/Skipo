@@ -63,7 +63,39 @@ export default function handler(request: Request): Promise<Response> {
 """
 
 NODE_SOURCE = """import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+import { resolve, extname, sep } from "node:path";
 import { fetch } from "../app.js";
+
+const root = process.cwd();
+const assets = {
+  async fetch(request: Request): Promise<Response> {
+    const pathname = decodeURIComponent(new URL(request.url).pathname);
+    const requested = resolve(root, "dist/client", `.${pathname}`);
+    const base = resolve(root, "dist/client");
+    if (requested !== base && !requested.startsWith(base + sep)) {
+      return new Response("Not Found", { status: 404 });
+    }
+    const candidates = [requested, resolve(base, "index.html")];
+    for (const candidate of candidates) {
+      try {
+        const body = await readFile(candidate);
+        const types: Record<string, string> = {
+          ".html": "text/html; charset=utf-8",
+          ".js": "text/javascript; charset=utf-8",
+          ".css": "text/css; charset=utf-8",
+          ".json": "application/json",
+          ".svg": "image/svg+xml",
+          ".png": "image/png",
+        };
+        return new Response(body, {
+          headers: { "content-type": types[extname(candidate)] || "application/octet-stream" },
+        });
+      } catch { /* Try the SPA index fallback. */ }
+    }
+    return new Response("Not Found", { status: 404 });
+  },
+};
 
 const port = Number(process.env.PORT || 3000);
 const server = createServer(async (incoming, outgoing) => {
@@ -82,7 +114,7 @@ const server = createServer(async (incoming, outgoing) => {
       headers: incoming.headers as HeadersInit,
       body,
     });
-    const response = await fetch(request, process.env);
+    const response = await fetch(request, { ...process.env, ASSETS: assets });
     outgoing.writeHead(response.status, Object.fromEntries(response.headers));
     outgoing.end(Buffer.from(await response.arrayBuffer()));
   } catch (error) {
