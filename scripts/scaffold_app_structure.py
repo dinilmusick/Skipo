@@ -13,6 +13,9 @@ import sys
 
 HERE = Path(__file__).resolve().parent
 SKIPO_ROOT = HERE.parent
+if str(SKIPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(SKIPO_ROOT))
+from scripts.generate_provider_packaging import generate_provider_packaging
 
 def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
     """Generates the minimal Skipo composition tree consuming @kloks/* and @floks/* packages."""
