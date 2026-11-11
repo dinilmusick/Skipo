@@ -5,6 +5,7 @@ import tempfile
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "checklists"))
 SPEC = importlib.util.spec_from_file_location("module_architecture", ROOT / "checklists/24_module_architecture.py")
 architecture = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
