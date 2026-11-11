@@ -11,20 +11,9 @@ APP_SOURCE = """/**
  * Canonical application contract: every provider delegates to this Fetch handler.
  * Keep application routing and business logic here; provider files are thin adapters.
  */
-export type SkipoEnv = Record<string, unknown>;
+import { fetchHandler } from "./backend/adapters/httpsAdapter.js";
 
-export async function fetch(
-  request: Request,
-  env: SkipoEnv = {},
-  _ctx?: unknown,
-): Promise<Response> {
-  const url = new URL(request.url);
-  if (url.pathname === "/health" || url.pathname === "/api/health") {
-    return Response.json({ status: "ok", runtime: "fetch" });
-  }
-  return new Response("Not Found", { status: 404 });
-}
-
+export const fetch = fetchHandler;
 export default { fetch };
 """
 
@@ -140,6 +129,12 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
             path.write_text(source, encoding="utf-8")
             created.append(path)
 
+    # Bind the single application entry to the generated HTTP contract when available.
+    adapter = target / "src/backend/adapters/httpsAdapter.ts"
+    app_entry = target / "src/app.ts"
+    if adapter.is_file() and app_entry.is_file():
+        app_entry.write_text(APP_SOURCE, encoding="utf-8")
+
     manifest = {
         "schemaVersion": 1,
         "application": {"entry": "src/app.ts", "protocol": "fetch"},
@@ -162,6 +157,8 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
         package = {"name": app_name.lower(), "private": True, "type": "module"}
     scripts = package.setdefault("scripts", {})
     scripts["build"] = "node scripts/skipo-build.mjs"
+    scripts.pop("build:fullstack", None)
+    scripts.pop("build:api", None)
     scripts.setdefault("dev", "vite")
     scripts["start"] = "node dist/providers/node/server.js"
     dev = package.setdefault("devDependencies", {})
