@@ -296,8 +296,8 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
             "buildCommand": "npm run build",
             "outputDirectory": "dist/client",
             "rewrites": [
-                {"source": "/api/:path*", "destination": "/api"},
-                {"source": "/mcp", "destination": "/api"},
+                {"source": "/api/:path*", "destination": "/api/[...path]"},
+                {"source": "/mcp", "destination": "/api/mcp"},
             ],
         }, indent=2) + "\n", encoding="utf-8")
     if vercel not in created:
