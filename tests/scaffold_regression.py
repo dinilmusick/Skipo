@@ -189,3 +189,20 @@ class ScaffoldRegressionTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_bullmq_adapter_isolated_from_fetch_and_cloudflare_entrypoints():
+    for framework in ("vite", "nextjs"):
+        base = ROOT / "scaffolds" / framework
+        queue = (base / "src/backend/queue/commandQueue.ts").read_text(encoding="utf-8")
+        adapter = (base / "src/libraries/skipo/systems/execution/BullMQAdapter.ts").read_text(encoding="utf-8")
+        cloudflare = (base / "src/providers/cloudflare.ts").read_text(encoding="utf-8")
+        app = (base / "src/app.ts").read_text(encoding="utf-8")
+        https = (base / "src/backend/adapters/httpsAdapter.ts").read_text(encoding="utf-8")
+        assert "BullMQAdapter" in queue
+        assert "bullmq" in adapter
+        assert "BullMQAdapter" not in cloudflare + app + https
+        assert "commandQueue" not in cloudflare + app + https
+
+    dispatch = (ROOT / "scaffolds/nextjs/app/api/commands/dispatch/route.ts").read_text(encoding="utf-8")
+    assert "runtime = 'nodejs'" in dispatch
