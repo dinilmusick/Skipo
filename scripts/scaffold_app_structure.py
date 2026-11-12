@@ -43,9 +43,15 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
     modules_readme = modules_dir / "README.md"
     if not modules_readme.exists():
         modules_readme.write_text(
-            "# Embedded Skipo modules\n\n"
-            "Place complete module-capable Skipo applications in immediate child directories. "
-            "Each must contain skipo.module.json.\n",
+            "# Embedded Skipo modules\\n\\n"
+            "A Skipo module is a standalone-capable application declared by skipo.module.json, "
+            "not a Floks UI module or a folder of components. Skipo owns discovery, validation, "
+            "capability authorization, backend adaptation, UI contributions, and lifecycle.\\n\\n"
+            "One module may combine multiple related product domains and workflows; do not split "
+            "a cohesive module by page or historical feature name. The parent application retains "
+            "authentication and workspace selection. Modules receive approved resources through "
+            "ModuleRuntimeContext.\\n\\n"
+            "Place complete module-capable Skipo applications in immediate child directories.\\n",
             encoding="utf-8",
         )
         created.append(modules_readme)
