@@ -30,7 +30,7 @@ describe('generic ModuleHost', () => {
   });
 
   it('injects parent resources and exposes only the adapter view', async () => {
-    const { backend, host } = createMockModuleHost({ resources: { workspace: { id: 'ws' }, auth: { userId: 'u' }, theme: { id: 'dark' }, runtime: { mode: 'test' } } });
+    const { backend, host } = createMockModuleHost({ resources: { workspace: { id: 'ws' }, auth: { userId: 'u' }, theme: { id: 'dark' }, runtime: { mode: 'test' } }, authorizeCapabilities: (_manifest, requested) => requested });
     backend.registerMockCapability('inventory-service/functionalities/list', async () => [{ id: 'item-1' }]);
     host.discover(definition());
     const mounted = await host.mount('example.inventory');
