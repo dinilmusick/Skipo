@@ -53,6 +53,9 @@ def test_generated_scaffold_does_not_bundle_product_modules(tmp_path):
     assert "AuthPage" in generated_app
     assert "WorkspaceGate" in generated_app
     assert "MainPage" in generated_app
+    assert "storagePolicy" in generated_app
+    assert "In-memory (ephemeral)" in generated_app
+    assert "local_fs" not in generated_app
     assert "not a Floks UI module" in module_contract
     assert "authentication and workspace selection" in module_contract
     module_contract = (target / "src/modules/README.md").read_text(encoding="utf-8")
@@ -124,5 +127,7 @@ def test_skipo_application_shell_keeps_luth_auth_and_workspace_tiles():
     home = (ROOT / "src/frontend/pages/home/page.tsx").read_text(encoding="utf-8")
     assert "LuthAuthPage" in home
     assert "WorkspaceTilesMenu" in home
+    assert "storagePolicy" in home
+    assert "In-memory (ephemeral)" in home
     assert "auth.signOut()" in home
     assert "ModuleUIHost" in home
