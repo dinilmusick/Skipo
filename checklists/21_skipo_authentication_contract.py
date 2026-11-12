@@ -180,7 +180,7 @@ def validate_repository(root: Path) -> list[str]:
             for source_file in frontend.rglob("*"):
                 if source_file.is_file() and source_file.suffix.lower() in SOURCE_SUFFIXES:
                     source = source_file.read_text(encoding="utf-8", errors="replace")
-                    if re.search(r"['\"]x-user-id['\"]\\s*:", source):
+                    if re.search(r"['\"]x-user-id['\"]\s*:", source):
                         errors.append(f"{framework} frontend must not send caller-supplied x-user-id: {source_file.relative_to(root)}")
         client = root / "scaffolds" / framework / "src" / "libraries" / "client" / "luthAuthClient.ts"
         if client.is_file():
@@ -193,7 +193,7 @@ def validate_repository(root: Path) -> list[str]:
         source = generator.read_text(encoding="utf-8")
         if '"@ultrst-armada/krnl": "^1.0.9"' in source:
             errors.append("Generic scaffold generator contains stale Krnl package baseline")
-        if re.search(r"\\bAuthServiceFacade\\b", source):
+        if re.search(r"\bAuthServiceFacade\b", source):
             errors.append("Generic scaffold generator must not generate the legacy Kloks auth facade")
         for marker in ("FloksLuthAuthPage", "requireLuthSession", "DEFAULT_LUTH_URL", "LuthAuthPage"):
             if marker not in source:
