@@ -242,7 +242,7 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
         "application": {"entry": "src/app.ts", "protocol": "fetch"},
         "providers": {
             "cloudflare": {"entry": "src/providers/cloudflare.ts", "output": "dist/providers/cloudflare/worker.js"},
-            "vercel": {"entry": "src/providers/vercel.ts", "output": "api/index.js", "runtime": "edge"},
+            "vercel": {"entry": "src/providers/vercel.ts", "output": "api/[...path].js", "runtime": "edge", "additionalOutputs": ["api/mcp.js"]},
             "node": {"entry": "src/providers/node.ts", "output": "dist/providers/node/server.js"},
         },
         "build": {"command": "npm run build"},
