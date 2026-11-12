@@ -65,7 +65,11 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
                 "@ultrst-armada/floks": "^2.0.0",
                 "react": "^19.0.1",
                 "react-dom": "^19.0.1",
-                "@ultrst-armada/frnlts": "^0.5.23"
+                "@ultrst-armada/frnlts": "^0.5.23",
+                "lucide-react": "^1.55.0",
+                "@xyflow/react": "^12.12.1",
+                "d3-force": "^3.0.0",
+                "zustand": "^5.1.0"
             },
             "devDependencies": {
                 "typescript": "^5.7.0",
