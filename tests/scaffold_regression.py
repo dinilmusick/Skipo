@@ -9,6 +9,7 @@ d) UI contracts enforce REQUIRED vs OPTIONAL rules.
 e) Full system validator passes cleanly with exit 0.
 """
 
+import json
 import os
 import re
 import shutil
