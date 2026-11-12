@@ -239,20 +239,22 @@ export async function requireLuthSession(request: Request) {
     google_drive_storage_file = google_drive_storage_dir / "googleDriveWorkspaceStorage.ts"
     if not google_drive_storage_file.exists():
         google_drive_storage_content = """import {
-  GoogleDriveStorageService,
-  refreshGoogleDriveAccessToken,
-} from '@ultrst-armada/kloks/backend';
+  GoogleDriveWorkspaceService,
+  type GoogleDriveWorkspaceTokens,
+} from '@ultrst-armada/kloks/backend/storage-workspace';
 
 export interface GoogleDriveOAuthConfig {
   clientId: string;
   clientSecret?: string;
-  redirectUri?: string;
+  redirectUri: string;
 }
+
 export interface GoogleDriveEnvironment {
   GOOGLE_DRIVE_CLIENT_ID?: unknown;
   GOOGLE_DRIVE_CLIENT_SECRET?: unknown;
   GOOGLE_DRIVE_REDIRECT_URI?: unknown;
 }
+
 export interface GoogleDriveWorkspaceConnection {
   id: string;
   provider: 'google_drive';
@@ -261,42 +263,76 @@ export interface GoogleDriveWorkspaceConnection {
   googleRefreshToken?: string;
   googleRootFolderId?: string;
 }
+
 export interface GoogleDriveWorkspaceStorageHandle {
-  storage: GoogleDriveStorageService;
+  storage: GoogleDriveWorkspaceService;
   connection: GoogleDriveWorkspaceConnection;
 }
+
 export function getGoogleDriveOAuthConfig(env: GoogleDriveEnvironment): GoogleDriveOAuthConfig {
-  const clientId = String(env.GOOGLE_DRIVE_CLIENT_ID ?? '');
-  const clientSecret = String(env.GOOGLE_DRIVE_CLIENT_SECRET ?? '');
-  const redirectUri = String(env.GOOGLE_DRIVE_REDIRECT_URI ?? '') || undefined;
+  const clientId = String(env.GOOGLE_DRIVE_CLIENT_ID ?? '').trim();
+  const clientSecret = String(env.GOOGLE_DRIVE_CLIENT_SECRET ?? '').trim();
+  const redirectUri = String(env.GOOGLE_DRIVE_REDIRECT_URI ?? '').trim();
   if (!clientId) throw new Error('GOOGLE_DRIVE_CLIENT_ID must be configured in the server secret store.');
+  if (!redirectUri) throw new Error('GOOGLE_DRIVE_REDIRECT_URI must be configured in the server environment.');
   return { clientId, clientSecret: clientSecret || undefined, redirectUri };
 }
+
+export function createGoogleDriveAuthorizationUrl(
+  oauth: GoogleDriveOAuthConfig,
+  state: string,
+  scopes?: string[],
+): string {
+  return GoogleDriveWorkspaceService.createAuthorizationUrl(oauth, state, scopes);
+}
+
+export function exchangeGoogleDriveAuthorizationCode(
+  oauth: GoogleDriveOAuthConfig,
+  code: string,
+  existingRefreshToken?: string,
+  codeVerifier?: string,
+): Promise<GoogleDriveWorkspaceTokens> {
+  return GoogleDriveWorkspaceService.exchangeAuthorizationCode(
+    oauth,
+    code,
+    existingRefreshToken,
+    codeVerifier,
+  );
+}
+
 export async function createGoogleDriveWorkspaceStorage(
   source: GoogleDriveWorkspaceConnection,
   oauth: GoogleDriveOAuthConfig,
 ): Promise<GoogleDriveWorkspaceStorageHandle> {
-  if (source.provider !== 'google_drive') throw new Error('A Google Drive workspace connection is required.');
-  if (!oauth.clientId) throw new Error('Google Drive OAuth client ID is not configured.');
-  const connection = { ...source };
-  let accessToken = connection.googleAccessToken || '';
-  let expiresAt = Number(connection.googleAccessTokenExpiresAt || 0);
-  if (!accessToken || (expiresAt > 0 && expiresAt <= Date.now() + 60_000)) {
-    if (!connection.googleRefreshToken || !oauth.clientSecret) throw new Error('Google Drive token refresh requires the connection refresh token and a server-owned OAuth client secret.');
-    const tokenSet = await refreshGoogleDriveAccessToken(oauth.clientId, connection.googleRefreshToken, oauth.clientSecret, oauth.redirectUri);
-    accessToken = tokenSet.accessToken;
-    expiresAt = tokenSet.expiresAt;
-    connection.googleAccessToken = accessToken;
-    connection.googleAccessTokenExpiresAt = expiresAt;
+  if (source.provider !== 'google_drive') {
+    throw new Error('A Google Drive workspace connection is required.');
   }
-  const storage = new GoogleDriveStorageService({
-    provider: 'google_drive',
-    googleClientId: oauth.clientId,
-    googleRedirectUri: oauth.redirectUri,
-    googleAccessToken: accessToken,
-    googleAccessTokenExpiresAt: expiresAt || undefined,
-    googleRootFolderId: connection.googleRootFolderId || 'root',
+  if (!oauth.clientId || !oauth.redirectUri) {
+    throw new Error('Google Drive OAuth client ID and redirect URI are required.');
+  }
+
+  const connection = { ...source };
+  const tokens: GoogleDriveWorkspaceTokens = {
+    accessToken: connection.googleAccessToken || '',
+    ...(connection.googleRefreshToken ? { refreshToken: connection.googleRefreshToken } : {}),
+    ...(connection.googleAccessTokenExpiresAt
+      ? { expiresAt: connection.googleAccessTokenExpiresAt }
+      : {}),
+  };
+
+  const storage = new GoogleDriveWorkspaceService({
+    clientId: oauth.clientId,
+    clientSecret: oauth.clientSecret,
+    redirectUri: oauth.redirectUri,
+    tokens,
+    rootFolderId: connection.googleRootFolderId || 'root',
+    persistTokens: async (updated) => {
+      connection.googleAccessToken = updated.accessToken;
+      connection.googleRefreshToken = updated.refreshToken;
+      connection.googleAccessTokenExpiresAt = updated.expiresAt;
+    },
   });
+
   return { storage, connection };
 }"""
         google_drive_storage_file.write_text(google_drive_storage_content, encoding="utf-8")
