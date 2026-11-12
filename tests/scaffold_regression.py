@@ -75,6 +75,30 @@ class ScaffoldRegressionTest(unittest.TestCase):
         self.assertFalse((SKIPO_ROOT / "scaffolds/nextjs/app/api/aiko").exists())
         self.assertFalse((SKIPO_ROOT / "scaffolds/nextjs/app/api/fod").exists())
 
+    def test_provider_entries_share_the_fetch_contract_without_node_leakage(self):
+        for scaffold_name in ["vite", "nextjs"]:
+            base = SKIPO_ROOT / "scaffolds" / scaffold_name
+            app_source = (base / "src/app.ts").read_text(encoding="utf-8")
+            worker_source = (base / "src/providers/cloudflare.ts").read_text(encoding="utf-8")
+            vercel_source = (base / "src/providers/vercel.ts").read_text(encoding="utf-8")
+            node_source = (base / "src/providers/node.ts").read_text(encoding="utf-8")
+            wrangler = (base / "wrangler.toml").read_text(encoding="utf-8")
+            vercel = json.loads((base / "vercel.json").read_text(encoding="utf-8"))
+
+            self.assertIn("UniversalBackend", app_source)
+            self.assertIn("fetchStaticAsset", app_source)
+            self.assertNotIn("httpsAdapter", app_source)
+            self.assertIn("../app.js", worker_source)
+            self.assertNotIn("node:", worker_source)
+            self.assertIn("../app.js", vercel_source)
+            self.assertIn("runtime", vercel_source)
+            self.assertIn("httpsAdapter.js", node_source)
+            self.assertIn("fetchHandler", node_source)
+            self.assertIn('main = "dist/providers/cloudflare/worker.js"', wrangler)
+            self.assertIn('not_found_handling = "none"', wrangler)
+            self.assertNotIn("nodejs_compat", wrangler)
+            self.assertTrue(vercel.get("cleanUrls"))
+
     def test_gates_import_canonical_floks(self):
         """LoginGate & WorkspaceGate must exist and import @ultrst-armada/floks/ui."""
         for scaffold_name in ["vite", "nextjs"]:
