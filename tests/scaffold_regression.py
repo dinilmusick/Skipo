@@ -75,8 +75,9 @@ class ScaffoldRegressionTest(unittest.TestCase):
             accounts_page = base / "src/frontend/pages/settings/tabs/accounts/page.tsx"
             provider_manifest = base / "skipo.providers.json"
             vercel_config = base / "vercel.json"
+            pnpm_workspace = base / "pnpm-workspace.yaml"
 
-            for required in (app, cloudflare, vercel, node, backend, main_page, fetch_adapter, accounts_page, provider_manifest, vercel_config):
+            for required in (app, cloudflare, vercel, node, backend, main_page, fetch_adapter, accounts_page, provider_manifest, vercel_config, pnpm_workspace):
                 self.assertTrue(required.is_file(), f"Missing provider contract file: {required.relative_to(SKIPO_ROOT)}")
 
             app_source = app.read_text(encoding="utf-8")
@@ -89,6 +90,7 @@ class ScaffoldRegressionTest(unittest.TestCase):
             accounts_source = accounts_page.read_text(encoding="utf-8")
             providers = json.loads(provider_manifest.read_text(encoding="utf-8"))
             vercel = json.loads(vercel_config.read_text(encoding="utf-8"))
+            pnpm_config = pnpm_workspace.read_text(encoding="utf-8")
 
             self.assertIn("fetchHandler", app_source)
             self.assertIn("externalInterfaces.mcp(request)", fetch_adapter_source)
@@ -98,6 +100,8 @@ class ScaffoldRegressionTest(unittest.TestCase):
             self.assertEqual(providers["providers"]["vercel"]["output"], "api/[...path].js")
             self.assertEqual(providers["providers"]["vercel"]["additionalOutputs"], ["api/mcp.js"])
             self.assertEqual({"/api/:path*": "/api/[...path]", "/mcp": "/api/mcp"}, {r["source"]: r["destination"] for r in vercel["rewrites"]})
+            self.assertIn("  - esbuild", pnpm_config)
+            self.assertIn("  - msgpackr-extract", pnpm_config)
             self.assertNotIn("node:", cloudflare_source)
             self.assertNotIn("node:", vercel_source)
             self.assertIn("node:http", node_source)
