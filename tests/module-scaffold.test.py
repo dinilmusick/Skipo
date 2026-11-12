@@ -73,6 +73,8 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         assert {"/mcp": "/api/mcp"} == {rule["source"]: rule["destination"] for rule in vercel_config["rewrites"]}
         assert not (target / "config/build/manifests/fullstack.json").exists()
         assert not (target / "config/build/manifests/api.json").exists()
+        assert not (target / "src/backend/services/core/unifiedDb.ts").exists()
+        assert not (target / ".skipo/project.json").exists()
 
         # The scaffold must not rewrite the canonical ecosystem dependency versions.
         dependencies = package["dependencies"]
