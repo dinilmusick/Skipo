@@ -1,1 +1,167 @@
-import{ModuleBackendAdapter}from'../backend/ModuleBackendAdapter.js';import type{ModuleBackendAuthorization}from'../backend/ModuleBackendAdapterTypes.js';import{NamespacedModuleEventBus}from'./ModuleEventBus.js';import type{ModuleController,ModuleHostOptions,ModuleRuntimeContext,MountedModule,SkipoModuleRuntimeDefinition,ModuleLifecycleState}from'./ModuleRuntimeTypes.js';const empty=Object.freeze({}) as Readonly<Record<string,unknown>>;const res=(x:Readonly<Record<string,unknown>>|undefined)=>x?Object.freeze({...x}):empty;export class ModuleHost{private defs=new Map<string,SkipoModuleRuntimeDefinition>();private mounted=new Map<string,{context:ModuleRuntimeContext;controller?:ModuleController;state:ModuleLifecycleState;abort:AbortController}>();constructor(private o:ModuleHostOptions){if(!o.backend)throw new Error('ModuleHost requires parent BackendFacade.')}discover(d:SkipoModuleRuntimeDefinition){if(!d.manifest.application.moduleCapable||!d.manifest.application.standalone)throw new Error('Module must be module-capable and standalone-capable.');if(this.defs.has(d.manifest.module.id))throw new Error('Duplicate module id.');this.defs.set(d.manifest.module.id,d);return d.manifest}listDiscovered(){return Object.freeze([...this.defs.keys()])}listMounted(){return Object.freeze([...this.mounted.keys()])}async mount(id:string):Promise<MountedModule>{const d=this.defs.get(id);if(!d)throw new Error('Module has not been discovered.');if(this.mounted.has(id))throw new Error('Module is already mounted.');const requested=d.manifest.capabilities.map(x=>x.id);const approved=Object.freeze(await this.o.authorizeCapabilities?.(d.manifest,requested)??[]);const bindings=d.backend?.bindings??[];const by=new Map(bindings.map(x=>[x.capabilityId,x]));const auth:ModuleBackendAuthorization={canDiscover:({capability})=>[...by.values()].some(b=>String(b.representation?.parentCapabilityId??b.capabilityId)===capability.id&&approved.includes(b.capabilityId)),canInvoke:({capability})=>[...by.values()].some(b=>String(b.representation?.parentCapabilityId??b.capabilityId)===capability.id&&approved.includes(b.capabilityId))};const abort=new AbortController(),events=new NamespacedModuleEventBus(id);const context=Object.freeze({moduleId:id,manifest:d.manifest,backend:new ModuleBackendAdapter({backend:this.o.backend,manifest:{moduleId:id,capabilities:bindings.map(x=>({capabilityId:String(x.representation?.parentCapabilityId??x.capabilityId),representation:x.representation,inputMapping:x.inputMapping,outputMapping:x.outputMapping}))},authorization:auth}),workspace:res(this.o.resources?.workspace),auth:res(this.o.resources?.auth),theme:res(this.o.resources?.theme),runtime:res(this.o.resources?.runtime),capabilities:new Set(approved),signal:abort.signal,events});const e={context,controller:undefined as ModuleController|undefined,state:'mounted' as ModuleLifecycleState,abort};e.controller=await d.mount(context)??undefined;this.mounted.set(id,e);return this.instance(id)}async activate(id:string){const e=this.req(id);if(e.state!=='mounted')throw new Error('Module is not in mounted state.');await e.controller?.activate?.();e.state='active'}async deactivate(id:string){const e=this.req(id);if(e.state!=='active')return;await e.controller?.deactivate?.();e.state='mounted'}async unmount(id:string){const e=this.mounted.get(id);if(!e)return;if(e.state==='active')await this.deactivate(id);await e.controller?.unmount?.();e.abort.abort();e.context.events.clear();this.mounted.delete(id)}async dispose(id:string){const e=this.mounted.get(id);if(!e)return;if(e.state==='active')await this.deactivate(id);await e.controller?.unmount?.();await e.controller?.dispose?.();e.abort.abort();e.context.events.clear();this.mounted.delete(id)}private req(id:string){const e=this.mounted.get(id);if(!e)throw new Error('Module is not mounted.');return e}private instance(id:string):MountedModule{const e=this.req(id);return{moduleId:id,context:e.context,get state(){return e.state},activate:()=>this.activate(id),deactivate:()=>this.deactivate(id),unmount:()=>this.unmount(id),dispose:()=>this.dispose(id)}}}
+import { ModuleBackendAdapter } from '../backend/ModuleBackendAdapter.js';
+import type { ModuleBackendAuthorization } from '../backend/ModuleBackendAdapterTypes.js';
+import { NamespacedModuleEventBus } from './ModuleEventBus.js';
+import type {
+  ModuleController,
+  ModuleHostOptions,
+  ModuleRuntimeContext,
+  MountedModule,
+  SkipoModuleRuntimeDefinition,
+  ModuleLifecycleState,
+} from './ModuleRuntimeTypes.js';
+
+const empty = Object.freeze({}) as Readonly<Record<string, unknown>>;
+const resources = (value: Readonly<Record<string, unknown>> | undefined) =>
+  value ? Object.freeze({ ...value }) : empty;
+
+export class ModuleHost {
+  private readonly definitions = new Map<string, SkipoModuleRuntimeDefinition>();
+  private readonly mounted = new Map<string, {
+    context: ModuleRuntimeContext;
+    controller?: ModuleController;
+    state: ModuleLifecycleState;
+    abort: AbortController;
+  }>();
+
+  constructor(private readonly options: ModuleHostOptions) {
+    if (!options.backend) throw new Error('ModuleHost requires parent BackendFacade.');
+  }
+
+  discover(definition: SkipoModuleRuntimeDefinition) {
+    const { manifest } = definition;
+    if (!manifest.application.moduleCapable || !manifest.application.standalone) {
+      throw new Error('Module must be module-capable and standalone-capable.');
+    }
+    const id = manifest.module.id;
+    if (this.definitions.has(id)) throw new Error('Duplicate module id.');
+
+    const declared = new Set(manifest.capabilities.map((capability) => capability.id));
+    for (const binding of definition.backend?.bindings ?? []) {
+      const parentCapabilityId = String(binding.representation?.parentCapabilityId ?? binding.capabilityId);
+      if (!declared.has(binding.capabilityId) && !declared.has(parentCapabilityId)) {
+        throw new Error(`Backend binding '${binding.capabilityId}' is not declared by module '${id}'.`);
+      }
+    }
+
+    this.definitions.set(id, definition);
+    return manifest;
+  }
+
+  listDiscovered() {
+    return Object.freeze([...this.definitions.keys()]);
+  }
+
+  listMounted() {
+    return Object.freeze([...this.mounted.keys()]);
+  }
+
+  async mount(id: string): Promise<MountedModule> {
+    const definition = this.definitions.get(id);
+    if (!definition) throw new Error('Module has not been discovered.');
+    if (this.mounted.has(id)) throw new Error('Module is already mounted.');
+
+    const requested = definition.manifest.capabilities.map((capability) => capability.id);
+    const approved = Object.freeze(
+      await this.options.authorizeCapabilities?.(definition.manifest, requested) ?? [],
+    );
+    const bindings = definition.backend?.bindings ?? [];
+    const byCapability = new Map(bindings.map((binding) => [binding.capabilityId, binding]));
+    const authorization: ModuleBackendAuthorization = {
+      canDiscover: ({ capability }) => [...byCapability.values()].some((binding) =>
+        String(binding.representation?.parentCapabilityId ?? binding.capabilityId) === capability.id &&
+        approved.includes(binding.capabilityId)),
+      canInvoke: ({ capability }) => [...byCapability.values()].some((binding) =>
+        String(binding.representation?.parentCapabilityId ?? binding.capabilityId) === capability.id &&
+        approved.includes(binding.capabilityId)),
+    };
+    const abort = new AbortController();
+    const events = new NamespacedModuleEventBus(id);
+    const context = Object.freeze({
+      moduleId: id,
+      manifest: definition.manifest,
+      backend: new ModuleBackendAdapter({
+        backend: this.options.backend,
+        manifest: {
+          moduleId: id,
+          capabilities: bindings.map((binding) => ({
+            capabilityId: String(binding.representation?.parentCapabilityId ?? binding.capabilityId),
+            representation: binding.representation,
+            inputMapping: binding.inputMapping,
+            outputMapping: binding.outputMapping,
+          })),
+        },
+        authorization,
+      }),
+      workspace: resources(this.options.resources?.workspace),
+      auth: resources(this.options.resources?.auth),
+      theme: resources(this.options.resources?.theme),
+      runtime: resources(this.options.resources?.runtime),
+      capabilities: new Set(approved),
+      signal: abort.signal,
+      events,
+    });
+    const entry = {
+      context,
+      controller: undefined as ModuleController | undefined,
+      state: 'mounted' as ModuleLifecycleState,
+      abort,
+    };
+    entry.controller = await definition.mount(context) ?? undefined;
+    this.mounted.set(id, entry);
+    return this.instance(id);
+  }
+
+  async activate(id: string) {
+    const entry = this.requireMounted(id);
+    if (entry.state !== 'mounted') throw new Error('Module is not in mounted state.');
+    await entry.controller?.activate?.();
+    entry.state = 'active';
+  }
+
+  async deactivate(id: string) {
+    const entry = this.requireMounted(id);
+    if (entry.state !== 'active') return;
+    await entry.controller?.deactivate?.();
+    entry.state = 'mounted';
+  }
+
+  async unmount(id: string) {
+    const entry = this.mounted.get(id);
+    if (!entry) return;
+    if (entry.state === 'active') await this.deactivate(id);
+    await entry.controller?.unmount?.();
+    entry.abort.abort();
+    entry.context.events.clear();
+    this.mounted.delete(id);
+  }
+
+  async dispose(id: string) {
+    const entry = this.mounted.get(id);
+    if (!entry) return;
+    if (entry.state === 'active') await this.deactivate(id);
+    await entry.controller?.unmount?.();
+    await entry.controller?.dispose?.();
+    entry.abort.abort();
+    entry.context.events.clear();
+    this.mounted.delete(id);
+  }
+
+  private requireMounted(id: string) {
+    const entry = this.mounted.get(id);
+    if (!entry) throw new Error('Module is not mounted.');
+    return entry;
+  }
+
+  private instance(id: string): MountedModule {
+    const entry = this.requireMounted(id);
+    return {
+      moduleId: id,
+      context: entry.context,
+      get state() { return entry.state; },
+      activate: () => this.activate(id),
+      deactivate: () => this.deactivate(id),
+      unmount: () => this.unmount(id),
+      dispose: () => this.dispose(id),
+    };
+  }
+}
