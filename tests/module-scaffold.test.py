@@ -18,6 +18,11 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         assert readme.is_file()
         assert "complete" in readme.read_text(encoding="utf-8").lower()
         assert (target / "src" / "frontend").is_dir()
+        assert (target / "index.html").is_file()
+        assert (target / "vite.config.ts").is_file()
+        assert (target / "src/frontend/main.tsx").is_file()
+        assert (target / "src/index.css").is_file()
+        assert "Sync from SRKL" not in "\n".join(path.read_text(encoding="utf-8") for path in (target / "src/frontend").rglob("*") if path.is_file())
         assert (target / "src" / "backend").is_dir()
         assert (target / "src" / "libraries").is_dir()
 
@@ -27,6 +32,7 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         assert "export async function fetch" in app_source
         assert './backend/DemoAppBackend.js' in app_source
         assert "externalInterfaces.mcp(request)" in app_source
+        assert "proxyLuthAuthRequest(request)" in app_source
         assert "externalInterfaces.http(request)" in app_source
         frontend_source = "\n".join(path.read_text(encoding="utf-8") for path in (target / "src" / "frontend").rglob("*") if path.is_file())
         assert "Sync from SRKL" not in frontend_source

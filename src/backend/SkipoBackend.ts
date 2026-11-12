@@ -4,6 +4,7 @@ import { OrchestratorADefinition, OrchestratorBDefinition } from '@ultrst-armada
 import { AudioHardwareServiceFacade, MidiServiceFacade, AudioMidiOrchestratorDefinition } from '@ultrst-armada/kloks/audio-midi';
 import { FunctionsServiceFacade } from '@ultrst-armada/kloks/functions';
 import { StorageServiceFacade, WorkspaceServiceFacade, ControlPlaneServiceFacade, SrklServiceFacade } from '@ultrst-armada/kloks/backend/krnl-services';
+import { LuthAuthServiceFacade } from './LuthAuthServiceFacade.js';
 import { StateLifecycleServiceFacade, NodeGraphEngineServiceFacade } from '@ultrst-armada/kloks/state-graph';
 import { WorkerExecutionBoundary, type IServiceFacade } from '@ultrst-armada/krnl';
 import { workingWorkspaceService } from '@ultrst-armada/kloks/backend';
@@ -34,6 +35,7 @@ export const semanticRuntime = createSkipoSemanticRuntime({
 });
 
 export const services: Record<string, ServiceExecutableFacade> = {
+  auth: LuthAuthServiceFacade as ServiceExecutableFacade,
   serviceA: ServiceAFacade as ServiceExecutableFacade,
   serviceB: ServiceBFacade as ServiceExecutableFacade,
   serviceC: ServiceCFacade as ServiceExecutableFacade,

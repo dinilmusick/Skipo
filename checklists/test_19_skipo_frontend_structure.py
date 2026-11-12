@@ -12,6 +12,7 @@ spec = spec_from_file_location("skipo_frontend_structure", ROOT / "19_skipo_fron
 mod = module_from_spec(spec)
 spec.loader.exec_module(mod)
 
+
 class SkipoFrontendStructureTests(unittest.TestCase):
     required = [
         "src/frontend/pages/auth/page.tsx",
@@ -43,7 +44,7 @@ class SkipoFrontendStructureTests(unittest.TestCase):
                 page.write_text("")
         return root
 
-    def test_complete_structure_passes(self):
+    def test_complete_provider_neutral_structure_passes(self):
         result = mod.validate_skipo_frontend_structure(self.make_fixture())
         self.assertTrue(result.passed)
 
@@ -69,6 +70,16 @@ class SkipoFrontendStructureTests(unittest.TestCase):
         result = mod.validate_skipo_frontend_structure(root)
         self.assertFalse(result.passed)
         self.assertTrue(any(v.rule_id == "invalid-skipo-page-root" for v in result.violations))
+
+    def test_application_specific_tabs_are_rejected(self):
+        root = self.make_fixture()
+        tabs = root / "src/frontend/pages/main/tabs"
+        for name in ("fo" + "d", "ai" + "ko"):
+            (tabs / name).mkdir()
+        result = mod.validate_skipo_frontend_structure(root)
+        self.assertFalse(result.passed)
+        self.assertTrue(any(v.rule_id == "forbidden-application-tab" for v in result.violations))
+
 
 if __name__ == "__main__":
     unittest.main()

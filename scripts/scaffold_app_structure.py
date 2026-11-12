@@ -385,6 +385,22 @@ export async function requireLuthSession(request: Request): Promise<LuthGuardRes
         luth_session_file.write_text(luth_session_content, encoding="utf-8")
         created.append(luth_session_file)
 
+    luth_auth_facade_file = target_root / "src" / "backend" / "LuthAuthServiceFacade.ts"
+    if not luth_auth_facade_file.exists():
+        luth_auth_facade_source = SKIPO_ROOT / "src" / "backend" / "LuthAuthServiceFacade.ts"
+        if luth_auth_facade_source.is_file():
+            luth_auth_facade_file.write_text(luth_auth_facade_source.read_text(encoding="utf-8"), encoding="utf-8")
+        else:
+            luth_auth_facade_file.write_text(
+                "import { getLuthSession, proxyLuthAuthRequest } from './auth/luthSession.js';\\n"
+                "export const LuthAuthServiceFacade = { id: 'auth', name: 'Luth Authentication', version: '1.0.0', "
+                "getSession: getLuthSession, getCurrentUser: async (request: Request) => (await getLuthSession(request))?.user ?? null, "
+                "proxyRequest: proxyLuthAuthRequest };\\n"
+                "export default LuthAuthServiceFacade;\\n",
+                encoding="utf-8",
+            )
+        created.append(luth_auth_facade_file)
+
     # 3. Canonical Skipo frontend page contract + component facade
     frontend_components = target_root / "src" / "frontend" / "components"
     pages_root = target_root / "src" / "frontend" / "pages"
@@ -565,6 +581,66 @@ export default App;
             encoding="utf-8",
         )
         created.append(app_tsx)
+
+    # 3a. Minimal Vite browser entrypoint. UI code stays provider-independent.
+    index_html = target_root / "index.html"
+    if not index_html.exists():
+        index_html.write_text("""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Skipo Application</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/frontend/main.tsx"></script>
+  </body>
+</html>
+""", encoding="utf-8")
+        created.append(index_html)
+
+    frontend_css = target_root / "src" / "index.css"
+    if not frontend_css.exists():
+        frontend_css.write_text(""":root {
+  color-scheme: dark;
+  --skipo-bg: #0b0d10;
+  --skipo-text: #e8eaf0;
+  --skipo-font: ui-sans-serif, system-ui, sans-serif;
+  --skipo-border-color: #2a2f38;
+  --skipo-radius-sm: 4px;
+  --skipo-accent: #8b9cf7;
+}
+html, body, #root { margin: 0; min-height: 100%; background: var(--skipo-bg); color: var(--skipo-text); font-family: var(--skipo-font); }
+""", encoding="utf-8")
+        created.append(frontend_css)
+
+    vite_config = target_root / "vite.config.ts"
+    if not vite_config.exists():
+        vite_config.write_text("""import { defineConfig } from 'vite';
+
+export default defineConfig({
+  root: '.',
+  build: {
+    outDir: 'dist/client',
+    emptyOutDir: true,
+  },
+});
+""", encoding="utf-8")
+        created.append(vite_config)
+
+    frontend_main = target_root / "src" / "frontend" / "main.tsx"
+    if not frontend_main.exists():
+        frontend_main.write_text("""import React from 'react';
+import { createRoot } from 'react-dom/client';
+import '../index.css';
+import App from './App.js';
+
+const container = document.getElementById('root');
+if (!container) throw new Error('Skipo application root element is missing.');
+createRoot(container).render(<React.StrictMode><App /></React.StrictMode>);
+""", encoding="utf-8")
+        created.append(frontend_main)
 
     # 4. src/libraries/index.ts (Skipo-specific custom code only)
     lib_index = target_root / "src" / "libraries" / "index.ts"
