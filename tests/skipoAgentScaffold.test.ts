@@ -10,10 +10,10 @@ describe('Skipo scaffold contracts', () => {
     expect(source).toContain('handoff-to-krusbl');
   });
 
-  it('ships mandatory FOD in the application scaffold generator', () => {
+  it('keeps legacy Aiko/FOD runtime out of the generic application scaffold generator', () => {
     const source = readFileSync(new URL('../scripts/scaffold_app_structure.py', import.meta.url), 'utf8');
-    expect(source).toContain('pages_root / "main" / "tabs" / "fod"');
-    expect(source).toContain('@dinilmusick/gutts/api');
-    expect(source).toContain('FodRuntime');
-  });
+    expect(source).not.toContain('pages_root / "main" / "tabs" / "fod"');
+    expect(source).not.toContain('FodRuntime');
+    expect(source).not.toContain('AikoRuntime');
+  });;
 });
