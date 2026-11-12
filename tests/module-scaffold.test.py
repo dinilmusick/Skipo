@@ -79,6 +79,10 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         assert dependencies["@ultrst-armada/frnlts"] == "^0.5.23"
         assert dependencies["@ultrst-armada/kloks"] == "^1.26.3"
         assert dependencies["@ultrst-armada/floks"] == "^2.0.0"
+        assert dependencies["lucide-react"] == "^1.55.0"
+        assert dependencies["@xyflow/react"] == "^12.12.1"
+        assert dependencies["d3-force"] == "^3.0.0"
+        assert dependencies["zustand"] == "^5.1.0"
 
 
 
