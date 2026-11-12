@@ -27,6 +27,8 @@ def test_vite_and_nextjs_scaffolds_mount_both_external_protocols():
         assert "node:" not in app + adapter
         package = __import__("json").loads((base / "package.json").read_text(encoding="utf-8"))
         assert package["scripts"]["build"] == "node scripts/skipo-build.mjs"
+        for dependency in ("lucide-react", "@xyflow/react", "d3-force", "zustand"):
+            assert dependency in package["dependencies"], f"{framework}: missing Floks peer {dependency}"
         workspace_config = (base / "pnpm-workspace.yaml").read_text(encoding="utf-8")
         assert "allowBuilds:" in workspace_config
         assert "  esbuild: true" in workspace_config
