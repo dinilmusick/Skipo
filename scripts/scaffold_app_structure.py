@@ -150,7 +150,7 @@ export function WorkspaceGate(props: WorkspaceGateProps) {
         auth_guard_file.write_text("""import { DEFAULT_LUTH_URL } from '@dinilmusick/gutts/auth';
 
 export async function getLuthSession(request: Request) {
-  const headers = new Headers();
+  const headers = new Headers({ 'x-app-id': request.headers.get('x-app-id') || new URL(request.url).hostname });
   for (const name of ['authorization', 'cookie', 'origin']) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
