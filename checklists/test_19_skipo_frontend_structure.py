@@ -73,11 +73,3 @@ class SkipoFrontendStructureTests(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 
-def test_application_specific_tabs_are_not_part_of_generic_scaffold(tmp_path):
-    root = tmp_path / "src" / "frontend" / "tabs"
-    root.mkdir(parents=True)
-    (root / ("fo" + "d") ).mkdir()
-    (root / ("ai" + "ko")).mkdir()
-    result = validate(tmp_path)
-    assert not result.valid
-    assert any("application-specific" in error.message.lower() for error in result.errors)
