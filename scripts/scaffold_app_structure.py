@@ -641,6 +641,21 @@ export default App;
 """, encoding="utf-8")
         created.append(index_html)
 
+    frontend_css = target_root / "src" / "index.css"
+    if not frontend_css.exists():
+        frontend_css.write_text(""":root {
+  color-scheme: dark;
+  --skipo-bg: #0b0d10;
+  --skipo-text: #e8eaf0;
+  --skipo-font: ui-sans-serif, system-ui, sans-serif;
+  --skipo-border-color: #2a2f38;
+  --skipo-radius-sm: 4px;
+  --skipo-accent: #8b9cf7;
+}
+html, body, #root { margin: 0; min-height: 100%; background: var(--skipo-bg); color: var(--skipo-text); font-family: var(--skipo-font); }
+""", encoding="utf-8")
+        created.append(frontend_css)
+
     vite_config = target_root / "vite.config.ts"
     if not vite_config.exists():
         vite_config.write_text("""import { defineConfig } from 'vite';
@@ -659,6 +674,7 @@ export default defineConfig({
     if not frontend_main.exists():
         frontend_main.write_text("""import React from 'react';
 import { createRoot } from 'react-dom/client';
+import '../index.css';
 import App from './App.js';
 
 const container = document.getElementById('root');
