@@ -38,8 +38,8 @@ describe('generic ModuleHost', () => {
     expect(await mounted.context.backend.invoke('inventory-service/functionalities/list', {})).toEqual([{ id: 'item-1' }]);
   });
 
-  it('fails closed when the parent denies a capability', async () => {
-    const { backend, host } = createMockModuleHost({ authorizeCapabilities: () => [] });
+  it('defaults to denying capabilities unless the parent grants them', async () => {
+    const { backend, host } = createMockModuleHost();
     backend.registerMockCapability('inventory-service/functionalities/list', async () => []);
     host.discover(definition());
     const mounted = await host.mount('example.inventory');
