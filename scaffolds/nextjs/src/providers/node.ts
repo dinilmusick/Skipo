@@ -12,7 +12,7 @@ const assets = {
     if (requested !== base && !requested.startsWith(base + sep)) {
       return new Response("Not Found", { status: 404 });
     }
-    const candidates = [requested, resolve(base, "index.html")];
+    const candidates = [requested];
     for (const candidate of candidates) {
       try {
         const body = await readFile(candidate);
