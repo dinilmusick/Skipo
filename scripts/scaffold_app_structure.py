@@ -637,7 +637,7 @@ export function App() {
             title: input.name.trim(),
             name: input.name.trim(),
             description: input.description,
-            storageProvider: input.storageProvider || input.storage?.provider || 'local_fs',
+            storageProvider: input.storageProvider || input.storage?.provider || 'memory',
             storageConnectionId: input.storageConnectionId || input.storage?.connectionId,
           };
           setWorkspaces((current) => [...current, workspace]);
