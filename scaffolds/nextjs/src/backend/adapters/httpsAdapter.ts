@@ -165,4 +165,3 @@ export default {
     return fetchHandler(request, env);
   },
 };
-
