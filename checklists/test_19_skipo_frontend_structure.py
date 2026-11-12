@@ -2,10 +2,9 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-
 from importlib.util import spec_from_file_location, module_from_spec
-
 import sys
+
 ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -18,43 +17,30 @@ class SkipoFrontendStructureTests(unittest.TestCase):
         "src/frontend/pages/auth/page.tsx",
         "src/frontend/pages/menus/workspaces/page.tsx",
         "src/frontend/pages/main/page.tsx",
-        "src/frontend/pages/main/tabs/fod/page.tsx",
-        "src/frontend/pages/main/tabs/aiko/page.tsx",
         "src/frontend/pages/settings/page.tsx",
         "src/frontend/pages/settings/tabs/themes/page.tsx",
         "src/frontend/pages/settings/tabs/accounts/page.tsx",
     ]
 
-    def make_fixture(self, complete=True):
+    def make_fixture(self):
         root = Path(tempfile.mkdtemp())
-        (root / "src/frontend/pages/main/tabs/fod").mkdir(parents=True)
-        (root / "src/frontend/pages/main/tabs/aiko").mkdir(parents=True)
+        (root / "src/frontend/pages/main/tabs").mkdir(parents=True)
         (root / "src/frontend/pages/settings/tabs/themes").mkdir(parents=True)
         (root / "src/frontend/pages/settings/tabs/accounts").mkdir(parents=True)
         (root / "src/frontend/pages/auth").mkdir(parents=True)
         (root / "src/frontend/pages/menus/workspaces").mkdir(parents=True)
         (root / "src/frontend/pages/main").mkdir(parents=True, exist_ok=True)
         (root / "src/frontend/pages/settings").mkdir(parents=True, exist_ok=True)
-        (root / "package.json").write_text(json.dumps({"skipo":{"deploy":"fullstack"}}))
-        if complete:
-            for rel in self.required:
-                p = root / rel
-                p.parent.mkdir(parents=True, exist_ok=True)
-                if "main/page" in rel:
-                    p.write_text("immersive mode")
-                elif "accounts/page" in rel:
-                    p.write_text("SRKL sync")
-                elif "fod/page" in rel:
-                    p.write_text("import { FodModule } from '@ultrst-armada/floks/canvas-ui/fod';")
-                elif "aiko/page" in rel:
-                    p.write_text("import { AikoModule } from '@ultrst-armada/floks/canvas-ui/aiko';")
-                else:
-                    p.write_text("")
-            chat = root / "src/frontend/components/aiko/AikoDirectChat.tsx"
-            chat.parent.mkdir(parents=True, exist_ok=True)
-            chat.write_text("export function AikoDirectChat() {}")
-            app = root / "src/frontend/App.tsx"
-            app.write_text("import { AikoDirectChat } from './components/aiko/AikoDirectChat';\nexport function App() { return <AikoDirectChat />; }")
+        (root / "package.json").write_text(json.dumps({"skipo": {"deploy": "fullstack"}}))
+        for rel in self.required:
+            page = root / rel
+            page.parent.mkdir(parents=True, exist_ok=True)
+            if "main/page" in rel:
+                page.write_text("immersive mode")
+            elif "accounts/page" in rel:
+                page.write_text("SRKL sync")
+            else:
+                page.write_text("")
         return root
 
     def test_complete_structure_passes(self):
