@@ -42,7 +42,7 @@ export function HomePage() {
         id: `ws-${Date.now()}`,
         name: input.name,
         description: input.description,
-        storageProvider: input.storage?.provider ?? 'local_fs',
+        storageProvider: input.storage?.provider ?? 'memory',
       };
       setWorkspaces((current) => [...current, fallback]);
       setActiveWorkspaceId(fallback.id);
