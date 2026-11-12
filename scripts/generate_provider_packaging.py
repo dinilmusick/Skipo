@@ -291,7 +291,7 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
             "$schema": "https://openapi.vercel.sh/vercel.json",
             "buildCommand": "npm run build",
             "outputDirectory": "dist/client",
-            "rewrites": [{"source": "/api/:path*", "destination": "/api/[...path]"}, {"source": "/mcp", "destination": "/api/mcp"}],
+            "rewrites": [{"source": "/mcp", "destination": "/api/mcp"}],
         }, indent=2) + "\n", encoding="utf-8")
     if vercel not in created:
         created.append(vercel)
