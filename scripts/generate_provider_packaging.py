@@ -201,7 +201,7 @@ run("npx", [
 run("npx", [
   "esbuild", "src/providers/vercel.ts", "--bundle", "--format=esm",
   "--platform=browser", "--target=es2022",
-  "--outfile=mcp.js",
+  "--outfile=api/mcp.js",
 ]);
 run("npx", [
   "esbuild", "src/providers/node.ts", "--bundle", "--format=esm",
@@ -242,7 +242,7 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
         "application": {"entry": "src/app.ts", "protocol": "fetch"},
         "providers": {
             "cloudflare": {"entry": "src/providers/cloudflare.ts", "output": "dist/providers/cloudflare/worker.js"},
-            "vercel": {"entry": "src/providers/vercel.ts", "output": "api/[...path].js", "additionalOutputs": ["mcp.js"], "runtime": "edge"},
+            "vercel": {"entry": "src/providers/vercel.ts", "output": "api/[...path].js", "additionalOutputs": ["api/mcp.js"], "runtime": "edge"},
             "node": {"entry": "src/providers/node.ts", "output": "dist/providers/node/server.js"},
         },
         "build": {"command": "npm run build"},
@@ -291,6 +291,7 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
             "$schema": "https://openapi.vercel.sh/vercel.json",
             "buildCommand": "npm run build",
             "outputDirectory": "dist/client",
+            "rewrites": [{"source": "/mcp", "destination": "/api/mcp"}],
         }, indent=2) + "\n", encoding="utf-8")
     if vercel not in created:
         created.append(vercel)
