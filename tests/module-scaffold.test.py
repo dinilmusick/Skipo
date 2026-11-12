@@ -28,6 +28,9 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         assert './backend/DemoAppBackend.js' in app_source
         assert "externalInterfaces.mcp(request)" in app_source
         assert "externalInterfaces.http(request)" in app_source
+        frontend_source = "\n".join(path.read_text(encoding="utf-8") for path in (target / "src" / "frontend").rglob("*") if path.is_file())
+        assert "Sync from SRKL" not in frontend_source
+        assert "connected identity and external service accounts" in frontend_source
         generated_backend = (target / "src" / "backend" / "DemoAppBackend.ts").read_text(encoding="utf-8")
         assert "audio-midi" not in generated_backend
         assert "AudioHardwareServiceFacade" not in generated_backend
