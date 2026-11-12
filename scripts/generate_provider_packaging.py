@@ -37,7 +37,7 @@ async function fetchStaticAsset(
   if (pathname === "/") {
     candidates.push("/index.html");
   } else if (!pathname.includes(".")) {
-    const cleanPath = pathname.replace(/\\/$/, "");
+    const cleanPath = pathname.replace(/\/$/, "");
     candidates.push(`${cleanPath}.html`, `${cleanPath}/index.html`, pathname, "/index.html");
   } else {
     candidates.push(pathname);
