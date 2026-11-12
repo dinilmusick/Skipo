@@ -6,7 +6,6 @@
 
 import { DepmBackend } from '../DepmBackend';
 import { handleVaultRoutes } from './vaultRoutes';
-import { externalInterfaces } from '../AppBackend.js';
 import { authenticateLuthRequest } from '../auth/luthSession.js';
 import { fetch as universalFetch } from '../../app.js';
 
