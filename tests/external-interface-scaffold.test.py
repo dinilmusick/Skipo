@@ -19,7 +19,11 @@ def test_vite_and_nextjs_scaffolds_mount_both_external_protocols():
         assert "externalInterfaces.mcp(request)" in adapter
         assert "externalInterfaces.http(request)" in adapter
         app = (base / "src/app.ts").read_text(encoding="utf-8")
-        assert "fetchHandler(request, env" in app
+        assert "export async function fetch(" in app
+        assert "request: Request" in app
+        assert "Promise<Response>" in app
+        assert "externalInterfaces.mcp(request)" in app
+        assert "externalInterfaces.http(request)" in app
         assert "node:" not in app + adapter
         package = __import__("json").loads((base / "package.json").read_text(encoding="utf-8"))
         assert package["scripts"]["build"] == "node scripts/skipo-build.mjs"
