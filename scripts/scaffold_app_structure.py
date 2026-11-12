@@ -311,28 +311,18 @@ export async function createGoogleDriveWorkspaceStorage(
     if not backend_file.exists():
         backend_content = f"""/**
  * Provider-independent application backend.
- * Hosting adapters share this Fetch-compatible capability surface.
+ * Add app-specific services explicitly; the default Fetch contract stays portable.
  */
-import {
-  StorageServiceFacade,
-  WorkspaceServiceFacade,
-} from '@ultrst-armada/kloks/backend/krnl-services';
 import { BackendFacade } from './BackendFacade.js';
 import { createAppExternalInterfaces } from './externalInterfaces.js';
-import { createGoogleDriveWorkspaceStorage } from './storage/googleDriveWorkspaceStorage.js';
 
 export const backendFacade = new BackendFacade();
-for (const service of [StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
 export const externalInterfaces = createAppExternalInterfaces(backendFacade);
-export const storageProviders = {
-  googleDrive: { create: createGoogleDriveWorkspaceStorage },
-};
+export const services = Object.freeze({});
+export const storageProviders = Object.freeze({});
 
 export const {pascal}Backend = {
-  services: {
-    storage: StorageServiceFacade,
-    workspace: WorkspaceServiceFacade,
-  },
+  services,
   storageProviders,
   backendFacade,
   externalInterfaces,
