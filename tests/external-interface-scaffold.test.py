@@ -10,17 +10,18 @@ def test_vite_and_nextjs_scaffolds_mount_both_external_protocols():
             assert (external / name).is_file(), f"{framework}: {name}"
         factory = (base / "src/backend/externalInterfaces.ts").read_text(encoding="utf-8")
         backend = (base / "src/backend/AppBackend.ts").read_text(encoding="utf-8")
-        adapter = (base / "src/backend/adapters/httpsAdapter.ts").read_text(encoding="utf-8")
+        assert not (base / "src/backend/adapters/httpsAdapter.ts").exists()
         assert "getLuthSession" in factory
         assert "CapabilityRegistry" in factory
         assert "createAppExternalInterfaces" in backend
         auth = (base / "src/backend/auth/luthSession.ts").read_text(encoding="utf-8")
         assert "export async function getLuthSession" in auth
-        assert "externalInterfaces.mcp(request)" in adapter
-        assert "externalInterfaces.http(request)" in adapter
         app = (base / "src/app.ts").read_text(encoding="utf-8")
-        assert "fetchHandler(request, env" in app
-        assert "node:" not in app + adapter
+        assert "export async function fetch(" in app
+        assert "externalInterfaces.mcp(request)" in app
+        assert "externalInterfaces.http(request)" in app
+        assert "proxyLuthAuthRequest" in app
+        assert "node:" not in app
         package = __import__("json").loads((base / "package.json").read_text(encoding="utf-8"))
         assert package["scripts"]["build"] == "node scripts/skipo-build.mjs"
         assert "esbuild" in package.get("pnpm", {}).get("onlyBuiltDependencies", [])
