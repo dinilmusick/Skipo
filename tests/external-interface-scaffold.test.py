@@ -23,8 +23,15 @@ def test_vite_and_nextjs_scaffolds_mount_both_external_protocols():
         assert "externalInterfaces.mcp(request)" in adapter
         assert "externalInterfaces.http(request)" in adapter
         app = (base / "src/app.ts").read_text(encoding="utf-8")
-        assert "fetchHandler(request, env" in app
-        assert "node:" not in app + adapter
+        worker = (base / "src/providers/cloudflare.ts").read_text(encoding="utf-8")
+        vercel = (base / "src/providers/vercel.ts").read_text(encoding="utf-8")
+        node = (base / "src/providers/node.ts").read_text(encoding="utf-8")
+        assert "export async function fetch(" in app
+        assert "externalInterfaces.mcp(request)" in app
+        assert "externalInterfaces.http(request)" in app
+        assert "proxyLuthAuthRequest(request)" in app
+        assert "node:" not in app + adapter + worker
+        assert "fetchHandler" in adapter + vercel + node
         package = __import__("json").loads((base / "package.json").read_text(encoding="utf-8"))
         assert package["scripts"]["build"] == "node scripts/skipo-build.mjs"
         assert (base / "scripts/skipo-build.mjs").is_file()
