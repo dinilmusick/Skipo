@@ -18,6 +18,19 @@ def test_vite_and_nextjs_scaffolds_mount_both_external_protocols():
         assert "export async function getLuthSession" in auth
         assert "externalInterfaces.mcp(request)" in adapter
         assert "externalInterfaces.http(request)" in adapter
+        app = (base / "src/app.ts").read_text(encoding="utf-8")
+        assert "fetchHandler(request, env" in app
+        assert "node:" not in app + adapter
+        package = __import__("json").loads((base / "package.json").read_text(encoding="utf-8"))
+        assert package["scripts"]["build"] == "node scripts/skipo-build.mjs"
+        assert "esbuild" in package.get("pnpm", {}).get("onlyBuiltDependencies", [])
+        for generated in ("scripts/skipo-build.mjs", "src/providers/cloudflare.ts", "src/providers/vercel.ts", "src/providers/node.ts", "skipo.providers.json"):
+            assert (base / generated).is_file(), f"{framework}: {generated}"
+        providers = __import__("json").loads((base / "skipo.providers.json").read_text(encoding="utf-8"))
+        assert providers["providers"]["vercel"]["output"] == "api/[...path].js"
+        assert providers["providers"]["vercel"]["additionalOutputs"] == ["api/mcp.js"]
+        vercel = __import__("json").loads((base / "vercel.json").read_text(encoding="utf-8"))
+        assert {"/api/:path*": "/api/[...path]", "/mcp": "/api/mcp"} == {rule["source"]: rule["destination"] for rule in vercel["rewrites"]}
         backend_source = (base / "src/backend/AppBackend.ts").read_text(encoding="utf-8")
         assert "@ultrst-armada/kloks/audio-midi" not in backend_source
         assert "AudioHardwareServiceFacade" not in backend_source
