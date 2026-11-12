@@ -503,14 +503,16 @@ export async function requireLuthSession(request: Request): Promise<LuthGuardRes
 import React from 'react';
 import { LuthAuthPage as FloksLuthAuthPage } from '@ultrst-armada/floks/auth';
 
-export function LuthAuthPage({ applicationId, appName, onAuthenticated }: {
+export function LuthAuthPage({ applicationId, appName, onAuthenticated, authenticatedContent }: {
   applicationId: string;
   appName: string;
   onAuthenticated?: (user: unknown) => void;
+  authenticatedContent?: React.ReactNode | ((auth: any) => React.ReactNode);
 }) {
   return <FloksLuthAuthPage ecosystemId="ultrst-armada"
     applicationId={applicationId} appName={appName}
-    onAuthenticated={onAuthenticated as any} />;
+    onAuthenticated={onAuthenticated as any}
+    authenticatedContent={authenticatedContent as any} />;
 }
 
 export default LuthAuthPage;
@@ -540,8 +542,8 @@ export async function luthFetch(input: RequestInfo | URL, init: RequestInit = {}
         pages_root / "auth" / "page.tsx": (
             "import React from 'react';\n"
             "import { LuthAuthPage } from './LuthAuthPage.js';\n\n"
-            f"export function AuthPage(props: {{ onAuthenticated?: (user: unknown) => void }}) {{\n"
-            f"  return <LuthAuthPage applicationId=\"{app_name.lower().replace(' ', '-')}\" appName=\"{pascal}\" onAuthenticated={{props.onAuthenticated}} />;\n"
+            f"export function AuthPage(props: {{ onAuthenticated?: (user: unknown) => void; authenticatedContent?: React.ReactNode | ((auth: any) => React.ReactNode) }}) {{\n"
+            f"  return <LuthAuthPage applicationId=\"{app_name.lower().replace(' ', '-')}\" appName=\"{pascal}\" onAuthenticated={{props.onAuthenticated}} authenticatedContent={{props.authenticatedContent}} />;\n"
             "}\n\n"
             "export default AuthPage;\n"
         ),
@@ -604,16 +606,55 @@ export default MainPage;
     app_tsx = target_root / "src" / "frontend" / "App.tsx"
     if not app_tsx.exists():
         app_tsx.write_text(
-            """import MainPage from './pages/main/page.js';
+            """import { useState } from 'react';
+import MainPage from './pages/main/page.js';
+import AuthPage from './pages/auth/page.js';
+import { WorkspaceGate } from './components/gates/WorkspaceGate.js';
 import { FrnlSemanticInputProvider } from '@ultrst-armada/frnlts';
+import type { WorkspaceRecord } from '@ultrst-armada/floks/ui';
 
 export function App() {
-  const workspaceId = typeof window === 'undefined' ? 'default' : localStorage.getItem('skipo-active-workspace') || 'default';
-  return <FrnlSemanticInputProvider value={{ workspace: workspaceId }}><MainPage /></FrnlSemanticInputProvider>;
+  const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([]);
+  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceRecord | null>(null);
+
+  return <AuthPage authenticatedContent={(auth: any) => {
+    if (!activeWorkspace) {
+      return <WorkspaceGate
+        workspaces={workspaces}
+        userId={auth.user?.id}
+        currentUser={auth.user}
+        activeWorkspaceId={null}
+        onSelectWorkspace={setActiveWorkspace}
+        onCreateWorkspace={async (input) => {
+          const workspace: WorkspaceRecord = {
+            id: `ws-${Date.now()}`,
+            title: input.name.trim(),
+            name: input.name.trim(),
+            description: input.description,
+            storageProvider: input.storageProvider || input.storage?.provider || 'local_fs',
+            storageConnectionId: input.storageConnectionId || input.storage?.connectionId,
+          };
+          setWorkspaces((current) => [...current, workspace]);
+          setActiveWorkspace(workspace);
+        }}
+        onLogout={() => {
+          setActiveWorkspace(null);
+          void auth.signOut();
+        }}
+        appName="__SKIPO_APP_NAME__"
+      />;
+    }
+
+    return <FrnlSemanticInputProvider value={{ workspace: activeWorkspace.id }}>
+      <MainPage>
+        <div data-skipo-active-workspace={activeWorkspace.id} />
+      </MainPage>
+    </FrnlSemanticInputProvider>;
+  }} />;
 }
 
 export default App;
-""",
+""".replace("__SKIPO_APP_NAME__", pascal),
             encoding="utf-8",
         )
         created.append(app_tsx)
