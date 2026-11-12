@@ -8,7 +8,7 @@ export interface VerifiedLuthSession {
 
 /** Delegate request authentication to Luth; never trust an app-supplied user ID. */
 export async function getLuthSession(request: Request): Promise<VerifiedLuthSession | null> {
-  const headers = new Headers({ 'x-app-id': 'my-app' });
+  const headers = new Headers({ 'x-app-id': request.headers.get('x-app-id') || new URL(request.url).hostname });
   for (const name of ['authorization', 'cookie', 'origin']) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
