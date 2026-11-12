@@ -83,7 +83,7 @@ CLOUDFLARE_SOURCE = """import { fetch } from "../app.js";
 
 /** Cloudflare Worker adapter; application behavior remains in ../app.ts. */
 export default {
-  fetch(request: Request, env: Record<string, unknown>, ctx: ExecutionContext) {
+  fetch(request: Request, env: any, ctx: ExecutionContext) {
     return fetch(request, env, ctx);
   },
 };
@@ -287,26 +287,34 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
 
     wrangler = target / "wrangler.toml"
     wrangler.write_text(
-            f'name = "{app_name.lower()}-worker"\n'
-            'main = "dist/providers/cloudflare/worker.js"\n'
-            'compatibility_date = "2026-01-01"\n\n'
-            '[assets]\n'
-            'directory = "./dist/client"\n'
-            'binding = "ASSETS"\n'
-            'run_worker_first = true\n'
-            'not_found_handling = "single-page-application"\n\n'
-            '[build]\ncommand = "npm run build"\n',
-            encoding="utf-8",
-        )
+        f"""name = "{app_name.lower()}-worker"
+main = "dist/providers/cloudflare/worker.js"
+compatibility_date = "2026-01-01"
+
+[assets]
+directory = "./dist/client"
+binding = "ASSETS"
+run_worker_first = true
+not_found_handling = "none"
+
+[build]
+command = "npm run build"
+
+[vars]
+APP_URL = "http://localhost:3000"
+""",
+        encoding="utf-8",
+    )
     if wrangler not in created:
         created.append(wrangler)
     vercel = target / "vercel.json"
     vercel.write_text(json.dumps({
-            "$schema": "https://openapi.vercel.sh/vercel.json",
-            "buildCommand": "npm run build",
-            "outputDirectory": "dist/client",
-            "rewrites": [{"source": "/mcp", "destination": "/api/mcp"}],
-        }, indent=2) + "\n", encoding="utf-8")
+        "$schema": "https://openapi.vercel.sh/vercel.json",
+        "buildCommand": "npm run build",
+        "outputDirectory": "dist/client",
+        "cleanUrls": True,
+        "rewrites": [{"source": "/mcp", "destination": "/api/mcp"}],
+    }, indent=2) + "\n", encoding="utf-8")
     if vercel not in created:
         created.append(vercel)
 
