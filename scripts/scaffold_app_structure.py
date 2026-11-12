@@ -282,9 +282,6 @@ import {{
   OrchestratorBDefinition,
 }} from '@ultrst-armada/kloks/orchestrations';
 import {{
-  AudioHardwareServiceFacade,
-  MidiServiceFacade,
-  AudioMidiOrchestratorDefinition,
 }} from '@ultrst-armada/kloks/audio-midi';
 import {{
   StorageServiceFacade,
@@ -318,8 +315,6 @@ export const {pascal}Backend = {{
   services: {{
     serviceA: ServiceAFacade,
     serviceB: ServiceBFacade,
-    audioHardware: AudioHardwareServiceFacade,
-    midi: MidiServiceFacade,
     storage: StorageServiceFacade,
     workspace: WorkspaceServiceFacade,
     bugReport: bugReportService,
@@ -328,7 +323,6 @@ export const {pascal}Backend = {{
   orchestrations: {{
     orchestratorA: OrchestratorADefinition,
     orchestratorB: OrchestratorBDefinition,
-    audioMidi: AudioMidiOrchestratorDefinition,
   }},
   worker: {camel}Worker,
   WorkerExecutionBoundary: {camel}Worker,
