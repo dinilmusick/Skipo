@@ -30,6 +30,8 @@ export function HomePage() {
               <WorkspaceTilesMenu
                 workspaces={workspaces}
                 userId={auth.user?.id}
+                storageOptions={[{ id: 'memory', provider: 'memory', label: 'In-memory (ephemeral)' }]}
+                visibility={{ storagePolicy: { providers: ['memory'] } }}
                 activeWorkspaceId={null}
                 onSelectWorkspace={setActive}
                 onCreateWorkspace={async (input) => {
