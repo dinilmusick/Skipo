@@ -58,7 +58,7 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         assert '"buildCommand": "npm run build"' in (target / "vercel.json").read_text(encoding="utf-8")
         vercel_config = __import__("json").loads((target / "vercel.json").read_text(encoding="utf-8"))
         assert vercel_config["outputDirectory"] == "dist/client"
-        assert "rewrites" not in vercel_config
+        assert {"/mcp": "/api/mcp"} == {rule["source"]: rule["destination"] for rule in vercel_config["rewrites"]}
         assert not (target / "config/build/manifests/fullstack.json").exists()
         assert not (target / "config/build/manifests/api.json").exists()
 
