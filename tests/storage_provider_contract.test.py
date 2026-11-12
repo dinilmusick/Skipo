@@ -25,15 +25,15 @@ def test_workspace_creation_dialog_is_owned_by_floks_for_all_skipo_scaffolds():
         assert "WorkspaceTilesMenu" in gate
         assert "storageOptions" in gate
         assert "onManageStorage={onManageStorage}" in gate
-        assert package["dependencies"]["@ultrst-armada/floks"] == "^1.13.18"
+        assert package["dependencies"]["@ultrst-armada/floks"] == "^1.14.2"
 
     generator = (ROOT / "scripts/scaffold_app_structure.py").read_text()
     root_package = __import__("json").loads((ROOT / "package.json").read_text())
     assert "WorkspaceTilesMenu" in generator
     assert "WorkspaceGate.tsx" in generator
     assert "onManageStorage" in generator
-    assert '"@ultrst-armada/floks": "^1.13.18"' in generator
-    assert root_package["dependencies"]["@ultrst-armada/floks"] == "^1.13.18"
+    assert '"@ultrst-armada/floks": "^1.14.2"' in generator
+    assert root_package["dependencies"]["@ultrst-armada/floks"] == "^1.14.2"
 
 
 def test_google_drive_uses_kloks_adapter_in_every_canonical_scaffold():
@@ -45,15 +45,19 @@ def test_google_drive_uses_kloks_adapter_in_every_canonical_scaffold():
         env_example = (root / ".env.example").read_text()
 
         assert "storageProviders" in backend
-        assert "googleDrive: { create: createGoogleDriveWorkspaceStorage }" in backend
+        assert "GoogleDriveStorageService" not in backend
+        assert "kloks/backend" not in backend
         assert "GoogleDriveStorageService" in adapter
         assert "refreshGoogleDriveAccessToken" in adapter
         assert "googleAccessTokenExpiresAt" in storage_types
         assert "GOOGLE_DRIVE_CLIENT_SECRET" in env_example
         assert "GOOGLE_DRIVE_CLIENT_SECRET" not in backend
+        assert "process.env" not in adapter
 
     generator = (ROOT / "scripts/scaffold_app_structure.py").read_text()
     assert "createGoogleDriveWorkspaceStorage" in generator
     assert "GoogleDriveStorageService" in generator
     assert "storageProviders" in generator
+    assert "StorageServiceFacade" not in generator
+    assert "@ultrst-armada/kloks/services" not in generator
 
