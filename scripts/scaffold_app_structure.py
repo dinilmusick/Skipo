@@ -621,6 +621,50 @@ export default App;
         )
         created.append(app_tsx)
 
+    # 3a. Minimal Vite browser entrypoint. UI code stays provider-independent.
+    index_html = target_root / "index.html"
+    if not index_html.exists():
+        index_html.write_text("""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Skipo Application</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/frontend/main.tsx"></script>
+  </body>
+</html>
+""", encoding="utf-8")
+        created.append(index_html)
+
+    vite_config = target_root / "vite.config.ts"
+    if not vite_config.exists():
+        vite_config.write_text("""import { defineConfig } from 'vite';
+
+export default defineConfig({
+  root: '.',
+  build: {
+    outDir: 'dist/client',
+    emptyOutDir: true,
+  },
+});
+""", encoding="utf-8")
+        created.append(vite_config)
+
+    frontend_main = target_root / "src" / "frontend" / "main.tsx"
+    if not frontend_main.exists():
+        frontend_main.write_text("""import React from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App.js';
+
+const container = document.getElementById('root');
+if (!container) throw new Error('Skipo application root element is missing.');
+createRoot(container).render(<React.StrictMode><App /></React.StrictMode>);
+""", encoding="utf-8")
+        created.append(frontend_main)
+
     # 4. src/libraries/index.ts (Skipo-specific custom code only)
     lib_index = target_root / "src" / "libraries" / "index.ts"
     if not lib_index.exists():
