@@ -1,4 +1,4 @@
-import { externalInterfaces } from "./backend/AppBackend.js";
+import { handleHttpsRequest } from "./backend/adapters/httpsAdapter.js";
 import { proxyLuthAuthRequest } from "./backend/auth/luthSession.js";
 
 /**
