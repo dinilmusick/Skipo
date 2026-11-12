@@ -421,6 +421,22 @@ export async function requireLuthSession(request: Request): Promise<LuthGuardRes
         luth_session_file.write_text(luth_session_content, encoding="utf-8")
         created.append(luth_session_file)
 
+    luth_auth_facade_file = target_root / "src" / "backend" / "LuthAuthServiceFacade.ts"
+    if not luth_auth_facade_file.exists():
+        luth_auth_facade_source = SKIPO_ROOT / "src" / "backend" / "LuthAuthServiceFacade.ts"
+        if luth_auth_facade_source.is_file():
+            luth_auth_facade_file.write_text(luth_auth_facade_source.read_text(encoding="utf-8"), encoding="utf-8")
+        else:
+            luth_auth_facade_file.write_text(
+                "import { getLuthSession, proxyLuthAuthRequest } from './auth/luthSession.js';\\n"
+                "export const LuthAuthServiceFacade = { id: 'auth', name: 'Luth Authentication', version: '1.0.0', "
+                "getSession: getLuthSession, getCurrentUser: async (request: Request) => (await getLuthSession(request))?.user ?? null, "
+                "proxyRequest: proxyLuthAuthRequest };\\n"
+                "export default LuthAuthServiceFacade;\\n",
+                encoding="utf-8",
+            )
+        created.append(luth_auth_facade_file)
+
     # 3. Canonical Skipo frontend page contract + component facade
     frontend_components = target_root / "src" / "frontend" / "components"
     pages_root = target_root / "src" / "frontend" / "pages"
