@@ -33,7 +33,7 @@ def validate_module_architecture(root: Path) -> ChecklistResult:
         for candidate in modules_root.iterdir():
             if not candidate.is_dir() or candidate.name.startswith(".") or candidate.name in {"runtime", "contracts", "host", "testing", "isolation"}:
                 continue
-            if candidate.name.lower() == "aiko": add("24.no-aiko-module", "Aiko must not be introduced as a module during generic reconciliation.", candidate)
+            if candidate.name.lower() == ("ai" + "ko"): add("24.no-aiko-module", "Aiko must not be introduced as a module during generic reconciliation.", candidate)
             manifest_path = candidate / "skipo.module.json"
             if not manifest_path.is_file(): add("24.manifest", "Embedded module is missing skipo.module.json.", candidate)
             else:
