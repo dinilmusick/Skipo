@@ -18,6 +18,19 @@ def test_vite_and_nextjs_scaffolds_mount_both_external_protocols():
         assert "export async function getLuthSession" in auth
         assert "externalInterfaces.mcp(request)" in adapter
         assert "externalInterfaces.http(request)" in adapter
+        app = (base / "src/app.ts").read_text(encoding="utf-8")
+        assert "fetchHandler(request, env" in app
+        assert "node:" not in app + adapter
+        package = __import__("json").loads((base / "package.json").read_text(encoding="utf-8"))
+        assert package["scripts"]["build"] == "node scripts/skipo-build.mjs"
+        assert (base / "scripts/skipo-build.mjs").is_file()
+        assert (base / "src/providers/cloudflare.ts").is_file()
+        assert (base / "src/providers/vercel.ts").is_file()
+        assert (base / "src/providers/node.ts").is_file()
+        assert (base / "skipo.providers.json").is_file()
+        assert not (base / "scripts/skipo-build.cjs").exists()
+        assert not (base / "src/backend/adapters/universalEntry.ts").exists()
+        assert not (base / "src/backend/adapters/nodeBridge.ts").exists()
         backend_source = (base / "src/backend/AppBackend.ts").read_text(encoding="utf-8")
         assert "@ultrst-armada/kloks/audio-midi" not in backend_source
         assert "AudioHardwareServiceFacade" not in backend_source
