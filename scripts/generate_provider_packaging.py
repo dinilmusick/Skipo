@@ -53,14 +53,6 @@ export default { fetch };
 APP_SOURCE = SCAFFOLD_APP_SOURCE
 
 
-NODE_ADAPTER_SOURCE = NODE_SOURCE.replace(
-    'import { fetch } from "../app.js";',
-    'import { fetchHandler } from "../backend/adapters/httpsAdapter.js";',
-).replace(
-    "await fetch(request, process.env as any)",
-    "await fetchHandler(request, process.env as any)",
-)
-
 CLOUDFLARE_SOURCE = """import { fetch } from "../app.js";
 
 /** Cloudflare Worker adapter; application behavior remains in ../app.ts. */
@@ -228,11 +220,6 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
             backend_entry = next((name for name in candidates if (target / "src/backend" / f"{name}.ts").is_file()), candidates[-1])
             source = APP_SOURCE.replace("__SKIPO_BACKEND_ENTRY__", backend_entry)
         path = target / relative
-        if relative == "src/providers/node.ts" and (target / "src/backend/adapters/httpsAdapter.ts").is_file():
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(NODE_ADAPTER_SOURCE, encoding="utf-8")
-            created.append(path)
-            continue
         if not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(source, encoding="utf-8")
