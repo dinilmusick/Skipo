@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { resolve, extname, sep } from "node:path";
-import { fetch } from "../app.js";
+import { fetchHandler } from "../backend/adapters/httpsAdapter.js";
 
 const root = process.cwd();
 const assets = {
@@ -50,7 +50,7 @@ const server = createServer(async (incoming, outgoing) => {
       headers: incoming.headers as HeadersInit,
       body,
     });
-    const response = await fetch(request, { ...process.env, ASSETS: assets });
+    const response = await fetchHandler(request, { ...process.env, ASSETS: assets });
     outgoing.writeHead(response.status, Object.fromEntries(response.headers));
     outgoing.end(Buffer.from(await response.arrayBuffer()));
   } catch (error) {
