@@ -282,12 +282,12 @@ import {{
   OrchestratorBDefinition,
 }} from '@ultrst-armada/kloks/orchestrations';
 import {{
-}} from '@ultrst-armada/kloks/audio-midi';
-import {{
   StorageServiceFacade,
   WorkspaceServiceFacade,
 }} from '@ultrst-armada/kloks/backend';
 import {{ WorkerExecutionBoundary }} from '@ultrst-armada/krnl';
+import {{ BackendFacade }} from './BackendFacade.js';
+import {{ createAppExternalInterfaces }} from './externalInterfaces.js';
 import {{ createGoogleDriveWorkspaceStorage }} from './storage/googleDriveWorkspaceStorage.js';
 
 export const {camel}Worker = new WorkerExecutionBoundary('{pascal}Worker');
@@ -311,6 +311,10 @@ export const bugReportService = {{
 
 export const storageProviders = {{ googleDrive: {{ create: createGoogleDriveWorkspaceStorage }} }};
 
+export const backendFacade = new BackendFacade();
+for (const service of [ServiceAFacade, ServiceBFacade, StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
+export const externalInterfaces = createAppExternalInterfaces(backendFacade);
+
 export const {pascal}Backend = {{
   services: {{
     serviceA: ServiceAFacade,
@@ -320,6 +324,8 @@ export const {pascal}Backend = {{
     bugReport: bugReportService,
   }},
   storageProviders,
+  backendFacade,
+  externalInterfaces,
   orchestrations: {{
     orchestratorA: OrchestratorADefinition,
     orchestratorB: OrchestratorBDefinition,
