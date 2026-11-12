@@ -4,10 +4,11 @@
  */
 import { BackendFacade } from './BackendFacade.js';
 import { createAppExternalInterfaces } from './externalInterfaces.js';
+import { LuthAuthServiceFacade } from './LuthAuthServiceFacade.js';
 
 export const backendFacade = new BackendFacade();
 export const externalInterfaces = createAppExternalInterfaces(backendFacade);
-export const services = Object.freeze({});
+export const services = Object.freeze({ auth: LuthAuthServiceFacade });
 
 export const FetchBackend = {
   services,
