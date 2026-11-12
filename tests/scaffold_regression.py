@@ -106,6 +106,9 @@ class ScaffoldRegressionTest(unittest.TestCase):
             self.assertNotIn("audio-midi", backend_source)
             self.assertNotIn("AudioHardwareServiceFacade", backend_source)
             self.assertNotIn("MidiServiceFacade", backend_source)
+            self.assertNotIn("@ultrst-armada/kloks/services", backend_source)
+            self.assertNotIn("@ultrst-armada/kloks/backend/krnl-services", backend_source)
+            self.assertNotIn("node:", backend_source)
 
             self.assertFalse((base / "src/backend/aikoRuntime.ts").exists())
             self.assertFalse((base / "src/frontend/pages/main/tabs/aiko").exists())
