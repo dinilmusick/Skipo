@@ -16,6 +16,8 @@ def test_workspace_storage_declares_canonical_providers():
     assert "provider-specific SDKs and credentials" in workspace
 
 def test_workspace_creation_dialog_is_owned_by_floks_for_all_skipo_scaffolds():
+    root_package = __import__("json").loads((ROOT / "package.json").read_text())
+    expected_floks = root_package["dependencies"]["@ultrst-armada/floks"]
     for scaffold_name in ("nextjs", "vite"):
         root = ROOT / "scaffolds" / scaffold_name
         gate = (root / "src/frontend/components/gates/WorkspaceGate.tsx").read_text()
@@ -25,15 +27,14 @@ def test_workspace_creation_dialog_is_owned_by_floks_for_all_skipo_scaffolds():
         assert "WorkspaceTilesMenu" in gate
         assert "storageOptions" in gate
         assert "onManageStorage={onManageStorage}" in gate
-        assert package["dependencies"]["@ultrst-armada/floks"] == "^1.14.2"
+        assert package["dependencies"]["@ultrst-armada/floks"] == expected_floks
 
     generator = (ROOT / "scripts/scaffold_app_structure.py").read_text()
-    root_package = __import__("json").loads((ROOT / "package.json").read_text())
     assert "WorkspaceTilesMenu" in generator
     assert "WorkspaceGate.tsx" in generator
     assert "onManageStorage" in generator
-    assert '"@ultrst-armada/floks": "^1.14.2"' in generator
-    assert root_package["dependencies"]["@ultrst-armada/floks"] == "^1.14.2"
+    assert f'"@ultrst-armada/floks": "{expected_floks}"' in generator
+    assert root_package["dependencies"]["@ultrst-armada/floks"] == expected_floks
 
 
 def test_google_drive_uses_kloks_adapter_in_every_canonical_scaffold():
