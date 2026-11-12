@@ -14,7 +14,7 @@
       "output": "api/[...path].js",
       "runtime": "edge",
       "additionalOutputs": [
-        "mcp.js"
+        "api/mcp.js"
       ]
     },
     "node": {
