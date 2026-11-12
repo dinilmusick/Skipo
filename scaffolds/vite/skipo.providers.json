@@ -12,7 +12,7 @@
     "vercel": {
       "entry": "src/providers/vercel.ts",
       "output": "api/[...path].js",
-      "runtime": "edge",
+      "runtime": "node",
       "additionalOutputs": [
         "api/mcp.js"
       ]
