@@ -83,6 +83,8 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         assert dependencies["@ultrst-armada/frnlts"] == "^0.5.23"
         assert dependencies["@ultrst-armada/kloks"] == "^1.26.3"
         assert dependencies["@ultrst-armada/floks"] == "^1.14.2"
+        assert package["devDependencies"]["esbuild"] == "^0.28.2"
+        assert {"@dinilmusick/gutts", "esbuild"}.issubset(set(package["pnpm"]["onlyBuiltDependencies"]))
 
 
 
