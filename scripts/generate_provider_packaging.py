@@ -196,7 +196,12 @@ run("npx", [
 run("npx", [
   "esbuild", "src/providers/vercel.ts", "--bundle", "--format=esm",
   "--platform=browser", "--target=es2022",
-  "--outfile=api/index.js",
+  "--outfile=api/[...path].js",
+]);
+run("npx", [
+  "esbuild", "src/providers/vercel.ts", "--bundle", "--format=esm",
+  "--platform=browser", "--target=es2022",
+  "--outfile=api/mcp.js",
 ]);
 run("npx", [
   "esbuild", "src/providers/node.ts", "--bundle", "--format=esm",
