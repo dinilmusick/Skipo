@@ -48,6 +48,10 @@ def test_generated_scaffold_does_not_bundle_product_modules(tmp_path):
     components = (target / "src/frontend/components/components.ts").read_text()
     app = (target / "src/frontend/App.tsx").read_text()
     main = (target / "src/frontend/pages/main/page.tsx").read_text()
+    module_contract = (target / "src/modules/README.md").read_text(encoding="utf-8")
+    assert "not a Floks UI module" in module_contract
+    assert "authentication and workspace selection" in module_contract
+    assert "One module may combine multiple related product domains" in module_contract
     assert "Aiko" not in backend + app + main
     assert "FodServiceFacade" not in backend + app + main
     assert "AikoModule" not in components
