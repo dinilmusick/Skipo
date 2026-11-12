@@ -23,7 +23,10 @@ def test_vite_and_nextjs_scaffolds_mount_both_external_protocols():
         assert "node:" not in app + adapter
         package = __import__("json").loads((base / "package.json").read_text(encoding="utf-8"))
         assert package["scripts"]["build"] == "node scripts/skipo-build.mjs"
-        assert "esbuild" in package.get("pnpm", {}).get("onlyBuiltDependencies", [])
+        workspace_config = (base / "pnpm-workspace.yaml").read_text(encoding="utf-8")
+        assert "onlyBuiltDependencies:" in workspace_config
+        assert "  - esbuild" in workspace_config
+        assert "  - msgpackr-extract" in workspace_config
         for generated in ("scripts/skipo-build.mjs", "src/providers/cloudflare.ts", "src/providers/vercel.ts", "src/providers/node.ts", "skipo.providers.json"):
             assert (base / generated).is_file(), f"{framework}: {generated}"
         providers = __import__("json").loads((base / "skipo.providers.json").read_text(encoding="utf-8"))
