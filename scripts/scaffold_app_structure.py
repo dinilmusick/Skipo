@@ -315,11 +315,12 @@ export async function createGoogleDriveWorkspaceStorage(
  */
 import { BackendFacade } from './BackendFacade.js';
 import { createAppExternalInterfaces } from './externalInterfaces.js';
+import { LuthAuthServiceFacade } from './LuthAuthServiceFacade.js';
 
 export const backendFacade = new BackendFacade();
 export const externalInterfaces = createAppExternalInterfaces(backendFacade);
-export const services = Object.freeze({});
-export const storageProviders = Object.freeze({});
+export const services = Object.freeze({{ auth: LuthAuthServiceFacade }});
+export const storageProviders = Object.freeze({{}});
 
 export const {pascal}Backend = {
   services,
@@ -352,38 +353,19 @@ export {{ default }} from './{pascal}Backend.js';
     auth_dir.mkdir(parents=True, exist_ok=True)
     luth_session_file = auth_dir / "luthSession.ts"
     if not luth_session_file.exists():
-        luth_session_content = f"""import {{ DEFAULT_LUTH_URL }} from '@dinilmusick/gutts/auth';
-
-export type LuthGuardResult =
-  | {{ authenticated: true; userId: string }}
-  | {{ authenticated: false; response: Response }};
-
-/** Verify the bearer session with Luth; never trust a caller-supplied user ID. */
-export async function requireLuthSession(request: Request): Promise<LuthGuardResult> {{
-  const authorization = request.headers.get('authorization');
-  if (!authorization) {{
-    return {{ authenticated: false, response: Response.json({{ error: 'A verified Luth session is required.' }}, {{ status: 401 }}) }};
-  }}
-  try {{
-    const response = await fetch(`${{DEFAULT_LUTH_URL}}/api/session`, {{
-      headers: {{ authorization, 'x-app-id': '{app_name.lower().replace(' ', '-')}' }},
-      cache: 'no-store',
-    }});
-    if (!response.ok) {{
-      return {{ authenticated: false, response: Response.json({{ error: 'Luth session is invalid or expired.' }}, {{ status: 401 }}) }};
-    }}
-    const session = await response.json() as {{ authenticated?: boolean; user?: {{ id?: string }} }};
-    if (session.authenticated !== true || !session.user?.id) {{
-      return {{ authenticated: false, response: Response.json({{ error: 'Luth session is invalid or expired.' }}, {{ status: 401 }}) }};
-    }}
-    return {{ authenticated: true, userId: session.user.id }};
-  }} catch {{
-    return {{ authenticated: false, response: Response.json({{ error: 'Canonical Luth authentication service unavailable.' }}, {{ status: 503 }}) }};
-  }}
-}}
-"""
-        luth_session_file.write_text(luth_session_content, encoding="utf-8")
+        luth_session_source = SKIPO_ROOT / "src" / "backend" / "auth" / "luthSession.ts"
+        if not luth_session_source.is_file():
+            raise FileNotFoundError("Canonical Luth session adapter is missing from Skipo.")
+        luth_session_file.write_text(luth_session_source.read_text(encoding="utf-8"), encoding="utf-8")
         created.append(luth_session_file)
+
+    luth_auth_facade_file = target_root / "src" / "backend" / "LuthAuthServiceFacade.ts"
+    if not luth_auth_facade_file.exists():
+        luth_auth_facade_source = SKIPO_ROOT / "src" / "backend" / "LuthAuthServiceFacade.ts"
+        if not luth_auth_facade_source.is_file():
+            raise FileNotFoundError("Canonical Luth auth facade is missing from Skipo.")
+        luth_auth_facade_file.write_text(luth_auth_facade_source.read_text(encoding="utf-8"), encoding="utf-8")
+        created.append(luth_auth_facade_file)
 
     # 3. Canonical Skipo frontend page contract + component facade
     frontend_components = target_root / "src" / "frontend" / "components"
