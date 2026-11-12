@@ -318,70 +318,33 @@ export async function createGoogleDriveWorkspaceStorage(
     backend_file = target_root / "src" / "backend" / f"{pascal}Backend.ts"
     if not backend_file.exists():
         backend_content = f"""/**
- * @file {pascal}Backend.ts
- * @description Primary application backend entrypoint composing @ultrst-armada/kloks services & orchestrators.
+ * Provider-independent application backend.
+ * Hosting adapters share this Fetch-compatible capability surface.
  */
-
-import {{
-  ServiceAFacade,
-  ServiceBFacade,
-}} from '@ultrst-armada/kloks/services';
-import {{
-  OrchestratorADefinition,
-  OrchestratorBDefinition,
-}} from '@ultrst-armada/kloks/orchestrations';
-import {{
+import {
   StorageServiceFacade,
   WorkspaceServiceFacade,
-}} from '@ultrst-armada/kloks/backend';
-import {{ WorkerExecutionBoundary }} from '@ultrst-armada/krnl';
-import {{ BackendFacade }} from './BackendFacade.js';
-import {{ createAppExternalInterfaces }} from './externalInterfaces.js';
-import {{ createGoogleDriveWorkspaceStorage }} from './storage/googleDriveWorkspaceStorage.js';
-
-export const {camel}Worker = new WorkerExecutionBoundary('{pascal}Worker');
-
-export const bugReportService = {{
-  report: async (input: any, options?: any) => {{
-    const authId = options?.session?.userId ?? options?.auth?.user?.id ?? 'authenticated_user';
-    const payload = {{
-      ...input,
-      reporterId: authId,
-      context: {{
-        applicationId: '{camel}-app',
-        applicationType: 'skipo' as const,
-        applicationVersion: '1.0.0',
-        ...input?.context,
-      }},
-    }};
-    return {{ success: true, id: `bug-${{Date.now().toString(36)}}`, report: payload }};
-  }},
-}};
-
-export const storageProviders = {{ googleDrive: {{ create: createGoogleDriveWorkspaceStorage }} }};
+} from '@ultrst-armada/kloks/backend/krnl-services';
+import { BackendFacade } from './BackendFacade.js';
+import { createAppExternalInterfaces } from './externalInterfaces.js';
+import { createGoogleDriveWorkspaceStorage } from './storage/googleDriveWorkspaceStorage.js';
 
 export const backendFacade = new BackendFacade();
-for (const service of [ServiceAFacade, ServiceBFacade, StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
+for (const service of [StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
 export const externalInterfaces = createAppExternalInterfaces(backendFacade);
+export const storageProviders = {
+  googleDrive: { create: createGoogleDriveWorkspaceStorage },
+};
 
-export const {pascal}Backend = {{
-  services: {{
-    serviceA: ServiceAFacade,
-    serviceB: ServiceBFacade,
+export const {pascal}Backend = {
+  services: {
     storage: StorageServiceFacade,
     workspace: WorkspaceServiceFacade,
-    bugReport: bugReportService,
-  }},
+  },
   storageProviders,
   backendFacade,
   externalInterfaces,
-  orchestrations: {{
-    orchestratorA: OrchestratorADefinition,
-    orchestratorB: OrchestratorBDefinition,
-  }},
-  worker: {camel}Worker,
-  WorkerExecutionBoundary: {camel}Worker,
-}};
+};
 
 export default {pascal}Backend;
 """
