@@ -71,8 +71,9 @@ class ScaffoldRegressionTest(unittest.TestCase):
             node = base / "src/providers/node.ts"
             backend = base / "src/backend/AppBackend.ts"
             main_page = base / "src/frontend/pages/main/page.tsx"
+            fetch_adapter = base / "src/backend/adapters/httpsAdapter.ts"
 
-            for required in (app, cloudflare, vercel, node, backend, main_page):
+            for required in (app, cloudflare, vercel, node, backend, main_page, fetch_adapter):
                 self.assertTrue(required.is_file(), f"Missing provider contract file: {required.relative_to(SKIPO_ROOT)}")
 
             app_source = app.read_text(encoding="utf-8")
@@ -81,9 +82,11 @@ class ScaffoldRegressionTest(unittest.TestCase):
             node_source = node.read_text(encoding="utf-8")
             backend_source = backend.read_text(encoding="utf-8")
             main_source = main_page.read_text(encoding="utf-8")
+            fetch_adapter_source = fetch_adapter.read_text(encoding="utf-8")
 
-            self.assertIn("externalInterfaces.mcp(request)", app_source)
-            self.assertIn("externalInterfaces.http(request)", app_source)
+            self.assertIn("fetchHandler", app_source)
+            self.assertIn("externalInterfaces.mcp(request)", fetch_adapter_source)
+            self.assertIn("externalInterfaces.http(request)", fetch_adapter_source)
             self.assertNotIn("node:", cloudflare_source)
             self.assertNotIn("node:", vercel_source)
             self.assertIn("node:http", node_source)
