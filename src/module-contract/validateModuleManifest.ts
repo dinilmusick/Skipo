@@ -59,14 +59,14 @@ export function validateModuleManifest(input: unknown, moduleDirectory?: string)
   else {
     if (new Set(runtime.targets).size !== runtime.targets.length) add('runtime.targets.duplicate', 'runtime.targets', 'Runtime targets must be unique.');
     runtime.requirements.forEach((requirement, index) => {
-      if (!isRecord(requirement) || !isString(requirement.id)) add('runtime.requirement', \`runtime.requirements[\${index}]\`, 'Runtime requirements need a stable ID.');
+      if (!isRecord(requirement) || !isString(requirement.id)) add('runtime.requirement', `runtime.requirements[\${index}]`, 'Runtime requirements need a stable ID.');
     });
   }
   if (!isRecord(resources) || !Array.isArray(resourcesRecord.requires) || !Array.isArray(resourcesRecord.optional)) add('resources.shape', 'resources', 'Required and optional parent resources must be declared as arrays.');
   else {
     for (const [group, entries] of [['requires', requiredResources], ['optional', optionalResources]] as const) {
       entries.forEach((entry, index) => {
-        if (!isRecord(entry) || !isString(entry.id) || !isString(entry.kind) || typeof entry.required !== 'boolean') add('resources.entry', \`resources.\${group}[\${index}]\`, 'Resource entries require id, kind and required boolean.');
+        if (!isRecord(entry) || !isString(entry.id) || !isString(entry.kind) || typeof entry.required !== 'boolean') add('resources.entry', `resources.\${group}[\${index}]`, 'Resource entries require id, kind and required boolean.');
       });
     }
   }
@@ -74,28 +74,28 @@ export function validateModuleManifest(input: unknown, moduleDirectory?: string)
   else {
     const ids = new Set<string>();
     uiExports.forEach((entry, index) => {
-      if (!isRecord(entry) || !isString(entry.id) || !safeRelativePath(entry.entry) || !['page', 'panel', 'widget', 'navigation'].includes(String(entry.kind))) add('ui.entry', \`ui.exports[\${index}]\`, 'UI exports require a unique ID, safe entry path and supported kind.');
-      else if (ids.has(entry.id)) add('ui.duplicate', \`ui.exports[\${index}].id\`, 'UI export IDs must be unique.');
+      if (!isRecord(entry) || !isString(entry.id) || !safeRelativePath(entry.entry) || !['page', 'panel', 'widget', 'navigation'].includes(String(entry.kind))) add('ui.entry', `ui.exports[\${index}]`, 'UI exports require a unique ID, safe entry path and supported kind.');
+      else if (ids.has(entry.id)) add('ui.duplicate', `ui.exports[\${index}].id`, 'UI export IDs must be unique.');
       else ids.add(entry.id);
     });
   }
   if (!isRecord(lifecycle) || !Array.isArray(lifecycle.supported)) add('lifecycle.shape', 'lifecycle.supported', 'Supported lifecycle phases must be declared.');
   else {
     const allowed = new Set(REQUIRED_LIFECYCLE);
-    for (const phase of lifecycle.supported) if (!allowed.has(phase as typeof REQUIRED_LIFECYCLE[number])) add('lifecycle.phase', 'lifecycle.supported', \`Unsupported lifecycle phase "\${String(phase)}".\`);
-    for (const phase of REQUIRED_LIFECYCLE) if (!lifecycle.supported.includes(phase)) add('lifecycle.missing', 'lifecycle.supported', \`Required lifecycle phase "\${phase}" is missing.\`);
+    for (const phase of lifecycle.supported) if (!allowed.has(phase as typeof REQUIRED_LIFECYCLE[number])) add('lifecycle.phase', 'lifecycle.supported', `Unsupported lifecycle phase "\${String(phase)}".`);
+    for (const phase of REQUIRED_LIFECYCLE) if (!lifecycle.supported.includes(phase)) add('lifecycle.missing', 'lifecycle.supported', `Required lifecycle phase "\${phase}" is missing.`);
   }
 
   if (moduleDirectory && errors.length === 0) {
     const appRoot = resolve(moduleDirectory, appRecord.root as string);
     const ensureInside = (candidate: string) => {
       const rel = relative(resolve(moduleDirectory), candidate);
-      return rel === '' || (rel !== '..' && !rel.startsWith(\`..\${sep}\`) && !isAbsolute(rel));
+      return rel === '' || (rel !== '..' && !rel.startsWith(`..\${sep}`) && !isAbsolute(rel));
     };
     if (!ensureInside(appRoot)) add('application.root.escape', 'application.root', 'Application root resolves outside the module directory.');
     else {
       for (const directory of ['src/frontend', 'src/backend', 'src/libraries']) {
-        if (!existsSync(resolve(appRoot, directory))) add('application.structure', directory, \`Complete Skipo application plane "\${directory}" is missing.\`);
+        if (!existsSync(resolve(appRoot, directory))) add('application.structure', directory, `Complete Skipo application plane "\${directory}" is missing.`);
       }
       if (!existsSync(resolve(appRoot, 'package.json'))) add('application.package', 'package.json', 'Complete Skipo application must include package.json.');
       const backendEntry = resolve(appRoot, backendRecord.entry as string);
@@ -103,7 +103,7 @@ export function validateModuleManifest(input: unknown, moduleDirectory?: string)
       for (const [index, entry] of uiExports.entries()) {
         if (!isRecord(entry)) continue;
         const target = resolve(appRoot, entry.entry as string);
-        if (!ensureInside(target) || !existsSync(target)) add('ui.entry.missing', \`ui.exports[\${index}].entry\`, 'Declared UI export entry must exist inside the application root.');
+        if (!ensureInside(target) || !existsSync(target)) add('ui.entry.missing', `ui.exports[\${index}].entry`, 'Declared UI export entry must exist inside the application root.');
       }
     }
   }
