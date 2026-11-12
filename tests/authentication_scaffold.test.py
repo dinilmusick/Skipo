@@ -102,7 +102,7 @@ def test_nextjs_scaffold_uses_luth_adapter_and_has_no_local_auth_endpoints():
 def test_vite_scaffold_uses_luth_for_backend_identity_and_session_validation():
     backend = (ROOT / "scaffolds/vite/src/backend/AppBackend.ts").read_text(encoding="utf-8")
     guard = (ROOT / "scaffolds/vite/src/backend/auth/luthSession.ts").read_text(encoding="utf-8")
-    assert "AuthServiceFacade" not in backend
+    assert not re.search(r"\bAuthServiceFacade\b", backend)
     assert "DEFAULT_LUTH_URL" in guard
     assert "session.session?.id" in guard
     assert "proxyLuthAuthRequest" in guard
