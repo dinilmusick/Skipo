@@ -216,13 +216,9 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
     }
     for relative, source in files.items():
         if relative == "src/app.ts":
-            adapter = target / "src/backend/adapters/httpsAdapter.ts"
-            if adapter.is_file():
-                source = ADAPTER_APP_SOURCE
-            else:
-                candidates = ("FetchBackend", "AppBackend", f"{app_name[:1].upper() + app_name[1:]}Backend")
-                backend_entry = next((name for name in candidates if (target / "src/backend" / f"{name}.ts").is_file()), candidates[-1])
-                source = APP_SOURCE.replace("__SKIPO_BACKEND_ENTRY__", backend_entry)
+            candidates = ("FetchBackend", "AppBackend", f"{app_name[:1].upper() + app_name[1:]}Backend")
+            backend_entry = next((name for name in candidates if (target / "src/backend" / f"{name}.ts").is_file()), candidates[-1])
+            source = APP_SOURCE.replace("__SKIPO_BACKEND_ENTRY__", backend_entry)
         path = target / relative
         if not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -255,32 +251,34 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
     scripts.pop("build:api", None)
     scripts.setdefault("dev", "vite")
     scripts["start"] = "node dist/providers/node/server.js"
-    # pnpm 12 moved build-script approval into pnpm-workspace.yaml.
+    # pnpm 11+ uses an explicit allowBuilds map in pnpm-workspace.yaml.
     # Keep package.json free of the deprecated pnpm.onlyBuiltDependencies field.
     package.pop("pnpm", None)
     workspace_config = target / "pnpm-workspace.yaml"
     if not workspace_config.exists():
         workspace_config.write_text(
             'packages:\n  - "."\n'
-            'onlyBuiltDependencies:\n  - esbuild\n  - msgpackr-extract\n',
+            'allowBuilds:\n  esbuild: true\n  msgpackr-extract: true\n',
             encoding="utf-8",
         )
         created.append(workspace_config)
     else:
-        workspace_text = workspace_config.read_text(encoding="utf-8")
-        if "onlyBuiltDependencies:" not in workspace_text:
-            workspace_text = workspace_text.rstrip() + (
-                "\n\nonlyBuiltDependencies:\n  - esbuild\n  - msgpackr-extract\n"
-            )
+        workspace_lines = workspace_config.read_text(encoding="utf-8").splitlines()
+        if "onlyBuiltDependencies:" in workspace_lines:
+            start = workspace_lines.index("onlyBuiltDependencies:")
+            end = start + 1
+            while end < len(workspace_lines) and (workspace_lines[end].startswith(" ") or not workspace_lines[end].strip()):
+                end += 1
+            del workspace_lines[start:end]
+        if "allowBuilds:" not in workspace_lines:
+            workspace_lines.extend(["", "allowBuilds:", "  esbuild: true", "  msgpackr-extract: true"])
         else:
+            index = workspace_lines.index("allowBuilds:") + 1
             for approved in ("esbuild", "msgpackr-extract"):
-                if f"  - {approved}" not in workspace_text:
-                    workspace_text = workspace_text.replace(
-                        "onlyBuiltDependencies:\n",
-                        f"onlyBuiltDependencies:\n  - {approved}\n",
-                        1,
-                    )
-        workspace_config.write_text(workspace_text, encoding="utf-8")
+                if not any(line.strip().startswith(f"{approved}:") for line in workspace_lines[index:]):
+                    workspace_lines.insert(index, f"  {approved}: true")
+                    index += 1
+        workspace_config.write_text("\n".join(workspace_lines).rstrip() + "\n", encoding="utf-8")
     dev = package.setdefault("devDependencies", {})
     dev.setdefault("esbuild", "^0.28.2")
     if "vite" not in package.get("dependencies", {}) and "vite" not in dev and not any(
