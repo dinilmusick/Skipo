@@ -444,6 +444,7 @@ try {
     # generated after the single Fetch application has been emitted.
     retired_paths = {
         "src/backend/adapters/universalEntry.ts",
+        "src/backend/adapters/httpsAdapter.ts",
         "src/backend/adapters/nodeBridge.ts",
         "config/build/manifests/fullstack.json",
         "config/build/manifests/api.json",
