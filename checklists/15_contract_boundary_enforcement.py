@@ -71,7 +71,6 @@ CANONICAL_LIBRARY_SYMBOLS = {
     "BaseBadge": "@ultrst-armada/floks/ui",
     "LoginModal": "@ultrst-armada/floks/ui",
     "CredentialField": "@ultrst-armada/floks/ui",
-    "WorkspaceTilesMenu": "@ultrst-armada/floks/ui",
     "StatusIndicator": "@ultrst-armada/floks/ui",
     "ConfirmDialog": "@ultrst-armada/floks/ui",
     "FloatingDetailsPanel": "@ultrst-armada/floks/ui",
@@ -108,8 +107,6 @@ VALID_KLOKS_SUBPATHS = {
     "ai-keys",
     "ai-tools",
     "krnl-ai-services",
-    "fod",
-    "aiko",
     "auth",
 }
 
@@ -139,8 +136,6 @@ VALID_FLOKS_SUBPATHS = {
     "",
     "ui",
     "canvas-ui",
-    "canvas-ui/fod",
-    "canvas-ui/aiko",
     "contracts",
     "auth",
 }
