@@ -5,12 +5,12 @@
 import { ServiceAFacade, ServiceBFacade } from '@ultrst-armada/kloks/services';
 import { OrchestratorADefinition } from '@ultrst-armada/kloks/orchestrations';
 import {
-  AuthServiceFacade,
   StorageServiceFacade,
   WorkspaceServiceFacade,
 } from '@ultrst-armada/kloks/backend/krnl-services';
 import { WorkerExecutionBoundary } from '@ultrst-armada/krnl';
 import { createGoogleDriveWorkspaceStorage } from './storage/googleDriveWorkspaceStorage.js';
+import { LuthAuthServiceFacade } from './LuthAuthServiceFacade.js';
 import { BackendFacade } from './BackendFacade.js';
 import { createAppExternalInterfaces } from './externalInterfaces.js';
 
@@ -28,7 +28,7 @@ export const bugReportService = {
 };
 
 export const services = {
-  auth: AuthServiceFacade,
+  auth: LuthAuthServiceFacade,
   serviceA: ServiceAFacade,
   serviceB: ServiceBFacade,
   storage: StorageServiceFacade,
@@ -37,7 +37,7 @@ export const services = {
 };
 
 export const backendFacade = new BackendFacade();
-for (const service of [AuthServiceFacade, ServiceAFacade, ServiceBFacade, StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
+for (const service of [ServiceAFacade, ServiceBFacade, StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
 export const externalInterfaces = createAppExternalInterfaces(backendFacade);
 
 export const storageProviders = {
