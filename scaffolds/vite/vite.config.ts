@@ -17,7 +17,7 @@ export default defineConfig(() => {
         '@skipo/ui/dist/index.css': path.resolve(__dirname, 'src/libraries/skipo/ui/theme/tokens.css'),
         '@skipo/ui': path.resolve(__dirname, 'src/libraries/skipo/ui/index.ts'),
         '@skipo/core': path.resolve(__dirname, 'src/libraries/skipo/core/index.ts'),
-        '@skipo/backend': path.resolve(__dirname, 'src/libraries/skipo/backend/index.ts'),
+        '@skipo/backend': path.resolve(__dirname, 'src/backend/index.ts'),
         '@skipo/systems': path.resolve(__dirname, 'src/libraries/skipo/systems/index.ts'),
       },
     },
