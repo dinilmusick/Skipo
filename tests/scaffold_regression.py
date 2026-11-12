@@ -10,6 +10,7 @@ e) Full system validator passes cleanly with exit 0.
 """
 
 import os
+import json
 import re
 import shutil
 import subprocess
