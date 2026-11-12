@@ -38,6 +38,10 @@ def test_vite_and_nextjs_scaffolds_mount_both_external_protocols():
         assert providers["providers"]["vercel"]["additionalOutputs"] == ["api/mcp.js"]
         vercel = __import__("json").loads((base / "vercel.json").read_text(encoding="utf-8"))
         assert {"/api/:path*": "/api/[...path]", "/mcp": "/api/mcp"} == {rule["source"]: rule["destination"] for rule in vercel["rewrites"]}
+        universal_backend_source = (base / "src/backend/UniversalBackend.ts").read_text(encoding="utf-8")
+        assert "@ultrst-armada/kloks/services" not in universal_backend_source
+        assert "ServiceAFacade" not in universal_backend_source
+        assert "ServiceBFacade" not in universal_backend_source
         backend_source = (base / "src/backend/AppBackend.ts").read_text(encoding="utf-8")
         assert "@ultrst-armada/kloks/audio-midi" not in backend_source
         assert "AudioHardwareServiceFacade" not in backend_source
