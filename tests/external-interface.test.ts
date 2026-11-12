@@ -65,6 +65,7 @@ it("bridges external calls through the canonical BackendFacade executor", async 
   const executor = createBackendCapabilityExecutor({ executeCapability });
   await executor.execute("math", "double", { value: 5 }, { principal: { userId: "u1" }, transport: "mcp", requestId: "req-1" });
   expect(executeCapability).toHaveBeenCalledWith("math", "double", { value: 5 }, {
+    serviceId: "math",
     correlationId: "req-1",
     metadata: { externalInterface: true, transport: "mcp", principal: { userId: "u1", roles: [], sessionId: undefined } },
   });
