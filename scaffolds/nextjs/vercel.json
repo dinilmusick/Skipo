@@ -9,7 +9,7 @@
     },
     {
       "source": "/mcp",
-      "destination": "/api"
+      "destination": "/api/mcp"
     }
   ]
 }
