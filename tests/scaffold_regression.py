@@ -72,8 +72,11 @@ class ScaffoldRegressionTest(unittest.TestCase):
             backend = base / "src/backend/AppBackend.ts"
             main_page = base / "src/frontend/pages/main/page.tsx"
             fetch_adapter = base / "src/backend/adapters/httpsAdapter.ts"
+            accounts_page = base / "src/frontend/pages/settings/tabs/accounts/page.tsx"
+            provider_manifest = base / "skipo.providers.json"
+            vercel_config = base / "vercel.json"
 
-            for required in (app, cloudflare, vercel, node, backend, main_page, fetch_adapter):
+            for required in (app, cloudflare, vercel, node, backend, main_page, fetch_adapter, accounts_page, provider_manifest, vercel_config):
                 self.assertTrue(required.is_file(), f"Missing provider contract file: {required.relative_to(SKIPO_ROOT)}")
 
             app_source = app.read_text(encoding="utf-8")
@@ -83,10 +86,18 @@ class ScaffoldRegressionTest(unittest.TestCase):
             backend_source = backend.read_text(encoding="utf-8")
             main_source = main_page.read_text(encoding="utf-8")
             fetch_adapter_source = fetch_adapter.read_text(encoding="utf-8")
+            accounts_source = accounts_page.read_text(encoding="utf-8")
+            providers = json.loads(provider_manifest.read_text(encoding="utf-8"))
+            vercel = json.loads(vercel_config.read_text(encoding="utf-8"))
 
             self.assertIn("fetchHandler", app_source)
             self.assertIn("externalInterfaces.mcp(request)", fetch_adapter_source)
             self.assertIn("externalInterfaces.http(request)", fetch_adapter_source)
+            self.assertNotIn("Sync from SRKL", accounts_source)
+            self.assertIn("connected identity", accounts_source)
+            self.assertEqual(providers["providers"]["vercel"]["output"], "api/[...path].js")
+            self.assertEqual(providers["providers"]["vercel"]["additionalOutputs"], ["api/mcp.js"])
+            self.assertEqual({"/api/:path*": "/api/[...path]", "/mcp": "/api/mcp"}, {r["source"]: r["destination"] for r in vercel["rewrites"]})
             self.assertNotIn("node:", cloudflare_source)
             self.assertNotIn("node:", vercel_source)
             self.assertIn("node:http", node_source)
