@@ -2,10 +2,11 @@ import { BackendFacade } from './BackendFacade.js';
 import { ServiceAFacade, ServiceBFacade } from '@ultrst-armada/kloks/services';
 import { createAppExternalInterfaces } from './externalInterfaces.js';
 import { LuthAuthServiceFacade } from './LuthAuthServiceFacade.js';
+import { toKrnlServiceFacade } from './KloksServiceAdapter.js';
 
 export const backendFacade = new BackendFacade();
-backendFacade.registerService(ServiceAFacade);
-backendFacade.registerService(ServiceBFacade);
+backendFacade.registerService(toKrnlServiceFacade(ServiceAFacade));
+backendFacade.registerService(toKrnlServiceFacade(ServiceBFacade));
 
 export const services = {
   auth: LuthAuthServiceFacade,
