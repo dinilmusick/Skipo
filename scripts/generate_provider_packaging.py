@@ -196,7 +196,12 @@ run("npx", [
 run("npx", [
   "esbuild", "src/providers/vercel.ts", "--bundle", "--format=esm",
   "--platform=browser", "--target=es2022",
-  "--outfile=api/index.js",
+  "--outfile=api/[...path].js",
+]);
+run("npx", [
+  "esbuild", "src/providers/vercel.ts", "--bundle", "--format=esm",
+  "--platform=browser", "--target=es2022",
+  "--outfile=mcp.js",
 ]);
 run("npx", [
   "esbuild", "src/providers/node.ts", "--bundle", "--format=esm",
@@ -237,7 +242,7 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
         "application": {"entry": "src/app.ts", "protocol": "fetch"},
         "providers": {
             "cloudflare": {"entry": "src/providers/cloudflare.ts", "output": "dist/providers/cloudflare/worker.js"},
-            "vercel": {"entry": "src/providers/vercel.ts", "output": "api/index.js", "runtime": "edge"},
+            "vercel": {"entry": "src/providers/vercel.ts", "output": "api/[...path].js", "additionalOutputs": ["mcp.js"], "runtime": "edge"},
             "node": {"entry": "src/providers/node.ts", "output": "dist/providers/node/server.js"},
         },
         "build": {"command": "npm run build"},
