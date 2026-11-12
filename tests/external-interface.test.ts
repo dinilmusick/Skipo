@@ -28,6 +28,16 @@ describe("Skipo external interfaces", () => {
     expect(s.execute).toHaveBeenNthCalledWith(1, "math", "double", { value: 3 }, expect.objectContaining({ transport: "http" }));
     expect(s.execute).toHaveBeenNthCalledWith(2, "math", "double", { value: 4 }, expect.objectContaining({ transport: "mcp" }));
   });
+  it("serves MCP through the Vercel /api/mcp route alias", async () => {
+    const s = setup();
+    const response = await s.mcp(new Request("https://app.test/api/mcp", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 7, method: "initialize", params: { protocolVersion: "2025-03-26" } }),
+    }));
+    expect(response?.status).toBe(200);
+    expect((await response!.json()).result.protocolVersion).toBe("2025-03-26");
+  });
   it("enforces authentication and role boundaries before execution", async () => {
     const s = setup(null);
     const denied = await s.http(new Request("https://app.test/api/capabilities/math.double/invoke", { method: "POST", body: JSON.stringify({ value: 1 }) }));
