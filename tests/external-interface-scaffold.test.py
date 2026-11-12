@@ -10,7 +10,7 @@ def test_vite_and_nextjs_scaffolds_mount_both_external_protocols():
             assert (external / name).is_file(), f"{framework}: {name}"
         factory = (base / "src/backend/externalInterfaces.ts").read_text(encoding="utf-8")
         backend = (base / "src/backend/AppBackend.ts").read_text(encoding="utf-8")
-        assert not (base / "src/backend/adapters/httpsAdapter.ts").exists()
+        adapter = (base / "src/backend/adapters/httpsAdapter.ts").read_text(encoding="utf-8")
         assert "getLuthSession" in factory
         assert "CapabilityRegistry" in factory
         assert "createAppExternalInterfaces" in backend
