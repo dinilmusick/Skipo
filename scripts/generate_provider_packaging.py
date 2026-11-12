@@ -7,7 +7,9 @@ from pathlib import Path
 from typing import Any
 
 
-SCAFFOLD_APP_SOURCE = """/**
+SCAFFOLD_APP_SOURCE = """import { externalInterfaces } from "./backend/__SKIPO_BACKEND_ENTRY__.js";
+
+/**
  * Canonical Web-standard application entrypoint.
  * All provider adapters delegate to this handler; add application routes here.
  */
@@ -29,6 +31,10 @@ export async function fetch(
 ): Promise<Response> {
   const url = new URL(request.url);
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+  const mcp = await externalInterfaces.mcp(request);
+  if (mcp) return mcp;
+  const http = await externalInterfaces.http(request);
+  if (http) return http;
   if (url.pathname === "/health" || url.pathname === "/api/health") {
     return Response.json({ status: "ok", runtime: "fetch" }, { headers: cors });
   }
@@ -186,8 +192,10 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
     }
     adapter_exists = (target / "src/backend/adapters/httpsAdapter.ts").is_file()
     for relative, source in files.items():
-        if relative == "src/app.ts" and not adapter_exists:
-            source = SCAFFOLD_APP_SOURCE
+        if relative == "src/app.ts":
+            candidates = ("AppBackend", f"{app_name[:1].upper() + app_name[1:]}Backend")
+            backend_entry = next((name for name in candidates if (target / "src/backend" / f"{name}.ts").is_file()), candidates[-1])
+            source = APP_SOURCE.replace("__SKIPO_BACKEND_ENTRY__", backend_entry)
         path = target / relative
         if not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
