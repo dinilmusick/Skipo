@@ -47,3 +47,4 @@ def test_external_protocol_scaffolds_are_protocol_neutral_and_opt_in():
         assert 'transport: "mcp"' in mcp
         assert 'tools/list' in mcp
         assert '/api/capabilities' in http
+        assert '"/api/mcp"' in mcp
