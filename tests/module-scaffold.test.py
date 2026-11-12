@@ -72,7 +72,7 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         assert dependencies["@ultrst-armada/krnl"] == "^1.0.24"
         assert dependencies["@ultrst-armada/frnlts"] == "^0.5.23"
         assert dependencies["@ultrst-armada/kloks"] == "^1.26.3"
-        assert dependencies["@ultrst-armada/floks"] == "^1.14.2"
+        assert dependencies["@ultrst-armada/floks"] == "^2.0.0"
 
 
 
