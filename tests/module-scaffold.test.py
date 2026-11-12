@@ -60,6 +60,7 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         assert (target / "src/providers/nodeRequestAdapter.ts").is_file()
         assert 'from "../app.js"' in (target / "src/providers/cloudflare.ts").read_text(encoding="utf-8")
         assert 'from "../app.js"' in (target / "src/providers/vercel.ts").read_text(encoding="utf-8")
+        assert 'from "../app.js"' in (target / "src/providers/node.ts").read_text(encoding="utf-8")
         cloudflare = (target / "src/providers/cloudflare.ts").read_text(encoding="utf-8")
         vercel = (target / "src/providers/vercel.ts").read_text(encoding="utf-8")
         node = (target / "src/providers/node.ts").read_text(encoding="utf-8")
