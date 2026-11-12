@@ -23,7 +23,15 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
 
         # Fresh apps expose one Fetch application and one canonical build command.
         assert (target / "src" / "app.ts").is_file()
-        assert "export async function fetch" in (target / "src" / "app.ts").read_text(encoding="utf-8")
+        app_source = (target / "src" / "app.ts").read_text(encoding="utf-8")
+        assert "export async function fetch" in app_source
+        assert './backend/DemoAppBackend.js' in app_source
+        assert "externalInterfaces.mcp(request)" in app_source
+        assert "externalInterfaces.http(request)" in app_source
+        generated_backend = (target / "src" / "backend" / "DemoAppBackend.ts").read_text(encoding="utf-8")
+        assert "audio-midi" not in generated_backend
+        assert "AudioHardwareServiceFacade" not in generated_backend
+        assert "MidiServiceFacade" not in generated_backend
         providers = __import__("json").loads((target / "skipo.providers.json").read_text(encoding="utf-8"))
         assert providers["application"] == {"entry": "src/app.ts", "protocol": "fetch"}
         assert set(providers["providers"]) == {"cloudflare", "vercel", "node"}
