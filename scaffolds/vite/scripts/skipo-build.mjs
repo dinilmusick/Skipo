@@ -50,17 +50,17 @@ run("npx", [
 ]);
 run("npx", [
   "esbuild", "src/providers/vercel.ts", "--bundle", "--format=esm",
-  "--platform=browser", "--target=es2022",
+  "--platform=node", "--target=node22", "--packages=external",
   "--outfile=api/[...path].js",
 ]);
 run("npx", [
   "esbuild", "src/providers/vercel.ts", "--bundle", "--format=esm",
-  "--platform=browser", "--target=es2022",
+  "--platform=node", "--target=node22", "--packages=external",
   "--outfile=api/mcp.js",
 ]);
 run("npx", [
   "esbuild", "src/providers/node.ts", "--bundle", "--format=esm",
-  "--platform=node", "--target=node20", "--packages=external",
+  "--platform=node", "--target=node22", "--packages=external",
   "--outfile=dist/providers/node/server.js",
 ]);
-console.log("[skipo] Provider packaging complete: Cloudflare, Vercel Edge, Node");
+console.log("[skipo] Provider packaging complete: Cloudflare, Vercel Node, Node/Cloud Run");
