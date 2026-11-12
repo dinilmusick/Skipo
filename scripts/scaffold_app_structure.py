@@ -592,7 +592,7 @@ export default MainPage;
             "export default function ThemesTab() { return null; }\n"
         ),
         pages_root / "settings" / "tabs" / "accounts" / "page.tsx": (
-            "export default function AccountsTab() { return <button type=\"button\">Sync from SRKL</button>; }\n"
+            "export default function AccountsTab() { return <section><h2>Accounts</h2><p>Manage connected identity and external service accounts.</p></section>; }\n"
         ),
     }
     # app tab directory is created lazily so the template file has a parent.
