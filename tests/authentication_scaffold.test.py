@@ -51,6 +51,13 @@ def test_generic_scaffold_generates_canonical_floks_kloks_auth(tmp_path):
     assert scan_source_tree(target) == []
 
 
+def test_skipo_application_shell_keeps_luth_auth_and_workspace_tiles():
+    home = (ROOT / "src" / "frontend" / "pages" / "home" / "page.tsx").read_text(encoding="utf-8")
+    assert "LuthAuthPage" in home
+    assert "WorkspaceTilesMenu" in home
+    assert "onLogout" in home
+    assert "ModuleUIHost" in home
+
 def test_negative_scaffold_with_password_hashing_is_rejected(tmp_path):
     source = tmp_path / "src/auth/login.ts"
     source.parent.mkdir(parents=True)
