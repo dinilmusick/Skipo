@@ -72,7 +72,7 @@ export class ModuleHost {
         (approved.includes(binding.capabilityId) || approved.includes(String(binding.representation?.parentCapabilityId ?? binding.capabilityId)))),
       canInvoke: ({ capability }) => [...byCapability.values()].some((binding) =>
         String(binding.representation?.parentCapabilityId ?? binding.capabilityId) === capability.id &&
-        approved.includes(binding.capabilityId)),
+        (approved.includes(binding.capabilityId) || approved.includes(String(binding.representation?.parentCapabilityId ?? binding.capabilityId)))),
     };
     const abort = new AbortController();
     const events = new NamespacedModuleEventBus(id);
