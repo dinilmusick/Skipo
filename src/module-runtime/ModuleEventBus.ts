@@ -1,1 +1,30 @@
-export class NamespacedModuleEventBus implements import('./ModuleRuntimeTypes.js').ModuleEventBus{readonly namespace:string;private listeners=new Map<string,Set<(p:unknown)=>void>>();private closed=false;constructor(namespace:string){this.namespace=namespace}on<T>(e:string,l:(p:T)=>void){if(this.closed)throw new Error('Module event bus is closed.');const s=this.listeners.get(e)??new Set<(p:unknown)=>void>();const w=(p:unknown)=>l(p as T);s.add(w);this.listeners.set(e,s);return()=>{s.delete(w)}}emit<T>(e:string,p:T){if(this.closed)throw new Error('Module event bus is closed.');for(const l of [...(this.listeners.get(e)??[])])l(p)}clear(){this.closed=true;this.listeners.clear()}}
+import type { ModuleEventBus } from './ModuleRuntimeTypes.js';
+
+export class NamespacedModuleEventBus implements ModuleEventBus {
+  readonly namespace: string;
+  private readonly listeners = new Map<string, Set<(payload: unknown) => void>>();
+  private closed = false;
+
+  constructor(namespace: string) {
+    this.namespace = namespace;
+  }
+
+  on<T>(event: string, listener: (payload: T) => void): () => void {
+    if (this.closed) throw new Error('Module event bus is closed.');
+    const listeners = this.listeners.get(event) ?? new Set<(payload: unknown) => void>();
+    const wrapped = (payload: unknown) => listener(payload as T);
+    listeners.add(wrapped);
+    this.listeners.set(event, listeners);
+    return () => { listeners.delete(wrapped); };
+  }
+
+  emit<T>(event: string, payload: T): void {
+    if (this.closed) throw new Error('Module event bus is closed.');
+    for (const listener of [...(this.listeners.get(event) ?? [])]) listener(payload);
+  }
+
+  clear(): void {
+    this.closed = true;
+    this.listeners.clear();
+  }
+}
