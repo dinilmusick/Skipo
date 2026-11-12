@@ -36,6 +36,25 @@ describe("Skipo external interfaces", () => {
     s.registry.register({ id: "admin.only", description: "Admin only.", inputSchema, outputSchema, invocation: { serviceId: "admin", operationId: "run" }, access: "roles", requiredRoles: ["admin"] });
     expect(s.registry.list({ userId: "reader", roles: ["reader"] }).map(cap => cap.id)).toEqual(["math.double"]);
   });
+  it("enforces the same authenticated capability boundary over MCP", async () => {
+    const s = setup(null);
+    const listed = await s.mcp(new Request("https://app.test/mcp", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+    }));
+    expect((await listed!.json()).result.tools).toEqual([]);
+
+    const called = await s.mcp(new Request("https://app.test/mcp", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "math.double", arguments: { value: 2 } } }),
+    }));
+    const payload = await called!.json();
+    expect(payload.result.isError).toBe(true);
+    expect(payload.result.structuredContent.error.code).toBe("UNAUTHENTICATED");
+    expect(s.execute).not.toHaveBeenCalled();
+  });
   it("rejects invalid input and output schemas", async () => {
     const s = setup();
     const bad = await s.http(new Request("https://app.test/api/capabilities/math.double/invoke", { method: "POST", body: JSON.stringify({ value: "bad" }) }));
