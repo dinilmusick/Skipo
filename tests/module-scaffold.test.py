@@ -48,6 +48,8 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         assert set(providers["providers"]) == {"cloudflare", "vercel", "node"}
         package = __import__("json").loads((target / "package.json").read_text(encoding="utf-8"))
         assert package["scripts"]["build"] == "node scripts/skipo-build.mjs"
+        assert package["scripts"]["dev"] == "vite"
+        assert package["scripts"]["start"] == "node dist/providers/node/server.js"
         assert "build:fullstack" not in package["scripts"]
         assert "build:api" not in package["scripts"]
         assert (target / "src/providers/cloudflare.ts").is_file()
