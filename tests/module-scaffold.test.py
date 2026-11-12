@@ -28,6 +28,7 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         assert './backend/DemoAppBackend.js' in app_source
         assert "externalInterfaces.mcp(request)" in app_source
         assert "externalInterfaces.http(request)" in app_source
+        assert "proxyLuthAuthRequest" in app_source
         frontend_source = "\n".join(path.read_text(encoding="utf-8") for path in (target / "src" / "frontend").rglob("*") if path.is_file())
         assert "Sync from SRKL" not in frontend_source
         assert "connected identity and external service accounts" in frontend_source
@@ -35,6 +36,8 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         assert "audio-midi" not in generated_backend
         assert "AudioHardwareServiceFacade" not in generated_backend
         assert "MidiServiceFacade" not in generated_backend
+        assert "LuthAuthServiceFacade" in generated_backend
+        assert "@ultrst-armada/kloks/services" not in generated_backend
         providers = __import__("json").loads((target / "skipo.providers.json").read_text(encoding="utf-8"))
         assert providers["application"] == {"entry": "src/app.ts", "protocol": "fetch"}
         assert set(providers["providers"]) == {"cloudflare", "vercel", "node"}
@@ -66,7 +69,7 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         # The scaffold must not rewrite the canonical ecosystem dependency versions.
         dependencies = package["dependencies"]
         assert dependencies["@dinilmusick/gutts"] == "^2.0.3"
-        assert dependencies["@ultrst-armada/krnl"] == "^1.0.23"
+        assert dependencies["@ultrst-armada/krnl"] == "^1.0.24"
         assert dependencies["@ultrst-armada/frnlts"] == "^0.5.23"
         assert dependencies["@ultrst-armada/kloks"] == "^1.26.3"
         assert dependencies["@ultrst-armada/floks"] == "^1.14.2"
@@ -92,8 +95,6 @@ def test_multi_target_generation_uses_the_scaffold_fetch_entry_and_one_build():
 
         app = (target / "src/app.ts").read_text(encoding="utf-8")
         assert "export async function fetch" in app
-        adapter = (target / "src/backend/adapters/httpsAdapter.ts").read_text(encoding="utf-8")
-        assert "export { fetch as fetchHandler" in adapter
         assert not (target / "src/backend/adapters/universalEntry.ts").exists()
         assert not (target / "src/backend/adapters/nodeBridge.ts").exists()
     assert not (target / "src/backend/adapters/httpsAdapter.ts").exists()
