@@ -595,7 +595,7 @@ export function App() {
 }
 
 export default App;
-""".replace("__SKIPO_APP_NAME__", "{pascal}"),
+""".replace("__SKIPO_APP_NAME__", pascal),
             encoding="utf-8",
         )
         created.append(app_tsx)
