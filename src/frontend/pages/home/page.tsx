@@ -7,8 +7,8 @@ import {
   InfiniteCanvas,
   DockBar,
   type WorkspaceRecord,
+  LuthAuthPage,
 } from '../../components/components.js';
-import { LuthAuthPage } from '@ultrst-armada/floks/auth';
 import { ModuleUIHost } from '../../components/module-ui/ModuleUIHost.js';
 
 export function HomePage() {
