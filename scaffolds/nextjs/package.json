@@ -52,5 +52,8 @@
       "@dinilmusick/gutts",
       "esbuild"
     ]
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
