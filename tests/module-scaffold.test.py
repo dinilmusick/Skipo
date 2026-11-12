@@ -38,6 +38,11 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         assert "audio-midi" not in generated_backend
         assert "AudioHardwareServiceFacade" not in generated_backend
         assert "MidiServiceFacade" not in generated_backend
+        assert "LuthAuthServiceFacade" in generated_backend
+        assert "StorageServiceFacade" not in generated_backend
+        assert "WorkspaceServiceFacade" not in generated_backend
+        assert "@ultrst-armada/kloks/backend" not in generated_backend
+        assert "node:" not in generated_backend
         providers = __import__("json").loads((target / "skipo.providers.json").read_text(encoding="utf-8"))
         assert providers["application"] == {"entry": "src/app.ts", "protocol": "fetch"}
         assert set(providers["providers"]) == {"cloudflare", "vercel", "node"}
