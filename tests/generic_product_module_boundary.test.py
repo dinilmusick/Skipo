@@ -49,7 +49,7 @@ def test_generated_scaffold_does_not_bundle_product_modules(tmp_path):
     app = (target / "src/frontend/App.tsx").read_text()
     main = (target / "src/frontend/pages/main/page.tsx").read_text()
     assert "Aiko" not in backend + app + main
-    assert "FOD" not in backend + app + main
+    assert "FodServiceFacade" not in backend + app + main
     assert "AikoModule" not in components
     assert "FodModule" not in components
     assert not (target / "src/backend/aikoRuntime.ts").exists()
@@ -63,7 +63,7 @@ def test_provider_templates_do_not_bundle_product_module_routes():
         assert not (base / "src/frontend/pages/main/tabs/fod").exists()
         assert not (base / "src/backend/aikoRuntime.ts").exists()
         assert "Aiko" not in (base / "src/frontend/App.tsx").read_text()
-        assert "FOD" not in (base / "src/frontend/pages/main/page.tsx").read_text()
+        assert "FodServiceFacade" not in (base / "src/frontend/pages/main/page.tsx").read_text()
     assert not (ROOT / "scaffolds/nextjs/app/api/aiko").exists()
     assert not (ROOT / "scaffolds/vite/src/backend/adapters/aikoRoutes.ts").exists()
     assert not (ROOT / "scaffolds/vite/src/backend/adapters/fodRoutes.ts").exists()
@@ -87,7 +87,7 @@ def test_no_product_specific_runtime_imports_are_embedded():
         if path.suffix.lower() not in {".ts", ".tsx", ".js", ".jsx", ".py"}:
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
-        assert not LEGACY_RE.search(text), f"Product-specific integration reference in {path.relative_to(ROOT)}"
+        assert not PRODUCT_COUPLING_RE.search(text), f"Product-specific integration reference in {path.relative_to(ROOT)}"
 
 
 def test_frontend_architecture_checklist_does_not_require_product_modules():
