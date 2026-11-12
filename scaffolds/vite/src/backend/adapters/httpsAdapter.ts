@@ -1,4 +1,5 @@
-import { proxyLuthAuthRequest, authenticateLuthRequest } from '../auth/luthSession.js';
+import { authenticateLuthRequest } from '../auth/luthSession.js';
+import { fetch as universalFetch } from '../../app.js';
 import { AppBackend } from '../AppBackend.js';
 
 export interface Env { ASSETS?: { fetch: (request: Request) => Promise<Response> }; [key: string]: unknown; }
@@ -11,12 +12,11 @@ const json = (value: unknown, status = 200) => new Response(JSON.stringify(value
 
 export async function fetchHandler(request: Request, env: Env = {}): Promise<Response> {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
-  const authProxy = await proxyLuthAuthRequest(request); if (authProxy) return authProxy;
+  const sharedResponse = await universalFetch(request, env);
+  if (sharedResponse.status !== 404) return sharedResponse;
   const auth = await authenticateLuthRequest(request);
   if (auth.status) return json({ error: auth.error || 'Authentication required.' }, auth.status);
   request = auth.request || request;
-  const mcp = await AppBackend.externalInterfaces.mcp(request); if (mcp) return mcp;
-  const http = await AppBackend.externalInterfaces.http(request); if (http) return http;
   const url = new URL(request.url);
   if (url.pathname === '/api/health' || url.pathname === '/health') return json({ status: 'ok', service: 'skipo-application' });
   if (url.pathname === '/api/workspaces' && request.method === 'GET') {
