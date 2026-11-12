@@ -10,6 +10,10 @@ def test_vite_and_nextjs_scaffolds_mount_both_external_protocols():
             assert (external / name).is_file(), f"{framework}: {name}"
         factory = (base / "src/backend/externalInterfaces.ts").read_text(encoding="utf-8")
         backend = (base / "src/backend/AppBackend.ts").read_text(encoding="utf-8")
+        drive_storage = (base / "src/backend/storage/googleDriveWorkspaceStorage.ts").read_text(encoding="utf-8")
+        assert "process.env" not in backend
+        assert "process.env" not in drive_storage
+        assert "getGoogleDriveOAuthConfig(env" in drive_storage
         adapter = (base / "src/backend/adapters/httpsAdapter.ts").read_text(encoding="utf-8")
         assert "getLuthSession" in factory
         assert "CapabilityRegistry" in factory
