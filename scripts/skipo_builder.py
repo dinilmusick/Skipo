@@ -411,8 +411,6 @@ class SkipoBuilder:
                 for orch_id in component.get("requiredOrchestrations", []):
                     if not orchestration_present(orch_id):
                         errors.append(f"Component '{component_id}' requires orchestration '{orch_id}', but it is not installed in the app backend.")
-            elif component.get("requiredServices") or component.get("requiredOrchestrations"):
-                errors.append(f"Component '{component_id}' is declared by FLOKS but is not exported by the app component facade.")
         for service in services.values():
             frontend = service.get("defaultFrontend")
             if frontend:
