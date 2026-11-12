@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 // ══════════════════════════════════════════════════════════════════════════════
 // NEXT.JS API ROUTE: /api/commands/dispatch
 // Architecture: BullMQ command queue dispatcher with Zod boundary validation
