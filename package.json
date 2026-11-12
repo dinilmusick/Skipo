@@ -38,7 +38,9 @@
     "p-queue": "^10.0.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
-    "zustand": "^5.0.15"
+    "zustand": "^5.0.15",
+    "@aws-sdk/client-s3": "^3.1130.0",
+    "googleapis": "^189.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
