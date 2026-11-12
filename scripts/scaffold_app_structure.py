@@ -319,70 +319,49 @@ export async function createGoogleDriveWorkspaceStorage(
     if not backend_file.exists():
         backend_content = f"""/**
  * @file {pascal}Backend.ts
- * @description Primary application backend entrypoint composing @ultrst-armada/kloks services & orchestrators.
+ * @description Provider-independent backend using Web-standard application contracts.
  */
 
-import {{
-  ServiceAFacade,
-  ServiceBFacade,
-}} from '@ultrst-armada/kloks/services';
-import {{
-  OrchestratorADefinition,
-  OrchestratorBDefinition,
-}} from '@ultrst-armada/kloks/orchestrations';
-import {{
-  AuthServiceFacade,
-  StorageServiceFacade,
-  WorkspaceServiceFacade,
-}} from '@ultrst-armada/kloks/backend';
-import {{ WorkerExecutionBoundary }} from '@ultrst-armada/krnl';
+import {{ ServiceAFacade, ServiceBFacade }} from '@ultrst-armada/kloks/services';
 import {{ BackendFacade }} from './BackendFacade.js';
 import {{ createAppExternalInterfaces }} from './externalInterfaces.js';
-import {{ createGoogleDriveWorkspaceStorage }} from './storage/googleDriveWorkspaceStorage.js';
-
-export const {camel}Worker = new WorkerExecutionBoundary('{pascal}Worker');
+import {{ LuthAuthServiceFacade }} from './LuthAuthServiceFacade.js';
 
 export const bugReportService = {{
   report: async (input: any, options?: any) => {{
-    const authId = options?.session?.userId ?? options?.auth?.user?.id ?? 'authenticated_user';
-    const payload = {{
-      ...input,
-      reporterId: authId,
-      context: {{
-        applicationId: '{camel}-app',
-        applicationType: 'skipo' as const,
-        applicationVersion: '1.0.0',
-        ...input?.context,
+    const userId = options?.session?.userId ?? options?.auth?.user?.id ?? 'authenticated_user';
+    return {{
+      success: true,
+      id: 'bug-' + Date.now().toString(36),
+      report: {{
+        ...input,
+        reporterId: userId,
+        context: {{
+          applicationId: '{camel}-app',
+          applicationType: 'skipo' as const,
+          applicationVersion: '1.0.0',
+          ...input?.context,
+        }},
       }},
     }};
-    return {{ success: true, id: `bug-${{Date.now().toString(36)}}`, report: payload }};
   }},
 }};
 
-export const storageProviders = {{ googleDrive: {{ create: createGoogleDriveWorkspaceStorage }} }};
-
 export const backendFacade = new BackendFacade();
-for (const service of [AuthServiceFacade, ServiceAFacade, ServiceBFacade, StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
+backendFacade.registerService(ServiceAFacade);
+backendFacade.registerService(ServiceBFacade);
+
 export const externalInterfaces = createAppExternalInterfaces(backendFacade);
 
 export const {pascal}Backend = {{
   services: {{
-    auth: AuthServiceFacade,
+    auth: LuthAuthServiceFacade,
     serviceA: ServiceAFacade,
     serviceB: ServiceBFacade,
-    storage: StorageServiceFacade,
-    workspace: WorkspaceServiceFacade,
     bugReport: bugReportService,
   }},
-  storageProviders,
   backendFacade,
   externalInterfaces,
-  orchestrations: {{
-    orchestratorA: OrchestratorADefinition,
-    orchestratorB: OrchestratorBDefinition,
-  }},
-  worker: {camel}Worker,
-  WorkerExecutionBoundary: {camel}Worker,
 }};
 
 export default {pascal}Backend;
