@@ -27,6 +27,7 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         assert "export async function fetch" in app_source
         assert './backend/DemoAppBackend.js' in app_source
         assert "externalInterfaces.mcp(request)" in app_source
+        assert "proxyLuthAuthRequest(request)" in app_source
         assert "externalInterfaces.http(request)" in app_source
         generated_backend = (target / "src" / "backend" / "DemoAppBackend.ts").read_text(encoding="utf-8")
         assert "audio-midi" not in generated_backend
