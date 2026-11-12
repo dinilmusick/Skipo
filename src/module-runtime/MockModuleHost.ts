@@ -44,7 +44,6 @@ export function createMockModuleHost(options: Omit<Partial<ModuleHostOptions>, '
     host: new ModuleHost({
       backend,
       resources: options.resources,
-      hostId: options.hostId ?? 'mock-module-host',
       authorizeCapabilities: options.authorizeCapabilities ?? ((_module, requested) => requested),
     }),
   };
