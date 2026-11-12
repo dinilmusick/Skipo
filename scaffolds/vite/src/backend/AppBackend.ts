@@ -1,20 +1,17 @@
-import {
-  StorageServiceFacade,
-  WorkspaceServiceFacade,
-} from '@ultrst-armada/kloks/backend/krnl-services';
-import { createGoogleDriveWorkspaceStorage } from './storage/googleDriveWorkspaceStorage.js';
 import { BackendFacade } from './BackendFacade.js';
 import { createAppExternalInterfaces } from './externalInterfaces.js';
 
+/**
+ * The universal app starts with no provider-specific services installed.
+ * Register only the capabilities this application actually uses.
+ */
 export const backendFacade = new BackendFacade();
-for (const service of [StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
 export const externalInterfaces = createAppExternalInterfaces(backendFacade);
-export const storageProviders = {
-  googleDrive: { create: createGoogleDriveWorkspaceStorage },
-};
+export const services = Object.freeze({});
+export const storageProviders = Object.freeze({});
 
 export const AppBackend = {
-  services: { storage: StorageServiceFacade, workspace: WorkspaceServiceFacade },
+  services,
   storageProviders,
   backendFacade,
   externalInterfaces,
