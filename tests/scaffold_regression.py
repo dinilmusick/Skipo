@@ -61,27 +61,43 @@ class ScaffoldRegressionTest(unittest.TestCase):
             self.assertIn("components/components.js", page.read_text(encoding="utf-8"))
             self.assertTrue((frontend / "pages" / "home" / "orchestrations").exists())
 
-    def test_mandatory_fod_and_aiko_modules_exist_in_all_app_templates(self):
-        """Every canonical Vite/Next.js app template contains FOD and Aiko UI/runtime wiring."""
+    def test_fetch_provider_contract_exists_without_aiko_or_audio_runtime(self):
+        """Templates expose one Fetch app and keep Node startup out of edge adapters."""
         for scaffold_name in ["vite", "nextjs"]:
             base = SKIPO_ROOT / "scaffolds" / scaffold_name
-            fod_page = base / "src/frontend/pages/main/tabs/fod/page.tsx"
-            aiko_page = base / "src/frontend/pages/main/tabs/aiko/page.tsx"
+            app = base / "src/app.ts"
+            cloudflare = base / "src/providers/cloudflare.ts"
+            vercel = base / "src/providers/vercel.ts"
+            node = base / "src/providers/node.ts"
             backend = base / "src/backend/AppBackend.ts"
-            aiko_runtime = base / "src/backend/aikoRuntime.ts"
             main_page = base / "src/frontend/pages/main/page.tsx"
-            self.assertTrue(fod_page.exists(), f"FOD tab missing in {scaffold_name}")
-            self.assertTrue(aiko_page.exists(), f"Aiko tab missing in {scaffold_name}")
-            self.assertTrue(aiko_runtime.exists(), f"Aiko runtime missing in {scaffold_name}")
-            self.assertIn("@ultrst-armada/floks/canvas-ui/fod", fod_page.read_text(encoding="utf-8"))
-            self.assertIn("@ultrst-armada/floks/canvas-ui/aiko", aiko_page.read_text(encoding="utf-8"))
-            backend_text = backend.read_text(encoding="utf-8")
-            self.assertIn("createFodRuntime", backend_text)
-            self.assertIn("createAikoRuntime", backend_text)
-            self.assertIn("Aiko", main_page.read_text(encoding="utf-8"))
-        if (SKIPO_ROOT / "scaffolds/nextjs/app").exists():
-            self.assertTrue((SKIPO_ROOT / "scaffolds/nextjs/app/api/aiko/route.ts").exists())
-        self.assertTrue((SKIPO_ROOT / "scaffolds/vite/src/backend/adapters/aikoRoutes.ts").exists())
+
+            for required in (app, cloudflare, vercel, node, backend, main_page):
+                self.assertTrue(required.is_file(), f"Missing provider contract file: {required.relative_to(SKIPO_ROOT)}")
+
+            app_source = app.read_text(encoding="utf-8")
+            cloudflare_source = cloudflare.read_text(encoding="utf-8")
+            vercel_source = vercel.read_text(encoding="utf-8")
+            node_source = node.read_text(encoding="utf-8")
+            backend_source = backend.read_text(encoding="utf-8")
+            main_source = main_page.read_text(encoding="utf-8")
+
+            self.assertIn("externalInterfaces.mcp(request)", app_source)
+            self.assertIn("externalInterfaces.http(request)", app_source)
+            self.assertNotIn("node:", cloudflare_source)
+            self.assertNotIn("node:", vercel_source)
+            self.assertIn("node:http", node_source)
+            self.assertNotIn("Aiko", backend_source + main_source)
+            self.assertNotIn("FOD", backend_source + main_source)
+            self.assertNotIn("audio-midi", backend_source)
+            self.assertNotIn("AudioHardwareServiceFacade", backend_source)
+            self.assertNotIn("MidiServiceFacade", backend_source)
+
+            self.assertFalse((base / "src/backend/aikoRuntime.ts").exists())
+            self.assertFalse((base / "src/frontend/pages/main/tabs/aiko").exists())
+            self.assertFalse((base / "src/frontend/pages/main/tabs/fod").exists())
+        self.assertFalse((SKIPO_ROOT / "scaffolds/nextjs/app/api/aiko").exists())
+        self.assertFalse((SKIPO_ROOT / "scaffolds/vite/src/backend/adapters/aikoRoutes.ts").exists())
 
     def test_gates_import_canonical_floks(self):
         """LoginGate & WorkspaceGate must exist and import @ultrst-armada/floks/ui."""
