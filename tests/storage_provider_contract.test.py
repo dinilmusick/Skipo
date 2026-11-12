@@ -46,7 +46,7 @@ def test_google_drive_uses_kloks_adapter_in_every_canonical_scaffold():
 
         assert "storageProviders" in backend
         assert "googleDrive: { create: createGoogleDriveWorkspaceStorage }" in backend
-        assert "GoogleDriveStorageService" in adapter
+        assert "GoogleDriveWorkspaceService" in adapter
         assert "refreshGoogleDriveAccessToken" in adapter
         assert "googleAccessTokenExpiresAt" in storage_types
         assert "GOOGLE_DRIVE_CLIENT_SECRET" in env_example
@@ -56,7 +56,7 @@ def test_google_drive_uses_kloks_adapter_in_every_canonical_scaffold():
 
     generator = (ROOT / "scripts/scaffold_app_structure.py").read_text()
     assert "createGoogleDriveWorkspaceStorage" in generator
-    assert "GoogleDriveStorageService" in generator
+    assert "GoogleDriveWorkspaceService" in generator
     assert "GoogleDriveEnvironment" in generator
     assert "process.env.GOOGLE_DRIVE_CLIENT_ID" not in generator
 
@@ -75,7 +75,7 @@ def test_generic_scaffold_keeps_google_drive_adapter_opt_in_and_portable(tmp_pat
     assert result.returncode == 0, result.stdout + result.stderr
     adapter = (target / "src/backend/storage/googleDriveWorkspaceStorage.ts").read_text(encoding="utf-8")
     backend = (target / "src/backend/PortableAppBackend.ts").read_text(encoding="utf-8")
-    assert "GoogleDriveStorageService" in adapter
+    assert "GoogleDriveWorkspaceService" in adapter
     assert "GoogleDriveEnvironment" in adapter
     assert "process.env" not in adapter
     assert "createGoogleDriveWorkspaceStorage" not in backend
