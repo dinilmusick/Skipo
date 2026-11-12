@@ -52,6 +52,8 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         assert "node:http" in node
         assert 'main = "dist/providers/cloudflare/worker.js"' in (target / "wrangler.toml").read_text(encoding="utf-8")
         assert '"buildCommand": "npm run build"' in (target / "vercel.json").read_text(encoding="utf-8")
+        vercel_config = __import__("json").loads((target / "vercel.json").read_text(encoding="utf-8"))
+        assert {"/api/:path*", "/mcp"} == {rule["source"] for rule in vercel_config["rewrites"]}
         assert not (target / "config/build/manifests/fullstack.json").exists()
         assert not (target / "config/build/manifests/api.json").exists()
 
