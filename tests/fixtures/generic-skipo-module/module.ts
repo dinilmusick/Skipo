@@ -3,7 +3,7 @@ import { backendBinding } from './backend.js';
 import type { SkipoModuleRuntimeDefinition } from '../../../src/module-runtime/ModuleRuntimeTypes.js';
 
 export const module: SkipoModuleRuntimeDefinition = {
-  manifest,
+  manifest: manifest as SkipoModuleRuntimeDefinition['manifest'],
   backend: { bindings: [backendBinding] },
   mount(context) {
     context.events.emit('initialized', { moduleId: context.moduleId });
