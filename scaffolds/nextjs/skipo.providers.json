@@ -11,8 +11,11 @@
     },
     "vercel": {
       "entry": "src/providers/vercel.ts",
-      "output": "api/index.js",
-      "runtime": "edge"
+      "output": "api/[...path].js",
+      "runtime": "edge",
+      "additionalOutputs": [
+        "mcp.js"
+      ]
     },
     "node": {
       "entry": "src/providers/node.ts",
