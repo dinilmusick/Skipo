@@ -21,5 +21,8 @@ describe('Skipo scaffold contracts', () => {
     expect(provider).toContain('node dist/providers/node/server.js');
     expect(provider).not.toMatch(/Aiko|FOD|FodRuntime|createAikoRuntime/);
     expect(provider).not.toMatch(/AudioHardwareServiceFacade|MidiServiceFacade/);
+    expect(provider).toContain('FetchBackend');
+    expect(scaffold).not.toContain('@ultrst-armada/kloks/services');
+    expect(scaffold).not.toContain('@ultrst-armada/kloks/backend/krnl-services');
   });
 });
