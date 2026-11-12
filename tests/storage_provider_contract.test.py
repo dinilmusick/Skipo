@@ -47,7 +47,7 @@ def test_google_drive_uses_kloks_adapter_in_every_canonical_scaffold():
         assert "storageProviders" in backend
         assert "googleDrive: { create: createGoogleDriveWorkspaceStorage }" in backend
         assert "GoogleDriveWorkspaceService" in adapter
-        assert "refreshGoogleDriveAccessToken" in adapter
+        assert "exchangeGoogleDriveAuthorizationCode" in adapter
         assert "googleAccessTokenExpiresAt" in storage_types
         assert "GOOGLE_DRIVE_CLIENT_SECRET" in env_example
         assert "GOOGLE_DRIVE_CLIENT_SECRET" not in backend
