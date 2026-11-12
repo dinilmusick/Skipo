@@ -34,7 +34,7 @@ function applyMapping(source: unknown, mapping?: Readonly<Record<string, string>
  * It exposes metadata, never service implementations or library objects.
  */
 export class ModuleBackendAdapter {
-  readonly #declarations: ReadonlyMap<string, ModuleCapabilityDeclaration>;
+  readonly #declarations: Map<string, ModuleCapabilityDeclaration>;
   readonly #options: ModuleBackendAdapterOptions;
 
   constructor(options: ModuleBackendAdapterOptions) {
