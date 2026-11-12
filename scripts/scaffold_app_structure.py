@@ -622,6 +622,7 @@ import type { WorkspaceRecord } from '@ultrst-armada/floks/ui';
 export function App() {
   const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([]);
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceRecord | null>(null);
+  const storageOptions = [{ id: 'memory', provider: 'memory', label: 'In-memory (ephemeral)' }];
 
   return <AuthPage authenticatedContent={(auth: any) => {
     if (!activeWorkspace) {
@@ -629,6 +630,8 @@ export function App() {
         workspaces={workspaces}
         userId={auth.user?.id}
         currentUser={auth.user}
+        storageOptions={storageOptions}
+        visibility={{ storagePolicy: { providers: ['memory'] } }}
         activeWorkspaceId={null}
         onSelectWorkspace={setActiveWorkspace}
         onCreateWorkspace={async (input) => {
