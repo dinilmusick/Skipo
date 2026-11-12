@@ -42,6 +42,12 @@ def test_generic_scaffold_generates_canonical_floks_kloks_auth(tmp_path):
     assert "@ultrst-armada/kloks/backend" not in backend.read_text(encoding="utf-8")
     assert manifest["dependencies"]["@ultrst-armada/krnl"] == "^1.0.24"
     assert manifest["dependencies"]["@dinilmusick/gutts"] == AUTH_CONTRACT.PACKAGE_BASELINE["@dinilmusick/gutts"]
+    generated_app = (target / "src/frontend/App.tsx").read_text(encoding="utf-8")
+    assert "AuthPage" in generated_app
+    assert "WorkspaceGate" in generated_app
+    assert "MainPage" in generated_app
+    assert "localStorage.getItem('skipo-active-workspace')" not in generated_app
+
     assert scan_source_tree(target) == []
 
 
