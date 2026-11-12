@@ -92,7 +92,11 @@ class ScaffoldRegressionTest(unittest.TestCase):
             vercel = json.loads(vercel_config.read_text(encoding="utf-8"))
             pnpm_config = pnpm_workspace.read_text(encoding="utf-8")
 
-            self.assertIn("fetchHandler", app_source)
+            self.assertIn("export async function fetch(", app_source)
+            self.assertIn("request: Request", app_source)
+            self.assertIn("Promise<Response>", app_source)
+            self.assertIn("externalInterfaces.mcp(request)", app_source)
+            self.assertIn("externalInterfaces.http(request)", app_source)
             self.assertIn("externalInterfaces.mcp(request)", fetch_adapter_source)
             self.assertIn("externalInterfaces.http(request)", fetch_adapter_source)
             self.assertNotIn("Sync from SRKL", accounts_source)
