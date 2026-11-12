@@ -47,9 +47,9 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         package = __import__("json").loads((target / "package.json").read_text(encoding="utf-8"))
         assert package["scripts"]["build"] == "node scripts/skipo-build.mjs"
         workspace_config = (target / "pnpm-workspace.yaml").read_text(encoding="utf-8")
-        assert "onlyBuiltDependencies:" in workspace_config
-        assert "  - esbuild" in workspace_config
-        assert "  - msgpackr-extract" in workspace_config
+        assert "allowBuilds:" in workspace_config
+        assert "  esbuild: true" in workspace_config
+        assert "  msgpackr-extract: true" in workspace_config
         assert "build:fullstack" not in package["scripts"]
         assert "build:api" not in package["scripts"]
         assert (target / "src/providers/cloudflare.ts").is_file()
