@@ -51,9 +51,13 @@ def test_google_drive_uses_kloks_adapter_in_every_canonical_scaffold():
         assert "googleAccessTokenExpiresAt" in storage_types
         assert "GOOGLE_DRIVE_CLIENT_SECRET" in env_example
         assert "GOOGLE_DRIVE_CLIENT_SECRET" not in backend
+        assert "process.env" not in adapter
+        assert "GoogleDriveEnvironment" in adapter
 
     generator = (ROOT / "scripts/scaffold_app_structure.py").read_text()
     assert "createGoogleDriveWorkspaceStorage" in generator
     assert "GoogleDriveStorageService" in generator
     assert "storageProviders" in generator
+    assert "GoogleDriveEnvironment" in generator
+    assert "process.env.GOOGLE_DRIVE_CLIENT_ID" not in generator
 
