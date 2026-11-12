@@ -62,7 +62,7 @@ describe('generic ModuleHost', () => {
   it('rejects duplicate discoveries and undeclared backend bindings', () => {
     const { host } = createMockModuleHost();
     host.discover(definition());
-    expect(() => host.discover(definition())).toThrow(/already discovered/);
+    expect(() => host.discover(definition())).toThrow(/already been discovered/);
     const invalid = { ...definition(), manifest: { ...manifest, module: { ...manifest.module, id: 'invalid' } }, backend: { bindings: [{ capabilityId: 'missing' }] } };
     expect(() => host.discover(invalid)).toThrow(/not declared/);
   });
