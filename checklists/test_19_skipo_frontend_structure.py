@@ -38,7 +38,7 @@ class SkipoFrontendStructureTests(unittest.TestCase):
             if "main/page" in rel:
                 page.write_text("immersive mode")
             elif "accounts/page" in rel:
-                page.write_text("SRKL sync")
+                page.write_text("Account connections")
             else:
                 page.write_text("")
         return root
@@ -53,6 +53,15 @@ class SkipoFrontendStructureTests(unittest.TestCase):
         result = mod.validate_skipo_frontend_structure(root)
         self.assertFalse(result.passed)
         self.assertTrue(any(v.rule_id == "missing-skipo-page" for v in result.violations))
+
+    def test_application_specific_tabs_fail(self):
+        for name in ("fo" + "d", "ai" + "ko"):
+            root = self.make_fixture()
+            forbidden = root / "src/frontend/pages/main/tabs" / name
+            forbidden.mkdir(parents=True)
+            result = mod.validate_skipo_frontend_structure(root)
+            self.assertFalse(result.passed)
+            self.assertTrue(any(v.rule_id == "forbidden-application-tab" for v in result.violations))
 
     def test_noncanonical_page_root_fails(self):
         root = self.make_fixture()
