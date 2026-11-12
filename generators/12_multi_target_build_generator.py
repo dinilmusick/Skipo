@@ -356,8 +356,8 @@ export async function queryUnifiedDb<T = any>(
         "buildCommand": "npm run build",
         "outputDirectory": "dist",
         "rewrites": [
-            {"source": "/api/(.*)", "destination": "/api"},
-            {"source": "/(.*)", "destination": "/index.html"}
+            {"source": "/api/:path*", "destination": "/api"},
+            {"source": "/mcp", "destination": "/api"}
         ]
     }
     files.append(GeneratedFile(
