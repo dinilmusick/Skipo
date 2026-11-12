@@ -279,6 +279,10 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
     scripts["start"] = "node dist/providers/node/server.js"
     dev = package.setdefault("devDependencies", {})
     dev.setdefault("esbuild", "^0.28.2")
+    pnpm_config = package.setdefault("pnpm", {})
+    built_dependencies = set(pnpm_config.get("onlyBuiltDependencies", []))
+    built_dependencies.update({"@dinilmusick/gutts", "esbuild"})
+    pnpm_config["onlyBuiltDependencies"] = sorted(built_dependencies)
     if "vite" not in package.get("dependencies", {}) and "vite" not in dev and not any(
         (target / name).exists() for name in ("next.config.js", "next.config.mjs", "next.config.ts")
     ):
