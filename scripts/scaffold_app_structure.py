@@ -318,8 +318,8 @@ import { createAppExternalInterfaces } from './externalInterfaces.js';
 
 export const backendFacade = new BackendFacade();
 export const externalInterfaces = createAppExternalInterfaces(backendFacade);
-export const services = Object.freeze({});
-export const storageProviders = Object.freeze({});
+export const services = Object.freeze({{}});
+export const storageProviders = Object.freeze({{}});
 
 export const {pascal}Backend = {
   services,
