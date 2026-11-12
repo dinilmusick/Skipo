@@ -60,10 +60,10 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         # The scaffold must not rewrite the canonical ecosystem dependency versions.
         dependencies = package["dependencies"]
         assert dependencies["@dinilmusick/gutts"] == "^2.0.3"
-        assert dependencies["@ultrst-armada/krnl"] == "^1.0.11"
-        assert dependencies["@ultrst-armada/frnlts"] == "^0.5.5"
-        assert dependencies["@ultrst-armada/kloks"] == "^1.26.0"
-        assert dependencies["@ultrst-armada/floks"] == "^1.13.18"
+        assert dependencies["@ultrst-armada/krnl"] == "^1.0.23"
+        assert dependencies["@ultrst-armada/frnlts"] == "^0.5.23"
+        assert dependencies["@ultrst-armada/kloks"] == "^1.26.3"
+        assert dependencies["@ultrst-armada/floks"] == "^1.14.2"
 
 
 
