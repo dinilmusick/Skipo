@@ -46,15 +46,18 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         providers = __import__("json").loads((target / "skipo.providers.json").read_text(encoding="utf-8"))
         assert providers["application"] == {"entry": "src/app.ts", "protocol": "fetch"}
         assert set(providers["providers"]) == {"cloudflare", "vercel", "node"}
+        assert providers["providers"]["vercel"]["runtime"] == "node"
         package = __import__("json").loads((target / "package.json").read_text(encoding="utf-8"))
         assert package["scripts"]["build"] == "node scripts/skipo-build.mjs"
         assert package["scripts"]["dev"] == "vite"
         assert package["scripts"]["start"] == "node dist/providers/node/server.js"
+        assert package["engines"]["node"] == ">=22"
         assert "build:fullstack" not in package["scripts"]
         assert "build:api" not in package["scripts"]
         assert (target / "src/providers/cloudflare.ts").is_file()
         assert (target / "src/providers/vercel.ts").is_file()
         assert (target / "src/providers/node.ts").is_file()
+        assert (target / "src/providers/nodeRequestAdapter.ts").is_file()
         assert 'from "../app.js"' in (target / "src/providers/cloudflare.ts").read_text(encoding="utf-8")
         assert 'from "../app.js"' in (target / "src/providers/vercel.ts").read_text(encoding="utf-8")
         cloudflare = (target / "src/providers/cloudflare.ts").read_text(encoding="utf-8")
