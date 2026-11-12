@@ -534,16 +534,68 @@ export default MainPage;
     app_tsx = target_root / "src" / "frontend" / "App.tsx"
     if not app_tsx.exists():
         app_tsx.write_text(
-            """import MainPage from './pages/main/page.js';
+            """import { useState } from 'react';
+import MainPage from './pages/main/page.js';
+import AuthPage from './pages/auth/page.js';
+import { WorkspaceGate } from './components/gates/WorkspaceGate.js';
 import { FrnlSemanticInputProvider } from '@ultrst-armada/frnlts';
+import type { WorkspaceRecord } from '@ultrst-armada/floks/ui';
+
+interface AuthenticatedUser {
+  id: string;
+  email?: string;
+  name?: string;
+  username?: string;
+}
 
 export function App() {
-  const workspaceId = typeof window === 'undefined' ? 'default' : localStorage.getItem('skipo-active-workspace') || 'default';
-  return <FrnlSemanticInputProvider value={{ workspace: workspaceId }}><MainPage /></FrnlSemanticInputProvider>;
+  const [user, setUser] = useState<AuthenticatedUser | null>(null);
+  const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([]);
+  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceRecord | null>(null);
+
+  if (!user) {
+    return <AuthPage onAuthenticated={(value) => {
+      const authenticated = value as AuthenticatedUser | null;
+      if (authenticated?.id) setUser(authenticated);
+    }} />;
+  }
+
+  if (!activeWorkspace) {
+    return <WorkspaceGate
+      workspaces={workspaces}
+      userId={user.id}
+      currentUser={user}
+      activeWorkspaceId={null}
+      onSelectWorkspace={setActiveWorkspace}
+      onCreateWorkspace={async (input) => {
+        const workspace: WorkspaceRecord = {
+          id: `ws-${Date.now()}`,
+          title: input.name.trim(),
+          name: input.name.trim(),
+          description: input.description,
+          storageProvider: input.storageProvider,
+          storageConnectionId: input.storageConnectionId,
+        };
+        setWorkspaces((current) => [...current, workspace]);
+        setActiveWorkspace(workspace);
+      }}
+      onLogout={() => {
+        setActiveWorkspace(null);
+        setUser(null);
+      }}
+      appName="__SKIPO_APP_NAME__"
+    />;
+  }
+
+  return <FrnlSemanticInputProvider value={{ workspace: activeWorkspace.id }}>
+    <MainPage>
+      <div data-skipo-active-workspace={activeWorkspace.id} />
+    </MainPage>
+  </FrnlSemanticInputProvider>;
 }
 
 export default App;
-""",
+""".replace("__SKIPO_APP_NAME__", "{pascal}"),
             encoding="utf-8",
         )
         created.append(app_tsx)
