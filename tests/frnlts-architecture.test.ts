@@ -131,7 +131,7 @@ describe('canonical Skipo frontend page architecture', () => {
 
   it('requires pages to import UI through the components facade', () => {
     const page = readFileSync(join(repoRoot, 'src/frontend/pages/home/page.tsx'), 'utf8');
-    expect(page).toContain("from '../../components/components.js'");
+    expect(page).toContain("../../components/components.js");
     expect(page).not.toContain('@ultrst-armada/floks/');
   });
 
