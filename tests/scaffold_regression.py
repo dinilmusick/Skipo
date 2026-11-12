@@ -70,6 +70,7 @@ class ScaffoldRegressionTest(unittest.TestCase):
             vercel = base / "src/providers/vercel.ts"
             node = base / "src/providers/node.ts"
             backend = base / "src/backend/AppBackend.ts"
+            universal_backend = base / "src/backend/UniversalBackend.ts"
             main_page = base / "src/frontend/pages/main/page.tsx"
             fetch_adapter = base / "src/backend/adapters/httpsAdapter.ts"
             accounts_page = base / "src/frontend/pages/settings/tabs/accounts/page.tsx"
@@ -77,7 +78,7 @@ class ScaffoldRegressionTest(unittest.TestCase):
             vercel_config = base / "vercel.json"
             pnpm_workspace = base / "pnpm-workspace.yaml"
 
-            for required in (app, cloudflare, vercel, node, backend, main_page, fetch_adapter, accounts_page, provider_manifest, vercel_config, pnpm_workspace):
+            for required in (app, cloudflare, vercel, node, backend, universal_backend, main_page, fetch_adapter, accounts_page, provider_manifest, vercel_config, pnpm_workspace):
                 self.assertTrue(required.is_file(), f"Missing provider contract file: {required.relative_to(SKIPO_ROOT)}")
 
             app_source = app.read_text(encoding="utf-8")
@@ -85,6 +86,7 @@ class ScaffoldRegressionTest(unittest.TestCase):
             vercel_source = vercel.read_text(encoding="utf-8")
             node_source = node.read_text(encoding="utf-8")
             backend_source = backend.read_text(encoding="utf-8")
+            universal_backend_source = universal_backend.read_text(encoding="utf-8")
             main_source = main_page.read_text(encoding="utf-8")
             fetch_adapter_source = fetch_adapter.read_text(encoding="utf-8")
             accounts_source = accounts_page.read_text(encoding="utf-8")
@@ -112,7 +114,10 @@ class ScaffoldRegressionTest(unittest.TestCase):
             self.assertIn("node:http", node_source)
             self.assertNotIn("Aiko", backend_source + main_source)
             self.assertNotIn("FOD", backend_source + main_source)
-            self.assertNotIn("audio-midi", backend_source)
+            self.assertNotIn("audio-midi", backend_source + universal_backend_source)
+            self.assertNotIn("@ultrst-armada/kloks/services", universal_backend_source)
+            self.assertNotIn("ServiceAFacade", universal_backend_source)
+            self.assertNotIn("ServiceBFacade", universal_backend_source)
             self.assertNotIn("AudioHardwareServiceFacade", backend_source)
             self.assertNotIn("MidiServiceFacade", backend_source)
 
