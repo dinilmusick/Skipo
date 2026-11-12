@@ -5,6 +5,7 @@
 import { ServiceAFacade, ServiceBFacade } from '@ultrst-armada/kloks/services';
 import { OrchestratorADefinition } from '@ultrst-armada/kloks/orchestrations';
 import {
+  AuthServiceFacade,
   StorageServiceFacade,
   WorkspaceServiceFacade,
 } from '@ultrst-armada/kloks/backend/krnl-services';
@@ -27,6 +28,7 @@ export const bugReportService = {
 };
 
 export const services = {
+  auth: AuthServiceFacade,
   serviceA: ServiceAFacade,
   serviceB: ServiceBFacade,
   storage: StorageServiceFacade,
@@ -35,7 +37,7 @@ export const services = {
 };
 
 export const backendFacade = new BackendFacade();
-for (const service of [ServiceAFacade, ServiceBFacade, StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
+for (const service of [AuthServiceFacade, ServiceAFacade, ServiceBFacade, StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
 export const externalInterfaces = createAppExternalInterfaces(backendFacade);
 
 export const storageProviders = {
