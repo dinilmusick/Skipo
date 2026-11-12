@@ -406,6 +406,13 @@ class SkipoBuilder:
                 continue
             if component_id in component_exports:
                 for service_id in component.get("requiredServices", []):
+                    if service_id == "auth":
+                        # Authentication is a platform capability backed by Luth,
+                        # not a Kloks AuthServiceFacade installed into each app.
+                        luth_guard = self.project_root / "src" / "backend" / "auth" / "luthSession.ts"
+                        if not luth_guard.is_file():
+                            errors.append(f"Component '{component_id}' requires Luth authentication, but the canonical Luth session guard is missing.")
+                        continue
                     if not service_present(service_id):
                         errors.append(f"Component '{component_id}' requires service '{service_id}', but it is not installed in the app backend.")
                 for orch_id in component.get("requiredOrchestrations", []):
