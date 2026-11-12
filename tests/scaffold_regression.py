@@ -110,7 +110,7 @@ class ScaffoldRegressionTest(unittest.TestCase):
             self.assertIn("allowBuilds:", pnpm_config)
             self.assertIn("  esbuild: true", pnpm_config)
             self.assertIn("  msgpackr-extract: true", pnpm_config)
-            if framework == "nextjs":
+            if scaffold_name == "nextjs":
                 self.assertIn("  @tailwindcss/oxide: true", pnpm_config)
             self.assertNotIn("node:", cloudflare_source)
             self.assertNotIn("node:", vercel_source)
