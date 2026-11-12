@@ -52,14 +52,6 @@ export default { fetch };
 
 APP_SOURCE = SCAFFOLD_APP_SOURCE
 
-ADAPTER_APP_SOURCE = """import { fetchHandler } from "./backend/adapters/httpsAdapter.js";
-
-export async function fetch(request: Request, env: Record<string, unknown> = {}, _ctx?: unknown): Promise<Response> {
-  return fetchHandler(request, env as any);
-}
-
-export default { fetch };
-"""
 
 CLOUDFLARE_SOURCE = """import { fetch } from "../app.js";
 
@@ -224,13 +216,9 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
     }
     for relative, source in files.items():
         if relative == "src/app.ts":
-            adapter = target / "src/backend/adapters/httpsAdapter.ts"
-            if adapter.is_file():
-                source = ADAPTER_APP_SOURCE
-            else:
-                candidates = ("AppBackend", f"{app_name[:1].upper() + app_name[1:]}Backend")
-                backend_entry = next((name for name in candidates if (target / "src/backend" / f"{name}.ts").is_file()), candidates[-1])
-                source = APP_SOURCE.replace("__SKIPO_BACKEND_ENTRY__", backend_entry)
+            candidates = ("UniversalBackend", "AppBackend", f"{app_name[:1].upper() + app_name[1:]}Backend")
+            backend_entry = next((name for name in candidates if (target / "src/backend" / f"{name}.ts").is_file()), candidates[-1])
+            source = APP_SOURCE.replace("__SKIPO_BACKEND_ENTRY__", backend_entry)
         path = target / relative
         if not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
