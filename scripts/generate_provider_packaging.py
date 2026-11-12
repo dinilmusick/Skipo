@@ -25,6 +25,33 @@ const cors = {
   "access-control-allow-headers": "content-type,authorization",
 };
 
+async function fetchStaticAsset(
+  request: Request,
+  assets: SkipoEnv["ASSETS"],
+): Promise<Response | null> {
+  if (!assets || (request.method !== "GET" && request.method !== "HEAD")) return null;
+  const pathname = new URL(request.url).pathname;
+  if (pathname.startsWith("/api/") || pathname === "/mcp") return null;
+
+  const candidates: string[] = [];
+  if (pathname === "/") {
+    candidates.push("/index.html");
+  } else if (!pathname.includes(".")) {
+    const cleanPath = pathname.replace(/\\/$/, "");
+    candidates.push(`${cleanPath}.html`, `${cleanPath}/index.html`, pathname, "/index.html");
+  } else {
+    candidates.push(pathname);
+  }
+
+  for (const candidate of candidates) {
+    const assetUrl = new URL(request.url);
+    assetUrl.pathname = candidate;
+    const response = await assets.fetch(new Request(assetUrl, request));
+    if (response.status !== 404) return response;
+  }
+  return null;
+}
+
 export async function fetch(
   request: Request,
   env: SkipoEnv = {},
@@ -41,9 +68,8 @@ export async function fetch(
   if (url.pathname === "/health" || url.pathname === "/api/health") {
     return Response.json({ status: "ok", runtime: "fetch" }, { headers: cors });
   }
-  if (env.ASSETS && !url.pathname.startsWith("/api/")) {
-    return env.ASSETS.fetch(request);
-  }
+  const assetResponse = await fetchStaticAsset(request, env.ASSETS);
+  if (assetResponse) return assetResponse;
   return Response.json({ error: "Not Found" }, { status: 404, headers: cors });
 }
 
@@ -86,7 +112,7 @@ const assets = {
     if (requested !== base && !requested.startsWith(base + sep)) {
       return new Response("Not Found", { status: 404 });
     }
-    const candidates = [requested, resolve(base, "index.html")];
+    const candidates = [requested];
     for (const candidate of candidates) {
       try {
         const body = await readFile(candidate);
