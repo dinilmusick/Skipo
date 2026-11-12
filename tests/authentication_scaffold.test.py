@@ -39,7 +39,7 @@ def test_generic_scaffold_generates_canonical_floks_kloks_auth(tmp_path):
     assert "getAuthHeaders" in fetcher.read_text(encoding="utf-8")
     assert "canonicaldemo" in fetcher.read_text(encoding="utf-8")
     assert "AuthServiceFacade" not in backend.read_text(encoding="utf-8")
-    assert manifest["dependencies"]["@ultrst-armada/krnl"] == "^1.0.11"
+    assert manifest["dependencies"]["@ultrst-armada/krnl"] == AUTH_CONTRACT.PACKAGE_BASELINE["@ultrst-armada/krnl"]
     assert manifest["dependencies"]["@dinilmusick/gutts"] == AUTH_CONTRACT.PACKAGE_BASELINE["@dinilmusick/gutts"]
     assert scan_source_tree(target) == []
 
