@@ -376,6 +376,20 @@ class SkipoBuilder:
         registered_orchestrations = registered_orchestration_exports(backend_source)
 
         def service_present(service_id: str) -> bool:
+            # Floks auth requirements are fulfilled by canonical Luth sessions,
+            # not by importing Kloks' legacy server-auth facade.
+            if service_id == "auth":
+                has_luth_adapter = (
+                    "LuthAuthServiceFacade" in registered_services
+                    and re.search(
+                        r"import\\s*\\{[^}]*\\bLuthAuthServiceFacade\\b[^}]*\\}\\s*from\\s*['\\\"]\\./LuthAuthServiceFacade\\.js['\\\"]",
+                        backend_source,
+                    ) is not None
+                )
+                if not has_luth_adapter:
+                    errors.append("Required auth service must be provided by the canonical LuthAuthServiceFacade.")
+                return has_luth_adapter
+
             service = services.get(service_id)
             if not service:
                 errors.append(f"Unknown required service '{service_id}'.")
