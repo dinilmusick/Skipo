@@ -193,7 +193,7 @@ def validate_repository(root: Path) -> list[str]:
         source = generator.read_text(encoding="utf-8")
         if '"@ultrst-armada/krnl": "^1.0.9"' in source:
             errors.append("Generic scaffold generator contains stale Krnl package baseline")
-        if "AuthServiceFacade" in source:
+        if re.search(r"(?<!Luth)AuthServiceFacade", source):
             errors.append("Generic scaffold generator must not generate the legacy Kloks auth facade")
         for marker in ("FloksLuthAuthPage", "requireLuthSession", "DEFAULT_LUTH_URL", "LuthAuthPage"):
             if marker not in source:
