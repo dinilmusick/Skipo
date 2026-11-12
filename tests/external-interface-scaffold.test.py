@@ -34,7 +34,7 @@ def test_vite_and_nextjs_scaffolds_mount_both_external_protocols():
         assert "  esbuild: true" in workspace_config
         assert "  msgpackr-extract: true" in workspace_config
         if framework == "nextjs":
-            assert "  @tailwindcss/oxide: true" in workspace_config
+            assert '  "@tailwindcss/oxide": true' in workspace_config
         for generated in ("scripts/skipo-build.mjs", "src/providers/cloudflare.ts", "src/providers/vercel.ts", "src/providers/node.ts", "skipo.providers.json"):
             assert (base / generated).is_file(), f"{framework}: {generated}"
         providers = __import__("json").loads((base / "skipo.providers.json").read_text(encoding="utf-8"))
