@@ -31,7 +31,9 @@ The Google Drive storage adapter is retained as an optional module. It is not im
 
 ## Dependency and artifact rules
 
-- Generated manifests use published, compatible package baselines.
+The current published package baseline is GutTS 2.0.3, Krnl 1.0.24, Kloks 1.26.3, FrnlTS 0.5.23, and Floks 2.0.0. These are exact published release baselines, not guessed future versions.
+
+- Generated manifests use these published package baselines.
 - The root pnpm lockfile must match the root manifest.
 - Generated npm applications must install from published package artifacts in a clean directory.
 - Cloudflare and Vercel edge bundles must not contain Node-only modules.
