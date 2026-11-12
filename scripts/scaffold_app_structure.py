@@ -313,20 +313,20 @@ export async function createGoogleDriveWorkspaceStorage(
  * Provider-independent application backend.
  * Add app-specific services explicitly; the default Fetch contract stays portable.
  */
-import { BackendFacade } from './BackendFacade.js';
-import { createAppExternalInterfaces } from './externalInterfaces.js';
+import {{ BackendFacade }} from './BackendFacade.js';
+import {{ createAppExternalInterfaces }} from './externalInterfaces.js';
 
 export const backendFacade = new BackendFacade();
 export const externalInterfaces = createAppExternalInterfaces(backendFacade);
 export const services = Object.freeze({{}});
 export const storageProviders = Object.freeze({{}});
 
-export const {pascal}Backend = {
+export const {pascal}Backend = {{
   services,
   storageProviders,
   backendFacade,
   externalInterfaces,
-};
+}};
 
 export default {pascal}Backend;
 """
