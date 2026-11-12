@@ -89,12 +89,23 @@ export default {
 };
 """
 
-VERCEL_SOURCE = """import { fetch } from "../app.js";
+VERCEL_SOURCE = """import type { IncomingMessage, ServerResponse } from "node:http";
+import { dispatchNodeRequest } from "./nodeRequestAdapter.js";
+import { fetch } from "../app.js";
 
-/** Vercel Edge adapter; application behavior remains in ../app.ts. */
-export const config = { runtime: "edge" };
-export default function handler(request: Request): Promise<Response> {
-  return fetch(request);
+export const config = { api: { bodyParser: false } };
+export default function handler(request: IncomingMessage, response: ServerResponse): Promise<void> {
+  return dispatchNodeRequest(request, response, fetch, process.env);
+}
+"""
+
+VERCEL_ADAPTER_SOURCE = """import type { IncomingMessage, ServerResponse } from "node:http";
+import { dispatchNodeRequest } from "./nodeRequestAdapter.js";
+import { fetchHandler } from "../backend/adapters/httpsAdapter.js";
+
+export const config = { api: { bodyParser: false } };
+export default function handler(request: IncomingMessage, response: ServerResponse): Promise<void> {
+  return dispatchNodeRequest(request, response, fetchHandler, process.env);
 }
 """
 
@@ -237,6 +248,7 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
         "src/app.ts": APP_SOURCE,
         "src/providers/cloudflare.ts": CLOUDFLARE_SOURCE,
         "src/providers/vercel.ts": VERCEL_SOURCE,
+        "src/providers/nodeRequestAdapter.ts": NODE_REQUEST_ADAPTER_SOURCE,
         "src/providers/node.ts": NODE_SOURCE,
         "scripts/skipo-build.mjs": BUILD_SCRIPT,
     }
@@ -245,6 +257,8 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
             candidates = ("UniversalBackend", "AppBackend", f"{app_name[:1].upper() + app_name[1:]}Backend")
             backend_entry = next((name for name in candidates if (target / "src/backend" / f"{name}.ts").is_file()), candidates[-1])
             source = APP_SOURCE.replace("__SKIPO_BACKEND_ENTRY__", backend_entry)
+        elif relative == "src/providers/vercel.ts" and (target / "src/backend/adapters/httpsAdapter.ts").is_file():
+            source = VERCEL_ADAPTER_SOURCE
         path = target / relative
         if not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -256,7 +270,7 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
         "application": {"entry": "src/app.ts", "protocol": "fetch"},
         "providers": {
             "cloudflare": {"entry": "src/providers/cloudflare.ts", "output": "dist/providers/cloudflare/worker.js"},
-            "vercel": {"entry": "src/providers/vercel.ts", "output": "api/[...path].js", "additionalOutputs": ["api/mcp.js"], "runtime": "edge"},
+            "vercel": {"entry": "src/providers/vercel.ts", "output": "api/[...path].js", "additionalOutputs": ["api/mcp.js"], "runtime": "node"},
             "node": {"entry": "src/providers/node.ts", "output": "dist/providers/node/server.js"},
         },
         "build": {"command": "npm run build"},
