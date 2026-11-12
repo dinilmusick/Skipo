@@ -382,7 +382,7 @@ class SkipoBuilder:
                 has_luth_adapter = (
                     "LuthAuthServiceFacade" in registered_services
                     and re.search(
-                        r"import\\s*\\{[^}]*\\bLuthAuthServiceFacade\\b[^}]*\\}\\s*from\\s*['\\\"]\\./LuthAuthServiceFacade\\.js['\\\"]",
+                        r"import[\\s\\S]*?LuthAuthServiceFacade[\\s\\S]*?from\\s*['\\\"]\\./LuthAuthServiceFacade\\.js['\\\"]",
                         backend_source,
                     ) is not None
                 )
