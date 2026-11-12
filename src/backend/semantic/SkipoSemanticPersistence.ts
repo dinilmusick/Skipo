@@ -1,5 +1,5 @@
 import type {Task,TaskStore} from '@ultrst-armada/kloks/semantic-runtime';
-import {workingWorkspaceService} from '@ultrst-armada/kloks/backend';
+import {workingWorkspaceService} from '@ultrst-armada/kloks/backend/node';
 
 export interface SemanticConversationMessage{id:string;role:'user'|'agent'|'system';content:string;taskId?:string;createdAt:string;}
 export interface SemanticConversationStore{append(sessionId:string,message:SemanticConversationMessage):Promise<void>|void;list(sessionId:string):Promise<SemanticConversationMessage[]>|SemanticConversationMessage[];}

@@ -7,7 +7,7 @@ import { StorageServiceFacade, WorkspaceServiceFacade, ControlPlaneServiceFacade
 import { LuthAuthServiceFacade } from './LuthAuthServiceFacade.js';
 import { StateLifecycleServiceFacade, NodeGraphEngineServiceFacade } from '@ultrst-armada/kloks/state-graph';
 import { WorkerExecutionBoundary, type IServiceFacade } from '@ultrst-armada/krnl';
-import { workingWorkspaceService } from '@ultrst-armada/kloks/backend';
+import { workingWorkspaceService } from '@ultrst-armada/kloks/backend/node';
 import { WorkspaceSemanticTaskStore, WorkspaceSemanticConversationStore } from './semantic/SkipoSemanticPersistence.js';
 import { BackendFacade } from './BackendFacade.js';
 import { toKrnlServiceFacade, type ExecutableKloksServiceFacade } from './KloksServiceAdapter.js';
