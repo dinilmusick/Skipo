@@ -21,7 +21,7 @@ export const LuthAuthServiceFacade = {
   async execute<TIn = unknown, TOut = unknown>(
     operation: string,
     input?: TIn,
-    options?: { request?: Request },
+    options?: any,
   ): Promise<TOut> {
     const candidate = input instanceof Request
       ? input
