@@ -11,11 +11,13 @@ const nextConfig: NextConfig = {
     config.resolve.alias = {
       ...config.resolve.alias,
       '@': path.resolve(__dirname, '.'),
-      '@skipo/ui/theme': path.resolve(__dirname, 'src/libraries/skipo/ui/theme/index.ts'),
-      '@skipo/ui': path.resolve(__dirname, 'src/libraries/skipo/ui/index.ts'),
-      '@skipo/core': path.resolve(__dirname, 'src/libraries/skipo/core/index.ts'),
-      '@skipo/backend': path.resolve(__dirname, 'src/libraries/skipo/backend/index.ts'),
-      '@skipo/systems': path.resolve(__dirname, 'src/libraries/skipo/systems/index.ts'),
+      '@skipo/backend': path.resolve(__dirname, 'src/backend/index.ts'),
+    };
+    config.resolve.extensionAlias = {
+      ...config.resolve.extensionAlias,
+      '.js': ['.ts', '.tsx', '.js'],
+      '.mjs': ['.mts', '.mjs'],
+      '.cjs': ['.cts', '.cjs'],
     };
     return config;
   },
