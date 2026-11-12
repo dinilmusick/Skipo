@@ -66,7 +66,7 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
             "type": "module",
             "dependencies": {
                 "@ultrst-armada/krnl": "^1.0.25",
-                "@ultrst-armada/kloks": "^1.26.5",
+                "@ultrst-armada/kloks": "^1.26.6",
                 "@dinilmusick/gutts": "^2.0.3",
                 "@ultrst-armada/floks": "^2.0.0",
                 "react": "^19.0.1",

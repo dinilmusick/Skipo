@@ -24,8 +24,8 @@ importers:
         specifier: ^0.5.23
         version: 0.5.23(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/react@19.3.0)(cactus-needle@0.3.0)(googleapis@189.0.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
       '@ultrst-armada/kloks':
-        specifier: ^1.26.5
-        version: 1.26.5(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.25(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(googleapis@189.0.0)(ts-morph@25.0.1)(ws@8.22.0))(cactus-needle@0.3.0)(googleapis@189.0.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
+        specifier: ^1.26.6
+        version: 1.26.6(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.25(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(googleapis@189.0.0)(ts-morph@25.0.1)(ws@8.22.0))(cactus-needle@0.3.0)(googleapis@189.0.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
       '@ultrst-armada/krnl':
         specifier: ^1.0.25
         version: 1.0.25(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(googleapis@189.0.0)(ts-morph@25.0.1)(ws@8.22.0)
@@ -790,8 +790,8 @@ packages:
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
 
-  '@ultrst-armada/kloks@1.26.5':
-    resolution: {integrity: sha512-V3smvCJdeE8hTJD+LZrKGoQUALlIy3yzmEw1CY/bkHPvo2i9y1inSPjAynMnQy3VpbhXqnjiPgnQar7ire1mCg==}
+  '@ultrst-armada/kloks@1.26.6':
+    resolution: {integrity: sha512-OjfzfJ+7SMAYI0cC+R3ATG+1HdRk7IfJJTGlR5zDEMMy1cYkl/yf5ip6znI2VsLrd6WAlCeZtFBvC2JATc9E0Q==}
     peerDependencies:
       '@aws-sdk/client-s3': ^3.1164.0
       '@aws-sdk/lib-storage': ^3.1164.0
@@ -2222,7 +2222,7 @@ snapshots:
       - immer
       - use-sync-external-store
 
-  '@ultrst-armada/kloks@1.26.5(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.25(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(googleapis@189.0.0)(ts-morph@25.0.1)(ws@8.22.0))(cactus-needle@0.3.0)(googleapis@189.0.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
+  '@ultrst-armada/kloks@1.26.6(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.25(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(googleapis@189.0.0)(ts-morph@25.0.1)(ws@8.22.0))(cactus-needle@0.3.0)(googleapis@189.0.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
     dependencies:
       '@dinilmusick/gutts': 2.0.3(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(cactus-needle@0.3.0)(googleapis@189.0.0)
       '@types/node': 22.20.5
