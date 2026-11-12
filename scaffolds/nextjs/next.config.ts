@@ -1,5 +1,8 @@
 import type { NextConfig } from 'next';
-import path from 'path';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const configDirectory = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   output: 'standalone',
@@ -10,8 +13,8 @@ const nextConfig: NextConfig = {
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@': path.resolve(__dirname, '.'),
-      '@skipo/backend': path.resolve(__dirname, 'src/backend/index.ts'),
+      '@': path.resolve(configDirectory, '.'),
+      '@skipo/backend': path.resolve(configDirectory, 'src/backend/index.ts'),
     };
     config.resolve.extensionAlias = {
       ...config.resolve.extensionAlias,
