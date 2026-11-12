@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Aspect 19: Canonical Skipo application frontend structure."""
+"""Aspect 19: Canonical provider-neutral Skipo application frontend structure."""
 
 from pathlib import Path
 import json
-import re
 import time
-
 import sys
+
 try:
     from .common import Violation, ChecklistResult, parse_standard_args, print_checklist_report
 except ImportError:
@@ -28,11 +27,10 @@ REQUIRED_FILES = (
     "src/frontend/pages/settings/tabs/accounts/page.tsx",
 )
 
-REQUIRED_DIRS = (
-    "src/frontend/pages/main/tabs",
-)
-
+REQUIRED_DIRS = ("src/frontend/pages/main/tabs",)
 ALLOWED_PAGE_ROOTS = {"auth", "menus", "main", "settings"}
+FORBIDDEN_APP_TABS = ("fo" + "d", "ai" + "ko")
+
 
 def validate_skipo_frontend_structure(root_dir: Path) -> ChecklistResult:
     start = time.time()
@@ -51,13 +49,10 @@ def validate_skipo_frontend_structure(root_dir: Path) -> ChecklistResult:
     if "skipo" not in package:
         return ChecklistResult(ASPECT_ID, ASPECT_TITLE, True, [], 1, (time.time() - start) * 1000, 100.0)
 
-    frontend = root_dir / "src" / "frontend"
-    pages = frontend / "pages"
-
+    pages = root_dir / "src" / "frontend" / "pages"
     for rel in REQUIRED_DIRS:
         if not (root_dir / rel).is_dir():
             violations.append(Violation("missing-skipo-page-directory", "error", f"Missing mandatory Skipo frontend directory: {rel}", rel))
-
     for rel in REQUIRED_FILES:
         if not (root_dir / rel).is_file():
             violations.append(Violation("missing-skipo-page", "error", f"Missing mandatory Skipo frontend page: {rel}", rel))
@@ -79,7 +74,18 @@ def validate_skipo_frontend_structure(root_dir: Path) -> ChecklistResult:
                     suggestion="Use auth/, menus/, main/, or settings/."
                 ))
 
-    main_page = root_dir / "src/frontend/pages/main/page.tsx"
+    tabs = pages / "main" / "tabs"
+    if tabs.is_dir():
+        for forbidden in FORBIDDEN_APP_TABS:
+            if (tabs / forbidden).exists():
+                violations.append(Violation(
+                    "forbidden-application-tab", "error",
+                    "Generic Skipo scaffolds must not contain application-specific tabs.",
+                    str((tabs / forbidden).relative_to(root_dir)),
+                    suggestion="Keep application-specific workflows in their own application."
+                ))
+
+    main_page = pages / "main" / "page.tsx"
     if main_page.exists():
         text = main_page.read_text(encoding="utf-8", errors="ignore").lower()
         if "immersive" not in text and "fullscreen" not in text:
@@ -90,21 +96,22 @@ def validate_skipo_frontend_structure(root_dir: Path) -> ChecklistResult:
                 suggestion="Implement a shell toggle that removes the Main top and bottom bars while preserving tab content."
             ))
 
-    accounts_page = root_dir / "src/frontend/pages/settings/tabs/accounts/page.tsx"
+    accounts_page = pages / "settings" / "tabs" / "accounts" / "page.tsx"
     if accounts_page.exists():
-        text = accounts_page.read_text(encoding="utf-8", errors="ignore")
-        if "srkl" not in text.lower() or "sync" not in text.lower():
+        text = accounts_page.read_text(encoding="utf-8", errors="ignore").lower()
+        if "account" not in text and "connection" not in text:
             violations.append(Violation(
-                "missing-settings-srkl-sync", "error",
-                "Mandatory Accounts tab must expose SRKL account synchronization.",
+                "missing-settings-account-connections", "error",
+                "Accounts tab must provide a provider-neutral account-connections surface.",
                 str(accounts_page.relative_to(root_dir)),
-                suggestion="Sync the authenticated user's app-relevant accounts from SRKL."
+                suggestion="Expose account connections without assuming a particular application or storage provider."
             ))
 
     files_scanned = len(REQUIRED_FILES) + len(REQUIRED_DIRS)
     errors = sum(v.severity == "error" for v in violations)
     score = max(0.0, 100.0 - errors * 20.0)
     return ChecklistResult(ASPECT_ID, ASPECT_TITLE, errors == 0, violations, files_scanned, (time.time() - start) * 1000, score)
+
 
 if __name__ == "__main__":
     args = parse_standard_args("Aspect 19: Canonical Skipo application frontend structure")
