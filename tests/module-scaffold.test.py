@@ -18,6 +18,9 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         assert readme.is_file()
         assert "complete" in readme.read_text(encoding="utf-8").lower()
         assert (target / "src" / "frontend").is_dir()
+        assert (target / "index.html").is_file()
+        assert (target / "vite.config.ts").is_file()
+        assert (target / "src/frontend/main.tsx").is_file()
         assert (target / "src" / "backend").is_dir()
         assert (target / "src" / "libraries").is_dir()
 
