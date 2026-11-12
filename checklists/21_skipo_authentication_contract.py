@@ -11,7 +11,7 @@ from pathlib import Path
 PACKAGE_BASELINE = {
     "@dinilmusick/gutts": "^2.0.3",
     "@ultrst-armada/kloks": "^1.26.3",
-    "@ultrst-armada/floks": "^1.14.2",
+    "@ultrst-armada/floks": "^2.0.0",
     "@ultrst-armada/frnlts": "^0.5.23",
     "@ultrst-armada/krnl": "^1.0.24",
 }
