@@ -10,6 +10,7 @@ import { WorkerExecutionBoundary, type IServiceFacade } from '@ultrst-armada/krn
 import { workingWorkspaceService } from '@ultrst-armada/kloks/backend';
 import { WorkspaceSemanticTaskStore, WorkspaceSemanticConversationStore } from './semantic/SkipoSemanticPersistence.js';
 import { BackendFacade } from './BackendFacade.js';
+import { toKrnlServiceFacade, type ExecutableKloksServiceFacade } from './KloksServiceAdapter.js';
 import { createSkipoSemanticRuntime } from './semantic/SkipoSemanticRuntime.js';
 import { ServiceOrchestration } from './orchestration/ServiceOrchestration.js';
 import {
@@ -55,7 +56,12 @@ export const services: Record<string, ServiceExecutableFacade> = {
 // Register domain services in BackendFacade & SkipoExecutionEngine
 for (const [name, svc] of Object.entries(services)) {
   if (!svc || typeof svc !== 'object' || !svc.id) throw new Error(`[SkipoBackend] Invalid service export: ${name}`);
-  backendFacade.registerService(svc as unknown as IServiceFacade, name);
+  if (name !== 'auth') {
+    const backendService = 'definition' in svc && svc.definition
+      ? toKrnlServiceFacade(svc as unknown as ExecutableKloksServiceFacade)
+      : svc as unknown as IServiceFacade;
+    backendFacade.registerService(backendService, name);
+  }
   skipoExecutionEngine.registerService(name, svc);
   semanticRuntime.registerService(name, svc);
 }
