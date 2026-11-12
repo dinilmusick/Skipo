@@ -324,9 +324,8 @@ try {
     ))
 
     required_scripts = {
-        "build": "node scripts/skipo-build.cjs",
-        "dev": "tsx server.ts",
-        "start": "node api/index.js"
+        "build": "node scripts/skipo-build.mjs",
+        "start": "node dist/providers/node/server.js"
     }
     package_path = target_dir / "package.json"
     existing_package: Dict[str, Any] = {}
