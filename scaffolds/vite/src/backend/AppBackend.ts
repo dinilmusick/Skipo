@@ -24,7 +24,7 @@ export const bugReportService = {
   report: async (input: any, options?: any) => {
     const authToken = options?.authToken ?? options?.auth?.token ?? '';
     const authId = options?.session?.userId ?? options?.auth?.user?.id ?? '';
-    const baseUrl = '';
+    const environment = options?.env ?? {};\n    const baseUrl = String(environment.KRUSBL_URL ?? '');
     if (!baseUrl) throw new Error('[Skipo:Bug] KRUSBL_URL is required.');
     if (!authId && !authToken) throw new Error('[Skipo:Bug] Authenticated session is required.');
     const response = await fetch(baseUrl.replace(/\/$/, '') + '/api/bugs', {
@@ -37,11 +37,11 @@ export const bugReportService = {
         ...input,
         reporterId: authId,
         context: {
-          applicationId: process.env.APPLICATION_ID || 'skipo-app',
+          applicationId: environment.APPLICATION_ID || 'skipo-app',
           applicationType: 'skipo' as const,
-          applicationVersion: process.env.APPLICATION_VERSION,
-          deploymentId: process.env.DEPLOYMENT_ID,
-          sourceRevision: process.env.SOURCE_REVISION,
+          applicationVersion: environment.APPLICATION_VERSION,
+          deploymentId: environment.DEPLOYMENT_ID,
+          sourceRevision: environment.SOURCE_REVISION,
           ...input?.context,
         },
       }),
