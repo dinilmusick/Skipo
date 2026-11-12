@@ -339,6 +339,7 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
     scripts.pop("build:api", None)
     scripts.setdefault("dev", "vite")
     scripts["start"] = "node dist/providers/node/server.js"
+    package.setdefault("engines", {})["node"] = ">=22"
     dev = package.setdefault("devDependencies", {})
     dev.setdefault("esbuild", "^0.28.2")
     pnpm_config = package.setdefault("pnpm", {})
