@@ -65,7 +65,7 @@ def test_canonical_app_scaffold_recognizes_modules_directory():
         vercel = (target / "src/providers/vercel.ts").read_text(encoding="utf-8")
         node = (target / "src/providers/node.ts").read_text(encoding="utf-8")
         assert "node:" not in cloudflare
-        assert "node:" not in vercel
+        assert "node:http" in vercel
         assert "node:http" in node
         wrangler_config = (target / "wrangler.toml").read_text(encoding="utf-8")
         assert 'main = "dist/providers/cloudflare/worker.js"' in wrangler_config
