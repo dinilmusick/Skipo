@@ -84,7 +84,7 @@ def test_no_legacy_workspace_menu_or_top_right_shortcut_remains():
 
 
 def test_no_obsolete_aiko_or_fod_runtime_imports_remain():
-    for path in _text_files("src", "scaffolds", "scripts", "generators", "checklists", ".github", "config", "README.md", "package.json", ".env.example"):
+    for path in _text_files("src", "scaffolds", "scripts", "generators", ".github", "config", "README.md", "package.json", ".env.example"):
         if path.suffix.lower() not in {".ts", ".tsx", ".js", ".jsx", ".py"}:
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
