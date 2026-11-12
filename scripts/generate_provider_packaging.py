@@ -258,6 +258,10 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
     scripts.pop("build:api", None)
     scripts.setdefault("dev", "vite")
     scripts["start"] = "node dist/providers/node/server.js"
+    pnpm_config = package.setdefault("pnpm", {})
+    approved_builds = set(pnpm_config.get("onlyBuiltDependencies", []))
+    approved_builds.add("esbuild")
+    pnpm_config["onlyBuiltDependencies"] = sorted(approved_builds)
     dev = package.setdefault("devDependencies", {})
     dev.setdefault("esbuild", "^0.28.2")
     if "vite" not in package.get("dependencies", {}) and "vite" not in dev and not any(
