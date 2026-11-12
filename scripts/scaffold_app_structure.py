@@ -331,6 +331,7 @@ import {{
   OrchestratorBDefinition,
 }} from '@ultrst-armada/kloks/orchestrations';
 import {{
+  AuthServiceFacade,
   StorageServiceFacade,
   WorkspaceServiceFacade,
 }} from '@ultrst-armada/kloks/backend';
@@ -361,11 +362,12 @@ export const bugReportService = {{
 export const storageProviders = {{ googleDrive: {{ create: createGoogleDriveWorkspaceStorage }} }};
 
 export const backendFacade = new BackendFacade();
-for (const service of [ServiceAFacade, ServiceBFacade, StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
+for (const service of [AuthServiceFacade, ServiceAFacade, ServiceBFacade, StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
 export const externalInterfaces = createAppExternalInterfaces(backendFacade);
 
 export const {pascal}Backend = {{
   services: {{
+    auth: AuthServiceFacade,
     serviceA: ServiceAFacade,
     serviceB: ServiceBFacade,
     storage: StorageServiceFacade,
