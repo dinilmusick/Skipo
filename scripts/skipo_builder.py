@@ -682,6 +682,7 @@ def main():
                 print(f"⚠ {warning}")
             for error in res.get("errors", []):
                 print(f"✖ {error}")
+        raise SystemExit(0 if res["valid"] else 1)
 
     elif args.command == "target":
         resolver = SemanticTargetResolver(SKIPO_ROOT)
