@@ -3,8 +3,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { ServiceAFacade, ServiceBFacade } from '@ultrst-armada/kloks/services';
-import { OrchestratorADefinition, AudioMidiOrchestratorDefinition } from '@ultrst-armada/kloks/orchestrations';
-import { AudioHardwareServiceFacade, MidiServiceFacade } from '@ultrst-armada/kloks/audio-midi';
+import { OrchestratorADefinition } from '@ultrst-armada/kloks/orchestrations';
 import {
   StorageServiceFacade,
   WorkspaceServiceFacade,
@@ -16,7 +15,6 @@ import { createAppExternalInterfaces } from './externalInterfaces.js';
 
 export const orchestrations = {
   orchestratorA: OrchestratorADefinition,
-  audioMidi: AudioMidiOrchestratorDefinition,
 };
 
 export const appWorkerBoundary = new WorkerExecutionBoundary('app_worker_main');
@@ -55,15 +53,13 @@ export const bugReportService = {
 export const services = {
   serviceA: ServiceAFacade,
   serviceB: ServiceBFacade,
-  audioHardware: AudioHardwareServiceFacade,
-  midi: MidiServiceFacade,
   storage: StorageServiceFacade,
   workspace: WorkspaceServiceFacade,
   bugReport: bugReportService,
 };
 
 export const backendFacade = new BackendFacade();
-for (const service of [ServiceAFacade, ServiceBFacade, AudioHardwareServiceFacade, MidiServiceFacade, StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
+for (const service of [ServiceAFacade, ServiceBFacade, StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
 export const externalInterfaces = createAppExternalInterfaces(backendFacade);
 
 export const storageProviders = {
