@@ -16,6 +16,10 @@ def test_vite_and_nextjs_scaffolds_mount_both_external_protocols():
         assert "createAppExternalInterfaces" in backend
         assert "externalInterfaces.mcp(request)" in adapter
         assert "externalInterfaces.http(request)" in adapter
+        backend_source = (base / "src/backend/AppBackend.ts").read_text(encoding="utf-8")
+        assert "@ultrst-armada/kloks/audio-midi" not in backend_source
+        assert "AudioHardwareServiceFacade" not in backend_source
+        assert "MidiServiceFacade" not in backend_source
 
 def test_external_protocol_scaffolds_are_protocol_neutral_and_opt_in():
     for framework in ("vite", "nextjs"):
