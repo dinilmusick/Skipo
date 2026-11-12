@@ -102,11 +102,12 @@ export async function adaptNodeRequest(
 export { fetch as fetchHandler, default } from '../../app.js';
 export type { SkipoEnv as Env } from '../../app.js';
 """
-    files.append(GeneratedFile(
-        relative_path="src/backend/adapters/httpsAdapter.ts",
-        content=adapter_code,
-        description="Compatibility re-export of the single Fetch application entry."
-    ))
+    if not (target_dir / "src/backend/adapters/httpsAdapter.ts").exists():
+        files.append(GeneratedFile(
+            relative_path="src/backend/adapters/httpsAdapter.ts",
+            content=adapter_code,
+            description="Compatibility re-export for the canonical Fetch application entry."
+        ))
 
     # 1.2 universalEntry.ts (Single Universal Polyglot Entrypoint: CF Workers, Vercel, Node)
     universal_entry_code = f"""/**
@@ -248,106 +249,8 @@ SYSTEM_DATABASE_URL_1 = ""
         description="Cloudflare Worker deployment manifest configured for universal single artifact."
     ))
 
-    # 3.1. Zero-Drift Universal Database Client (Law L23)
-    unified_db_code = f"""/**
- * @file unifiedDb.ts
- * @description Isomorphic Database Client using Neon Serverless HTTP driver.
- * Operates identically across Node.js, Vercel Serverless, and Cloudflare Workers (Law L23).
- * Conforms to Skipo Governance (< 200 lines).
- */
-
-import {{ neon }} from '@neondatabase/serverless';
-
-declare const process: any;
-
-export interface UnifiedQueryResult<T = any> {{
-  rows: T[];
-  rowCount: number;
-}}
-
-export function cleanDbUrl(url?: unknown): string {{
-  if (!url || typeof url !== 'string') return '';
-  return url.trim().replace(/^["']|["']$/g, '');
-}}
-
-export function getUnifiedDbUrl(env?: Record<string, unknown>): string {{
-  const fromEnv =
-    cleanDbUrl(env?.SYSTEM_DATABASE_URL_1) ||
-    cleanDbUrl(env?.SYSTEM_DATABASE_URL_2) ||
-    cleanDbUrl(env?.SYSTEM_DATABASE_URL_3);
-
-  if (fromEnv) return fromEnv;
-
-  if (typeof process !== 'undefined' && process.env) {{
-    return (
-      cleanDbUrl(process.env.SYSTEM_DATABASE_URL_1) ||
-      cleanDbUrl(process.env.SYSTEM_DATABASE_URL_2) ||
-      cleanDbUrl(process.env.SYSTEM_DATABASE_URL_3) ||
-      ''
-    );
-  }}
-
-  return '';
-}}
-
-export async function queryUnifiedDb<T = any>(
-  sqlText: string,
-  params: any[] = [],
-  env?: Record<string, unknown>
-): Promise<UnifiedQueryResult<T>> {{
-  const dbUrl = getUnifiedDbUrl(env);
-  if (!dbUrl) {{
-    throw new Error('[UnifiedDB] No database URL configured in environment.');
-  }}
-
-  const sql = neon(dbUrl);
-  try {{
-    const rows = (await sql.query(sqlText, params)) as T[];
-    return {{
-      rows: Array.isArray(rows) ? rows : [],
-      rowCount: Array.isArray(rows) ? rows.length : 0,
-    }};
-  }} catch (err: any) {{
-    console.error('[UnifiedDB] Query execution error:', err.message);
-    throw err;
-  }}
-}}
-"""
-    files.append(GeneratedFile(
-        relative_path="src/backend/services/core/unifiedDb.ts",
-        content=unified_db_code,
-        description="Zero-Drift universal Neon database client for Vercel and Cloudflare (Law L23)."
-    ))
-
-    project_manifest = {
-        "kind": "skipo-application",
-        "schemaVersion": 1,
-        "deploymentTargets": {
-            "fullstack": {"platform": "vercel", "command": "npm run build"},
-            "api": {"platform": "cloudflare-workers", "command": "npm run build"}
-        },
-        "requiredEnvironment": {
-            "serverOnly": ["SYSTEM_DATABASE_URL_1"],
-            "workerBindings": ["API_ENV", "BUILD_TARGET"]
-        }
-    }
-    files.append(GeneratedFile(
-        relative_path=".skipo/project.json",
-        content=json.dumps(project_manifest, indent=2) + "\n",
-        description="Mandatory Vercel full-stack and Cloudflare Workers API deployment contract."
-    ))
-
-    tsconfig_api = {
-        "extends": "./tsconfig.json",
-        "compilerOptions": {"noEmit": False, "outDir": "./dist/api"},
-        "include": ["src/backend/**/*.ts", "src/libraries/**/*.ts"],
-        "exclude": ["src/frontend", "src/frontend-state", "**/client/**", "**/*.test.ts"]
-    }
-    files.append(GeneratedFile(
-        relative_path="tsconfig.api.json",
-        content=json.dumps(tsconfig_api, indent=2) + "\n",
-        description="Cloudflare API TypeScript target excluding browser-only code."
-    ))
+    # Database and other provider-specific capabilities are opt-in. The generic
+    # application scaffold must not require a database URL or provider binding.
 
     # 4. vercel.json Contract
     vercel_config = {
