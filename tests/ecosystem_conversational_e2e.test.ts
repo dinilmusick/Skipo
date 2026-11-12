@@ -1,4 +1,4 @@
-import {describe,expect,it} from 'vitest';
+import {describe,expect,it,vi} from 'vitest';
 import {createSkipoSemanticRuntime,type Requirement} from '../src/backend/semantic/SkipoSemanticRuntime.js';
 import {WorkspaceSemanticTaskStore,WorkspaceSemanticConversationStore} from '../src/backend/semantic/SkipoSemanticPersistence.js';
 
