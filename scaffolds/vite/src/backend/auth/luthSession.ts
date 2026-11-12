@@ -48,6 +48,29 @@ export async function proxyLuthAuthRequest(request: Request): Promise<Response |
   }
 }
 
+/** Verify the canonical Luth session for external HTTP and MCP transports. */
+export async function getLuthSession(request: Request) {
+  const headers = new Headers({
+    'x-app-id': request.headers.get('x-app-id') || new URL(request.url).hostname,
+  });
+  for (const name of ['authorization', 'cookie', 'origin']) {
+    const value = request.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+  try {
+    const response = await fetch(`${DEFAULT_LUTH_URL}/api/session`, {
+      method: 'GET', headers, cache: 'no-store', redirect: 'manual',
+    });
+    if (!response.ok) return null;
+    const session = await response.json().catch(() => null) as any;
+    if (session?.authenticated !== true || typeof session?.user?.id !== 'string' ||
+        typeof session?.session?.id !== 'string') return null;
+    return session;
+  } catch {
+    return null;
+  }
+}
+
 export async function authenticateLuthRequest(request: Request): Promise<{
   request?: Request;
   status?: number;
