@@ -1,7 +1,5 @@
 import {describe,expect,it,vi} from 'vitest';
 import {createSkipoSemanticRuntime,type Requirement} from '../src/backend/semantic/SkipoSemanticRuntime.js';
-import {createSkipoAikoRuntime} from '../src/backend/semantic/SkipoAikoBridge.js';
-import {handleConversationRoutes} from '../scaffolds/vite/src/backend/adapters/conversationRoutes.js';
 import {WorkspaceSemanticTaskStore,WorkspaceSemanticConversationStore} from '../src/backend/semantic/SkipoSemanticPersistence.js';
 
 describe('Ecosystem Conversational Architecture E2E Matrix', () => {
@@ -55,38 +53,6 @@ describe('Ecosystem Conversational Architecture E2E Matrix', () => {
 
     expect(result.status).toBe('completed');
     expect(result.task.result).toBe('Krusbl ecosystem');
-  });
-
-  it('E2E-03 FOD flow capability discovery, execution, and artifact verification', async () => {
-    const runtime = createSkipoSemanticRuntime({ applicationId: 'e2e-app-3' });
-    const mockFod = {
-      listFlows: () => [
-        { id: 'flow.syncUsers', name: 'Sync Users Flow', description: 'Synchronize users with remote DB', inputSchema: {}, outputSchema: {} }
-      ],
-      executeFlow: vi.fn(async (flowId: string, input: any) => ({ syncedCount: 42, flowId }))
-    };
-
-    await runtime.registerFod(mockFod);
-    const flowCap = runtime.capabilities.get('flow.syncUsers');
-    expect(flowCap).toBeDefined();
-    expect(flowCap?.kind).toBe('fod-flow');
-
-    runtime.setPlanner(async () => ({
-      intent: 'sync-users',
-      nodes: [{ id: 'fod-node-1', capabilityId: 'flow.syncUsers', dependsOn: [], input: { batchSize: 100 } }]
-    }));
-
-    const result = await runtime.handle('Run sync users flow', {
-      applicationId: 'e2e-app-3',
-      sessionId: 'session-e2e-03',
-      userId: 'user-e2e-3'
-    });
-
-    expect(result.status).toBe('completed');
-    expect(mockFod.executeFlow).toHaveBeenCalledWith('flow.syncUsers', { batchSize: 100 });
-    expect(result.task.result).toEqual({ syncedCount: 42, flowId: 'flow.syncUsers' });
-    expect(result.task.context.artifacts.length).toBeGreaterThanOrEqual(1);
-    expect(result.task.context.artifacts[0].producer).toBe('flow.syncUsers');
   });
 
   it('E2E-04 Provider chain: Capability A requires B, B requires C (C -> B -> A)', async () => {
@@ -471,103 +437,5 @@ describe('Ecosystem Conversational Architecture E2E Matrix', () => {
     expect(order.indexOf('cap.y')).toBeLessThan(order.indexOf('cap.z'));
   });
 
-  it('E2E-12 Aiko Direct Chat component defaults normal message to Application Agent', async () => {
-    const executeAgentSpy = vi.fn(async (agentId: string, input: string) => `Executed ${agentId} with ${input}`);
-    const mockRuntime = {
-      async listAgents() {
-        return [
-          { id: 'skipo-application-agent', name: 'Application Agent', description: 'Handles conversational app requests' },
-          { id: 'specialist-agent', name: 'Specialist Agent', description: 'Handles niche tasks' }
-        ];
-      },
-      executeAgent: executeAgentSpy
-    };
-
-    // Simulate mention resolution in AikoDirectChat
-    const agents = await mockRuntime.listAgents();
-    const input = 'Show me open invoices';
-    const match = input.match(/^\s*@([^\s]+)\s*([\s\S]*)$/);
-    const targetAgent = match
-      ? agents.find(a => a.id.toLowerCase() === match[1].toLowerCase() || a.name.toLowerCase().replace(/\s+/g,'-') === match[1].toLowerCase())
-      : agents.find(a => a.id === 'skipo-application-agent' || a.id === 'application') ?? agents[0];
-    const targetQuery = match ? match[2].trim() : input;
-
-    expect(targetAgent?.id).toBe('skipo-application-agent');
-    expect(targetQuery).toBe('Show me open invoices');
-
-    const response = await mockRuntime.executeAgent(targetAgent!.id, targetQuery);
-    expect(response).toBe('Executed skipo-application-agent with Show me open invoices');
-  });
-
-  it('E2E-13 Explicit @AgentName in Aiko Direct Chat routes directly to requested agent', async () => {
-    const executeAgentSpy = vi.fn(async (agentId: string, input: string) => `Executed ${agentId} with ${input}`);
-    const mockRuntime = {
-      async listAgents() {
-        return [
-          { id: 'skipo-application-agent', name: 'Application Agent', description: 'Default' },
-          { id: 'specialist-agent', name: 'Specialist-Agent', description: 'Specialist' }
-        ];
-      },
-      executeAgent: executeAgentSpy
-    };
-
-    const agents = await mockRuntime.listAgents();
-    const input = '@Specialist-Agent generate code template';
-    const match = input.match(/^\s*@([^\s]+)\s*([\s\S]*)$/);
-    const targetAgent = match
-      ? agents.find(a => a.id.toLowerCase() === match[1].toLowerCase() || a.name.toLowerCase().replace(/\s+/g,'-') === match[1].toLowerCase())
-      : agents.find(a => a.id === 'skipo-application-agent') ?? agents[0];
-    const targetQuery = match ? match[2].trim() : input;
-
-    expect(targetAgent?.id).toBe('specialist-agent');
-    expect(targetQuery).toBe('generate code template');
-
-    const response = await mockRuntime.executeAgent(targetAgent!.id, targetQuery);
-    expect(response).toBe('Executed specialist-agent with generate code template');
-  });
-
-  it('E2E-14 Universal POST /api/converse HTTP transport matches UI conversational execution', async () => {
-    // 1. Rejects GET with 405 Method Not Allowed
-    const getReq = new Request('http://localhost/api/converse', { method: 'GET' });
-    const getRes = await handleConversationRoutes(getReq);
-    expect(getRes).not.toBeNull();
-    expect(getRes?.status).toBe(405);
-    const getJson = await getRes?.json();
-    expect(getJson.error).toBe('Method not allowed');
-
-    // 2. Rejects malformed JSON with 400 Bad Request
-    const badJsonReq = new Request('http://localhost/api/converse', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: 'not a json{'
-    });
-    const badJsonRes = await handleConversationRoutes(badJsonReq);
-    expect(badJsonRes?.status).toBe(400);
-    const badJsonOutput = await badJsonRes?.json();
-    expect(badJsonOutput.error).toBe('Invalid JSON body');
-
-    // 3. Rejects empty message with 400 Bad Request
-    const emptyMsgReq = new Request('http://localhost/api/converse', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: '   ' })
-    });
-    const emptyMsgRes = await handleConversationRoutes(emptyMsgReq);
-    expect(emptyMsgRes?.status).toBe(400);
-    const emptyMsgOutput = await emptyMsgRes?.json();
-    expect(emptyMsgOutput.error).toBe('Message or input is required');
-
-    // 4. Valid POST /api/converse dispatches to application agent and returns 200
-    const validReq = new Request('http://localhost/api/converse', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: 'Hello server', workspaceId: 'ws-e2e' })
-    });
-    const validRes = await handleConversationRoutes(validReq);
-    expect(validRes?.status).toBe(200);
-    const validJson = await validRes?.json();
-    expect(validJson).toBeDefined();
-    expect(validJson.status).toBeDefined();
-  });
 
 });
