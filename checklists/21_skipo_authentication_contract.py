@@ -169,8 +169,8 @@ def validate_repository(root: Path) -> list[str]:
     vite_adapter = root / "scaffolds/vite/src/backend/adapters/httpsAdapter.ts"
     if vite_adapter.is_file():
         source = vite_adapter.read_text(encoding="utf-8")
-        if "authenticateLuthRequest" not in source or "proxyLuthAuthRequest" not in source:
-            errors.append("Vite API adapter must enforce Luth sessions and proxy Luth auth routes")
+        if "authenticateLuthRequest" not in source or "universalFetch" not in source:
+            errors.append("Vite Node adapter must delegate shared Luth auth routes to the Fetch entry and protect legacy routes")
         if "DepmBackend.services.auth.loginUser" in source or "sess::" in source:
             errors.append("Vite API adapter contains legacy local authentication")
 
@@ -193,7 +193,7 @@ def validate_repository(root: Path) -> list[str]:
         source = generator.read_text(encoding="utf-8")
         if '"@ultrst-armada/krnl": "^1.0.9"' in source:
             errors.append("Generic scaffold generator contains stale Krnl package baseline")
-        if "AuthServiceFacade" in source:
+        if re.search(r"\\bAuthServiceFacade\\b", source):
             errors.append("Generic scaffold generator must not generate the legacy Kloks auth facade")
         for marker in ("FloksLuthAuthPage", "requireLuthSession", "DEFAULT_LUTH_URL", "LuthAuthPage"):
             if marker not in source:
