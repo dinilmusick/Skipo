@@ -30,7 +30,7 @@ describe('generic ModuleHost', () => {
   });
 
   it('injects parent resources and exposes only the adapter view', async () => {
-    const { backend, host } = createMockModuleHost({ resources: { workspace: { id: 'ws' }, auth: { userId: 'u' }, theme: { id: 'dark' }, runtime: { mode: 'test' } } });
+    const { backend, host } = createMockModuleHost({ resources: { workspace: { id: 'ws' }, auth: { userId: 'u' }, theme: { id: 'dark' }, runtime: { mode: 'test' } }, authorizeCapabilities: (_manifest, requested) => requested });
     backend.registerMockCapability('inventory-service/functionalities/list', async () => [{ id: 'item-1' }]);
     host.discover(definition());
     const mounted = await host.mount('example.inventory');
@@ -62,7 +62,7 @@ describe('generic ModuleHost', () => {
   it('rejects duplicate discoveries and undeclared backend bindings', () => {
     const { host } = createMockModuleHost();
     host.discover(definition());
-    expect(() => host.discover(definition())).toThrow(/already discovered/);
+    expect(() => host.discover(definition())).toThrow(/Duplicate module id/);
     const invalid = { ...definition(), manifest: { ...manifest, module: { ...manifest.module, id: 'invalid' } }, backend: { bindings: [{ capabilityId: 'missing' }] } };
     expect(() => host.discover(invalid)).toThrow(/not declared/);
   });

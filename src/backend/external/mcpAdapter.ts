@@ -6,7 +6,7 @@ const response = (id: RpcRequest["id"], result: unknown) => new Response(JSON.st
 const rpcError = (id: RpcRequest["id"], code: number, message: string) => new Response(JSON.stringify({ jsonrpc: "2.0", id, error: { code, message } }), { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store", "mcp-protocol-version": "2025-03-26" } });
 export function createMcpHandler(options: McpAdapterOptions) {
   return async (request: Request): Promise<Response | null> => {
-    if (new URL(request.url).pathname !== "/mcp") return null;
+    if (!["/mcp", "/api/mcp"].includes(new URL(request.url).pathname)) return null;
     if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405, headers: { allow: "POST" } });
     let rpc: RpcRequest;
     try { rpc = await request.json() as RpcRequest; } catch { return rpcError(null, -32700, "Parse error"); }

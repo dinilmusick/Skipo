@@ -133,6 +133,8 @@ describe('canonical Skipo frontend page architecture', () => {
     const page = readFileSync(join(repoRoot, 'src/frontend/pages/home/page.tsx'), 'utf8');
     expect(page).toContain("from '../../components/components.js'");
     expect(page).not.toContain('@ultrst-armada/floks/');
+    const facade = readFileSync(join(repoRoot, 'src/frontend/components/components.ts'), 'utf8');
+    expect(facade).toContain("export { LuthAuthPage } from '@ultrst-armada/floks/auth';");
   });
 
   it('routes App.tsx to a page instead of composing UI directly', () => {

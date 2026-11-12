@@ -13,6 +13,9 @@ import sys
 
 HERE = Path(__file__).resolve().parent
 SKIPO_ROOT = HERE.parent
+if str(SKIPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(SKIPO_ROOT))
+from scripts.generate_provider_packaging import generate_provider_packaging
 
 def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
     """Generates the minimal Skipo composition tree consuming @kloks/* and @floks/* packages."""
@@ -34,7 +37,26 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
             readme_file.write_text(f"# {dir_path.name}\n\n{desc}\n", encoding="utf-8")
             created.append(readme_file)
 
-    # Canonical embedded-module discovery root. Complete applications remain standalone.\n    modules_dir = target_root / "src" / "modules"\n    modules_dir.mkdir(parents=True, exist_ok=True)\n    modules_readme = modules_dir / "README.md"\n    if not modules_readme.exists():\n        modules_readme.write_text("# Embedded Skipo modules\\n\\nPlace complete module-capable Skipo applications in immediate child directories. Each must contain skipo.module.json.\\n", encoding="utf-8")\n        created.append(modules_readme)\n\n    # 1. package.json declaring unified @ultrst-armada/kloks, @ultrst-armada/floks
+    # Canonical embedded-module discovery root. Complete applications remain standalone.
+    modules_dir = target_root / "src" / "modules"
+    modules_dir.mkdir(parents=True, exist_ok=True)
+    modules_readme = modules_dir / "README.md"
+    if not modules_readme.exists():
+        modules_readme.write_text(
+            "# Embedded Skipo modules\\n\\n"
+            "A Skipo module is a standalone-capable application declared by skipo.module.json, "
+            "not a Floks UI module or a folder of components. Skipo owns discovery, validation, "
+            "capability authorization, backend adaptation, UI contributions, and lifecycle.\\n\\n"
+            "One module may combine multiple related product domains and workflows; do not split "
+            "a cohesive module by page or historical feature name. The parent application retains "
+            "authentication and workspace selection. Modules receive approved resources through "
+            "ModuleRuntimeContext.\\n\\n"
+            "Place complete module-capable Skipo applications in immediate child directories.\\n",
+            encoding="utf-8",
+        )
+        created.append(modules_readme)
+
+    # 1. package.json declaring unified @ultrst-armada/kloks, @ultrst-armada/floks
     pkg_json_file = target_root / "package.json"
     if not pkg_json_file.exists():
         pkg_data = {
@@ -43,13 +65,17 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
             "private": True,
             "type": "module",
             "dependencies": {
-                "@ultrst-armada/krnl": "^1.0.11",
-                "@ultrst-armada/kloks": "^1.26.0",
-                "@dinilmusick/gutts": "^2.0.2",
-                "@ultrst-armada/floks": "^1.13.18",
+                "@ultrst-armada/krnl": "^1.0.25",
+                "@ultrst-armada/kloks": "^1.26.5",
+                "@dinilmusick/gutts": "^2.0.3",
+                "@ultrst-armada/floks": "^2.0.0",
                 "react": "^19.0.1",
                 "react-dom": "^19.0.1",
-                "@ultrst-armada/frnlts": "^0.5.5"
+                "@ultrst-armada/frnlts": "^0.5.23",
+                "lucide-react": "^0.553.0",
+                "@xyflow/react": "^12.11.1",
+                "d3-force": "^3.0.0",
+                "zustand": "^5.0.15"
             },
             "devDependencies": {
                 "typescript": "^5.7.0",
@@ -134,7 +160,7 @@ export function WorkspaceGate(props: WorkspaceGateProps) {
         auth_guard_file.write_text("""import { DEFAULT_LUTH_URL } from '@dinilmusick/gutts/auth';
 
 export async function getLuthSession(request: Request) {
-  const headers = new Headers();
+  const headers = new Headers({ 'x-app-id': request.headers.get('x-app-id') || new URL(request.url).hostname });
   for (const name of ['authorization', 'cookie', 'origin']) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
@@ -150,6 +176,55 @@ export async function getLuthSession(request: Request) {
   if (session?.authenticated !== true || typeof session?.user?.id !== 'string' ||
       typeof session?.session?.id !== 'string') return null;
   return session;
+}
+
+/** Proxy Luth login/session endpoints without embedding provider-specific auth logic. */
+export async function proxyLuthAuthRequest(request: Request): Promise<Response | null> {
+  const url = new URL(request.url);
+  const appOwned = url.pathname === '/api/auth/workspaces' || url.pathname.startsWith('/api/auth/storage/');
+  if (!url.pathname.startsWith('/api/auth/') || appOwned) return null;
+  if (url.pathname === '/api/auth/admin/login') {
+    return Response.json({ success: false, error: 'Administrative login is not provided by Luth user authentication.' }, { status: 403 });
+  }
+  const headers = new Headers({ 'x-app-id': request.headers.get('x-app-id') || url.hostname });
+  for (const name of ['authorization', 'cookie', 'content-type', 'origin', 'user-agent']) {
+    const value = request.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+  try {
+    const upstream = await fetch(`${DEFAULT_LUTH_URL}${url.pathname}${url.search}`, {
+      method: request.method, headers,
+      ...(request.method === 'GET' || request.method === 'HEAD' ? {} : { body: await request.arrayBuffer() }),
+      redirect: 'manual', cache: 'no-store',
+    });
+    const responseHeaders = new Headers();
+    for (const name of ['content-type', 'set-cookie', 'set-auth-token', 'location', 'cache-control']) {
+      const value = upstream.headers.get(name);
+      if (value) responseHeaders.set(name, value);
+    }
+    return new Response(await upstream.arrayBuffer(), { status: upstream.status, headers: responseHeaders });
+  } catch {
+    return Response.json({ success: false, error: 'Canonical Luth authentication service unavailable.' }, { status: 503 });
+  }
+}
+
+/** Attach verified identity to a Web Request; caller-supplied identity headers are never trusted. */
+export async function authenticateLuthRequest(request: Request): Promise<{ request?: Request; status?: number; error?: string }> {
+  const pathname = new URL(request.url).pathname;
+  if (!pathname.startsWith('/api/') || request.method === 'OPTIONS' ||
+      pathname === '/health' || pathname === '/api/health' ||
+      pathname === '/api/public/routes' || pathname.startsWith('/api/public/routes/')) return { request };
+  if (!request.headers.get('authorization') && !request.headers.get('cookie')) {
+    return { status: 401, error: 'A verified Luth session is required.' };
+  }
+  const session = await getLuthSession(request);
+  if (!session?.user?.id) return { status: 401, error: 'Luth session is invalid or expired.' };
+  const headers = new Headers(request.headers);
+  headers.set('x-user-id', session.user.id);
+  if (session.user.email) headers.set('x-user-email', String(session.user.email));
+  if (session.session?.id) headers.set('x-session-id', session.session.id);
+  headers.set('x-user-role', 'user');
+  return { request: new Request(request, { headers }) };
 }
 
 export async function requireLuthSession(request: Request) {
@@ -168,14 +243,20 @@ export async function requireLuthSession(request: Request) {
     google_drive_storage_file = google_drive_storage_dir / "googleDriveWorkspaceStorage.ts"
     if not google_drive_storage_file.exists():
         google_drive_storage_content = """import {
-  GoogleDriveStorageService,
-  refreshGoogleDriveAccessToken,
-} from '@ultrst-armada/kloks/backend';
+  GoogleDriveWorkspaceService,
+  type GoogleDriveWorkspaceTokens,
+} from '@ultrst-armada/kloks/backend/storage-workspace';
 
 export interface GoogleDriveOAuthConfig {
   clientId: string;
   clientSecret?: string;
-  redirectUri?: string;
+  redirectUri: string;
+}
+
+export interface GoogleDriveEnvironment {
+  GOOGLE_DRIVE_CLIENT_ID?: unknown;
+  GOOGLE_DRIVE_CLIENT_SECRET?: unknown;
+  GOOGLE_DRIVE_REDIRECT_URI?: unknown;
 }
 
 export interface GoogleDriveWorkspaceConnection {
@@ -188,64 +269,76 @@ export interface GoogleDriveWorkspaceConnection {
 }
 
 export interface GoogleDriveWorkspaceStorageHandle {
-  storage: GoogleDriveStorageService;
+  storage: GoogleDriveWorkspaceService;
   connection: GoogleDriveWorkspaceConnection;
 }
 
-export function getGoogleDriveOAuthConfigFromEnv(): GoogleDriveOAuthConfig {
-  const clientId = process.env.GOOGLE_DRIVE_CLIENT_ID || '';
-  const clientSecret = process.env.GOOGLE_DRIVE_CLIENT_SECRET || '';
-  const redirectUri = process.env.GOOGLE_DRIVE_REDIRECT_URI || undefined;
-  if (!clientId) {
-    throw new Error('GOOGLE_DRIVE_CLIENT_ID must be configured in the server secret store.');
-  }
+export function getGoogleDriveOAuthConfig(env: GoogleDriveEnvironment): GoogleDriveOAuthConfig {
+  const clientId = String(env.GOOGLE_DRIVE_CLIENT_ID ?? '').trim();
+  const clientSecret = String(env.GOOGLE_DRIVE_CLIENT_SECRET ?? '').trim();
+  const redirectUri = String(env.GOOGLE_DRIVE_REDIRECT_URI ?? '').trim();
+  if (!clientId) throw new Error('GOOGLE_DRIVE_CLIENT_ID must be configured in the server secret store.');
+  if (!redirectUri) throw new Error('GOOGLE_DRIVE_REDIRECT_URI must be configured in the server environment.');
   return { clientId, clientSecret: clientSecret || undefined, redirectUri };
+}
+
+export function createGoogleDriveAuthorizationUrl(
+  oauth: GoogleDriveOAuthConfig,
+  state: string,
+  scopes?: string[],
+): string {
+  return GoogleDriveWorkspaceService.createAuthorizationUrl(oauth, state, scopes);
+}
+
+export function exchangeGoogleDriveAuthorizationCode(
+  oauth: GoogleDriveOAuthConfig,
+  code: string,
+  existingRefreshToken?: string,
+  codeVerifier?: string,
+): Promise<GoogleDriveWorkspaceTokens> {
+  return GoogleDriveWorkspaceService.exchangeAuthorizationCode(
+    oauth,
+    code,
+    existingRefreshToken,
+    codeVerifier,
+  );
 }
 
 export async function createGoogleDriveWorkspaceStorage(
   source: GoogleDriveWorkspaceConnection,
-  oauth: GoogleDriveOAuthConfig = getGoogleDriveOAuthConfigFromEnv(),
+  oauth: GoogleDriveOAuthConfig,
 ): Promise<GoogleDriveWorkspaceStorageHandle> {
   if (source.provider !== 'google_drive') {
     throw new Error('A Google Drive workspace connection is required.');
   }
-  if (!oauth.clientId) {
-    throw new Error('Google Drive OAuth client ID is not configured.');
+  if (!oauth.clientId || !oauth.redirectUri) {
+    throw new Error('Google Drive OAuth client ID and redirect URI are required.');
   }
 
   const connection = { ...source };
-  let accessToken = connection.googleAccessToken || '';
-  let expiresAt = Number(connection.googleAccessTokenExpiresAt || 0);
-  const shouldRefresh = !accessToken || (expiresAt > 0 && expiresAt <= Date.now() + 60_000);
+  const tokens: GoogleDriveWorkspaceTokens = {
+    accessToken: connection.googleAccessToken || '',
+    ...(connection.googleRefreshToken ? { refreshToken: connection.googleRefreshToken } : {}),
+    ...(connection.googleAccessTokenExpiresAt
+      ? { expiresAt: connection.googleAccessTokenExpiresAt }
+      : {}),
+  };
 
-  if (shouldRefresh) {
-    if (!connection.googleRefreshToken || !oauth.clientSecret) {
-      throw new Error('Google Drive token refresh requires the connection refresh token and a server-owned OAuth client secret. Reconnect through SRKL or configure the secret.');
-    }
-    const tokenSet = await refreshGoogleDriveAccessToken(
-      oauth.clientId,
-      connection.googleRefreshToken,
-      oauth.clientSecret,
-      oauth.redirectUri,
-    );
-    accessToken = tokenSet.accessToken;
-    expiresAt = tokenSet.expiresAt;
-    connection.googleAccessToken = accessToken;
-    connection.googleAccessTokenExpiresAt = expiresAt;
-  }
-
-  const storage = new GoogleDriveStorageService({
-    provider: 'google_drive',
-    googleClientId: oauth.clientId,
-    googleRedirectUri: oauth.redirectUri,
-    googleAccessToken: accessToken,
-    googleAccessTokenExpiresAt: expiresAt || undefined,
-    googleRootFolderId: connection.googleRootFolderId || 'root',
+  const storage = new GoogleDriveWorkspaceService({
+    clientId: oauth.clientId,
+    clientSecret: oauth.clientSecret,
+    redirectUri: oauth.redirectUri,
+    tokens,
+    rootFolderId: connection.googleRootFolderId || 'root',
+    persistTokens: async (updated) => {
+      connection.googleAccessToken = updated.accessToken;
+      connection.googleRefreshToken = updated.refreshToken;
+      connection.googleAccessTokenExpiresAt = updated.expiresAt;
+    },
   });
 
   return { storage, connection };
-}
-"""
+}"""
         google_drive_storage_file.write_text(google_drive_storage_content, encoding="utf-8")
         created.append(google_drive_storage_file)
 
@@ -254,68 +347,49 @@ export async function createGoogleDriveWorkspaceStorage(
     if not backend_file.exists():
         backend_content = f"""/**
  * @file {pascal}Backend.ts
- * @description Primary application backend entrypoint composing @ultrst-armada/kloks services & orchestrators.
+ * @description Provider-independent backend using Web-standard application contracts.
  */
 
-import {{
-  ServiceAFacade,
-  ServiceBFacade,
-}} from '@ultrst-armada/kloks/services';
-import {{
-  OrchestratorADefinition,
-  OrchestratorBDefinition,
-}} from '@ultrst-armada/kloks/orchestrations';
-import {{
-  AudioHardwareServiceFacade,
-  MidiServiceFacade,
-  AudioMidiOrchestratorDefinition,
-}} from '@ultrst-armada/kloks/audio-midi';
-import {{
-  StorageServiceFacade,
-  WorkspaceServiceFacade,
-}} from '@ultrst-armada/kloks/backend';
-import {{ WorkerExecutionBoundary }} from '@ultrst-armada/krnl';
-import {{ createGoogleDriveWorkspaceStorage }} from './storage/googleDriveWorkspaceStorage.js';
-
-export const {camel}Worker = new WorkerExecutionBoundary('{pascal}Worker');
+import {{ ServiceAFacade, ServiceBFacade }} from '@ultrst-armada/kloks/services';
+import {{ BackendFacade }} from './BackendFacade.js';
+import {{ createAppExternalInterfaces }} from './externalInterfaces.js';
+import {{ LuthAuthServiceFacade }} from './LuthAuthServiceFacade.js';
 
 export const bugReportService = {{
   report: async (input: any, options?: any) => {{
-    const authId = options?.session?.userId ?? options?.auth?.user?.id ?? 'authenticated_user';
-    const payload = {{
-      ...input,
-      reporterId: authId,
-      context: {{
-        applicationId: '{camel}-app',
-        applicationType: 'skipo' as const,
-        applicationVersion: '1.0.0',
-        ...input?.context,
+    const userId = options?.session?.userId ?? options?.auth?.user?.id ?? 'authenticated_user';
+    return {{
+      success: true,
+      id: 'bug-' + Date.now().toString(36),
+      report: {{
+        ...input,
+        reporterId: userId,
+        context: {{
+          applicationId: '{camel}-app',
+          applicationType: 'skipo' as const,
+          applicationVersion: '1.0.0',
+          ...input?.context,
+        }},
       }},
     }};
-    return {{ success: true, id: `bug-${{Date.now().toString(36)}}`, report: payload }};
   }},
 }};
 
-export const storageProviders = {{ googleDrive: {{ create: createGoogleDriveWorkspaceStorage }} }};
+export const backendFacade = new BackendFacade();
+backendFacade.registerService(ServiceAFacade);
+backendFacade.registerService(ServiceBFacade);
+
+export const externalInterfaces = createAppExternalInterfaces(backendFacade);
 
 export const {pascal}Backend = {{
   services: {{
+    auth: LuthAuthServiceFacade,
     serviceA: ServiceAFacade,
     serviceB: ServiceBFacade,
-    audioHardware: AudioHardwareServiceFacade,
-    midi: MidiServiceFacade,
-    storage: StorageServiceFacade,
-    workspace: WorkspaceServiceFacade,
     bugReport: bugReportService,
   }},
-  storageProviders,
-  orchestrations: {{
-    orchestratorA: OrchestratorADefinition,
-    orchestratorB: OrchestratorBDefinition,
-    audioMidi: AudioMidiOrchestratorDefinition,
-  }},
-  worker: {camel}Worker,
-  WorkerExecutionBoundary: {camel}Worker,
+  backendFacade,
+  externalInterfaces,
 }};
 
 export default {pascal}Backend;
@@ -342,38 +416,27 @@ export {{ default }} from './{pascal}Backend.js';
     auth_dir.mkdir(parents=True, exist_ok=True)
     luth_session_file = auth_dir / "luthSession.ts"
     if not luth_session_file.exists():
-        luth_session_content = f"""import {{ DEFAULT_LUTH_URL }} from '@dinilmusick/gutts/auth';
-
-export type LuthGuardResult =
-  | {{ authenticated: true; userId: string }}
-  | {{ authenticated: false; response: Response }};
-
-/** Verify the bearer session with Luth; never trust a caller-supplied user ID. */
-export async function requireLuthSession(request: Request): Promise<LuthGuardResult> {{
-  const authorization = request.headers.get('authorization');
-  if (!authorization) {{
-    return {{ authenticated: false, response: Response.json({{ error: 'A verified Luth session is required.' }}, {{ status: 401 }}) }};
-  }}
-  try {{
-    const response = await fetch(`${{DEFAULT_LUTH_URL}}/api/session`, {{
-      headers: {{ authorization, 'x-app-id': '{app_name.lower().replace(' ', '-')}' }},
-      cache: 'no-store',
-    }});
-    if (!response.ok) {{
-      return {{ authenticated: false, response: Response.json({{ error: 'Luth session is invalid or expired.' }}, {{ status: 401 }}) }};
-    }}
-    const session = await response.json() as {{ authenticated?: boolean; user?: {{ id?: string }} }};
-    if (session.authenticated !== true || !session.user?.id) {{
-      return {{ authenticated: false, response: Response.json({{ error: 'Luth session is invalid or expired.' }}, {{ status: 401 }}) }};
-    }}
-    return {{ authenticated: true, userId: session.user.id }};
-  }} catch {{
-    return {{ authenticated: false, response: Response.json({{ error: 'Canonical Luth authentication service unavailable.' }}, {{ status: 503 }}) }};
-  }}
-}}
-"""
-        luth_session_file.write_text(luth_session_content, encoding="utf-8")
+        luth_session_source = SKIPO_ROOT / "src" / "backend" / "auth" / "luthSession.ts"
+        if not luth_session_source.is_file():
+            raise FileNotFoundError(f"Canonical Luth session adapter not found: {luth_session_source}")
+        luth_session_file.write_text(luth_session_source.read_text(encoding="utf-8"), encoding="utf-8")
         created.append(luth_session_file)
+
+    luth_auth_facade_file = target_root / "src" / "backend" / "LuthAuthServiceFacade.ts"
+    if not luth_auth_facade_file.exists():
+        luth_auth_facade_source = SKIPO_ROOT / "src" / "backend" / "LuthAuthServiceFacade.ts"
+        if luth_auth_facade_source.is_file():
+            luth_auth_facade_file.write_text(luth_auth_facade_source.read_text(encoding="utf-8"), encoding="utf-8")
+        else:
+            luth_auth_facade_file.write_text(
+                "import { getLuthSession, proxyLuthAuthRequest } from './auth/luthSession.js';\\n"
+                "export const LuthAuthServiceFacade = { id: 'auth', name: 'Luth Authentication', version: '1.0.0', "
+                "getSession: getLuthSession, getCurrentUser: async (request: Request) => (await getLuthSession(request))?.user ?? null, "
+                "proxyRequest: proxyLuthAuthRequest };\\n"
+                "export default LuthAuthServiceFacade;\\n",
+                encoding="utf-8",
+            )
+        created.append(luth_auth_facade_file)
 
     # 3. Canonical Skipo frontend page contract + component facade
     frontend_components = target_root / "src" / "frontend" / "components"
@@ -386,7 +449,17 @@ export async function requireLuthSession(request: Request): Promise<LuthGuardRes
         pages_root / "settings" / "tabs" / "accounts",
     ]
     frontend_components.mkdir(parents=True, exist_ok=True)
-    # Copy generic module/runtime infrastructure from the canonical Skipo framework.\n    module_ui_source = SKIPO_ROOT / "src" / "frontend" / "components" / "module-ui"\n    module_ui_target = frontend_components / "module-ui"\n    module_ui_target.mkdir(parents=True, exist_ok=True)\n    for source in module_ui_source.glob("*.ts*"):\n        target = module_ui_target / source.name\n        if not target.exists():\n            target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")\n            created.append(target)\n\n    for page_dir in required_page_dirs:
+    # Copy generic module/runtime infrastructure from the canonical Skipo framework.
+    module_ui_source = SKIPO_ROOT / "src" / "frontend" / "components" / "module-ui"
+    module_ui_target = frontend_components / "module-ui"
+    module_ui_target.mkdir(parents=True, exist_ok=True)
+    for source in module_ui_source.glob("*.ts*"):
+        target = module_ui_target / source.name
+        if not target.exists():
+            target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+            created.append(target)
+
+    for page_dir in required_page_dirs:
         page_dir.mkdir(parents=True, exist_ok=True)
 
     components_file = frontend_components / "components.ts"
@@ -400,20 +473,47 @@ export async function requireLuthSession(request: Request): Promise<LuthGuardRes
         )
         created.append(components_file)
 
-    # Generic backend/module framework files are copied verbatim from the canonical framework.\n    for relative_dir in ("module-contract", "modules/runtime", "backend/external"):\n        source_dir = SKIPO_ROOT / "src" / relative_dir\n        target_dir = target_root / "src" / relative_dir\n        if source_dir.is_dir():\n            for source in source_dir.rglob("*"):\n                if source.is_file():\n                    target = target_dir / source.relative_to(source_dir)\n                    target.parent.mkdir(parents=True, exist_ok=True)\n                    if not target.exists():\n                        target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")\n                        created.append(target)\n    for relative_file in (\n        "schemas/skipo.module.schema.json",\n        "src/backend/BackendFacade.ts", "src/backend/BackendFacadeTypes.ts",\n        "src/backend/BackendCapabilityCatalog.ts", "src/backend/ModuleBackendAdapter.ts",\n        "src/backend/ModuleBackendAdapterTypes.ts", "src/backend/externalInterfaces.ts",\n    ):\n        source = SKIPO_ROOT / relative_file\n        target = target_root / relative_file\n        if source.is_file() and not target.exists():\n            target.parent.mkdir(parents=True, exist_ok=True)\n            target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")\n            created.append(target)\n\n    page_templates = {
+    # Generic backend/module framework files are copied verbatim from the canonical framework.
+    for relative_dir in ("module-contract", "modules/runtime", "backend/external"):
+        source_dir = SKIPO_ROOT / "src" / relative_dir
+        target_dir = target_root / "src" / relative_dir
+        if source_dir.is_dir():
+            for source in source_dir.rglob("*"):
+                if source.is_file():
+                    target = target_dir / source.relative_to(source_dir)
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    if not target.exists():
+                        target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+                        created.append(target)
+    for relative_file in (
+        "schemas/skipo.module.schema.json",
+        "src/backend/BackendFacade.ts", "src/backend/BackendFacadeTypes.ts",
+        "src/backend/BackendCapabilityCatalog.ts", "src/backend/ModuleBackendAdapter.ts",
+        "src/backend/ModuleBackendAdapterTypes.ts", "src/backend/externalInterfaces.ts",
+    ):
+        source = SKIPO_ROOT / relative_file
+        target = target_root / relative_file
+        if source.is_file() and not target.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+            created.append(target)
+
+    page_templates = {
         pages_root / "auth" / "LuthAuthPage.tsx": """'use client';
 
 import React from 'react';
 import { LuthAuthPage as FloksLuthAuthPage } from '@ultrst-armada/floks/auth';
 
-export function LuthAuthPage({ applicationId, appName, onAuthenticated }: {
+export function LuthAuthPage({ applicationId, appName, onAuthenticated, authenticatedContent }: {
   applicationId: string;
   appName: string;
   onAuthenticated?: (user: unknown) => void;
+  authenticatedContent?: React.ReactNode | ((auth: any) => React.ReactNode);
 }) {
   return <FloksLuthAuthPage ecosystemId="ultrst-armada"
     applicationId={applicationId} appName={appName}
-    onAuthenticated={onAuthenticated as any} />;
+    onAuthenticated={onAuthenticated as any}
+    authenticatedContent={authenticatedContent as any} />;
 }
 
 export default LuthAuthPage;
@@ -443,8 +543,8 @@ export async function luthFetch(input: RequestInfo | URL, init: RequestInit = {}
         pages_root / "auth" / "page.tsx": (
             "import React from 'react';\n"
             "import { LuthAuthPage } from './LuthAuthPage.js';\n\n"
-            f"export function AuthPage(props: {{ onAuthenticated?: (user: unknown) => void }}) {{\n"
-            f"  return <LuthAuthPage applicationId=\"{app_name.lower().replace(' ', '-')}\" appName=\"{pascal}\" onAuthenticated={{props.onAuthenticated}} />;\n"
+            f"export function AuthPage(props: {{ onAuthenticated?: (user: unknown) => void; authenticatedContent?: React.ReactNode | ((auth: any) => React.ReactNode) }}) {{\n"
+            f"  return <LuthAuthPage applicationId=\"{app_name.lower().replace(' ', '-')}\" appName=\"{pascal}\" onAuthenticated={{props.onAuthenticated}} authenticatedContent={{props.authenticatedContent}} />;\n"
             "}\n\n"
             "export default AuthPage;\n"
         ),
@@ -492,7 +592,7 @@ export default MainPage;
             "export default function ThemesTab() { return null; }\n"
         ),
         pages_root / "settings" / "tabs" / "accounts" / "page.tsx": (
-            "export default function AccountsTab() { return <button type=\"button\">Sync from SRKL</button>; }\n"
+            "export default function AccountsTab() { return <section aria-label=\"Account connections\" />; }\n"
         ),
     }
     # app tab directory is created lazily so the template file has a parent.
@@ -507,19 +607,121 @@ export default MainPage;
     app_tsx = target_root / "src" / "frontend" / "App.tsx"
     if not app_tsx.exists():
         app_tsx.write_text(
-            """import MainPage from './pages/main/page.js';
+            """import { useState } from 'react';
+import MainPage from './pages/main/page.js';
+import AuthPage from './pages/auth/page.js';
+import { WorkspaceGate } from './components/gates/WorkspaceGate.js';
 import { FrnlSemanticInputProvider } from '@ultrst-armada/frnlts';
+import type { WorkspaceRecord } from '@ultrst-armada/floks/ui';
 
 export function App() {
-  const workspaceId = typeof window === 'undefined' ? 'default' : localStorage.getItem('skipo-active-workspace') || 'default';
-  return <FrnlSemanticInputProvider value={{ workspace: workspaceId }}><MainPage /></FrnlSemanticInputProvider>;
+  const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([]);
+  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceRecord | null>(null);
+  const storageOptions = [{ id: 'memory', provider: 'memory', label: 'In-memory (ephemeral)' }];
+
+  return <AuthPage authenticatedContent={(auth: any) => {
+    if (!activeWorkspace) {
+      return <WorkspaceGate
+        workspaces={workspaces}
+        userId={auth.user?.id}
+        currentUser={auth.user}
+        storageOptions={storageOptions}
+        visibility={{ storagePolicy: { providers: ['memory'] } }}
+        activeWorkspaceId={null}
+        onSelectWorkspace={setActiveWorkspace}
+        onCreateWorkspace={async (input) => {
+          const workspace: WorkspaceRecord = {
+            id: `ws-${Date.now()}`,
+            title: input.name.trim(),
+            name: input.name.trim(),
+            description: input.description,
+            storageProvider: input.storageProvider || input.storage?.provider || 'memory',
+            storageConnectionId: input.storageConnectionId || input.storage?.connectionId,
+          };
+          setWorkspaces((current) => [...current, workspace]);
+          setActiveWorkspace(workspace);
+        }}
+        onLogout={() => {
+          setActiveWorkspace(null);
+          void auth.signOut();
+        }}
+        appName="__SKIPO_APP_NAME__"
+      />;
+    }
+
+    return <FrnlSemanticInputProvider value={{ workspace: activeWorkspace.id }}>
+      <MainPage>
+        <div data-skipo-active-workspace={activeWorkspace.id} />
+      </MainPage>
+    </FrnlSemanticInputProvider>;
+  }} />;
 }
 
 export default App;
-""",
+""".replace("__SKIPO_APP_NAME__", pascal),
             encoding="utf-8",
         )
         created.append(app_tsx)
+
+    # 3a. Minimal Vite browser entrypoint. UI code stays provider-independent.
+    index_html = target_root / "index.html"
+    if not index_html.exists():
+        index_html.write_text("""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Skipo Application</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/frontend/main.tsx"></script>
+  </body>
+</html>
+""", encoding="utf-8")
+        created.append(index_html)
+
+    frontend_css = target_root / "src" / "index.css"
+    if not frontend_css.exists():
+        frontend_css.write_text(""":root {
+  color-scheme: dark;
+  --skipo-bg: #0b0d10;
+  --skipo-text: #e8eaf0;
+  --skipo-font: ui-sans-serif, system-ui, sans-serif;
+  --skipo-border-color: #2a2f38;
+  --skipo-radius-sm: 4px;
+  --skipo-accent: #8b9cf7;
+}
+html, body, #root { margin: 0; min-height: 100%; background: var(--skipo-bg); color: var(--skipo-text); font-family: var(--skipo-font); }
+""", encoding="utf-8")
+        created.append(frontend_css)
+
+    vite_config = target_root / "vite.config.ts"
+    if not vite_config.exists():
+        vite_config.write_text("""import { defineConfig } from 'vite';
+
+export default defineConfig({
+  root: '.',
+  build: {
+    outDir: 'dist/client',
+    emptyOutDir: true,
+  },
+});
+""", encoding="utf-8")
+        created.append(vite_config)
+
+    frontend_main = target_root / "src" / "frontend" / "main.tsx"
+    if not frontend_main.exists():
+        frontend_main.write_text("""import React from 'react';
+import { createRoot } from 'react-dom/client';
+import '../index.css';
+import App from './App.js';
+
+const container = document.getElementById('root');
+if (!container) throw new Error('Skipo application root element is missing.');
+createRoot(container).render(<React.StrictMode><App /></React.StrictMode>);
+""", encoding="utf-8")
+        created.append(frontend_main)
 
     # 4. src/libraries/index.ts (Skipo-specific custom code only)
     lib_index = target_root / "src" / "libraries" / "index.ts"
@@ -527,6 +729,7 @@ export default App;
         lib_index.write_text("// Application-specific custom libraries only (never duplicate @ultrst-armada/kloks or @ultrst-armada/floks)\nexport {};\n", encoding="utf-8")
         created.append(lib_index)
 
+    created.extend(generate_provider_packaging(target_root, app_name))
     return created
 
 def run_validators(target_root: Path) -> Tuple[bool, str]:

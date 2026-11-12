@@ -10,6 +10,7 @@ e) Full system validator passes cleanly with exit 0.
 """
 
 import os
+import json
 import re
 import shutil
 import subprocess
@@ -61,27 +62,45 @@ class ScaffoldRegressionTest(unittest.TestCase):
             self.assertIn("components/components.js", page.read_text(encoding="utf-8"))
             self.assertTrue((frontend / "pages" / "home" / "orchestrations").exists())
 
-    def test_mandatory_fod_and_aiko_modules_exist_in_all_app_templates(self):
-        """Every canonical Vite/Next.js app template contains FOD and Aiko UI/runtime wiring."""
+    def test_generic_templates_exclude_application_specific_modules(self):
+        """Generic Vite/Next templates must not ship application-specific runtimes or routes."""
         for scaffold_name in ["vite", "nextjs"]:
             base = SKIPO_ROOT / "scaffolds" / scaffold_name
-            fod_page = base / "src/frontend/pages/main/tabs/fod/page.tsx"
-            aiko_page = base / "src/frontend/pages/main/tabs/aiko/page.tsx"
-            backend = base / "src/backend/AppBackend.ts"
-            aiko_runtime = base / "src/backend/aikoRuntime.ts"
-            main_page = base / "src/frontend/pages/main/page.tsx"
-            self.assertTrue(fod_page.exists(), f"FOD tab missing in {scaffold_name}")
-            self.assertTrue(aiko_page.exists(), f"Aiko tab missing in {scaffold_name}")
-            self.assertTrue(aiko_runtime.exists(), f"Aiko runtime missing in {scaffold_name}")
-            self.assertIn("@ultrst-armada/floks/canvas-ui/fod", fod_page.read_text(encoding="utf-8"))
-            self.assertIn("@ultrst-armada/floks/canvas-ui/aiko", aiko_page.read_text(encoding="utf-8"))
-            backend_text = backend.read_text(encoding="utf-8")
-            self.assertIn("createFodRuntime", backend_text)
-            self.assertIn("createAikoRuntime", backend_text)
-            self.assertIn("Aiko", main_page.read_text(encoding="utf-8"))
-        if (SKIPO_ROOT / "scaffolds/nextjs/app").exists():
-            self.assertTrue((SKIPO_ROOT / "scaffolds/nextjs/app/api/aiko/route.ts").exists())
-        self.assertTrue((SKIPO_ROOT / "scaffolds/vite/src/backend/adapters/aikoRoutes.ts").exists())
+            self.assertFalse((base / "src/frontend/pages/main/tabs/aiko").exists())
+            self.assertFalse((base / "src/frontend/pages/main/tabs/fod").exists())
+            self.assertFalse((base / "src/backend/aikoRuntime.ts").exists())
+            self.assertFalse((base / "src/backend/adapters/aikoRoutes.ts").exists())
+            self.assertFalse((base / "src/backend/adapters/fodRoutes.ts").exists())
+            self.assertNotIn("Aiko", (base / "src/frontend/App.tsx").read_text(encoding="utf-8"))
+            self.assertNotIn("FOD", (base / "src/frontend/pages/main/page.tsx").read_text(encoding="utf-8"))
+        self.assertFalse((SKIPO_ROOT / "scaffolds/nextjs/app/api/aiko").exists())
+        self.assertFalse((SKIPO_ROOT / "scaffolds/nextjs/app/api/fod").exists())
+
+    def test_provider_entries_share_the_fetch_contract_without_node_leakage(self):
+        for scaffold_name in ["vite", "nextjs"]:
+            base = SKIPO_ROOT / "scaffolds" / scaffold_name
+            app_source = (base / "src/app.ts").read_text(encoding="utf-8")
+            worker_source = (base / "src/providers/cloudflare.ts").read_text(encoding="utf-8")
+            vercel_source = (base / "src/providers/vercel.ts").read_text(encoding="utf-8")
+            node_source = (base / "src/providers/node.ts").read_text(encoding="utf-8")
+            wrangler = (base / "wrangler.toml").read_text(encoding="utf-8")
+            vercel = json.loads((base / "vercel.json").read_text(encoding="utf-8"))
+
+            self.assertIn("UniversalBackend", app_source)
+            self.assertIn("fetchStaticAsset", app_source)
+            self.assertNotIn("httpsAdapter", app_source)
+            self.assertIn("httpsAdapter.js", worker_source)
+            self.assertIn("fetchHandler", worker_source)
+            self.assertNotIn("node:", worker_source)
+            self.assertIn("nodeRequestAdapter", vercel_source)
+            self.assertIn("fetchHandler", vercel_source)
+            self.assertNotIn("runtime: \"edge\"", vercel_source)
+            self.assertIn("httpsAdapter.js", node_source)
+            self.assertIn("fetchHandler", node_source)
+            self.assertIn('main = "dist/providers/cloudflare/worker.js"', wrangler)
+            self.assertIn('not_found_handling = "none"', wrangler)
+            self.assertNotIn("nodejs_compat", wrangler)
+            self.assertTrue(vercel.get("cleanUrls"))
 
     def test_gates_import_canonical_floks(self):
         """LoginGate & WorkspaceGate must exist and import @ultrst-armada/floks/ui."""
@@ -171,3 +190,20 @@ class ScaffoldRegressionTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_bullmq_adapter_isolated_from_fetch_and_cloudflare_entrypoints():
+    for framework in ("vite", "nextjs"):
+        base = ROOT / "scaffolds" / framework
+        queue = (base / "src/backend/queue/commandQueue.ts").read_text(encoding="utf-8")
+        adapter = (base / "src/libraries/skipo/systems/execution/BullMQAdapter.ts").read_text(encoding="utf-8")
+        cloudflare = (base / "src/providers/cloudflare.ts").read_text(encoding="utf-8")
+        app = (base / "src/app.ts").read_text(encoding="utf-8")
+        https = (base / "src/backend/adapters/httpsAdapter.ts").read_text(encoding="utf-8")
+        assert "BullMQAdapter" in queue
+        assert "bullmq" in adapter
+        assert "BullMQAdapter" not in cloudflare + app + https
+        assert "commandQueue" not in cloudflare + app + https
+
+    dispatch = (ROOT / "scaffolds/nextjs/app/api/commands/dispatch/route.ts").read_text(encoding="utf-8")
+    assert "runtime = 'nodejs'" in dispatch

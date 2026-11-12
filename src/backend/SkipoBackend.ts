@@ -4,11 +4,13 @@ import { OrchestratorADefinition, OrchestratorBDefinition } from '@ultrst-armada
 import { AudioHardwareServiceFacade, MidiServiceFacade, AudioMidiOrchestratorDefinition } from '@ultrst-armada/kloks/audio-midi';
 import { FunctionsServiceFacade } from '@ultrst-armada/kloks/functions';
 import { StorageServiceFacade, WorkspaceServiceFacade, ControlPlaneServiceFacade, SrklServiceFacade } from '@ultrst-armada/kloks/backend/krnl-services';
+import { LuthAuthServiceFacade } from './LuthAuthServiceFacade.js';
 import { StateLifecycleServiceFacade, NodeGraphEngineServiceFacade } from '@ultrst-armada/kloks/state-graph';
 import { WorkerExecutionBoundary, type IServiceFacade } from '@ultrst-armada/krnl';
-import { workingWorkspaceService } from '@ultrst-armada/kloks/backend';
+import { workingWorkspaceService } from '@ultrst-armada/kloks/backend/node';
 import { WorkspaceSemanticTaskStore, WorkspaceSemanticConversationStore } from './semantic/SkipoSemanticPersistence.js';
 import { BackendFacade } from './BackendFacade.js';
+import { toKrnlServiceFacade, type ExecutableKloksServiceFacade } from './KloksServiceAdapter.js';
 import { createSkipoSemanticRuntime } from './semantic/SkipoSemanticRuntime.js';
 import { ServiceOrchestration } from './orchestration/ServiceOrchestration.js';
 import {
@@ -34,6 +36,7 @@ export const semanticRuntime = createSkipoSemanticRuntime({
 });
 
 export const services: Record<string, ServiceExecutableFacade> = {
+  auth: LuthAuthServiceFacade as ServiceExecutableFacade,
   serviceA: ServiceAFacade as ServiceExecutableFacade,
   serviceB: ServiceBFacade as ServiceExecutableFacade,
   serviceC: ServiceCFacade as ServiceExecutableFacade,
@@ -53,7 +56,12 @@ export const services: Record<string, ServiceExecutableFacade> = {
 // Register domain services in BackendFacade & SkipoExecutionEngine
 for (const [name, svc] of Object.entries(services)) {
   if (!svc || typeof svc !== 'object' || !svc.id) throw new Error(`[SkipoBackend] Invalid service export: ${name}`);
-  backendFacade.registerService(svc as unknown as IServiceFacade, name);
+  if (name !== 'auth') {
+    const backendService = 'definition' in svc && svc.definition
+      ? toKrnlServiceFacade(svc as unknown as ExecutableKloksServiceFacade)
+      : svc as unknown as IServiceFacade;
+    backendFacade.registerService(backendService, name);
+  }
   skipoExecutionEngine.registerService(name, svc);
   semanticRuntime.registerService(name, svc);
 }

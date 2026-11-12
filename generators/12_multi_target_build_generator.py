@@ -95,85 +95,19 @@ export async function adaptNodeRequest(
     ))
 
     # 1.1 httpsAdapter.ts (Universal Fetch API / Routing / Asset Fallback)
-    adapter_code = f"""/**
- * @file httpsAdapter.ts
- * @description Universal Protocol Adapter converting {backend_import} into a Web Standard Fetch HTTP Server.
- * Conforms to MULTI_TARGET_BUILD_SPEC & Inviolable Laws L8, L24 (< 200 lines).
+    adapter_code = """/**
+ * Compatibility adapter for existing Skipo backend route imports.
+ * The canonical application implementation lives only in src/app.ts.
  */
-
-import {{ {backend_import} }} from '../{backend_import}';
-import {{ adaptNodeRequest }} from './nodeBridge';
-
-export interface Env {{
-  ENVIRONMENT?: string;
-  APP_NAME?: string;
-  SYSTEM_DATABASE_URL_1?: string;
-  SYSTEM_DATABASE_URL_2?: string;
-  SYSTEM_DATABASE_URL_3?: string;
-  ASSETS?: {{ fetch: (request: Request) => Promise<Response> }};
-  [key: string]: unknown;
-}}
-
-const CORS_HEADERS = {{
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Id, X-Workspace-Id, X-Vault-Key',
-}};
-
-function jsonRes(data: unknown, status = 200): Response {{
-  return new Response(JSON.stringify(data), {{ status, headers: {{ 'Content-Type': 'application/json', ...CORS_HEADERS }} }});
-}}
-
-export async function fetchHandler(request: Request, env: Env = {{}}): Promise<Response> {{
-  const url = new URL(request.url);
-  const {{ pathname, method }} = url;
-
-  // CORS Preflight
-  if (method === 'OPTIONS') {{
-    return new Response(null, {{ status: 204, headers: CORS_HEADERS }});
-  }}
-
-  // Standard Health Probe Gate
-  if (pathname === '/api/health' || pathname === '/health') {{
-    return jsonRes({{
-      status: 'ok',
-      service: '{app_name.lower()}-engine',
-      timestamp: new Date().toISOString(),
-    }});
-  }}
-
-  // Non-API UI Asset Fallback (Cloudflare Workers with Assets)
-  // Law L24: Pass request as-is. not_found_handling='single-page-application' serves index.html natively.
-  // Manual /index.html rewrites are banned to prevent infinite redirect loops.
-  if (env.ASSETS && typeof env.ASSETS.fetch === 'function' && !pathname.startsWith('/api/')) {{
-    return await env.ASSETS.fetch(request);
-  }}
-
-  try {{
-    return jsonRes({{
-      success: true,
-      message: `${backend_import} ready for protocol execution`,
-      path: pathname,
-    }});
-  }} catch (err: unknown) {{
-    const message = err instanceof Error ? err.message : String(err);
-    return jsonRes({{ success: false, error: message }}, 500);
-  }}
-}}
-
-export default {{
-  async fetch(request: Request, env: Env = {{}}, ctx?: any): Promise<Response> {{
-    return fetchHandler(request, env);
-  }},
-}};
-
-export {{ adaptNodeRequest }};
+export { fetch as fetchHandler, default } from '../../app.js';
+export type { SkipoEnv as Env } from '../../app.js';
 """
-    files.append(GeneratedFile(
-        relative_path="src/backend/adapters/httpsAdapter.ts",
-        content=adapter_code,
-        description="Universal Protocol Adapter exposing Backend Facade via Web Standard Fetch API."
-    ))
+    if not (target_dir / "src/backend/adapters/httpsAdapter.ts").exists():
+        files.append(GeneratedFile(
+            relative_path="src/backend/adapters/httpsAdapter.ts",
+            content=adapter_code,
+            description="Compatibility re-export for the canonical Fetch application entry."
+        ))
 
     # 1.2 universalEntry.ts (Single Universal Polyglot Entrypoint: CF Workers, Vercel, Node)
     universal_entry_code = f"""/**
@@ -315,106 +249,8 @@ SYSTEM_DATABASE_URL_1 = ""
         description="Cloudflare Worker deployment manifest configured for universal single artifact."
     ))
 
-    # 3.1. Zero-Drift Universal Database Client (Law L23)
-    unified_db_code = f"""/**
- * @file unifiedDb.ts
- * @description Isomorphic Database Client using Neon Serverless HTTP driver.
- * Operates identically across Node.js, Vercel Serverless, and Cloudflare Workers (Law L23).
- * Conforms to Skipo Governance (< 200 lines).
- */
-
-import {{ neon }} from '@neondatabase/serverless';
-
-declare const process: any;
-
-export interface UnifiedQueryResult<T = any> {{
-  rows: T[];
-  rowCount: number;
-}}
-
-export function cleanDbUrl(url?: unknown): string {{
-  if (!url || typeof url !== 'string') return '';
-  return url.trim().replace(/^["']|["']$/g, '');
-}}
-
-export function getUnifiedDbUrl(env?: Record<string, unknown>): string {{
-  const fromEnv =
-    cleanDbUrl(env?.SYSTEM_DATABASE_URL_1) ||
-    cleanDbUrl(env?.SYSTEM_DATABASE_URL_2) ||
-    cleanDbUrl(env?.SYSTEM_DATABASE_URL_3);
-
-  if (fromEnv) return fromEnv;
-
-  if (typeof process !== 'undefined' && process.env) {{
-    return (
-      cleanDbUrl(process.env.SYSTEM_DATABASE_URL_1) ||
-      cleanDbUrl(process.env.SYSTEM_DATABASE_URL_2) ||
-      cleanDbUrl(process.env.SYSTEM_DATABASE_URL_3) ||
-      ''
-    );
-  }}
-
-  return '';
-}}
-
-export async function queryUnifiedDb<T = any>(
-  sqlText: string,
-  params: any[] = [],
-  env?: Record<string, unknown>
-): Promise<UnifiedQueryResult<T>> {{
-  const dbUrl = getUnifiedDbUrl(env);
-  if (!dbUrl) {{
-    throw new Error('[UnifiedDB] No database URL configured in environment.');
-  }}
-
-  const sql = neon(dbUrl);
-  try {{
-    const rows = (await sql.query(sqlText, params)) as T[];
-    return {{
-      rows: Array.isArray(rows) ? rows : [],
-      rowCount: Array.isArray(rows) ? rows.length : 0,
-    }};
-  }} catch (err: any) {{
-    console.error('[UnifiedDB] Query execution error:', err.message);
-    throw err;
-  }}
-}}
-"""
-    files.append(GeneratedFile(
-        relative_path="src/backend/services/core/unifiedDb.ts",
-        content=unified_db_code,
-        description="Zero-Drift universal Neon database client for Vercel and Cloudflare (Law L23)."
-    ))
-
-    project_manifest = {
-        "kind": "skipo-application",
-        "schemaVersion": 1,
-        "deploymentTargets": {
-            "fullstack": {"platform": "vercel", "command": "npm run build"},
-            "api": {"platform": "cloudflare-workers", "command": "npm run build"}
-        },
-        "requiredEnvironment": {
-            "serverOnly": ["SYSTEM_DATABASE_URL_1"],
-            "workerBindings": ["API_ENV", "BUILD_TARGET"]
-        }
-    }
-    files.append(GeneratedFile(
-        relative_path=".skipo/project.json",
-        content=json.dumps(project_manifest, indent=2) + "\n",
-        description="Mandatory Vercel full-stack and Cloudflare Workers API deployment contract."
-    ))
-
-    tsconfig_api = {
-        "extends": "./tsconfig.json",
-        "compilerOptions": {"noEmit": False, "outDir": "./dist/api"},
-        "include": ["src/backend/**/*.ts", "src/libraries/**/*.ts"],
-        "exclude": ["src/frontend", "src/frontend-state", "**/client/**", "**/*.test.ts"]
-    }
-    files.append(GeneratedFile(
-        relative_path="tsconfig.api.json",
-        content=json.dumps(tsconfig_api, indent=2) + "\n",
-        description="Cloudflare API TypeScript target excluding browser-only code."
-    ))
+    # Database and other provider-specific capabilities are opt-in. The generic
+    # application scaffold must not require a database URL or provider binding.
 
     # 4. vercel.json Contract
     vercel_config = {
@@ -488,9 +324,8 @@ try {
     ))
 
     required_scripts = {
-        "build": "node scripts/skipo-build.cjs",
-        "dev": "tsx server.ts",
-        "start": "node api/index.js"
+        "build": "node scripts/skipo-build.mjs",
+        "start": "node dist/providers/node/server.js"
     }
     package_path = target_dir / "package.json"
     existing_package: Dict[str, Any] = {}
@@ -507,6 +342,18 @@ try {
         description="Unified build commands for Vercel, Cloudflare, and Node."
     ))
 
+    # Do not emit the retired polyglot/split-target artifacts. Provider packaging is
+    # generated after the single Fetch application has been emitted.
+    retired_paths = {
+        "src/backend/adapters/universalEntry.ts",
+        "src/backend/adapters/nodeBridge.ts",
+        "config/build/manifests/fullstack.json",
+        "config/build/manifests/api.json",
+        "tsconfig.api.json",
+        "scripts/skipo-build.cjs",
+    }
+    files = [item for item in files if item.relative_path not in retired_paths]
+
     result = emit_directory(
         target_dir=target_dir,
         files=files,
@@ -516,9 +363,12 @@ try {
     result.generator_id = GENERATOR_ID
     result.generator_title = GENERATOR_TITLE
     result.duration_ms = (time.time() - start_time) * 1000
-    if existing_package and not params.get("dry_run", False):
-        package_path.write_text(json.dumps(package_content, indent=2) + "\n", encoding="utf-8")
-        result.messages.append("Merged required universal build scripts into package.json")
+    if not params.get("dry_run", False):
+        from scripts.generate_provider_packaging import generate_provider_packaging
+        generated = generate_provider_packaging(target_dir, app_name)
+        result.messages.append(
+            f"Generated one Fetch application with {len(generated)} provider packaging assets."
+        )
     return result
 
 def main():

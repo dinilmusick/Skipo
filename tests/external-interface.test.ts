@@ -65,6 +65,7 @@ it("bridges external calls through the canonical BackendFacade executor", async 
   const executor = createBackendCapabilityExecutor({ executeCapability });
   await executor.execute("math", "double", { value: 5 }, { principal: { userId: "u1" }, transport: "mcp", requestId: "req-1" });
   expect(executeCapability).toHaveBeenCalledWith("math", "double", { value: 5 }, {
+    serviceId: "math",
     correlationId: "req-1",
     metadata: { externalInterface: true, transport: "mcp", principal: { userId: "u1", roles: [], sessionId: undefined } },
   });
@@ -101,4 +102,30 @@ it("initializes the MCP protocol with advertised tool support", async () => {
   const s = setup();
   const initialized = await s.mcp(new Request("https://app.test/mcp", { method: "POST", body: JSON.stringify({ jsonrpc: "2.0", id: 9, method: "initialize", params: { protocolVersion: "2025-03-26" } }) }));
   expect((await initialized!.json()).result.capabilities.tools).toEqual({ listChanged: false });
+});
+
+it("applies the same authenticated capability boundary to HTTP and MCP", async () => {
+  const s = setup(null);
+  const httpList = await s.http(new Request("https://app.test/api/capabilities"));
+  const mcpList = await s.mcp(new Request("https://app.test/mcp", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+  }));
+  expect((await httpList!.json()).capabilities).toEqual([]);
+  expect((await mcpList!.json()).result.tools).toEqual([]);
+
+  const httpCall = await s.http(new Request("https://app.test/api/capabilities/math.double/invoke", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ value: 2 }),
+  }));
+  const mcpCall = await s.mcp(new Request("https://app.test/mcp", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "math.double", arguments: { value: 2 } } }),
+  }));
+  expect(httpCall!.status).toBe(401);
+  expect((await mcpCall!.json()).result.isError).toBe(true);
+  expect(s.execute).not.toHaveBeenCalled();
 });

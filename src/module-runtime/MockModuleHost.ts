@@ -37,15 +37,20 @@ export function createMockBackendFacade(): MockBackend {
   return backend;
 }
 
-export function createMockModuleHost(options: Omit<Partial<ModuleHostOptions>, 'backend'> & { backend?: IBackendFacade } = {}) {
+export function createMockModuleHost<TBackend extends IBackendFacade | undefined = undefined>(
+  options: Omit<Partial<ModuleHostOptions>, 'backend'> & { backend?: TBackend } = {},
+): {
+  backend: TBackend extends IBackendFacade ? TBackend : MockBackend;
+  host: ModuleHost;
+} {
   const backend = options.backend ?? createMockBackendFacade();
-  return {
+  const host = new ModuleHost({
     backend,
-    host: new ModuleHost({
-      backend,
-      resources: options.resources,
-      hostId: options.hostId ?? 'mock-module-host',
-      authorizeCapabilities: options.authorizeCapabilities ?? ((_module, requested) => requested),
-    }),
+    resources: options.resources,
+    authorizeCapabilities: options.authorizeCapabilities,
+  });
+  return {
+    backend: backend as TBackend extends IBackendFacade ? TBackend : MockBackend,
+    host,
   };
 }

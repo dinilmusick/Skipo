@@ -12,7 +12,7 @@ describe('Scaffold Regression & Tightening Suites', () => {
       encoding: 'utf-8',
     });
     expect(output).toMatch(/Ran \d+ tests/);
-    expect(output).toContain('Ran 8 tests');
+    expect(output).toContain('Ran 9 tests');
     expect(output).toContain('OK');
   }, 30_000);
 });

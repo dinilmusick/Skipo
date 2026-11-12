@@ -25,7 +25,7 @@ BOOTSTRAP_FALLBACK_EXPORTS: Dict[str, Set[str]] = {
     "@ultrst-armada/floks": {"ui", "canvas-ui", "contracts"},
     "@ultrst-armada/kloks": {
         "services", "contracts", "backend", "client", "audio-midi", "functions",
-        "orchestrations", "state-graph", "fod", "aiko", "krnl-ai-services",
+        "orchestrations", "state-graph", "krnl-ai-services",
         "semantic-runtime", "development", "ai-provider", "ai-inference",
         "ai-models", "ai-routing", "ai-keys", "ai-tools", "shared"
     },

@@ -5,6 +5,7 @@ import tempfile
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "checklists"))
 SPEC = importlib.util.spec_from_file_location("module_architecture", ROOT / "checklists/24_module_architecture.py")
 architecture = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
@@ -43,6 +44,5 @@ def test_architecture_rejects_direct_network_and_parent_imports():
         (candidate / "entry.ts").write_text("import x from '../../../src/backend/BackendFacade.js'; fetch('/api/x');")
         result = architecture.validate_module_architecture(root)
         assert not result.passed
-        messages = "
-".join(v.message for v in result.violations)
+        messages = "\n".join(v.message for v in result.violations)
         assert "bypass" in messages or "network" in messages

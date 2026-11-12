@@ -376,6 +376,20 @@ class SkipoBuilder:
         registered_orchestrations = registered_orchestration_exports(backend_source)
 
         def service_present(service_id: str) -> bool:
+            # Floks auth requirements are fulfilled by canonical Luth sessions,
+            # not by importing Kloks' legacy server-auth facade.
+            if service_id == "auth":
+                has_luth_adapter = (
+                    "LuthAuthServiceFacade" in registered_services
+                    and re.search(
+                        r"import[\s\S]*?LuthAuthServiceFacade[\s\S]*?from\s*['\"]\./LuthAuthServiceFacade\.js['\"]",
+                        backend_source,
+                    ) is not None
+                )
+                if not has_luth_adapter:
+                    errors.append("Required auth service must be provided by the canonical LuthAuthServiceFacade.")
+                return has_luth_adapter
+
             service = services.get(service_id)
             if not service:
                 errors.append(f"Unknown required service '{service_id}'.")
@@ -411,8 +425,8 @@ class SkipoBuilder:
                 for orch_id in component.get("requiredOrchestrations", []):
                     if not orchestration_present(orch_id):
                         errors.append(f"Component '{component_id}' requires orchestration '{orch_id}', but it is not installed in the app backend.")
-            elif component.get("requiredServices") or component.get("requiredOrchestrations"):
-                errors.append(f"Component '{component_id}' is declared by FLOKS but is not exported by the app component facade.")
+            # Unused library components are optional. Validate dependencies only for
+            # components the application actually exports, plus required default frontends below.
         for service in services.values():
             frontend = service.get("defaultFrontend")
             if frontend:

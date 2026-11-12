@@ -1,12 +1,18 @@
 import {
-  GoogleDriveStorageService,
-  refreshGoogleDriveAccessToken,
-} from '@ultrst-armada/kloks/backend';
+  GoogleDriveWorkspaceService,
+  type GoogleDriveWorkspaceTokens,
+} from '@ultrst-armada/kloks/backend/storage-workspace';
 
 export interface GoogleDriveOAuthConfig {
   clientId: string;
   clientSecret?: string;
-  redirectUri?: string;
+  redirectUri: string;
+}
+
+export interface GoogleDriveEnvironment {
+  GOOGLE_DRIVE_CLIENT_ID?: unknown;
+  GOOGLE_DRIVE_CLIENT_SECRET?: unknown;
+  GOOGLE_DRIVE_REDIRECT_URI?: unknown;
 }
 
 export interface GoogleDriveWorkspaceConnection {
@@ -19,65 +25,72 @@ export interface GoogleDriveWorkspaceConnection {
 }
 
 export interface GoogleDriveWorkspaceStorageHandle {
-  storage: GoogleDriveStorageService;
+  storage: GoogleDriveWorkspaceService;
   connection: GoogleDriveWorkspaceConnection;
 }
 
-/** Read confidential OAuth settings only in the server runtime. */
-export function getGoogleDriveOAuthConfigFromEnv(): GoogleDriveOAuthConfig {
-  const clientId = process.env.GOOGLE_DRIVE_CLIENT_ID || '';
-  const clientSecret = process.env.GOOGLE_DRIVE_CLIENT_SECRET || '';
-  const redirectUri = process.env.GOOGLE_DRIVE_REDIRECT_URI || undefined;
-  if (!clientId) {
-    throw new Error('GOOGLE_DRIVE_CLIENT_ID must be configured in the server secret store.');
-  }
+export function getGoogleDriveOAuthConfig(env: GoogleDriveEnvironment): GoogleDriveOAuthConfig {
+  const clientId = String(env.GOOGLE_DRIVE_CLIENT_ID ?? '').trim();
+  const clientSecret = String(env.GOOGLE_DRIVE_CLIENT_SECRET ?? '').trim();
+  const redirectUri = String(env.GOOGLE_DRIVE_REDIRECT_URI ?? '').trim();
+  if (!clientId) throw new Error('GOOGLE_DRIVE_CLIENT_ID must be configured in the server secret store.');
+  if (!redirectUri) throw new Error('GOOGLE_DRIVE_REDIRECT_URI must be configured in the server environment.');
   return { clientId, clientSecret: clientSecret || undefined, redirectUri };
 }
 
-/**
- * Create the canonical Kloks Drive adapter for an SRKL-authorized connection.
- * OAuth refresh happens here with server-owned credentials; the client secret
- * and refresh token are never copied into the adapter configuration or browser.
- */
+export function createGoogleDriveAuthorizationUrl(
+  oauth: GoogleDriveOAuthConfig,
+  state: string,
+  scopes?: string[],
+): string {
+  return GoogleDriveWorkspaceService.createAuthorizationUrl(oauth, state, scopes);
+}
+
+export function exchangeGoogleDriveAuthorizationCode(
+  oauth: GoogleDriveOAuthConfig,
+  code: string,
+  existingRefreshToken?: string,
+  codeVerifier?: string,
+): Promise<GoogleDriveWorkspaceTokens> {
+  return GoogleDriveWorkspaceService.exchangeAuthorizationCode(
+    oauth,
+    code,
+    existingRefreshToken,
+    codeVerifier,
+  );
+}
+
 export async function createGoogleDriveWorkspaceStorage(
   source: GoogleDriveWorkspaceConnection,
-  oauth: GoogleDriveOAuthConfig = getGoogleDriveOAuthConfigFromEnv(),
+  oauth: GoogleDriveOAuthConfig,
 ): Promise<GoogleDriveWorkspaceStorageHandle> {
   if (source.provider !== 'google_drive') {
     throw new Error('A Google Drive workspace connection is required.');
   }
-  if (!oauth.clientId) {
-    throw new Error('Google Drive OAuth client ID is not configured.');
+  if (!oauth.clientId || !oauth.redirectUri) {
+    throw new Error('Google Drive OAuth client ID and redirect URI are required.');
   }
 
   const connection = { ...source };
-  let accessToken = connection.googleAccessToken || '';
-  let expiresAt = Number(connection.googleAccessTokenExpiresAt || 0);
-  const shouldRefresh = !accessToken || (expiresAt > 0 && expiresAt <= Date.now() + 60_000);
+  const tokens: GoogleDriveWorkspaceTokens = {
+    accessToken: connection.googleAccessToken || '',
+    ...(connection.googleRefreshToken ? { refreshToken: connection.googleRefreshToken } : {}),
+    ...(connection.googleAccessTokenExpiresAt
+      ? { expiresAt: connection.googleAccessTokenExpiresAt }
+      : {}),
+  };
 
-  if (shouldRefresh) {
-    if (!connection.googleRefreshToken || !oauth.clientSecret) {
-      throw new Error('Google Drive token refresh requires the connection refresh token and a server-owned OAuth client secret. Reconnect through SRKL or configure the secret.');
-    }
-    const tokenSet = await refreshGoogleDriveAccessToken(
-      oauth.clientId,
-      connection.googleRefreshToken,
-      oauth.clientSecret,
-      oauth.redirectUri,
-    );
-    accessToken = tokenSet.accessToken;
-    expiresAt = tokenSet.expiresAt;
-    connection.googleAccessToken = accessToken;
-    connection.googleAccessTokenExpiresAt = expiresAt;
-  }
-
-  const storage = new GoogleDriveStorageService({
-    provider: 'google_drive',
-    googleClientId: oauth.clientId,
-    googleRedirectUri: oauth.redirectUri,
-    googleAccessToken: accessToken,
-    googleAccessTokenExpiresAt: expiresAt || undefined,
-    googleRootFolderId: connection.googleRootFolderId || 'root',
+  const storage = new GoogleDriveWorkspaceService({
+    clientId: oauth.clientId,
+    clientSecret: oauth.clientSecret,
+    redirectUri: oauth.redirectUri,
+    tokens,
+    rootFolderId: connection.googleRootFolderId || 'root',
+    persistTokens: async (updated) => {
+      connection.googleAccessToken = updated.accessToken;
+      connection.googleRefreshToken = updated.refreshToken;
+      connection.googleAccessTokenExpiresAt = updated.expiresAt;
+    },
   });
 
   return { storage, connection };
