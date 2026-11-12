@@ -255,10 +255,32 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
     scripts.pop("build:api", None)
     scripts.setdefault("dev", "vite")
     scripts["start"] = "node dist/providers/node/server.js"
-    pnpm_config = package.setdefault("pnpm", {})
-    approved_builds = set(pnpm_config.get("onlyBuiltDependencies", []))
-    approved_builds.add("esbuild")
-    pnpm_config["onlyBuiltDependencies"] = sorted(approved_builds)
+    # pnpm 12 moved build-script approval into pnpm-workspace.yaml.
+    # Keep package.json free of the deprecated pnpm.onlyBuiltDependencies field.
+    package.pop("pnpm", None)
+    workspace_config = target / "pnpm-workspace.yaml"
+    if not workspace_config.exists():
+        workspace_config.write_text(
+            'packages:\n  - "."\n'
+            'onlyBuiltDependencies:\n  - esbuild\n  - msgpackr-extract\n',
+            encoding="utf-8",
+        )
+        created.append(workspace_config)
+    else:
+        workspace_text = workspace_config.read_text(encoding="utf-8")
+        if "onlyBuiltDependencies:" not in workspace_text:
+            workspace_text = workspace_text.rstrip() + (
+                "\n\nonlyBuiltDependencies:\n  - esbuild\n  - msgpackr-extract\n"
+            )
+        else:
+            for approved in ("esbuild", "msgpackr-extract"):
+                if f"  - {approved}" not in workspace_text:
+                    workspace_text = workspace_text.replace(
+                        "onlyBuiltDependencies:\n",
+                        f"onlyBuiltDependencies:\n  - {approved}\n",
+                        1,
+                    )
+        workspace_config.write_text(workspace_text, encoding="utf-8")
     dev = package.setdefault("devDependencies", {})
     dev.setdefault("esbuild", "^0.28.2")
     if "vite" not in package.get("dependencies", {}) and "vite" not in dev and not any(
