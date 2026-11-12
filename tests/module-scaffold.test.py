@@ -97,8 +97,8 @@ def test_multi_target_generation_uses_the_scaffold_fetch_entry_and_one_build():
         assert "export async function fetch" in app
         assert not (target / "src/backend/adapters/universalEntry.ts").exists()
         assert not (target / "src/backend/adapters/nodeBridge.ts").exists()
-    assert not (target / "src/backend/adapters/httpsAdapter.ts").exists()
-    assert (target / "src/backend/LuthAuthServiceFacade.ts").is_file()
+        assert not (target / "src/backend/adapters/httpsAdapter.ts").exists()
+        assert (target / "src/backend/LuthAuthServiceFacade.ts").is_file()
 
         package = json.loads((target / "package.json").read_text(encoding="utf-8"))
         assert package["scripts"]["build"] == "node scripts/skipo-build.mjs"
