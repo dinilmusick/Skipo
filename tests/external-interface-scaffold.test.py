@@ -20,13 +20,13 @@ def test_vite_and_nextjs_scaffolds_mount_both_external_protocols():
         assert "createAppExternalInterfaces" in backend
         auth = (base / "src/backend/auth/luthSession.ts").read_text(encoding="utf-8")
         assert "export async function getLuthSession" in auth
+        app = (base / "src/app.ts").read_text(encoding="utf-8")
         assert "externalInterfaces.mcp(request)" in app
         assert "externalInterfaces.http(request)" in app
         assert "universalFetch(request, env)" in adapter
         assert "/api/workspaces" in adapter
         assert "/api/storage/connections" in adapter
         assert "authenticateLuthRequest" in adapter
-        app = (base / "src/app.ts").read_text(encoding="utf-8")
         worker = (base / "src/providers/cloudflare.ts").read_text(encoding="utf-8")
         vercel = (base / "src/providers/vercel.ts").read_text(encoding="utf-8")
         node = (base / "src/providers/node.ts").read_text(encoding="utf-8")
