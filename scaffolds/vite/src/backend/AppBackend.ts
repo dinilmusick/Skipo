@@ -1,13 +1,11 @@
 import { BackendFacade } from './BackendFacade.js';
 import { createAppExternalInterfaces } from './externalInterfaces.js';
+import { LuthAuthServiceFacade } from './LuthAuthServiceFacade.js';
 
-/**
- * The universal app starts with no provider-specific services installed.
- * Register only the capabilities this application actually uses.
- */
+/** Register only application capabilities; authentication is delegated to Luth. */
 export const backendFacade = new BackendFacade();
 export const externalInterfaces = createAppExternalInterfaces(backendFacade);
-export const services = Object.freeze({});
+export const services = Object.freeze({ auth: LuthAuthServiceFacade });
 export const storageProviders = Object.freeze({});
 
 export const AppBackend = {
