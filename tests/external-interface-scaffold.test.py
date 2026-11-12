@@ -14,6 +14,8 @@ def test_vite_and_nextjs_scaffolds_mount_both_external_protocols():
         assert "getLuthSession" in factory
         assert "CapabilityRegistry" in factory
         assert "createAppExternalInterfaces" in backend
+        auth = (base / "src/backend/auth/luthSession.ts").read_text(encoding="utf-8")
+        assert "export async function getLuthSession" in auth
         assert "externalInterfaces.mcp(request)" in adapter
         assert "externalInterfaces.http(request)" in adapter
         backend_source = (base / "src/backend/AppBackend.ts").read_text(encoding="utf-8")
