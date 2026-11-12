@@ -44,20 +44,16 @@ python3 Skipo/scripts/rename_app.py "YourAppName"
 # 1. Install dependencies
 npm install
 
-# 2. Start local dev server (Express + Vite)
+# 2. Start local development
 npm run dev
 
-# 3. Fullstack build (Vercel / Node)
-npm run build:fullstack
+# 3. Build the shared Fetch application and provider adapters
+npm run build
 
-# 4. API Worker build (Cloudflare Workers)
-npm run build:api
-
-# 5. Dual build for both targets
-npm run build:all
-
-# 6. Architectural compliance validation
-python3 checklists/full_system_validator.py .
+# 4. Start the generated Node.js deployment
+npm start
 ```
 
-For complete documentation on imports, architecture, and coding standards, refer to [**`SCAFFOLD_GUIDE.md`**](./SCAFFOLD_GUIDE.md).
+The canonical application handler is `src/app.ts`. Cloudflare, Vercel Edge, and Node adapters delegate to that same handler. Configure provider secrets in the hosting platform; do not add credentials to the generated manifest.
+
+Run `python3 checklists/full_system_validator.py .` for architectural validation.
