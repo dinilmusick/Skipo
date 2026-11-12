@@ -108,8 +108,6 @@ VALID_KLOKS_SUBPATHS = {
     "ai-keys",
     "ai-tools",
     "krnl-ai-services",
-    "fod",
-    "aiko",
     "auth",
 }
 
@@ -139,8 +137,6 @@ VALID_FLOKS_SUBPATHS = {
     "",
     "ui",
     "canvas-ui",
-    "canvas-ui/fod",
-    "canvas-ui/aiko",
     "contracts",
     "auth",
 }
