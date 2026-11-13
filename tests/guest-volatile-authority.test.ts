@@ -41,6 +41,29 @@ describe('guest workspace volatile authority boundary', () => {
     expect(response.status).toBe(401);
   });
 
+
+  it('rejects namespaces outside the configured application/deployment scope', async () => {
+    const handler = createGuestWorkspaceAuthorityHandler({
+      serviceToken: SERVICE_TOKEN,
+      namespacePrefix: 'guest/app/prod/',
+      authority: new InMemoryGuestWorkspaceAuthority(() => 1_000),
+    });
+    const response = await handler(new Request('https://guest-authority.test/v1/guest-workspace', {
+      method: 'POST',
+      headers: { authorization: 'Bearer ' + SERVICE_TOKEN, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        action: 'createNamespace',
+        namespace: 'guest/other/prod/lease/workspace',
+        expiresAt: 2_000,
+        limits: { maxConcurrentLeases: 2 },
+      }),
+    }));
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'NAMESPACE_SCOPE_REJECTED' },
+    });
+  });
+
   it('fails closed after an authority process restart instead of recreating missing guest data', async () => {
     const firstAuthority = new InMemoryGuestWorkspaceAuthority(() => 1_000);
     const firstHandler = createGuestWorkspaceAuthorityHandler({ serviceToken: SERVICE_TOKEN, authority: firstAuthority });
