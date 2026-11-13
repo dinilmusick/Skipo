@@ -20,7 +20,7 @@ function validate(schema: JsonSchema, value: unknown, path = "$"): string[] {
   } else if (schema.type === "number" || schema.type === "integer") {
     if (typeof value !== "number" || !Number.isFinite(value) || (schema.type === "integer" && !Number.isInteger(value))) errors.push(path + " must be a finite " + schema.type);
     else { if (schema.minimum !== undefined && value < schema.minimum) errors.push(path + " is below minimum"); if (schema.maximum !== undefined && value > schema.maximum) errors.push(path + " is above maximum"); }
-  } else if (schema.type === "boolean" && typeof value !== "boolean') errors.push(path + " must be a boolean");
+  } else if (schema.type === "boolean" && typeof value !== "boolean" errors.push(path + " must be a boolean");
   else if (schema.type === "null" && value !== null) errors.push(path + " must be null");
   return errors;
 }
