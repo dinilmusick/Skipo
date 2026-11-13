@@ -14,7 +14,7 @@ def test_guest_workspace_contract_covers_existing_workspacefs_surface():
 
     assert "EphemeralWorkspaceProvider" in contract
     assert "must not create that persistent" in contract
-    assert "no persistent provider adapter may be constructed" in contract
+    assert "No persistent provider adapter may be constructed" in contract
 
 
 def test_guest_workspace_contract_requires_fetch_canonical_boundary():
