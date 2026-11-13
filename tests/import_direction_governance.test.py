@@ -68,6 +68,20 @@ class ImportDirectionTest(unittest.TestCase):
         )
         self.assert_rule(self.root, "22.4-browser-server-boundary")
 
+    def test_frontend_to_public_kloks_auth_is_allowed(self):
+        self.write(
+            "src/frontend/page.ts",
+            "import { createLuthAuthClient } from '@ultrst-armada/kloks/auth';\nexport const client = createLuthAuthClient;\n",
+        )
+        self.assertTrue(validate_import_direction(self.root).passed)
+
+    def test_frontend_to_kloks_backend_is_rejected(self):
+        self.write(
+            "src/frontend/page.ts",
+            "import { GoogleDriveStorageService } from '@ultrst-armada/kloks/backend/node';\nexport const value = GoogleDriveStorageService;\n",
+        )
+        self.assert_rule(self.root, "22.4-browser-server-boundary")
+
     def test_frontend_to_krnl_is_rejected(self):
         self.write(
             "src/frontend/page.ts",
@@ -111,7 +125,7 @@ class ImportDirectionTest(unittest.TestCase):
             with self.subTest(package=package):
                 self.write(
                     "src/frontend/server-dependency.ts",
-                    f"import dependency from '{package}';\\nexport const value = dependency;\\n",
+                    f"import dependency from '{package}';\nexport const value = dependency;\n",
                 )
                 self.assert_rule(self.root, "22.4-browser-server-boundary")
                 (self.root / "src/frontend/server-dependency.ts").unlink()
@@ -119,7 +133,7 @@ class ImportDirectionTest(unittest.TestCase):
     def test_backend_may_use_server_only_database_dependencies(self):
         self.write(
             "src/backend/database.ts",
-            "import { neon } from '@neondatabase/serverless';\\nexport const db = neon;\\n",
+            "import { neon } from '@neondatabase/serverless';\nexport const db = neon;\n",
         )
         self.assertTrue(validate_import_direction(self.root).passed)
 
