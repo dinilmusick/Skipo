@@ -24,7 +24,7 @@ $$\text{Route}(\tau) = \arg\max_{s \in \mathcal{S}_{\text{arch}}} |\text{Keyword
 ```python
 def route_arch(intent: str) -> str:
     routes = {
-        "state": "state-execution-spec/SKILL.md", "bullmq": "state-execution-spec/SKILL.md",
+        "state": "state-execution-spec/SKILL.md", "p-queue": "state-execution-spec/SKILL.md", "queue": "state-execution-spec/SKILL.md",
         "lifecycle": "state-execution-spec/SKILL.md", "execution": "state-execution-spec/SKILL.md",
         "zustand": "state-execution-spec/SKILL.md", "command": "state-execution-spec/SKILL.md",
         "multi-target": "multi-target-build-spec/SKILL.md", "adapter": "multi-target-build-spec/SKILL.md",
