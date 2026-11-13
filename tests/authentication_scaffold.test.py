@@ -148,7 +148,7 @@ def test_published_package_baseline_is_aligned_across_root_scaffolds_and_lockfil
         lockfile = (ROOT / "pnpm-lock.yaml").read_text(encoding="utf-8")
         root_importer = lockfile.split("packages:", 1)[0]
         locked = re.search(
-            rf"(?m)^      '{re.escape(name)}':\\n        specifier: ([^\\n]+)\\n        version: ([^\\n]+)",
+            rf"(?m)^      '{re.escape(name)}':\n        specifier: ([^\n]+)\n        version: ([^\n]+)",
             root_importer,
         )
         assert locked, f"pnpm-lock.yaml is missing the root importer for {name}"
