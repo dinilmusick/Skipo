@@ -109,3 +109,12 @@ def test_app_architecture_validator_enforces_vite_frontend_entrypoint():
     )
     result = validator.validate_app_architecture_spec(root)
     assert any(v.rule_id == "vite-frontend-entrypoint-noncanonical" for v in result.violations)
+
+
+def test_bundled_vite_scaffold_uses_canonical_frontend_entrypoint():
+    scaffold = ROOT.parent / "scaffolds" / "vite"
+    html = (scaffold / "index.html").read_text(encoding="utf-8")
+    assert (scaffold / "src/frontend/main.tsx").is_file()
+    assert '/src/frontend/main.tsx' in html
+    assert '/src/main.tsx' not in html
+    assert not (scaffold / "src/main.tsx").exists()
