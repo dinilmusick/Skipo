@@ -80,7 +80,7 @@ const [selection, setSelection] = useSkipoState<string | null>(
 
 ## 2. EXECUTION SYSTEM: P-QUEUE COMMAND SCHEDULER (Invariants I7–I10)
 
-$$\text{EXECUTION\_PIPELINE} := \text{FRONTEND\_COMPONENT} \to \text{SKIPO\_COMMAND} \to \text{p-queue} \to \text{JOB} \to \text{WORKER} \to \text{BACKEND\_FACADE} \to \text{SERVICE} \to \text{OPERATION\_COMPONENT}$$
+$$\text{EXECUTION\_PIPELINE} := \text{FRONTEND\_COMPONENT} \to \text{SKIPO\_COMMAND} \to \text{p-queue} \to \text{JOB} \to \text{QUEUE\_RUNNER} \to \text{BACKEND\_FACADE} \to \text{SERVICE} \to \text{OPERATION\_COMPONENT}$$
 
 ### 2.1 Banned Execution Patterns
 ```tsx
@@ -124,7 +124,7 @@ export function WorkspaceCreator() {
 
 ## 3. BACKEND BOUNDARY: QUEUE-RUNNER-ONLY FACADE (Invariants I11–I14)
 
-$$\text{BACKEND\_FACADE} := \text{SINGLE\_PUBLIC\_EXECUTION\_INTERFACE}, \quad \text{FACADE\_ACCESS} := \text{WORKER\_ONLY}$$
+$$\text{BACKEND\_FACADE} := \text{SINGLE\_PUBLIC\_EXECUTION\_INTERFACE}, \quad \text{FACADE\_ACCESS} := \text{QUEUE\_RUNNER\_ONLY}$$
 
 ### 3.1 Backend Facade Invariant
 The backend facade is accessible **ONLY** to the in-process p-queue callback through the existing `WorkerExecutionBoundary` guard. Its `isWorkerContext` marker is an authorization context flag, not a separate worker process.
@@ -166,7 +166,7 @@ export const createWorkspaceOp = createOperationComponent(
 
 ## 4. RESULT FLOW & STATE SYNCHRONIZATION
 
-$$\text{operation} \to \text{service} \to \text{facade} \to \text{worker} \to \text{job\_result} \to \text{frontend\_state\_update} \to \text{Zustand}$$
+$$\text{operation} \to \text{service} \to \text{facade} \to \text{queue runner} \to \text{job\_result} \to \text{frontend\_state\_update} \to \text{Zustand}$$
 
 1. The in-process queue runner receives the result from the operation component via the Backend Facade.
 2. The queue runner normalizes the result: `{ correlationId, status: 'COMPLETED', data }`.
