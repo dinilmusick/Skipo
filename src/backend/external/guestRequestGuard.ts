@@ -61,7 +61,7 @@ export async function withGuestRequestGuards<T extends Response | null>(
   if (!validOrigin(request, options.allowedOrigins ?? [])) return json(403, "GUEST_ORIGIN_REJECTED", "Request origin is not allowed.") as T | Response;
   const maxBodyBytes = options.maxBodyBytes ?? 256 * 1024;
   if (!Number.isSafeInteger(maxBodyBytes) || maxBodyBytes <= 0) return json(503, "GUEST_GUARD_MISCONFIGURED", "Guest access is temporarily unavailable.") as T | Response;
-  if (["POST", "PUT", "PATCH"].includes(request.method.toUpperCase()) && !(await bodyWithinLimit(request, maxBodyBytes))) {
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method.toUpperCase()) && !(await bodyWithinLimit(request, maxBodyBytes))) {
     return json(413, "GUEST_BODY_TOO_LARGE", "Request body exceeds the guest limit.") as T | Response;
   }
   let ip: string | null = null;
