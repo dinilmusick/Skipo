@@ -26,7 +26,7 @@ def test_guest_security_contract_forbids_persistent_workspace_paths():
     assert "ephemeral" in text.lower()
     assert "| Persistent workspace creation, attachment or provider selection | DENY |" in text
     assert "No Local Folder, S3/B2, Google Drive or other durable adapter" in text
-    assert "fail closed on exhaustion" in text
+    assert "fail closed on exhaustion" in text.lower()
 
 
 def test_guest_security_contract_requires_server_authoritative_expiry_and_cleanup():
