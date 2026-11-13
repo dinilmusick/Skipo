@@ -50,7 +50,13 @@ async function boundedRequest(request: Request, maxBytes: number): Promise<Reque
   } finally {
     reader.releaseLock();
   }
-  return new Request(request, { body: new Blob(chunks) });
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new Request(request, { body: bytes.buffer as ArrayBuffer });
 }
 
 export async function withGuestRequestGuards<T extends Response | null>(
