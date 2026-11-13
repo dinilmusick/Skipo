@@ -4,6 +4,7 @@ import type { ExecutionJob, ExecutionJobStatus, JobPriority } from "./types";
 export interface PQueueAdapterOptions {
   queueName: string;
   maxConcurrency: number;
+  maxRetainedJobs?: number;
 }
 
 type Processor<TPayload> = (job: ExecutionJob<TPayload>) => Promise<unknown>;
@@ -30,11 +31,16 @@ const priorityValue: Record<JobPriority, number> = {
 export class PQueueAdapter<TPayload = Record<string, unknown>> {
   private readonly queue: PQueue;
   private readonly jobs = new Map<string, QueueJobRecord>();
+  private closed = false;
+  public readonly queueName: string;
+  private readonly maxRetainedJobs: number;
 
   constructor(
-    private readonly options: PQueueAdapterOptions,
+    options: PQueueAdapterOptions,
     private readonly processor: Processor<TPayload>,
   ) {
+    this.queueName = options.queueName;
+    this.maxRetainedJobs = options.maxRetainedJobs ?? 1000;
     this.queue = new PQueue({
       concurrency: Math.max(1, options.maxConcurrency),
       autoStart: true,
@@ -42,6 +48,8 @@ export class PQueueAdapter<TPayload = Record<string, unknown>> {
   }
 
   enqueue(job: ExecutionJob<TPayload>): string {
+    if (this.closed) throw new Error(`[PQueueAdapter:${this.queueName}] Queue is closed.`);
+    this.pruneJobs();
     this.jobs.set(job.id, { status: "QUEUED" });
 
     void this.queue.add(
@@ -91,13 +99,25 @@ export class PQueueAdapter<TPayload = Record<string, unknown>> {
     return this.jobs.get(jobId)?.error;
   }
 
+  private pruneJobs(): void {
+    if (this.jobs.size < this.maxRetainedJobs) return;
+    for (const [id, record] of this.jobs) {
+      if (record.status === "COMPLETED" || record.status === "FAILED") {
+        this.jobs.delete(id);
+        if (this.jobs.size < this.maxRetainedJobs) return;
+      }
+    }
+  }
+
   async onIdle(): Promise<void> {
     await this.queue.onIdle();
   }
 
   async close(): Promise<void> {
+    if (this.closed) return;
     await this.queue.onIdle();
     this.queue.pause();
+    this.closed = true;
   }
 
   get concurrency(): number {
