@@ -80,7 +80,7 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
             },
             "devDependencies": {
                 "tailwindcss": "^4.3.4",
-                "@tailwindcss/vite": "^4.3.4"
+                "@tailwindcss/vite": "^4.3.4",
                 "typescript": "^5.7.0",
                 "@types/node": "^22.0.0",
                 "@types/react": "^19.0.0",
