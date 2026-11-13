@@ -5,7 +5,7 @@ import type { IBackendFacade } from "../BackendFacadeTypes.js";
 
 describe("external backend principal propagation", () => {
   it("preserves guest lease scope without manufacturing authenticated identity", async () => {
-    const executeCapability = vi.fn(async () => ({ ok: true }));
+    const executeCapability = vi.fn(async (..._args: unknown[]) => ({ ok: true }));
     const backend = { executeCapability } as unknown as IBackendFacade;
     const guest: GuestExternalPrincipal = {
       kind: "guest", leaseId: "lease-1", appId: "demo", deploymentId: "prod",
