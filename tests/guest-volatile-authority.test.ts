@@ -7,10 +7,11 @@ import {
 } from '../src/guest/GuestWorkspaceAuthority.js';
 
 const SERVICE_TOKEN = 'guest-authority-test-token-'.padEnd(64, 'x');
+const CONFORMANCE_PREFIX = 'guest/conformance-app/conformance-deployment/';
 
 function createPair() {
   const authority = new InMemoryGuestWorkspaceAuthority(() => 1_000);
-  const handler = createGuestWorkspaceAuthorityHandler({ serviceToken: SERVICE_TOKEN, authority });
+  const handler = createGuestWorkspaceAuthorityHandler({ serviceToken: SERVICE_TOKEN, namespacePrefix: CONFORMANCE_PREFIX, authority });
   const transport: typeof fetch = async (input, init) => handler(new Request(input, init));
   return {
     first: new HttpGuestWorkspaceStore({
@@ -31,7 +32,7 @@ defineGuestWorkspaceStoreConformance('HTTP volatile guest authority', createPair
 describe('guest workspace volatile authority boundary', () => {
   it('rejects calls without the private service token', async () => {
     const authority = new InMemoryGuestWorkspaceAuthority(() => 1_000);
-    const handler = createGuestWorkspaceAuthorityHandler({ serviceToken: SERVICE_TOKEN, authority });
+    const handler = createGuestWorkspaceAuthorityHandler({ serviceToken: SERVICE_TOKEN, namespacePrefix: CONFORMANCE_PREFIX, authority });
     const response = await handler(new Request('https://guest-authority.test/v1/guest-workspace', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -66,7 +67,7 @@ describe('guest workspace volatile authority boundary', () => {
 
   it('fails closed after an authority process restart instead of recreating missing guest data', async () => {
     const firstAuthority = new InMemoryGuestWorkspaceAuthority(() => 1_000);
-    const firstHandler = createGuestWorkspaceAuthorityHandler({ serviceToken: SERVICE_TOKEN, authority: firstAuthority });
+    const firstHandler = createGuestWorkspaceAuthorityHandler({ serviceToken: SERVICE_TOKEN, namespacePrefix: 'guest/app/deployment/', authority: firstAuthority });
     const firstFetch: typeof fetch = async (input, init) => firstHandler(new Request(input, init));
     const firstStore = new HttpGuestWorkspaceStore({
       endpoint: 'https://guest-authority.test', serviceToken: SERVICE_TOKEN, fetch: firstFetch,
@@ -76,7 +77,7 @@ describe('guest workspace volatile authority boundary', () => {
       new TextEncoder().encode('temporary'), { maxBytes: 100, maxFiles: 2 });
 
     const restartedAuthority = new InMemoryGuestWorkspaceAuthority(() => 1_000);
-    const restartedHandler = createGuestWorkspaceAuthorityHandler({ serviceToken: SERVICE_TOKEN, authority: restartedAuthority });
+    const restartedHandler = createGuestWorkspaceAuthorityHandler({ serviceToken: SERVICE_TOKEN, namespacePrefix: 'guest/app/deployment/', authority: restartedAuthority });
     const restartedFetch: typeof fetch = async (input, init) => restartedHandler(new Request(input, init));
     const restartedStore = new HttpGuestWorkspaceStore({
       endpoint: 'https://guest-authority.test', serviceToken: SERVICE_TOKEN, fetch: restartedFetch,
@@ -90,6 +91,7 @@ describe('guest workspace volatile authority boundary', () => {
   it('exposes only a non-sensitive volatile-mode health contract', async () => {
     const handler = createGuestWorkspaceAuthorityHandler({
       serviceToken: SERVICE_TOKEN,
+      namespacePrefix: 'guest/app/deployment/',
       authority: new InMemoryGuestWorkspaceAuthority(),
     });
     const response = await handler(new Request('https://guest-authority.test/health'));
