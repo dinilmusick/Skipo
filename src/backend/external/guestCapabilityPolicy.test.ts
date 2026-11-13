@@ -26,6 +26,27 @@ describe("guest capability authorization", () => {
     const wrongLease = { ...guest, capabilities: [] };
     await expect(registry.invoke("workspace.read", {}, { principal: wrongLease, transport: "http", requestId: "r2" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
+
+  it("hard-denies identity, privileged, secret, billing and durable capabilities even if misconfigured public", async () => {
+    const executor = { execute: vi.fn(async () => ({})) };
+    const forbidden = ["account.manage", "secrets.read", "billing.invoice", "admin.settings", "external-account.link", "workspace.persist", "workspace.cross-session-write"];
+    for (const id of forbidden) {
+      const registry = new CapabilityRegistry(executor).register({
+        ...capability, id, access: "public", guestAccess: true,
+        invocation: { serviceId: id.split(".")[0], operationId: id.split(".").slice(1).join(".") },
+      });
+      expect(registry.list(guest)).toEqual([]);
+      await expect(registry.invoke(id, {}, { principal: guest, transport: "http", requestId: id })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    }
+    expect(executor.execute).not.toHaveBeenCalled();
+  });
+  it("allows only explicitly approved ephemeral workspace operations", async () => {
+    const registry = new CapabilityRegistry({ execute: vi.fn(async () => ({})) });
+    registry.register({ ...capability, guestAccess: true });
+    const ephemeralWrite = { ...capability, id: "workspace.write", guestAccess: true };
+    registry.register(ephemeralWrite);
+    expect(registry.list({ ...guest, capabilities: ["workspace.read", "workspace.write"] }).map(item => item.id)).toEqual(["workspace.read", "workspace.write"]);
+  });
   it("does not weaken authenticated or role-based checks", () => {
     const registry = new CapabilityRegistry({ execute: vi.fn(async () => ({})) });
     registry.register({ ...capability, access: "roles", requiredRoles: ["admin"], guestAccess: true });
