@@ -1,0 +1,112 @@
+import { describe, expect, it } from 'vitest';
+import {
+  createGuestWorkspaceFactory,
+} from '../src/guest/GuestWorkspaceFactory.js';
+import type {
+  GuestLeaseBinding,
+  GuestWorkspaceStore,
+} from '../src/guest/GuestWorkspace.js';
+
+export interface GuestWorkspaceStorePair {
+  first: GuestWorkspaceStore;
+  second: GuestWorkspaceStore;
+}
+
+export type GuestWorkspaceStorePairFactory = () => GuestWorkspaceStorePair;
+
+/**
+ * Run this suite against two independent adapter instances backed by the same
+ * deployment-shared volatile store. Do not pass the same adapter instance twice.
+ */
+export function defineGuestWorkspaceStoreConformance(
+  adapterName: string,
+  createPair: GuestWorkspaceStorePairFactory,
+): void {
+  describe(adapterName + ' GuestWorkspaceStore conformance', () => {
+    const capabilities = {
+      leaseAffinity: true,
+      volatileWorkspace: true,
+      ttlCleanup: true,
+    };
+    const lease = (id: string, expiresAt = 2_000): GuestLeaseBinding => ({
+      leaseId: id,
+      appId: 'conformance-app',
+      deploymentId: 'conformance-deployment',
+      workspaceId: 'workspace-' + id,
+      expiresAt,
+    });
+
+    it('preserves a lease namespace across reconstructed request providers', async () => {
+      const stores = createPair();
+      const binding = lease('restart');
+      const first = await createGuestWorkspaceFactory({
+        store: stores.first, capabilities, deployment: 'node', now: () => 1_000,
+      }).createForLease(binding);
+      await first.writeFile(binding, 'state.txt', 'survives reconstruction');
+
+      const second = await createGuestWorkspaceFactory({
+        store: stores.second, capabilities, deployment: 'node', now: () => 1_000,
+      }).createForLease(binding);
+      expect(await second.readText(binding, 'state.txt')).toBe('survives reconstruction');
+    });
+
+    it('makes namespace creation idempotent and enforces shared lease capacity', async () => {
+      const stores = createPair();
+      const limits = { maxConcurrentLeases: 1 };
+      await stores.first.createNamespace('same', 2_000, limits);
+      await stores.second.createNamespace('same', 3_000, limits);
+      await expect(stores.second.createNamespace('other', 2_000, limits)).rejects.toThrow();
+      await stores.first.write('same', 'state.txt', new TextEncoder().encode('kept'), {
+        maxBytes: 16, maxFiles: 1,
+      });
+      expect(new TextDecoder().decode(await stores.second.read('same', 'state.txt'))).toBe('kept');
+    });
+
+    it('atomically enforces live byte and file quotas across adapters', async () => {
+      const stores = createPair();
+      await stores.first.createNamespace('quota', 2_000, { maxConcurrentLeases: 2 });
+      const writes = await Promise.allSettled([
+        stores.first.write('quota', 'one.txt', new Uint8Array([1]), { maxBytes: 1, maxFiles: 1 }),
+        stores.second.write('quota', 'two.txt', new Uint8Array([2]), { maxBytes: 1, maxFiles: 1 }),
+      ]);
+      expect(writes.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+      expect(writes.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    });
+
+    it('atomically enforces operation and runtime budgets across adapters', async () => {
+      const stores = createPair();
+      await stores.first.createNamespace('budget', 2_000, { maxConcurrentLeases: 2 });
+      const operations = await Promise.allSettled([
+        stores.first.consume('budget', { operations: 1 }, { maxOperations: 1 }),
+        stores.second.consume('budget', { operations: 1 }, { maxOperations: 1 }),
+      ]);
+      expect(operations.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+
+      const runtimeQuota = {
+        maxRuntimeMemoryBytes: 8,
+        maxRuntimeCpuMs: 10,
+        maxRuntimeDurationMs: 10,
+      };
+      const runtime = await Promise.allSettled([
+        stores.first.consumeRuntime('budget', { memoryBytes: 4, cpuMs: 6, durationMs: 4 }, runtimeQuota),
+        stores.second.consumeRuntime('budget', { memoryBytes: 4, cpuMs: 6, durationMs: 4 }, runtimeQuota),
+      ]);
+      expect(runtime.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    });
+
+    it('isolates namespaces and reclaims only expired or explicitly deleted leases', async () => {
+      const stores = createPair();
+      await stores.first.createNamespace('lease-a', 2_000, { maxConcurrentLeases: 3 });
+      await stores.second.createNamespace('lease-b', 1_500, { maxConcurrentLeases: 3 });
+      await stores.first.write('lease-a', 'private.txt', new TextEncoder().encode('a'), {
+        maxBytes: 10, maxFiles: 1,
+      });
+      expect(await stores.second.read('lease-b', 'private.txt')).toBeUndefined();
+
+      expect(await stores.second.deleteNamespace('lease-a')).toBe(true);
+      expect(await stores.first.read('lease-b', 'private.txt')).toBeUndefined();
+      expect(await stores.first.deleteExpired(1_500)).toBe(1);
+      expect(await stores.second.deleteExpired(1_500)).toBe(0);
+    });
+  });
+}
