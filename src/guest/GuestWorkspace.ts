@@ -16,28 +16,18 @@ export interface GuestWorkspaceCapabilities {
 }
 
 export interface GuestWorkspaceQuotas {
-  /** Maximum live bytes in one guest workspace. */
   maxBytes: number;
-  /** Maximum live files in one guest workspace. */
   maxFiles: number;
-  /** Maximum workspace operations in one lease. */
   maxOperations: number;
-  /** Maximum simultaneously active guest leases in one deployment. */
   maxConcurrentLeases: number;
-  /** Maximum runtime memory reservation for one lease. */
   maxRuntimeMemoryBytes: number;
-  /** Maximum cumulative runtime CPU time for one lease. */
   maxRuntimeCpuMs: number;
-  /** Maximum cumulative runtime duration for one lease. */
   maxRuntimeDurationMs: number;
 }
 
 export interface GuestRuntimeUsage {
-  /** Current/peak reserved memory, not cumulative allocation churn. */
   memoryBytes: number;
-  /** Cumulative CPU time consumed by the lease. */
   cpuMs: number;
-  /** Cumulative wall-clock runtime duration for the lease. */
   durationMs: number;
 }
 
@@ -50,27 +40,11 @@ export interface GuestWorkspaceEntry {
 }
 
 export interface GuestWorkspaceStore {
-  /**
-   * Atomically create a namespace if absent. Repeated calls for the same namespace
-   * MUST preserve existing contents and expiry; they must never reset a live lease.
-   * Enforce maxConcurrentLeases across this deployment's active namespaces.
-   */
-  createNamespace(
-    namespace: string,
-    expiresAt: number,
-    limits: Pick<GuestWorkspaceQuotas, 'maxConcurrentLeases'>,
-  ): Promise<void>;
+  /** Atomically create-if-absent; repeated calls must preserve contents and expiry. */
+  createNamespace(namespace: string, expiresAt: number, limits: Pick<GuestWorkspaceQuotas, 'maxConcurrentLeases'>): Promise<void>;
   read(namespace: string, path: string): Promise<Uint8Array | undefined>;
-  /**
-   * Atomically enforce live workspace byte/file limits while replacing or creating
-   * the file. Directory markers are not counted as files.
-   */
-  write(
-    namespace: string,
-    path: string,
-    data: Uint8Array,
-    limits: Pick<GuestWorkspaceQuotas, 'maxBytes' | 'maxFiles'>,
-  ): Promise<void>;
+  /** Atomically enforce live byte/file limits; directory markers are not files. */
+  write(namespace: string, path: string, data: Uint8Array, limits: Pick<GuestWorkspaceQuotas, 'maxBytes' | 'maxFiles'>): Promise<void>;
   delete(namespace: string, path: string): Promise<boolean>;
   mkdir(namespace: string, path: string): Promise<void>;
   list(namespace: string, prefix: string): Promise<GuestWorkspaceEntry[]>;
@@ -99,11 +73,12 @@ const DEFAULT_QUOTAS: GuestWorkspaceQuotas = {
 };
 
 function namespaceFor(lease: GuestLeaseBinding): string {
-  return `guest/${encodeURIComponent(lease.appId)}/${encodeURIComponent(lease.deploymentId)}/${encodeURIComponent(lease.leaseId)}/${encodeURIComponent(lease.workspaceId)}`;
+  return 'guest/' + encodeURIComponent(lease.appId) + '/' + encodeURIComponent(lease.deploymentId) + '/' +
+    encodeURIComponent(lease.leaseId) + '/' + encodeURIComponent(lease.workspaceId);
 }
 
 function cleanPath(path: string): string {
-  const normalized = path.replaceAll('\\\\', '/').replace(/^\\/+/, '');
+  const normalized = path.replaceAll('\\', '/').replace(/^\/+/, '');
   if (!normalized || normalized.split('/').some((part) => part === '..' || part === '.')) {
     throw new Error('Guest workspace path must be relative and traversal-free');
   }
@@ -112,12 +87,12 @@ function cleanPath(path: string): string {
 
 function assertSupported(capabilities: GuestWorkspaceCapabilities): void {
   const missing = (['leaseAffinity', 'volatileWorkspace', 'ttlCleanup'] as const).filter((key) => !capabilities[key]);
-  if (missing.length) throw new Error(`Guest workspace unsupported: ${missing.join(', ')}`);
+  if (missing.length) throw new Error('Guest workspace unsupported: ' + missing.join(', '));
 }
 
 function assertPositiveQuotas(quotas: GuestWorkspaceQuotas): void {
   for (const [name, value] of Object.entries(quotas)) {
-    if (!Number.isFinite(value) || value <= 0) throw new Error(`Guest workspace quota ${name} must be positive`);
+    if (!Number.isFinite(value) || value <= 0) throw new Error('Guest workspace quota ' + name + ' must be positive');
   }
 }
 
