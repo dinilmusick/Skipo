@@ -14,6 +14,7 @@ This is the canonical entry point for an agent or developer creating a new Skipo
 ```text
 Skipo App
 ├── src/frontend/                 client presentation
+│   └── main.tsx                  canonical Vite browser bootstrap
 │   └── pages/
 │       ├── auth/                 mandatory authentication surface
 │       ├── menus/
@@ -39,7 +40,7 @@ Skipo App
 └── .github/workflows/            CI validation/build
 ```
 
-The detailed backend/runtime boundary rules are defined by [APP_ARCHITECTURE_SPEC](../app-architecture-spec/SKILL.md). The frontend contract is enforced by checklist 19.
+For Vite applications, root `index.html` loads `src/frontend/main.tsx`; that file mounts the frontend app and is the only canonical Vite browser bootstrap. The universal backend Fetch ingress remains `src/app.ts` and is not a frontend entrypoint. The detailed backend/runtime boundary rules are defined by [APP_ARCHITECTURE_SPEC](../app-architecture-spec/SKILL.md). The frontend contract is enforced by checklist 19.
 
 ## 2. Workspace and storage model
 

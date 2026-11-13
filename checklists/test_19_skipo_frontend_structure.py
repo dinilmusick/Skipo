@@ -68,3 +68,44 @@ class SkipoFrontendStructureTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_vite_frontend_entrypoint_is_canonical():
+    root = SkipoFrontendStructureTests().make_fixture()
+    (root / "vite.config.ts").write_text("export default {};")
+    (root / "src/frontend/main.tsx").write_text("createRoot(root).render(<App />);")
+    (root / "index.html").write_text(
+        '<div id="root"></div><script type="module" src="/src/frontend/main.tsx"></script>'
+    )
+    result = mod.validate_skipo_frontend_structure(root)
+    assert result.passed
+
+
+def test_vite_frontend_entrypoint_rejects_obsolete_root_src_main():
+    root = SkipoFrontendStructureTests().make_fixture()
+    (root / "vite.config.ts").write_text("export default {};")
+    (root / "src/main.tsx").parent.mkdir(parents=True, exist_ok=True)
+    (root / "src/main.tsx").write_text("createRoot(root).render(<App />);")
+    (root / "index.html").write_text(
+        '<div id="root"></div><script type="module" src="/src/main.tsx"></script>'
+    )
+    result = mod.validate_skipo_frontend_structure(root)
+    rule_ids = {v.rule_id for v in result.violations}
+    assert "missing-skipo-vite-frontend-entrypoint" in rule_ids
+    assert "noncanonical-skipo-vite-entry-reference" in rule_ids
+
+
+def test_app_architecture_validator_enforces_vite_frontend_entrypoint():
+    validator_path = ROOT / "10_app_architecture_spec_validator.py"
+    validator_spec = spec_from_file_location("app_architecture_spec_validator", validator_path)
+    validator = module_from_spec(validator_spec)
+    validator_spec.loader.exec_module(validator)
+
+    root = SkipoFrontendStructureTests().make_fixture()
+    (root / "vite.config.ts").write_text("export default {};")
+    (root / "src/frontend/main.tsx").write_text("createRoot(root).render(<App />);")
+    (root / "index.html").write_text(
+        '<div id="root"></div><script type="module" src="/src/main.tsx"></script>'
+    )
+    result = validator.validate_app_architecture_spec(root)
+    assert any(v.rule_id == "vite-frontend-entrypoint-noncanonical" for v in result.violations)

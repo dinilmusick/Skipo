@@ -76,6 +76,15 @@ class ScaffoldRegressionTest(unittest.TestCase):
         self.assertFalse((SKIPO_ROOT / "scaffolds/nextjs/app/api/aiko").exists())
         self.assertFalse((SKIPO_ROOT / "scaffolds/nextjs/app/api/fod").exists())
 
+    def test_vite_uses_frontend_plane_browser_entrypoint(self):
+        base = SKIPO_ROOT / "scaffolds" / "vite"
+        index_html = (base / "index.html").read_text(encoding="utf-8")
+        entrypoint = base / "src" / "frontend" / "main.tsx"
+        self.assertTrue(entrypoint.is_file(), "Canonical Vite frontend entrypoint missing")
+        self.assertIn('/src/frontend/main.tsx', index_html)
+        self.assertNotIn('/src/main.tsx', index_html)
+        self.assertFalse((base / "src" / "main.tsx").exists(), "Obsolete root src/main.tsx must not remain")
+
     def test_provider_entries_share_the_fetch_contract_without_node_leakage(self):
         for scaffold_name in ["vite", "nextjs"]:
             base = SKIPO_ROOT / "scaffolds" / scaffold_name

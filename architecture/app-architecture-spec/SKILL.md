@@ -126,8 +126,10 @@ export const service: ServiceDefinition = { ... };
 
 ## 5. ROOT FILE PRESERVATION
 
+The Vite browser entry contract is deliberately distinct from the universal backend Fetch ingress (`src/app.ts`): `src/frontend/main.tsx` mounts the React application, while `src/app.ts` handles backend/provider requests. These are separate runtime surfaces, not competing frontend entrypoints.
+
 For universal deployment to Google AI Studio, Project IDX, and Vercel:
-- In **Vite** apps: `index.html` **MUST** remain directly in the project root pointing to `/src/main.tsx`.
+- In **Vite** apps: `index.html` **MUST** remain directly in the project root and load the canonical browser bootstrap at `/src/frontend/main.tsx`. The bootstrap itself lives inside the frontend plane; do not create or require a parallel `src/main.tsx` entrypoint.
 - In **Next.js** apps: `package.json` and `next.config.ts` **MUST** remain directly in the project root.
 
 ---

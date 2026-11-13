@@ -49,6 +49,26 @@ def validate_skipo_frontend_structure(root_dir: Path) -> ChecklistResult:
     if "skipo" not in package:
         return ChecklistResult(ASPECT_ID, ASPECT_TITLE, True, [], 1, (time.time() - start) * 1000, 100.0)
 
+    # Vite applications have one canonical frontend bootstrap inside the frontend plane.
+    is_vite = (root_dir / "vite.config.ts").is_file() or (root_dir / "vite.config.js").is_file()
+    if is_vite:
+        entrypoint = root_dir / "src" / "frontend" / "main.tsx"
+        index_html = root_dir / "index.html"
+        if not entrypoint.is_file():
+            violations.append(Violation(
+                "missing-skipo-vite-frontend-entrypoint", "error",
+                "Vite Skipo applications must provide src/frontend/main.tsx as the canonical browser bootstrap.",
+                "src/frontend/main.tsx",
+                suggestion="Keep the React bootstrap inside src/frontend/; do not add a parallel src/main.tsx entrypoint."
+            ))
+        if not index_html.is_file() or "/src/frontend/main.tsx" not in index_html.read_text(encoding="utf-8", errors="ignore"):
+            violations.append(Violation(
+                "noncanonical-skipo-vite-entry-reference", "error",
+                "Root index.html must load /src/frontend/main.tsx.",
+                "index.html",
+                suggestion="Point the Vite module script at /src/frontend/main.tsx."
+            ))
+
     pages = root_dir / "src" / "frontend" / "pages"
     for rel in REQUIRED_DIRS:
         if not (root_dir / rel).is_dir():
