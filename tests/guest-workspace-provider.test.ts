@@ -9,7 +9,8 @@ import { createGuestWorkspaceFactory } from '../src/guest/GuestWorkspaceFactory.
 
 class MemoryGuestWorkspaceStore implements GuestWorkspaceStore {
   readonly namespaces = new Map<string, Map<string, Uint8Array>>();
-  readonly calls = { create: 0, read: 0, write: 0, delete: 0, mkdir: 0, list: 0, destroy: 0, cleanup: 0 };
+  readonly calls = { create: 0, read: 0, write: 0, delete: 0, mkdir: 0, list: 0, consume: 0, destroy: 0, cleanup: 0 };
+  readonly usage = new Map<string, { bytes: number; operations: number }>();
 
   async createNamespace(namespace: string): Promise<void> { this.calls.create += 1; this.namespaces.set(namespace, new Map()); }
   async read(namespace: string, path: string): Promise<Uint8Array | undefined> { this.calls.read += 1; return this.namespaces.get(namespace)?.get(path); }
@@ -30,10 +31,17 @@ class MemoryGuestWorkspaceStore implements GuestWorkspaceStore {
     const files = this.namespaces.get(namespace);
     if (!files) return [];
     return [...files.entries()]
-      .filter(([path]) => path === prefix || path.startsWith(`${prefix}/`))
+      .filter(([path]) => !prefix || path === prefix || path.startsWith(`${prefix}/`))
       .map(([path, data]) => ({ path, name: path.split('/').pop() ?? path, sizeBytes: data.byteLength, updatedAt: 1_000, isFolder: path.startsWith('.dir/') }));
   }
-  async deleteNamespace(namespace: string): Promise<boolean> { this.calls.destroy += 1; return this.namespaces.delete(namespace); }
+  async consume(namespace: string, usage: { bytes: number; operations: number }, quota: { maxBytes: number; maxOperations: number }): Promise<void> {
+    this.calls.consume += 1;
+    const current = this.usage.get(namespace) ?? { bytes: 0, operations: 0 };
+    if (current.bytes + usage.bytes > quota.maxBytes) throw new Error('Guest byte quota exceeded');
+    if (current.operations + usage.operations > quota.maxOperations) throw new Error('Guest operation quota exceeded');
+    this.usage.set(namespace, { bytes: current.bytes + usage.bytes, operations: current.operations + usage.operations });
+  }
+  async deleteNamespace(namespace: string): Promise<boolean> { this.calls.destroy += 1; this.usage.delete(namespace); return this.namespaces.delete(namespace); }
   async deleteExpired(): Promise<number> { this.calls.cleanup += 1; return 0; }
 }
 
@@ -81,7 +89,7 @@ describe('GuestWorkspaceProvider', () => {
     expect(store.calls.read).toBe(readsBefore);
   });
 
-  it('enforces byte and operation quotas without persistent adapters', async () => {
+  it('enforces byte and operation quotas through the volatile store contract', async () => {
     const store = new MemoryGuestWorkspaceStore();
     const provider = new GuestWorkspaceProvider({
       store, capabilities, quotas: { maxBytes: 3, maxOperations: 2 }, now: () => 1_000,
@@ -91,6 +99,7 @@ describe('GuestWorkspaceProvider', () => {
     await expect(provider.writeFile(lease('one'), 'b.txt', 'd')).rejects.toThrow(/quota exceeded/);
     await expect(provider.readFile(lease('one'), 'missing')).rejects.toThrow(/quota exceeded/);
     expect(store.calls.write).toBe(1);
+    expect(store.calls.consume).toBe(1);
   });
 
   it('destroys namespaces and delegates only to the volatile store contract', async () => {
