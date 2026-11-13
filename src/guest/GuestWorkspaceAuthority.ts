@@ -252,8 +252,8 @@ export interface GuestWorkspaceAuthorityHandlerOptions {
   /** At least 32 random bytes, injected from deployment secrets. */
   serviceToken: string;
   authority: GuestWorkspaceStore;
-  /** Optional exact app/deployment namespace prefix, e.g. guest/my-app/prod/. */
-  namespacePrefix?: string;
+  /** Exact app/deployment namespace prefix, e.g. guest/my-app/prod/. */
+  namespacePrefix: string;
   maxBodyBytes?: number;
 }
 
@@ -314,8 +314,7 @@ export function createGuestWorkspaceAuthorityHandler(
   if (options.serviceToken.length < 43) throw new Error('Guest authority service token must contain at least 32 random bytes');
   const maxBodyBytes = options.maxBodyBytes ?? 16 * 1024 * 1024;
   positiveInteger(maxBodyBytes, 'maxBodyBytes');
-  if (options.namespacePrefix !== undefined &&
-      (!options.namespacePrefix.startsWith('guest/') || !options.namespacePrefix.endsWith('/'))) {
+  if (!options.namespacePrefix.startsWith('guest/') || !options.namespacePrefix.endsWith('/')) {
     throw new Error('Guest authority namespacePrefix must be an app/deployment guest namespace prefix');
   }
 
@@ -346,7 +345,7 @@ export function createGuestWorkspaceAuthorityHandler(
       const input = object(JSON.parse(new TextDecoder().decode(raw)));
       const action = stringField(input, 'action');
       const namespace = typeof input.namespace === 'string' ? input.namespace : '';
-      if (actionNeedsNamespace(action) && options.namespacePrefix && !namespace.startsWith(options.namespacePrefix)) {
+      if (actionNeedsNamespace(action) && !namespace.startsWith(options.namespacePrefix)) {
         throw new GuestWorkspaceAuthorityError('Guest namespace is outside this authority scope', 'NAMESPACE_SCOPE_REJECTED', 403);
       }
       let result: unknown;
