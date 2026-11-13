@@ -120,5 +120,5 @@ $$\text{Zustand} \neq \text{execution queue}, \quad \text{p-queue} \neq \text{st
 
 - `p-queue` is the sole canonical scheduling engine for Skipo command execution.
 - Queue contents, status, and idempotency caches are process-local and volatile; they are lost on process exit and are not shared between replicas.
-- Do not configure Redis, BullMQ, a broker, or a separate worker process for this queue contract.
-- Durable execution, cross-process coordination, and crash recovery are outside this in-process queue contract and must be provided by an explicitly separate persistence/orchestration layer if later required.
+- Do not configure Redis, an external broker, or a separate worker process for this queue contract.
+- The queue runner is an in-process function scheduled by p-queue, not a worker process. Durable execution, cross-process coordination, and crash recovery are outside this queue contract and require a separately specified persistence/orchestration layer if ever needed.
