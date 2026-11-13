@@ -1,30 +1,23 @@
----
-name: backend-environment-hosting
-description: Deployment and hosting directives for Vercel Serverless/Edge, Local Desktop, and LAN/Docker.
----
+# Multi-Environment Hosting Directives
 
-# MULTI-ENVIRONMENT HOSTING DIRECTIVES
+## Standard Skipo application environment
 
-## 1. HOSTING MATRIX & INVARIANTS
+The canonical application contract is intentionally small:
 
-| Target Platform | DB Strategy | Storage Strategy | Invariant Rules |
-| :--- | :--- | :--- | :--- |
-| **Vercel Serverless** | Postgres / Supabase Pooler | AWS S3 / Supabase / R2 | Stateless, SSL, dynamic dev imports, sanitize DB URL |
-| **Local Desktop** | SQLite (WAL mode) | Local Filesystem | Zero-divergence Control Plane, normalized paths |
-| **Docker / LAN** | PocketBase / Postgres | Local FS / MinIO | Bind `0.0.0.0`, dynamic CORS, `/api/health` probe |
+- APP_URL — application origin; optional where the platform supplies an equivalent canonical origin.
+- SYSTEM_DATABASE_URL — mandatory system database connection.
+- SYSTEM_DATABASE_URL_2 / SYSTEM_DATABASE_URL_3 — optional fallback system database connections.
+- DEPM_GATEWAY_DOMAIN — DEPM-Engine only exception.
 
-## 2. SERVERLESS EXECUTION CONSTRAINTS
+All other application environment variables are allowed but strongly discouraged. The Skipo runtime-environment validator reports ENV-001 warnings for them rather than failing validation. This preserves a controlled escape hatch for genuinely necessary integrations without allowing application-specific environment contracts to become the default.
 
-$$\begin{array}{ll}
-\mathbf{E_1} \text{ (No Ephemeral Persistence)} & \text{Persistence} \cap \{/\text{tmp}\} = \emptyset \implies \text{Use Cloud Blob / DB} \\
-\mathbf{E_2} \text{ (Dynamic Dev Tooling)} & \forall t \in \{\text{vite}, \text{esbuild}\}: t \xrightarrow{\text{import}} \text{dynamic inside } (\neg\text{VERCEL} \wedge \neg\text{PROD}) \\
-\mathbf{E_3} \text{ (Sanitized DB URLs)} & \text{Conn}(url) \implies \neg\text{Matches}(url, \text{"example.com"|"sample.neon"}) \\
-\mathbf{E_4} \text{ (Safe JSON Ingress)} & \text{ParseJSON}(res) \implies \text{ContentType}(res) = \text{"application/json"} \\
-\mathbf{E_5} \text{ (Strict Env Invariant)} & \text{AppEnvVars} \subseteq \{\text{SYSTEM\_DATABASE\_URL\_1}, \text{SYSTEM\_DATABASE\_URL\_2}, \text{SYSTEM\_DATABASE\_URL\_3}\} \\
-\mathbf{E_6} \text{ (System Bucket \& Creds)} & \text{AdminAuth} \oplus \text{SystemBucket} \subset \text{DBTable}(\text{ultrst\_credentials})
-\end{array}$$
+Prefer storing service URLs, provider configuration, and mutable runtime settings in the system database or the appropriate runtime settings/credential store.
 
-## 3. DESKTOP LOCAL SQLITE CONTRACT
+## Serverless execution constraints
+
+E5 (Strict Env Governance): AppEnvVars SHOULD be a subset of {APP_URL, SYSTEM_DATABASE_URL, SYSTEM_DATABASE_URL_2, SYSTEM_DATABASE_URL_3}. DEPM_GATEWAY_DOMAIN is an explicit DEPM-Engine-only exception. Any other variable is a governance warning, not a hard failure.
+
+## Desktop local SQLite contract
 
 ```typescript
 db.pragma("journal_mode = WAL");

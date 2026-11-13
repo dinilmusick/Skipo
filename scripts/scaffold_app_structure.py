@@ -783,6 +783,12 @@ def run_validators(target_root: Path) -> Tuple[bool, str]:
         if res.returncode != 0:
             errors.append(f"[ASPECT 23 VIOLATION]\n{res.stdout or res.stderr}")
 
+    val_26 = SKIPO_ROOT / "checklists" / "26_skipo_runtime_environment_governance.py"
+    if val_26.exists():
+        # Environment deviations are governance warnings, so this validator never
+        # blocks scaffold generation; its output remains visible to the caller.
+        subprocess.run(["python3", str(val_26), str(target_root)], capture_output=False, text=True)
+
     # If tsconfig.json and node_modules exist, run TypeScript typecheck
     tsconfig = target_root / "tsconfig.json"
     if tsconfig.exists() and (target_root / "node_modules").exists():
