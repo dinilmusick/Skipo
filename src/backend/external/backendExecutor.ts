@@ -13,7 +13,7 @@ export function createBackendCapabilityExecutor(backend: IBackendFacade): Capabi
             workspaceId: context.principal.workspaceId,
             capabilities: [...context.principal.capabilities],
           }
-        : context.principal
+        : context.principal && 'userId' in context.principal
           ? {
               kind: 'authenticated' as const,
               userId: context.principal.userId,
