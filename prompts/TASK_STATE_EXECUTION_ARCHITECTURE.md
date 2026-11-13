@@ -1,8 +1,8 @@
 # TASK: STATE_EXECUTION_ARCHITECTURE_ENFORCEMENT
 
-$$\text{Valid}(\mathcal{P}) \iff \text{SkipoState}(\mathcal{P}) \wedge \text{ZustandGlobal}(\mathcal{P}) \wedge \text{AcyclicLifecycle}(\mathcal{P}) \wedge \text{BullMQExecution}(\mathcal{P}) \wedge \text{WorkerFacadeBoundary}(\mathcal{P}) \wedge (\text{ExitCode}(\text{Validator}) = 0)$$
+$$\text{Valid}(\mathcal{P}) \iff \text{SkipoState}(\mathcal{P}) \wedge \text{ZustandGlobal}(\mathcal{P}) \wedge \text{AcyclicLifecycle}(\mathcal{P}) \wedge \text{PQueueExecution}(\mathcal{P}) \wedge \text{WorkerFacadeBoundary}(\mathcal{P}) \wedge (\text{ExitCode}(\text{Validator}) = 0)$$
 
-> **EXCLUSIVE SCOPE**: This prompt owns **frontend state management (`SKIPO_STATE` / Zustand), explicit lifecycle graph governance, execution transport (`SKIPO_COMMAND` / BullMQ), Worker-only Backend Facade boundary, and deterministic Operation Components**.
+> **EXCLUSIVE SCOPE**: This prompt owns **frontend state management (`SKIPO_STATE` / Zustand), explicit lifecycle graph governance, execution transport (`SKIPO_COMMAND` / p-queue), Queue-runner-only Backend Facade boundary, and deterministic Operation Components**.
 >
 > **Validator**:
 > ```bash
@@ -10,7 +10,7 @@ $$\text{Valid}(\mathcal{P}) \iff \text{SkipoState}(\mathcal{P}) \wedge \text{Zus
 > ```
 >
 > **INVIOLABLE MANDATE: ZERO-TRACE LEGACY STATE & EXECUTION PURGE ($\mathbf{L_{21}}$)**:
-> Completely purge any competing legacy state managers (e.g. Redux, MobX, scattered unmanaged React Contexts, ad-hoc event emitters) and competing execution pipelines (e.g. in-process unthrottled queues, ad-hoc cron loops). Leave zero trace behind. The app must exclusively use `SKIPO_STATE` (Zustand) and `SKIPO_COMMAND` (BullMQ) execution boundaries.
+> Completely purge any competing legacy state managers (e.g. Redux, MobX, scattered unmanaged React Contexts, ad-hoc event emitters) and competing execution pipelines (e.g. unbounded competing queues, ad-hoc cron loops). Leave zero trace behind. The app must exclusively use `SKIPO_STATE` (Zustand) and `SKIPO_COMMAND` (p-queue) execution boundaries.
 
 ---
 
@@ -78,9 +78,9 @@ const [selection, setSelection] = useSkipoState<string | null>(
 
 ---
 
-## 2. EXECUTION SYSTEM: BULLMQ COMMAND BOUNDARY (Invariants I7–I10)
+## 2. EXECUTION SYSTEM: P-QUEUE COMMAND SCHEDULER (Invariants I7–I10)
 
-$$\text{EXECUTION\_PIPELINE} := \text{FRONTEND\_COMPONENT} \to \text{SKIPO\_COMMAND} \to \text{BullMQ} \to \text{JOB} \to \text{WORKER} \to \text{BACKEND\_FACADE} \to \text{SERVICE} \to \text{OPERATION\_COMPONENT}$$
+$$\text{EXECUTION\_PIPELINE} := \text{FRONTEND\_COMPONENT} \to \text{SKIPO\_COMMAND} \to \text{p-queue} \to \text{JOB} \to \text{WORKER} \to \text{BACKEND\_FACADE} \to \text{SERVICE} \to \text{OPERATION\_COMPONENT}$$
 
 ### 2.1 Banned Execution Patterns
 ```tsx
@@ -100,7 +100,7 @@ await db.insert(workspaces).values(data);
 
 ### 2.2 Mandatory Replacement Pattern
 ```tsx
-// ✅ CORRECT — Dispatched via useCommand -> BullMQ execution queue
+// ✅ CORRECT — Dispatched via useCommand -> p-queue execution queue
 import { useCommand } from '@skipo/systems/execution';
 
 export function WorkspaceCreator() {
@@ -127,7 +127,7 @@ export function WorkspaceCreator() {
 $$\text{BACKEND\_FACADE} := \text{SINGLE\_PUBLIC\_EXECUTION\_INTERFACE}, \quad \text{FACADE\_ACCESS} := \text{WORKER\_ONLY}$$
 
 ### 3.1 Backend Facade Invariant
-The backend facade is accessible **ONLY** by BullMQ Workers. Any call lacking `isWorkerContext: true` is immediately rejected.
+The backend facade is accessible **ONLY** through the in-process p-queue runner under `WorkerExecutionBoundary`. Any call lacking `isWorkerContext: true` is immediately rejected.
 
 ```typescript
 // src/backend/AppBackend.ts
@@ -139,7 +139,7 @@ export const appWorker = new WorkerExecutionBoundary('app_worker_1', appBackendF
 export const AppBackend = {
   services: {},
   orchestrations: {},
-  worker: appWorker,
+  queueRunner: appWorker,
   WorkerExecutionBoundary: appWorker,
 };
 ```
@@ -168,8 +168,8 @@ export const createWorkspaceOp = createOperationComponent(
 
 $$\text{operation} \to \text{service} \to \text{facade} \to \text{worker} \to \text{job\_result} \to \text{frontend\_state\_update} \to \text{Zustand}$$
 
-1. The Worker receives the result from the operation component via the Backend Facade.
-2. The Worker normalizes the result: `{ correlationId, status: 'COMPLETED', data }`.
+1. The in-process queue runner receives the result from the operation component via the Backend Facade.
+2. The queue runner normalizes the result: `{ correlationId, status: 'COMPLETED', data }`.
 3. `SKIPO_EXECUTION.propagateResult` updates `SKIPO_STATE` (Zustand).
 4. Any component subscribed to `useCommand` or `useSkipoState` reacts instantly without polling or manual re-fetching.
 
