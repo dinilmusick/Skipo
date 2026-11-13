@@ -1,4 +1,4 @@
-import { describeGuestWorkspaceStoreConformance } from './guest-workspace-store.conformance.js';
+import { defineGuestWorkspaceStoreConformance } from './guest-workspace-store.conformance.js';
 import type {
   GuestRuntimeUsage,
   GuestWorkspaceEntry,
