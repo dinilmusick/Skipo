@@ -2,7 +2,7 @@
 
 > **FOR DEVELOPERS & AI CODING AGENTS**:
 > Read [**`SCAFFOLD_GUIDE.md`**](./SCAFFOLD_GUIDE.md) before writing code.
-> Authentication, Neon Database, Cloud Storage, BullMQ Queues, UI Primitives, BottomStrip Hover Inspection, and React Flow Node Graph are **ALREADY SOLVED AND WIRED**. Do not re-invent them.
+> Authentication, Neon Database, Cloud Storage, p-queue scheduling, UI Primitives, BottomStrip Hover Inspection, and React Flow Node Graph are **ALREADY SOLVED AND WIRED**. Do not re-invent them.
 
 ---
 
@@ -26,7 +26,7 @@ python3 Skipo/scripts/rename_app.py "YourAppName"
 - **NodeGraph Suite (`src/frontend/components/nodegraph/`)**:
   Full React Flow canvas with wheel zoom, middle-click pan, Space-drag, marquee box selection, and full hotkey matrix (`Del`, `Cmd+Z`, `Cmd+Y`, `Cmd+C`, `Cmd+V`, `Cmd+A`, `0` origin).
 - **Background Execution Queue (`src/backend/queue/commandQueue.ts`)**:
-  BullMQ queue with automatic Redis detection and local in-memory fallback. Dispatched via `apiClient.dispatchCommand(type, payload)`.
+  In-process p-queue scheduler with bounded concurrency and retry handling; queue state is volatile and process-local. Dispatched via `apiClient.dispatchCommand(type, payload)`.
 - **Zod Validation (`src/libraries/validation/schemas.ts`)**:
   Boundary validation and formatted error responses (`formatZodError`).
 - **Unified Neon Database (`src/backend/services/core/unifiedDb.ts`)**:
