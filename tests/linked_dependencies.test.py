@@ -202,7 +202,7 @@ def test_near_matching_component_identifier_does_not_count_as_export():
         backend = root / "Skipo/src/backend"
         backend.mkdir(parents=True)
         (backend / "AppBackend.ts").write_text(
-            "import { NodeGraphEngineServiceFacade } from '@kloks/state-graph';\\n"
+            "import { NodeGraphEngineServiceFacade } from '@kloks/state-graph';\n"
             "export const AppBackend = { services: { nodeGraph: NodeGraphEngineServiceFacade } };",
             encoding="utf-8",
         )
