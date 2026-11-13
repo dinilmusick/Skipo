@@ -1,5 +1,6 @@
 'use client';
 
+import { SkipoThemeProvider } from '@ultrst-armada/floks/ui';
 import { LuthAuthPage } from '@ultrst-armada/floks/auth';
 import MainPage from './pages/main/page.js';
 import { getSkipoApplicationId, luthAuthClient } from '../libraries/client/luthAuthClient.js';
@@ -11,19 +12,21 @@ export function App() {
   const applicationId = getSkipoApplicationId();
 
   return (
-    <LuthAuthPage
-      ecosystemId="ultrst-armada"
-      applicationId={applicationId}
-      appName="SKIPO APP"
-      authenticatedContent={
-        <>
-          <header style={{ display: 'flex', justifyContent: 'flex-end', padding: 12 }}>
-            <button type="button" onClick={() => { void luthAuthClient.signOut().then(() => window.location.assign('/login')); }}>Sign out</button>
-          </header>
-          <Page />
-        </>
-      }
-    />
+    <SkipoThemeProvider defaultTheme="dark">
+      <LuthAuthPage
+        ecosystemId="ultrst-armada"
+        applicationId={applicationId}
+        appName="SKIPO APP"
+        authenticatedContent={
+          <>
+            <header style={{ display: 'flex', justifyContent: 'flex-end', padding: 12 }}>
+              <button type="button" onClick={() => { void luthAuthClient.signOut().then(() => window.location.assign('/login')); }}>Sign out</button>
+            </header>
+            <Page />
+          </>
+        }
+      />
+    </SkipoThemeProvider>
   );
 }
 
