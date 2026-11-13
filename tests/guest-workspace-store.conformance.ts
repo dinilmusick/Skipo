@@ -64,6 +64,8 @@ export function defineGuestWorkspaceStoreConformance(
         maxBytes: 16, maxFiles: 1,
       });
       expect(new TextDecoder().decode(await stores.second.read('same', 'state.txt'))).toBe('kept');
+      expect(await stores.first.deleteExpired(2_500)).toBe(1);
+      expect(await stores.second.read('same', 'state.txt')).toBeUndefined();
     });
 
     it('atomically enforces live byte and file quotas across adapters', async () => {
