@@ -82,8 +82,9 @@ describe('guest workspace volatile authority boundary', () => {
       endpoint: 'https://guest-authority.test', serviceToken: SERVICE_TOKEN, fetch: restartedFetch,
     });
 
-    await expect(restartedStore.read('guest/app/deployment/lease/workspace', 'draft.txt'))
+    await expect(restartedStore.consume('guest/app/deployment/lease/workspace', { operations: 1 }, { maxOperations: 10 }))
       .rejects.toMatchObject({ code: 'GUEST_WORKSPACE_UNAVAILABLE', status: 410 });
+    await expect(restartedStore.read('guest/app/deployment/lease/workspace', 'draft.txt')).resolves.toBeUndefined();
   });
 
   it('exposes only a non-sensitive volatile-mode health contract', async () => {
