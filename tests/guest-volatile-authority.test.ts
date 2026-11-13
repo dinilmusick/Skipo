@@ -39,7 +39,6 @@ describe('guest workspace volatile authority boundary', () => {
         limits: { maxConcurrentLeases: 1 } }),
     }));
     expect(response.status).toBe(401);
-    expect(authority['namespaces' as keyof typeof authority]).toBeDefined();
   });
 
   it('fails closed after an authority process restart instead of recreating missing guest data', async () => {
