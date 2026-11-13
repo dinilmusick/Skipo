@@ -88,7 +88,7 @@ ASPECT_RUNNERS = [
     ("aspect_21", "Package Manager & Lockfile Contract", mod_21.validate_lockfile_contract),
     ("aspect_22", "Skipo Import Direction Governance", mod_22.validate_import_direction),
     ("aspect_23", "Graph Application Contract", mod_23.validate_graph_application_contract),
-    ("aspect_25", "Skipo UI Style Pipeline", mod_24.validate_ui_style_pipeline),
+    ("aspect_25", "Skipo UI Style Pipeline", mod_24.validate),
     ("aspect_26", "Skipo Runtime Environment Governance", mod_25.validate)
 ]
 
