@@ -7,7 +7,7 @@ The guest workspace provider needs a shared, request-independent volatile data p
 - Generated applications use `HttpGuestWorkspaceStore` from their Fetch runtime.
 - One dedicated authority process owns guest bytes and atomic quota counters in memory.
 - The authority has no database, object-store, backup, disk, or persistent workspace adapter.
-- Every namespace is scoped by the framework-generated app/deployment/lease/workspace key.
+- Every namespace is scoped by the framework-generated app/deployment/lease/workspace key. Configure the authority's `namespacePrefix` to the exact `guest/<encoded-app-id>/<encoded-deployment-id>/` prefix and use a distinct service token per deployment.
 - The authority requires a private service token of at least 256 bits; the token belongs only in server-side deployment secrets.
 - Node, Cloudflare, and Vercel application handlers use the same HTTPS Fetch client. Their local process memory is never used for guest workspace state.
 
@@ -21,7 +21,7 @@ The guest workspace provider needs a shared, request-independent volatile data p
 
 ## Deployment constraints
 
-The authority is intentionally single-process and in-memory. Run exactly one authority instance for a deployment unless a future shared-memory authority implementation proves the same atomic semantics across replicas. Do not run multiple independent instances behind round-robin routing. Use private networking or an HTTPS ingress with service-to-service authentication; never expose the token to browser code. Configure a scheduler to invoke the authenticated `deleteExpired` operation at a bounded interval. The included Node host is a thin adapter and must sit behind TLS termination.
+The authority is intentionally single-process and in-memory. Run exactly one authority instance for one app/deployment namespace unless a future shared-memory authority implementation proves the same atomic semantics across replicas. Set `namespacePrefix` at startup so a leaked token cannot address another app/deployment namespace. Do not run multiple independent instances behind round-robin routing. Use private networking or an HTTPS ingress with service-to-service authentication; never expose the token to browser code. Configure a scheduler to invoke the authenticated `deleteExpired` operation at a bounded interval. The included Node host is a thin adapter and must sit behind TLS termination.
 
 The HTTP client can run in Node, Cloudflare Workers, and Vercel Functions because it depends only on Fetch. This does not certify those hosting providers by itself: each generated app must still prove its outbound authority binding, network policy, secret injection, quotas, and end-to-end lease behavior in its deployment environment.
 
