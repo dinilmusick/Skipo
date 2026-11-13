@@ -25,6 +25,7 @@ jobs:
       - run: python checklists/test_lockfile_contract.py
       - run: python -m pip install pytest
       - run: python -m pytest -q --import-mode=importlib tests/linked_dependencies.test.py
+      - run: python -m pytest -q --import-mode=importlib tests/guest_access_security_contract.test.py
       - run: python -m compileall -q scripts/skipo_builder.py checklists/24_module_architecture.py
       - run: pnpm test
       - run: pnpm run module:architecture
