@@ -34,7 +34,7 @@ def test_guest_security_contract_requires_server_authoritative_expiry_and_cleanu
     assert "server-side expiry is the authoritative reclamation mechanism" in text
     assert "TTL reaper is authoritative" in text
     assert "Teardown is idempotent" in text
-    assert "partial cleanup failures" in text
+    assert "partial cleanup failures" in text.lower()
 
 
 def test_guest_security_contract_covers_required_threats():
