@@ -118,3 +118,21 @@ def test_bundled_vite_scaffold_uses_canonical_frontend_entrypoint():
     assert '/src/frontend/main.tsx' in html
     assert '/src/main.tsx' not in html
     assert not (scaffold / "src/main.tsx").exists()
+
+
+def test_app_architecture_validator_accepts_canonical_vite_frontend_entrypoint():
+    validator_path = ROOT / "10_app_architecture_spec_validator.py"
+    validator_spec = spec_from_file_location("app_architecture_spec_validator_positive", validator_path)
+    validator = module_from_spec(validator_spec)
+    validator_spec.loader.exec_module(validator)
+
+    root = SkipoFrontendStructureTests().make_fixture()
+    (root / "vite.config.ts").write_text("export default {};")
+    (root / "src/frontend/main.tsx").write_text("createRoot(root).render(<App />);")
+    (root / "index.html").write_text(
+        '<div id="root"></div><script type="module" src="/src/frontend/main.tsx"></script>'
+    )
+    result = validator.validate_app_architecture_spec(root)
+    rule_ids = {v.rule_id for v in result.violations}
+    assert "vite-frontend-entrypoint-noncanonical" not in rule_ids
+    assert "missing-vite-frontend-entrypoint" not in rule_ids
