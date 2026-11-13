@@ -64,6 +64,7 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
             "version": "1.0.0",
             "private": True,
             "type": "module",
+            "skipo": {"deploy": "fullstack"},
             "dependencies": {
                 "@ultrst-armada/krnl": "^1.0.25",
                 "@ultrst-armada/kloks": "^1.26.6",
@@ -769,6 +770,12 @@ def run_validators(target_root: Path) -> Tuple[bool, str]:
         res = subprocess.run(["python3", str(val_22), str(target_root)], capture_output=True, text=True)
         if res.returncode != 0:
             errors.append(f"[ASPECT 22 VIOLATION]\n{res.stdout or res.stderr}")
+
+    val_25 = SKIPO_ROOT / "checklists" / "25_skipo_ui_style_pipeline.py"
+    if val_25.exists():
+        res = subprocess.run(["python3", str(val_25), str(target_root)], capture_output=True, text=True)
+        if res.returncode != 0:
+            errors.append(f"[ASPECT 25 VIOLATION]\n{res.stdout or res.stderr}")
 
     val_23 = SKIPO_ROOT / "checklists" / "23_graph_application_contract.py"
     if val_23.exists():
