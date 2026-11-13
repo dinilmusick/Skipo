@@ -329,8 +329,33 @@ def validate_app_architecture_spec(root_dir: Path) -> ChecklistResult:
                 severity="error",
                 message="Vite app is missing root 'index.html' required for Google AI Studio & Vercel deployment.",
                 file_path="index.html",
-                suggestion="Preserve 'index.html' directly in the root directory linking to '/src/main.tsx'."
+                suggestion="Preserve 'index.html' directly in the root directory loading the canonical browser entry '/src/frontend/main.tsx'."
             ))
+        else:
+            html = read_text_safe(index_html) or ""
+            script_tags = re.findall(r"<script\b[^>]*>", html, re.IGNORECASE)
+            canonical_entry = any(
+                re.search(r'\btype\s*=\s*["\']module["\']', tag, re.IGNORECASE)
+                and re.search(r'\bsrc\s*=\s*["\']/src/frontend/main\.tsx["\']', tag, re.IGNORECASE)
+                for tag in script_tags
+            )
+            if not canonical_entry:
+                violations.append(Violation(
+                    rule_id="vite-frontend-entrypoint-noncanonical",
+                    severity="error",
+                    message="Vite index.html must load /src/frontend/main.tsx as its browser entrypoint.",
+                    file_path="index.html",
+                    suggestion="Set the module script source to '/src/frontend/main.tsx'; do not point to the obsolete '/src/main.tsx'."
+                ))
+            frontend_entry = root_dir / "src" / "frontend" / "main.tsx"
+            if not frontend_entry.is_file():
+                violations.append(Violation(
+                    rule_id="missing-vite-frontend-entrypoint",
+                    severity="error",
+                    message="Canonical Vite frontend entrypoint 'src/frontend/main.tsx' is missing.",
+                    file_path="src/frontend/main.tsx",
+                    suggestion="Place the React browser bootstrap in src/frontend/main.tsx."
+                ))
 
     duration_ms = (time.time() - start_time) * 1000
     errors = sum(1 for v in violations if v.severity == "error")

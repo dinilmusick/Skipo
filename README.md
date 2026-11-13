@@ -28,7 +28,7 @@ src/frontend/pages/
 
 Auth and Workspace Tiles are mandatory ecosystem surfaces. Main owns the standardized top/bottom shell and application-level immersive mode; application-specific working UI belongs under `main/tabs/`. Settings is mandatory, with Themes and Accounts mandatory tabs. Accounts synchronize the authenticated user's app-relevant service accounts from SRKL.
 
-The contract is enforced by `checklists/19_skipo_frontend_structure.py` and included in the full-system validator and application scaffold.
+For Vite apps, root `index.html` loads the single canonical browser bootstrap at `src/frontend/main.tsx`; the backend Fetch ingress remains `src/app.ts`. The frontend contract is enforced by `checklists/10_app_architecture_spec_validator.py` and `checklists/19_skipo_frontend_structure.py`, both included in the full-system validator and application scaffold.
 
 ## 2. Directory Structure
 | Directory | Focus Area |
