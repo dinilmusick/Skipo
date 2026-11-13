@@ -78,6 +78,8 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
                 "zustand": "^5.0.15"
             },
             "devDependencies": {
+                "tailwindcss": "^4.3.4",
+                "@tailwindcss/vite": "^4.3.4"
                 "typescript": "^5.7.0",
                 "@types/node": "^22.0.0",
                 "@types/react": "^19.0.0",
@@ -608,6 +610,7 @@ export default MainPage;
     if not app_tsx.exists():
         app_tsx.write_text(
             """import { useState } from 'react';
+import { SkipoThemeProvider } from '@ultrst-armada/floks/ui';
 import MainPage from './pages/main/page.js';
 import AuthPage from './pages/auth/page.js';
 import { WorkspaceGate } from './components/gates/WorkspaceGate.js';
@@ -619,7 +622,8 @@ export function App() {
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceRecord | null>(null);
   const storageOptions = [{ id: 'memory', provider: 'memory', label: 'In-memory (ephemeral)' }];
 
-  return <AuthPage authenticatedContent={(auth: any) => {
+  return <SkipoThemeProvider defaultTheme="dark">
+    <AuthPage authenticatedContent={(auth: any) => {
     if (!activeWorkspace) {
       return <WorkspaceGate
         workspaces={workspaces}
@@ -654,7 +658,8 @@ export function App() {
         <div data-skipo-active-workspace={activeWorkspace.id} />
       </MainPage>
     </FrnlSemanticInputProvider>;
-  }} />;
+  }} />
+  </SkipoThemeProvider>;
 }
 
 export default App;
@@ -683,25 +688,32 @@ export default App;
 
     frontend_css = target_root / "src" / "index.css"
     if not frontend_css.exists():
-        frontend_css.write_text(""":root {
-  color-scheme: dark;
-  --skipo-bg: #0b0d10;
-  --skipo-text: #e8eaf0;
-  --skipo-font: ui-sans-serif, system-ui, sans-serif;
-  --skipo-border-color: #2a2f38;
-  --skipo-radius-sm: 4px;
-  --skipo-accent: #8b9cf7;
+        frontend_css.write_text("""@import "tailwindcss" source(none);
+@source "./frontend";
+@source "../node_modules/@ultrst-armada/floks/packages/ui/dist";
+@import "@ultrst-armada/floks/ui/theme/tokens.css";
+
+html, body, #root {
+  margin: 0;
+  min-height: 100%;
+  width: 100%;
+  background: var(--skipo-bg);
+  color: var(--skipo-text);
+  font-family: var(--skipo-font);
 }
-html, body, #root { margin: 0; min-height: 100%; background: var(--skipo-bg); color: var(--skipo-text); font-family: var(--skipo-font); }
+
+*, *::before, *::after { box-sizing: border-box; }
 """, encoding="utf-8")
         created.append(frontend_css)
 
     vite_config = target_root / "vite.config.ts"
     if not vite_config.exists():
         vite_config.write_text("""import { defineConfig } from 'vite';
+import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   root: '.',
+  plugins: [tailwindcss()],
   build: {
     outDir: 'dist/client',
     emptyOutDir: true,
