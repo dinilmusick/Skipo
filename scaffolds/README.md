@@ -57,14 +57,14 @@ FLOKS component
 → SKIPO command
 → browser execution client
 → queue gateway
-→ BullMQ
-→ worker
+→ p-queue (in-process scheduler)
+→ queue runner
 → application backend facade
 → service
 → operation
 ```
 
-Frontend generated code must not import backend services, database adapters, server BullMQ/Redis, provider implementations, credentials, or Node-only modules.
+Frontend generated code must not import backend services, database adapters, server queue internals, provider implementations, credentials, or Node-only modules.
 
 ## Validation
 
