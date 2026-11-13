@@ -67,8 +67,8 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
             "skipo": {"deploy": "fullstack"},
             "dependencies": {
                 "@ultrst-armada/krnl": "^1.0.25",
-                "@ultrst-armada/kloks": "^1.26.6",
-                "@dinilmusick/gutts": "^2.0.3",
+                "@ultrst-armada/kloks": "^2.0.0",
+                "@dinilmusick/gutts": "^2.1.0",
                 "@ultrst-armada/floks": "^2.0.0",
                 "react": "^19.0.1",
                 "react-dom": "^19.0.1",
@@ -160,7 +160,7 @@ export function WorkspaceGate(props: WorkspaceGateProps) {
     auth_guard_file = target_root / "src" / "backend" / "auth" / "luthSession.ts"
     if not auth_guard_file.exists():
         auth_guard_file.parent.mkdir(parents=True, exist_ok=True)
-        auth_guard_file.write_text("""import { DEFAULT_LUTH_URL } from '@dinilmusick/gutts/auth';
+        auth_guard_file.write_text("""import { DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth';
 
 export async function getLuthSession(request: Request) {
   const headers = new Headers({ 'x-app-id': request.headers.get('x-app-id') || new URL(request.url).hostname });
@@ -523,7 +523,7 @@ export default LuthAuthPage;
 """,
         pages_root / "auth" / "luthFetch.ts": """'use client';
 
-import { createLuthAuthClient } from '@dinilmusick/gutts/auth';
+import { createLuthAuthClient } from '@ultrst-armada/kloks/auth';
 
 const luthClient = createLuthAuthClient({
   ecosystemId: 'ultrst-armada',
