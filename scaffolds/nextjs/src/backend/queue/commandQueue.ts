@@ -1,10 +1,7 @@
-// Node-side command queue adapter. Fetch/Worker entrypoints do not import this module.
-import { BullMQAdapter } from "../../libraries/skipo/systems/execution/BullMQAdapter";
+// Node-side in-process command scheduling. Fetch/Worker entrypoints do not import this module.
+import { PQueueAdapter } from "../../libraries/skipo/systems/execution/PQueueAdapter";
 import type { ExecutionJob, JobPriority } from "../../libraries/skipo/systems/execution/types";
 import { DispatchCommandSchema, formatZodError, CommandPriority } from "../../libraries/validation/schemas";
-
-const REDIS_HOST = process.env.REDIS_HOST;
-const REDIS_PORT = process.env.REDIS_PORT ? Number.parseInt(process.env.REDIS_PORT, 10) : undefined;
 
 const COMMAND_HANDLERS: Record<string, (payload: Record<string, unknown>) => Promise<unknown>> = {
   ECHO: async (payload) => ({ echoedAt: new Date().toISOString(), ...payload }),
@@ -17,10 +14,8 @@ async function processCommand(job: ExecutionJob<Record<string, unknown>>) {
   return handler(job.command.payload);
 }
 
-export const commandQueueAdapter = new BullMQAdapter<Record<string, unknown>>({
+export const commandQueueAdapter = new PQueueAdapter<Record<string, unknown>>({
   queueName: "skipo-command-queue",
-  connection: REDIS_HOST ? { host: REDIS_HOST, port: REDIS_PORT || 6379 } : undefined,
-  useInMemory: !REDIS_HOST,
   maxConcurrency: 5,
 }, processCommand);
 
@@ -37,13 +32,13 @@ export async function dispatchCommand(input: { type: string; payload?: Record<st
     createdAt: Date.now(),
     status: "QUEUED",
   };
-  const enqueuedId = await commandQueueAdapter.enqueue(job);
+  const enqueuedId = commandQueueAdapter.enqueue(job);
   return { success: true, jobId: enqueuedId, status: "QUEUED", type };
 }
 
 export async function getCommandStatus(jobId: string) {
   if (!jobId) return { success: false, error: "Job ID is required" };
-  const status = await commandQueueAdapter.getJobStatus(jobId);
+  const status = commandQueueAdapter.getJobStatus(jobId);
   return { success: true, jobId, status: status || "UNKNOWN" };
 }
 

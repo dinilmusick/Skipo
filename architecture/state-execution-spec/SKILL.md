@@ -5,7 +5,7 @@ description: Formal specification and enforcement directives for SKIPO::STATE_EX
 
 # SKIPO::STATE_EXECUTION_ARCHITECTURE
 
-$$\text{Valid}(\mathcal{A}) \iff \text{SkipoState}(\mathcal{A}) \wedge \text{AcyclicLifecycle}(\mathcal{A}) \wedge \text{BullMQExecution}(\mathcal{A}) \wedge \text{WorkerFacadeBoundary}(\mathcal{A}) \wedge \text{Invariants}_{1..20}(\mathcal{A})$$
+$$\text{Valid}(\mathcal{A}) \iff \text{SkipoState}(\mathcal{A}) \wedge \text{AcyclicLifecycle}(\mathcal{A}) \wedge \text{PQueueExecution}(\mathcal{A}) \wedge \text{QueueRunnerFacadeBoundary}(\mathcal{A}) \wedge \text{Invariants}_{1..20}(\mathcal{A})$$
 
 ## 0. CANONICAL TOPOLOGY
 
@@ -15,10 +15,10 @@ SKIPO
 │   ├── STATE
 │   │   └── Zustand (SKIPO_STATE)
 │   └── EXECUTION
-│       └── BullMQ (Command Transport Boundary)
+│       └── p-queue (In-Process Command Scheduler)
 │
 └── BACKEND
-    └── FACADE (Single Public Execution Interface - Worker Only)
+    └── FACADE (Single Public Execution Interface - Queue Runner Only)
         └── SERVICE (Domain-Level Orchestration Unit)
             └── COMPONENT (Smallest Deterministic Executable Domain Operation)
 ```
@@ -53,7 +53,7 @@ $$\text{destroy}(X) \implies \text{recursively\_destroy}(\text{dependents}(X)) \
 
 ## 2. EXECUTION SYSTEM (`SKIPO_EXECUTION`)
 
-$$\text{EXECUTION\_PIPELINE} := \text{FRONTEND\_COMPONENT} \to \text{SKIPO\_COMMAND} \to \text{BullMQ} \to \text{JOB} \to \text{WORKER} \to \text{BACKEND\_FACADE} \to \text{SERVICE} \to \text{OPERATION\_COMPONENT}$$
+$$\text{EXECUTION\_PIPELINE} := \text{FRONTEND\_COMPONENT} \to \text{SKIPO\_COMMAND} \to \text{p-queue} \to \text{JOB} \to \text{QUEUE_RUNNER} \to \text{BACKEND\_FACADE} \to \text{SERVICE} \to \text{OPERATION\_COMPONENT}$$
 
 ### 2.1 Boundary Inviolability
 $$\text{DIRECT\_COMPONENT} \to \text{BACKEND\_FACADE} := \text{FORBIDDEN}$$
@@ -66,7 +66,7 @@ $$\text{COMMAND} := \{ \text{id}, \text{type}, \text{payload}, \text{metadata}, 
 $$\text{JOB} := \{ \text{command}, \text{idempotencyKey}, \text{correlationId}, \text{retryPolicy}, \text{priority}, \text{dependencies} \}$$
 
 ### 2.3 Backend Facade Boundary
-$$\text{BACKEND\_FACADE} := \text{SINGLE\_PUBLIC\_EXECUTION\_INTERFACE}, \quad \text{FACADE\_ACCESS} := \text{WORKER\_ONLY}$$
+$$\text{BACKEND\_FACADE} := \text{SINGLE\_PUBLIC\_EXECUTION\_INTERFACE}, \quad \text{FACADE\_ACCESS} := \text{QUEUE_RUNNER\_ONLY}$$
 $$\text{Facade} = \{ \text{routing}, \text{validation}, \text{authorization}, \text{orchestration}, \text{service dispatch}, \text{result normalization}, \text{error normalization} \}$$
 
 ### 2.4 Operation Components
@@ -85,10 +85,10 @@ $$J_1 \to J_2 \implies J_2 \text{ depends on } J_1 \implies \text{execute}(J_2) 
 
 ## 4. RESULT FLOW
 
-$$\text{operation} \to \text{service} \to \text{facade} \to \text{worker} \to \text{job\_result} \to \text{frontend\_state\_update} \to \text{Zustand}$$
+$$\text{operation} \to \text{service} \to \text{facade} \to \text{queue runner} \to \text{job\_result} \to \text{frontend\_state\_update} \to \text{Zustand}$$
 $$\text{result} := \{ \text{correlationId}, \text{status}, \text{data}?, \text{error}? \}$$
 
-$$\text{Zustand} \neq \text{execution queue}, \quad \text{BullMQ} \neq \text{state store}$$
+$$\text{Zustand} \neq \text{execution queue}, \quad \text{p-queue} \neq \text{state store}$$
 
 ---
 
@@ -100,11 +100,11 @@ $$\text{Zustand} \neq \text{execution queue}, \quad \text{BullMQ} \neq \text{sta
 - $I_4$: Lifecycle dependency connects to arbitrary valid component/state/page/app target.
 - $I_5$: Lifecycle dependency graph MUST be acyclic.
 - $I_6$: Lifecycle termination triggers deterministic cascade state destruction.
-- $I_7$: Every backend-bound frontend operation is a BullMQ job.
+- $I_7$: Every backend-bound frontend operation is scheduled through p-queue.
 - $I_8$: Frontend component $\to$ backend facade is strictly FORBIDDEN.
 - $I_9$: Frontend component $\to$ service is strictly FORBIDDEN.
 - $I_{10}$: Frontend component $\to$ database is strictly FORBIDDEN.
-- $I_{11}$: Worker $\to$ backend facade is REQUIRED.
+- $I_{11}$: Queue Runner $\to$ backend facade is REQUIRED.
 - $I_{12}$: Facade is the single backend execution boundary.
 - $I_{13}$: Facade delegates exclusively to domain services.
 - $I_{14}$: Services delegate to operation components.
@@ -114,3 +114,11 @@ $$\text{Zustand} \neq \text{execution queue}, \quad \text{BullMQ} \neq \text{sta
 - $I_{18}$: Retries MUST be idempotency-safe.
 - $I_{19}$: State $\neq$ Execution.
 - $I_{20}$: Execution $\neq$ Persistence.
+
+
+## 6. QUEUE RUNTIME LIMITS
+
+- `p-queue` is the sole canonical scheduling engine for Skipo command execution.
+- Queue contents, status, and idempotency caches are process-local and volatile; they are lost on process exit and are not shared between replicas.
+- Do not configure Redis, an external broker, or a separate worker process for this queue contract.
+- The queue runner is an in-process function scheduled by p-queue, not a worker process. Durable execution, cross-process coordination, and crash recovery are outside this queue contract and require a separately specified persistence/orchestration layer if ever needed.
