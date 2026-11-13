@@ -29,40 +29,45 @@ function validOrigin(request: Request, allowedOrigins: readonly string[]): boole
   return allowed.has(origin);
 }
 
-async function bodyWithinLimit(request: Request, maxBytes: number): Promise<boolean> {
+async function boundedRequest(request: Request, maxBytes: number): Promise<Request | null> {
   const declared = request.headers.get("content-length");
-  if (declared && (!/^\d+$/.test(declared) || Number(declared) > maxBytes)) return false;
-  if (!request.body) return true;
-  const reader = request.clone().body?.getReader();
-  if (!reader) return true;
+  if (declared && (!/^\\d+$/.test(declared) || Number(declared) > maxBytes)) return null;
+  if (!request.body) return request;
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
   let total = 0;
   try {
     while (true) {
       const { done, value } = await reader.read();
-      if (done) return true;
+      if (done) break;
       total += value.byteLength;
       if (total > maxBytes) {
         await reader.cancel();
-        return false;
+        return null;
       }
+      chunks.push(value);
     }
   } finally {
     reader.releaseLock();
   }
+  return new Request(request, { body: new Blob(chunks) });
 }
 
 export async function withGuestRequestGuards<T extends Response | null>(
   request: Request,
   principal: GuestExternalPrincipal,
   options: GuestRequestGuardOptions | undefined,
-  next: () => Promise<T>,
+  next: (request: Request) => Promise<T>,
 ): Promise<T | Response> {
   if (!options) return json(503, "GUEST_GUARD_UNAVAILABLE", "Guest access is temporarily unavailable.") as T | Response;
   if (!validOrigin(request, options.allowedOrigins ?? [])) return json(403, "GUEST_ORIGIN_REJECTED", "Request origin is not allowed.") as T | Response;
   const maxBodyBytes = options.maxBodyBytes ?? 256 * 1024;
   if (!Number.isSafeInteger(maxBodyBytes) || maxBodyBytes <= 0) return json(503, "GUEST_GUARD_MISCONFIGURED", "Guest access is temporarily unavailable.") as T | Response;
-  if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method.toUpperCase()) && !(await bodyWithinLimit(request, maxBodyBytes))) {
-    return json(413, "GUEST_BODY_TOO_LARGE", "Request body exceeds the guest limit.") as T | Response;
+  let guardedRequest = request;
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method.toUpperCase())) {
+    const bounded = await boundedRequest(request, maxBodyBytes);
+    if (!bounded) return json(413, "GUEST_BODY_TOO_LARGE", "Request body exceeds the guest limit.") as T | Response;
+    guardedRequest = bounded;
   }
   let ip: string | null = null;
   try { ip = options.getClientIp(request); } catch { ip = null; }
@@ -86,7 +91,7 @@ export async function withGuestRequestGuards<T extends Response | null>(
     if (!releaseIp) return json(429, "GUEST_CONCURRENCY_LIMITED", "Too many concurrent guest requests.") as T | Response;
     releaseLease = await options.limiter.acquire(leaseKey, concurrentPerLease);
     if (!releaseLease) return json(429, "GUEST_CONCURRENCY_LIMITED", "Too many concurrent guest requests.") as T | Response;
-    return await next();
+    return await next(guardedRequest);
   } catch {
     return json(503, "GUEST_GUARD_UNAVAILABLE", "Guest access is temporarily unavailable.") as T | Response;
   } finally {
