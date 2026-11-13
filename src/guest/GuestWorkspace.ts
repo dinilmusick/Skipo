@@ -32,6 +32,7 @@ export interface GuestWorkspaceStore {
   delete(namespace: string, path: string): Promise<boolean>;
   mkdir(namespace: string, path: string): Promise<void>;
   list(namespace: string, prefix: string): Promise<GuestWorkspaceEntry[]>;
+  consume(namespace: string, usage: { bytes: number; operations: number }, quota: GuestWorkspaceQuotas): Promise<void>;
   deleteNamespace(namespace: string): Promise<boolean>;
   deleteExpired(now: number): Promise<number>;
 }
@@ -43,10 +44,7 @@ export interface GuestWorkspaceProviderOptions {
   now?: () => number;
 }
 
-const DEFAULT_QUOTAS: GuestWorkspaceQuotas = {
-  maxBytes: 10 * 1024 * 1024,
-  maxOperations: 1_000,
-};
+const DEFAULT_QUOTAS: GuestWorkspaceQuotas = { maxBytes: 10 * 1024 * 1024, maxOperations: 1_000 };
 
 function namespaceFor(lease: GuestLeaseBinding): string {
   return `guest/${encodeURIComponent(lease.appId)}/${encodeURIComponent(lease.deploymentId)}/${encodeURIComponent(lease.leaseId)}/${encodeURIComponent(lease.workspaceId)}`;
@@ -61,8 +59,7 @@ function cleanPath(path: string): string {
 }
 
 function assertSupported(capabilities: GuestWorkspaceCapabilities): void {
-  const missing = (['leaseAffinity', 'volatileWorkspace', 'ttlCleanup'] as const)
-    .filter((key) => !capabilities[key]);
+  const missing = (['leaseAffinity', 'volatileWorkspace', 'ttlCleanup'] as const).filter((key) => !capabilities[key]);
   if (missing.length) throw new Error(`Guest workspace unsupported: ${missing.join(', ')}`);
 }
 
@@ -70,34 +67,29 @@ export class GuestWorkspaceProvider {
   readonly type = 'guest-ephemeral' as const;
   private readonly quotas: GuestWorkspaceQuotas;
   private readonly now: () => number;
-  private readonly usage = new Map<string, { bytes: number; operations: number }>();
 
   constructor(private readonly options: GuestWorkspaceProviderOptions) {
     assertSupported(options.capabilities);
     this.quotas = { ...DEFAULT_QUOTAS, ...options.quotas };
     this.now = options.now ?? Date.now;
-    if (this.quotas.maxBytes <= 0 || this.quotas.maxOperations <= 0) {
-      throw new Error('Guest workspace quotas must be positive');
-    }
+    if (this.quotas.maxBytes <= 0 || this.quotas.maxOperations <= 0) throw new Error('Guest workspace quotas must be positive');
   }
 
   async createWorkspace(lease: GuestLeaseBinding): Promise<{ id: string; expiresAt: number }> {
     this.assertLease(lease);
-    const namespace = namespaceFor(lease);
-    await this.options.store.createNamespace(namespace, lease.expiresAt);
-    this.usage.set(namespace, { bytes: 0, operations: 0 });
+    await this.options.store.createNamespace(namespaceFor(lease), lease.expiresAt);
     return { id: lease.workspaceId, expiresAt: lease.expiresAt };
   }
 
   async exists(lease: GuestLeaseBinding, filePath: string): Promise<boolean> {
     const namespace = this.assertLease(lease);
-    this.consume(namespace, 1);
+    await this.options.store.consume(namespace, { bytes: 0, operations: 1 }, this.quotas);
     return (await this.options.store.read(namespace, cleanPath(filePath))) !== undefined;
   }
 
   async stat(lease: GuestLeaseBinding, filePath: string): Promise<GuestWorkspaceEntry> {
     const namespace = this.assertLease(lease);
-    this.consume(namespace, 1);
+    await this.options.store.consume(namespace, { bytes: 0, operations: 1 }, this.quotas);
     const path = cleanPath(filePath);
     const exact = (await this.options.store.list(namespace, path)).find((entry) => entry.path === path);
     if (exact) return exact;
@@ -116,52 +108,45 @@ export class GuestWorkspaceProvider {
 
   async readFile(lease: GuestLeaseBinding, filePath: string): Promise<Uint8Array> {
     const namespace = this.assertLease(lease);
-    this.consume(namespace, 1);
+    await this.options.store.consume(namespace, { bytes: 0, operations: 1 }, this.quotas);
     const value = await this.options.store.read(namespace, cleanPath(filePath));
     if (!value) throw new Error('Guest workspace file not found');
     return value;
   }
 
-  async writeFile(
-    lease: GuestLeaseBinding,
-    filePath: string,
-    content: Uint8Array | string,
-  ): Promise<{ success: true; path: string; sizeBytes: number }> {
+  async writeFile(lease: GuestLeaseBinding, filePath: string, content: Uint8Array | string): Promise<{ success: true; path: string; sizeBytes: number }> {
     const namespace = this.assertLease(lease);
     const data = typeof content === 'string' ? new TextEncoder().encode(content) : content;
-    this.consume(namespace, 1, data.byteLength);
+    await this.options.store.consume(namespace, { bytes: data.byteLength, operations: 1 }, this.quotas);
     await this.options.store.write(namespace, cleanPath(filePath), data);
     return { success: true, path: filePath, sizeBytes: data.byteLength };
   }
 
   async mkdir(lease: GuestLeaseBinding, directory: string): Promise<void> {
     const namespace = this.assertLease(lease);
-    this.consume(namespace, 1);
+    await this.options.store.consume(namespace, { bytes: 0, operations: 1 }, this.quotas);
     await this.options.store.mkdir(namespace, cleanPath(directory));
   }
 
   async deleteFile(lease: GuestLeaseBinding, filePath: string): Promise<{ success: boolean }> {
     const namespace = this.assertLease(lease);
-    this.consume(namespace, 1);
+    await this.options.store.consume(namespace, { bytes: 0, operations: 1 }, this.quotas);
     return { success: await this.options.store.delete(namespace, cleanPath(filePath)) };
   }
 
   async listFiles(lease: GuestLeaseBinding, prefix = ''): Promise<GuestWorkspaceEntry[]> {
     const namespace = this.assertLease(lease);
-    this.consume(namespace, 1);
-    return this.options.store.list(namespace, cleanPath(prefix || 'root'));
+    await this.options.store.consume(namespace, { bytes: 0, operations: 1 }, this.quotas);
+    return this.options.store.list(namespace, prefix ? cleanPath(prefix) : '');
   }
 
   async destroyWorkspace(lease: GuestLeaseBinding): Promise<boolean> {
     const namespace = this.assertLease(lease);
-    this.usage.delete(namespace);
     return this.options.store.deleteNamespace(namespace);
   }
 
   async cleanup(): Promise<number> {
-    const deleted = await this.options.store.deleteExpired(this.now());
-    for (const namespace of this.usage.keys()) this.usage.delete(namespace);
-    return deleted;
+    return this.options.store.deleteExpired(this.now());
   }
 
   private assertLease(lease: GuestLeaseBinding): string {
@@ -171,18 +156,8 @@ export class GuestWorkspaceProvider {
     if (lease.expiresAt <= this.now()) throw new Error('Guest workspace lease is expired');
     return namespaceFor(lease);
   }
-
-  private consume(namespace: string, operations: number, bytes = 0): void {
-    const current = this.usage.get(namespace) ?? { bytes: 0, operations: 0 };
-    if (operations < 0 || bytes < 0) throw new Error('Guest usage increments must be non-negative');
-    if (current.operations + operations > this.quotas.maxOperations) throw new Error('Guest operation quota exceeded');
-    if (current.bytes + bytes > this.quotas.maxBytes) throw new Error('Guest byte quota exceeded');
-    this.usage.set(namespace, { bytes: current.bytes + bytes, operations: current.operations + operations });
-  }
 }
 
-export function createGuestWorkspaceProvider(
-  options: GuestWorkspaceProviderOptions,
-): GuestWorkspaceProvider {
+export function createGuestWorkspaceProvider(options: GuestWorkspaceProviderOptions): GuestWorkspaceProvider {
   return new GuestWorkspaceProvider(options);
 }
