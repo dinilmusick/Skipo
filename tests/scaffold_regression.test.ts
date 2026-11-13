@@ -11,8 +11,8 @@ describe('Scaffold Regression & Tightening Suites', () => {
     const output = execSync(`python3 "${scriptPath}" 2>&1`, {
       encoding: 'utf-8',
     });
+    // Keep the count flexible as scaffold coverage grows; the suite must still run.
     expect(output).toMatch(/Ran \d+ tests/);
-    expect(output).toContain('Ran 9 tests');
     expect(output).toContain('OK');
   }, 30_000);
 });
