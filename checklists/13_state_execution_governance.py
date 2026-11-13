@@ -59,7 +59,7 @@ def validate_state_execution(root_dir: Path) -> ChecklistResult:
                     file_path=rel_str,
                     line=line_num,
                     snippet=trimmed,
-                    suggestion="Route all backend-bound operations through useCommand() or SKIPO_COMMAND -> BullMQ."
+                    suggestion="Route all backend-bound operations through useCommand() or SKIPO_COMMAND -> p-queue."
                 ))
 
             # Rule 2: Ban direct component invocation of backend services
@@ -71,7 +71,7 @@ def validate_state_execution(root_dir: Path) -> ChecklistResult:
                     file_path=rel_str,
                     line=line_num,
                     snippet=trimmed,
-                    suggestion="Dispatch a SKIPO_COMMAND into the BullMQ execution queue instead."
+                    suggestion="Dispatch a SKIPO_COMMAND into the p-queue execution queue instead."
                 ))
 
             # Rule 3: Ban raw domain useState in components
