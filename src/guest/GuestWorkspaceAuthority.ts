@@ -119,7 +119,12 @@ export class InMemoryGuestWorkspaceAuthority implements GuestWorkspaceStore {
 
   async read(namespace: string, path: string): Promise<Uint8Array | undefined> {
     return this.exclusive(() => {
-      const value = this.active(namespace).files.get(safePath(path));
+      const state = this.namespaces.get(namespace);
+      if (!state || state.expiresAt <= this.now()) {
+        if (state) this.namespaces.delete(namespace);
+        return undefined;
+      }
+      const value = state.files.get(safePath(path));
       return value ? value.slice() : undefined;
     });
   }
