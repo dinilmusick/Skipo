@@ -71,8 +71,8 @@ export function createAppExternalInterfaces(
     if (!credential || !isGuestExternalRoute(request)) return (await http(request)) ?? (await mcp(request));
     const principal = await resolveGuest(request);
     if (!principal) return Response.json({ error: { code: 'UNAUTHENTICATED', message: 'Guest lease is invalid or expired.' } }, { status: 401, headers: { 'cache-control': 'no-store' } });
-    return withGuestRequestGuards(request, principal, options.guestRequestGuard, async () =>
-      (await http(request)) ?? (await mcp(request)));
+    return withGuestRequestGuards(request, principal, options.guestRequestGuard, async (guardedRequest) =>
+      (await http(guardedRequest)) ?? (await mcp(guardedRequest)));
   };
   return {
     registry,
