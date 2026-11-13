@@ -7,14 +7,38 @@ export interface GuestLeaseBinding {
 }
 
 export interface GuestWorkspaceCapabilities {
+  /** The deployment can route every request for a lease to its shared volatile namespace. */
   leaseAffinity: boolean;
+  /** Guest data is held only in volatile, non-persistent storage. */
   volatileWorkspace: boolean;
+  /** The deployment has authoritative TTL cleanup independent of browser events. */
   ttlCleanup: boolean;
 }
 
 export interface GuestWorkspaceQuotas {
+  /** Maximum live bytes in one guest workspace. */
   maxBytes: number;
+  /** Maximum live files in one guest workspace. */
+  maxFiles: number;
+  /** Maximum workspace operations in one lease. */
   maxOperations: number;
+  /** Maximum simultaneously active guest leases in one deployment. */
+  maxConcurrentLeases: number;
+  /** Maximum runtime memory reservation for one lease. */
+  maxRuntimeMemoryBytes: number;
+  /** Maximum cumulative runtime CPU time for one lease. */
+  maxRuntimeCpuMs: number;
+  /** Maximum cumulative runtime duration for one lease. */
+  maxRuntimeDurationMs: number;
+}
+
+export interface GuestRuntimeUsage {
+  /** Current/peak reserved memory, not cumulative allocation churn. */
+  memoryBytes: number;
+  /** Cumulative CPU time consumed by the lease. */
+  cpuMs: number;
+  /** Cumulative wall-clock runtime duration for the lease. */
+  durationMs: number;
 }
 
 export interface GuestWorkspaceEntry {
@@ -26,13 +50,33 @@ export interface GuestWorkspaceEntry {
 }
 
 export interface GuestWorkspaceStore {
-  createNamespace(namespace: string, expiresAt: number): Promise<void>;
+  /**
+   * Atomically create a namespace if absent. Repeated calls for the same namespace
+   * MUST preserve existing contents and expiry; they must never reset a live lease.
+   * Enforce maxConcurrentLeases across this deployment's active namespaces.
+   */
+  createNamespace(
+    namespace: string,
+    expiresAt: number,
+    limits: Pick<GuestWorkspaceQuotas, 'maxConcurrentLeases'>,
+  ): Promise<void>;
   read(namespace: string, path: string): Promise<Uint8Array | undefined>;
-  write(namespace: string, path: string, data: Uint8Array): Promise<void>;
+  /**
+   * Atomically enforce live workspace byte/file limits while replacing or creating
+   * the file. Directory markers are not counted as files.
+   */
+  write(
+    namespace: string,
+    path: string,
+    data: Uint8Array,
+    limits: Pick<GuestWorkspaceQuotas, 'maxBytes' | 'maxFiles'>,
+  ): Promise<void>;
   delete(namespace: string, path: string): Promise<boolean>;
   mkdir(namespace: string, path: string): Promise<void>;
   list(namespace: string, prefix: string): Promise<GuestWorkspaceEntry[]>;
-  consume(namespace: string, usage: { bytes: number; operations: number }, quota: GuestWorkspaceQuotas): Promise<void>;
+  consume(namespace: string, usage: { operations: number }, quota: Pick<GuestWorkspaceQuotas, 'maxOperations'>): Promise<void>;
+  /** Atomically enforce cumulative CPU/duration and current memory limits per lease. */
+  consumeRuntime(namespace: string, usage: GuestRuntimeUsage, quota: Pick<GuestWorkspaceQuotas, 'maxRuntimeMemoryBytes' | 'maxRuntimeCpuMs' | 'maxRuntimeDurationMs'>): Promise<void>;
   deleteNamespace(namespace: string): Promise<boolean>;
   deleteExpired(now: number): Promise<number>;
 }
@@ -44,7 +88,15 @@ export interface GuestWorkspaceProviderOptions {
   now?: () => number;
 }
 
-const DEFAULT_QUOTAS: GuestWorkspaceQuotas = { maxBytes: 10 * 1024 * 1024, maxOperations: 1_000 };
+const DEFAULT_QUOTAS: GuestWorkspaceQuotas = {
+  maxBytes: 10 * 1024 * 1024,
+  maxFiles: 500,
+  maxOperations: 1_000,
+  maxConcurrentLeases: 100,
+  maxRuntimeMemoryBytes: 128 * 1024 * 1024,
+  maxRuntimeCpuMs: 60_000,
+  maxRuntimeDurationMs: 30 * 60 * 1_000,
+};
 
 function namespaceFor(lease: GuestLeaseBinding): string {
   return `guest/${encodeURIComponent(lease.appId)}/${encodeURIComponent(lease.deploymentId)}/${encodeURIComponent(lease.leaseId)}/${encodeURIComponent(lease.workspaceId)}`;
@@ -63,6 +115,12 @@ function assertSupported(capabilities: GuestWorkspaceCapabilities): void {
   if (missing.length) throw new Error(`Guest workspace unsupported: ${missing.join(', ')}`);
 }
 
+function assertPositiveQuotas(quotas: GuestWorkspaceQuotas): void {
+  for (const [name, value] of Object.entries(quotas)) {
+    if (!Number.isFinite(value) || value <= 0) throw new Error(`Guest workspace quota ${name} must be positive`);
+  }
+}
+
 export class GuestWorkspaceProvider {
   readonly type = 'guest-ephemeral' as const;
   private readonly quotas: GuestWorkspaceQuotas;
@@ -72,24 +130,26 @@ export class GuestWorkspaceProvider {
     assertSupported(options.capabilities);
     this.quotas = { ...DEFAULT_QUOTAS, ...options.quotas };
     this.now = options.now ?? Date.now;
-    if (this.quotas.maxBytes <= 0 || this.quotas.maxOperations <= 0) throw new Error('Guest workspace quotas must be positive');
+    assertPositiveQuotas(this.quotas);
   }
 
   async createWorkspace(lease: GuestLeaseBinding): Promise<{ id: string; expiresAt: number }> {
-    this.assertLease(lease);
-    await this.options.store.createNamespace(namespaceFor(lease), lease.expiresAt);
+    const namespace = this.assertLease(lease);
+    await this.options.store.createNamespace(namespace, lease.expiresAt, {
+      maxConcurrentLeases: this.quotas.maxConcurrentLeases,
+    });
     return { id: lease.workspaceId, expiresAt: lease.expiresAt };
   }
 
   async exists(lease: GuestLeaseBinding, filePath: string): Promise<boolean> {
     const namespace = this.assertLease(lease);
-    await this.options.store.consume(namespace, { bytes: 0, operations: 1 }, this.quotas);
+    await this.options.store.consume(namespace, { operations: 1 }, this.quotas);
     return (await this.options.store.read(namespace, cleanPath(filePath))) !== undefined;
   }
 
   async stat(lease: GuestLeaseBinding, filePath: string): Promise<GuestWorkspaceEntry> {
     const namespace = this.assertLease(lease);
-    await this.options.store.consume(namespace, { bytes: 0, operations: 1 }, this.quotas);
+    await this.options.store.consume(namespace, { operations: 1 }, this.quotas);
     const path = cleanPath(filePath);
     const exact = (await this.options.store.list(namespace, path)).find((entry) => entry.path === path);
     if (exact) return exact;
@@ -108,7 +168,7 @@ export class GuestWorkspaceProvider {
 
   async readFile(lease: GuestLeaseBinding, filePath: string): Promise<Uint8Array> {
     const namespace = this.assertLease(lease);
-    await this.options.store.consume(namespace, { bytes: 0, operations: 1 }, this.quotas);
+    await this.options.store.consume(namespace, { operations: 1 }, this.quotas);
     const value = await this.options.store.read(namespace, cleanPath(filePath));
     if (!value) throw new Error('Guest workspace file not found');
     return value;
@@ -116,28 +176,44 @@ export class GuestWorkspaceProvider {
 
   async writeFile(lease: GuestLeaseBinding, filePath: string, content: Uint8Array | string): Promise<{ success: true; path: string; sizeBytes: number }> {
     const namespace = this.assertLease(lease);
+    const path = cleanPath(filePath);
     const data = typeof content === 'string' ? new TextEncoder().encode(content) : content;
-    await this.options.store.consume(namespace, { bytes: data.byteLength, operations: 1 }, this.quotas);
-    await this.options.store.write(namespace, cleanPath(filePath), data);
-    return { success: true, path: filePath, sizeBytes: data.byteLength };
+    await this.options.store.consume(namespace, { operations: 1 }, this.quotas);
+    await this.options.store.write(namespace, path, data, {
+      maxBytes: this.quotas.maxBytes,
+      maxFiles: this.quotas.maxFiles,
+    });
+    return { success: true, path, sizeBytes: data.byteLength };
   }
 
   async mkdir(lease: GuestLeaseBinding, directory: string): Promise<void> {
     const namespace = this.assertLease(lease);
-    await this.options.store.consume(namespace, { bytes: 0, operations: 1 }, this.quotas);
+    await this.options.store.consume(namespace, { operations: 1 }, this.quotas);
     await this.options.store.mkdir(namespace, cleanPath(directory));
   }
 
   async deleteFile(lease: GuestLeaseBinding, filePath: string): Promise<{ success: boolean }> {
     const namespace = this.assertLease(lease);
-    await this.options.store.consume(namespace, { bytes: 0, operations: 1 }, this.quotas);
+    await this.options.store.consume(namespace, { operations: 1 }, this.quotas);
     return { success: await this.options.store.delete(namespace, cleanPath(filePath)) };
   }
 
   async listFiles(lease: GuestLeaseBinding, prefix = ''): Promise<GuestWorkspaceEntry[]> {
     const namespace = this.assertLease(lease);
-    await this.options.store.consume(namespace, { bytes: 0, operations: 1 }, this.quotas);
+    await this.options.store.consume(namespace, { operations: 1 }, this.quotas);
     return this.options.store.list(namespace, prefix ? cleanPath(prefix) : '');
+  }
+
+  async recordRuntimeUsage(lease: GuestLeaseBinding, usage: GuestRuntimeUsage): Promise<void> {
+    const namespace = this.assertLease(lease);
+    if (Object.values(usage).some((value) => !Number.isFinite(value) || value < 0)) {
+      throw new Error('Guest runtime usage must be finite and non-negative');
+    }
+    await this.options.store.consumeRuntime(namespace, usage, {
+      maxRuntimeMemoryBytes: this.quotas.maxRuntimeMemoryBytes,
+      maxRuntimeCpuMs: this.quotas.maxRuntimeCpuMs,
+      maxRuntimeDurationMs: this.quotas.maxRuntimeDurationMs,
+    });
   }
 
   async destroyWorkspace(lease: GuestLeaseBinding): Promise<boolean> {
