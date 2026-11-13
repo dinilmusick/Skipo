@@ -23,8 +23,8 @@ def test_guest_workspace_contract_requires_fetch_canonical_boundary():
 
     assert "src/app.ts" in contract
     assert "Cloudflare, Vercel, and Node" in contract
-    assert "one `src/app.ts` Fetch implementation" in contract
-    assert "Provider files are wrappers" in multi_target
+    assert "Canonical application entry:" in multi_target
+    assert "Provider-specific files are generated adapters" in multi_target
     assert "provider-specific business logic" in contract
 
 
@@ -69,7 +69,7 @@ def test_guest_workspace_contract_requires_isolation_cleanup_and_restart_tests()
 
     for requirement in (
         "Two leases are isolated",
-        "No persistent adapter",
+        "No persistent provider adapter",
         "forged, expired, revoked",
         "idle reaper cleanup",
         "Partial cleanup failure",
