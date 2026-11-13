@@ -30,6 +30,7 @@ export interface GuestWorkspaceStore {
   read(namespace: string, path: string): Promise<Uint8Array | undefined>;
   write(namespace: string, path: string, data: Uint8Array): Promise<void>;
   delete(namespace: string, path: string): Promise<boolean>;
+  mkdir(namespace: string, path: string): Promise<void>;
   list(namespace: string, prefix: string): Promise<GuestWorkspaceEntry[]>;
   deleteNamespace(namespace: string): Promise<boolean>;
   deleteExpired(now: number): Promise<number>;
@@ -62,9 +63,7 @@ function cleanPath(path: string): string {
 function assertSupported(capabilities: GuestWorkspaceCapabilities): void {
   const missing = (['leaseAffinity', 'volatileWorkspace', 'ttlCleanup'] as const)
     .filter((key) => !capabilities[key]);
-  if (missing.length) {
-    throw new Error(`Guest workspace unsupported: ${missing.join(', ')}`);
-  }
+  if (missing.length) throw new Error(`Guest workspace unsupported: ${missing.join(', ')}`);
 }
 
 export class GuestWorkspaceProvider {
@@ -90,6 +89,31 @@ export class GuestWorkspaceProvider {
     return { id: lease.workspaceId, expiresAt: lease.expiresAt };
   }
 
+  async exists(lease: GuestLeaseBinding, filePath: string): Promise<boolean> {
+    const namespace = this.assertLease(lease);
+    this.consume(namespace, 1);
+    return (await this.options.store.read(namespace, cleanPath(filePath))) !== undefined;
+  }
+
+  async stat(lease: GuestLeaseBinding, filePath: string): Promise<GuestWorkspaceEntry> {
+    const namespace = this.assertLease(lease);
+    this.consume(namespace, 1);
+    const path = cleanPath(filePath);
+    const exact = (await this.options.store.list(namespace, path)).find((entry) => entry.path === path);
+    if (exact) return exact;
+    const data = await this.options.store.read(namespace, path);
+    if (!data) throw new Error('Guest workspace path not found');
+    return { path, name: path.split('/').pop() ?? path, sizeBytes: data.byteLength, updatedAt: this.now(), isFolder: false };
+  }
+
+  async read(lease: GuestLeaseBinding, filePath: string): Promise<Uint8Array> {
+    return this.readFile(lease, filePath);
+  }
+
+  async readText(lease: GuestLeaseBinding, filePath: string): Promise<string> {
+    return new TextDecoder().decode(await this.readFile(lease, filePath));
+  }
+
   async readFile(lease: GuestLeaseBinding, filePath: string): Promise<Uint8Array> {
     const namespace = this.assertLease(lease);
     this.consume(namespace, 1);
@@ -108,6 +132,12 @@ export class GuestWorkspaceProvider {
     this.consume(namespace, 1, data.byteLength);
     await this.options.store.write(namespace, cleanPath(filePath), data);
     return { success: true, path: filePath, sizeBytes: data.byteLength };
+  }
+
+  async mkdir(lease: GuestLeaseBinding, directory: string): Promise<void> {
+    const namespace = this.assertLease(lease);
+    this.consume(namespace, 1);
+    await this.options.store.mkdir(namespace, cleanPath(directory));
   }
 
   async deleteFile(lease: GuestLeaseBinding, filePath: string): Promise<{ success: boolean }> {
@@ -130,10 +160,7 @@ export class GuestWorkspaceProvider {
 
   async cleanup(): Promise<number> {
     const deleted = await this.options.store.deleteExpired(this.now());
-    for (const namespace of this.usage.keys()) {
-      if (!namespace.startsWith('guest/')) continue;
-      this.usage.delete(namespace);
-    }
+    for (const namespace of this.usage.keys()) this.usage.delete(namespace);
     return deleted;
   }
 
@@ -148,16 +175,9 @@ export class GuestWorkspaceProvider {
   private consume(namespace: string, operations: number, bytes = 0): void {
     const current = this.usage.get(namespace) ?? { bytes: 0, operations: 0 };
     if (operations < 0 || bytes < 0) throw new Error('Guest usage increments must be non-negative');
-    if (current.operations + operations > this.quotas.maxOperations) {
-      throw new Error('Guest operation quota exceeded');
-    }
-    if (current.bytes + bytes > this.quotas.maxBytes) {
-      throw new Error('Guest byte quota exceeded');
-    }
-    this.usage.set(namespace, {
-      bytes: current.bytes + bytes,
-      operations: current.operations + operations,
-    });
+    if (current.operations + operations > this.quotas.maxOperations) throw new Error('Guest operation quota exceeded');
+    if (current.bytes + bytes > this.quotas.maxBytes) throw new Error('Guest byte quota exceeded');
+    this.usage.set(namespace, { bytes: current.bytes + bytes, operations: current.operations + operations });
   }
 }
 
