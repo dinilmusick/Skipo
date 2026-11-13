@@ -9,14 +9,15 @@ import sys
 from pathlib import Path
 
 PACKAGE_BASELINE = {
-    "@dinilmusick/gutts": "^2.0.3",
-    "@ultrst-armada/kloks": "^1.26.6",
+    "@dinilmusick/gutts": "^2.1.0",
+    "@ultrst-armada/kloks": "^2.0.0",
     "@ultrst-armada/floks": "^2.0.0",
     "@ultrst-armada/frnlts": "^0.5.23",
     "@ultrst-armada/krnl": "^1.0.25",
 }
 SOURCE_SUFFIXES = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
 FORBIDDEN_SOURCE_PATTERNS = (
+    (r"@dinilmusick/gutts/auth", "application must consume the public Kloks auth API rather than GutTS internals"),
     (r"\b(?:bcrypt|bcryptjs)\b", "bcrypt password hashing dependency or implementation"),
     (r"\b(?:hashPassword|verifyPassword|comparePassword|checkPassword)\s*\(", "local password verification/hashing"),
     (r"\bpassword_hash\b|\bpasswordHash\s*:", "application credential hash storage"),
@@ -185,8 +186,8 @@ def validate_repository(root: Path) -> list[str]:
         client = root / "scaffolds" / framework / "src" / "libraries" / "client" / "luthAuthClient.ts"
         if client.is_file():
             source = client.read_text(encoding="utf-8")
-            if "getAuthHeaders()" not in source or "VITE_LUTH_URL" in source or "NEXT_PUBLIC_LUTH_URL" in source:
-                errors.append(f"{framework} client must use the canonical Luth bearer client without per-app auth URL env vars")
+            if "getAuthHeaders()" not in source or "@ultrst-armada/kloks/auth" not in source or "@dinilmusick/gutts/auth" in source or "VITE_LUTH_URL" in source or "NEXT_PUBLIC_LUTH_URL" in source:
+                errors.append(f"{framework} client must use the public Kloks Luth bearer client without per-app auth URL env vars")
 
     generator = root / "scripts/scaffold_app_structure.py"
     if generator.is_file():
@@ -198,6 +199,8 @@ def validate_repository(root: Path) -> list[str]:
         for marker in ("FloksLuthAuthPage", "requireLuthSession", "DEFAULT_LUTH_URL", "LuthAuthPage"):
             if marker not in source:
                 errors.append(f"Generic scaffold generator missing canonical auth output: {marker}")
+        if "@ultrst-armada/kloks/auth" not in source or "@dinilmusick/gutts/auth" in source:
+            errors.append("Generic scaffold generator must consume the public Kloks auth API")
         if re.search(r"client\.signInWithEmail|client\.signUpWithEmail|client\.signInWithGoogle", source):
             errors.append("Generic scaffold generator must delegate login lifecycle to Floks")
 

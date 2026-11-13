@@ -33,7 +33,7 @@ def test_generic_scaffold_generates_canonical_floks_kloks_auth(tmp_path):
     assert auth_page.is_file() and adapter.is_file() and guard.is_file() and fetcher.is_file()
     assert "@ultrst-armada/floks/auth" in adapter.read_text(encoding="utf-8")
     assert "LuthAuthPage as FloksLuthAuthPage" in adapter.read_text(encoding="utf-8")
-    assert "@dinilmusick/gutts/auth" in fetcher.read_text(encoding="utf-8")
+    assert "@ultrst-armada/kloks/auth" in fetcher.read_text(encoding="utf-8")
     assert "LuthAuthPage" in auth_page.read_text(encoding="utf-8")
     assert "requireLuthSession" in guard.read_text(encoding="utf-8")
     assert "getAuthHeaders" in fetcher.read_text(encoding="utf-8")
@@ -133,24 +133,24 @@ def test_negative_scaffold_with_local_auth_schema_is_rejected(tmp_path):
 
 
 
-def test_gutts_release_baseline_is_aligned_across_root_scaffolds_and_lockfile():
-    expected = AUTH_CONTRACT.PACKAGE_BASELINE["@dinilmusick/gutts"]
+def test_published_package_baseline_is_aligned_across_root_scaffolds_and_lockfile():
     manifests = (
         ROOT / "package.json",
         ROOT / "scaffolds/nextjs/package.json",
         ROOT / "scaffolds/vite/package.json",
     )
 
-    for manifest_path in manifests:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        assert manifest["dependencies"].get("@dinilmusick/gutts") == expected, str(manifest_path)
+    for name, expected in AUTH_CONTRACT.PACKAGE_BASELINE.items():
+        for manifest_path in manifests:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            assert manifest["dependencies"].get(name) == expected, f"{manifest_path}: {name}"
 
-    lockfile = (ROOT / "pnpm-lock.yaml").read_text(encoding="utf-8")
-    root_importer = lockfile.split("packages:", 1)[0]
-    locked = re.search(
-        r"(?m)^      '@dinilmusick/gutts':\n        specifier: ([^\n]+)\n        version: ([^\n]+)",
-        root_importer,
-    )
-    assert locked, "pnpm-lock.yaml is missing the root GutTS importer"
-    assert locked.group(1) == expected
-    assert locked.group(2).startswith("2."), locked.group(2)
+        lockfile = (ROOT / "pnpm-lock.yaml").read_text(encoding="utf-8")
+        root_importer = lockfile.split("packages:", 1)[0]
+        locked = re.search(
+            rf"(?m)^      '{re.escape(name)}':\n        specifier: ([^\n]+)\n        version: ([^\n]+)",
+            root_importer,
+        )
+        assert locked, f"pnpm-lock.yaml is missing the root importer for {name}"
+        assert locked.group(1) == expected, f"{name} lockfile specifier mismatch"
+        assert locked.group(2).split("(", 1)[0] == expected.lstrip("^"), f"{name} lockfile resolution mismatch"
