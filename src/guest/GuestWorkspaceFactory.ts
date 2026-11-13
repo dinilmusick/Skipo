@@ -9,23 +9,32 @@ export interface GuestWorkspaceFactoryOptions extends GuestWorkspaceProviderOpti
   deployment: 'node' | 'cloudflare' | 'vercel';
 }
 
+/**
+ * Request-safe factory. It deliberately retains no lease/workspace state in the
+ * process: every request may construct a fresh provider around the same
+ * deployment-shared volatile store and resolve the same lease namespace.
+ */
 export class GuestWorkspaceFactory {
-  private readonly provider: GuestWorkspaceProvider;
-
-  constructor(options: GuestWorkspaceFactoryOptions) {
+  constructor(private readonly options: GuestWorkspaceFactoryOptions) {
     if (!['node', 'cloudflare', 'vercel'].includes(options.deployment)) {
       throw new Error('Guest workspace deployment adapter is unsupported');
     }
-    this.provider = createGuestWorkspaceProvider(options);
+    // Validate capabilities and quota configuration during deployment bootstrap.
+    createGuestWorkspaceProvider(options);
   }
 
+  /** Allocate exactly once during guest lease bootstrap, before returning the guest credential. */
   async createForLease(lease: GuestLeaseBinding): Promise<GuestWorkspaceProvider> {
-    await this.provider.createWorkspace(lease);
-    return this.provider;
+    const provider = createGuestWorkspaceProvider(this.options);
+    // Store.createNamespace is an atomic create-if-absent operation. Repeated
+    // calls across requests/restarts must preserve the existing lease workspace.
+    await provider.createWorkspace(lease);
+    return provider;
   }
 
+  /** Resolve a provider for an already allocated lease on ordinary requests; never creates a namespace. */
   getProvider(): GuestWorkspaceProvider {
-    return this.provider;
+    return createGuestWorkspaceProvider(this.options);
   }
 }
 
