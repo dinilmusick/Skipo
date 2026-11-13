@@ -156,6 +156,7 @@ describe('GuestWorkspaceProvider', () => {
     await provider.createWorkspace(lease('one'));
     const readsBefore = store.calls.read;
     await expect(provider.readFile(lease('one'), '../secret')).rejects.toThrow(/traversal/);
+    await expect(provider.readFile(lease('one'), String.raw`..\secret`)).rejects.toThrow(/traversal/);
     await expect(provider.readFile(lease('one', 999), 'src/a.txt')).rejects.toThrow(/expired/);
     expect(store.calls.read).toBe(readsBefore);
   });
