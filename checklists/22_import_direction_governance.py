@@ -38,8 +38,12 @@ IMPORT_REGEX = re.compile(
 DYNAMIC_IMPORT_REGEX = re.compile(r"""import\(\s*['"]([^'"]+)['"]\s*\)""")
 REQUIRE_REGEX = re.compile(r"""require\(\s*['"]([^'"]+)['"]\s*\)""")
 
+FORBIDDEN_BROWSER_EXACT = {"@ultrst-armada/kloks"}
+
 FORBIDDEN_BROWSER_EXTERNALS = (
-    "@ultrst-armada/kloks",
+    "@ultrst-armada/kloks/backend",
+    "@ultrst-armada/kloks/storage",
+    "@ultrst-armada/kloks/node",
     "@ultrst-armada/krnl",
     "@kloks/",
     "@dinilmusick/gutts/server",
@@ -60,6 +64,18 @@ FORBIDDEN_BROWSER_EXTERNALS = (
     "node:",
 )
 
+
+
+def _is_forbidden_browser_external(specifier: str) -> bool:
+    if specifier in FORBIDDEN_BROWSER_EXACT:
+        return True
+    for forbidden in FORBIDDEN_BROWSER_EXTERNALS:
+        if forbidden.endswith(("/", ":")):
+            if specifier.startswith(forbidden):
+                return True
+        elif specifier == forbidden or specifier.startswith(forbidden + "/"):
+            return True
+    return False
 
 
 def _source_plane(target: Path, path: Path) -> Optional[str]:
@@ -166,7 +182,7 @@ def validate_import_direction(target: Path) -> ChecklistResult:
         rel_path = fpath.relative_to(target).as_posix()
         if source_plane in {"frontend", "libraries"}:
             for specifier, line_no in _iter_imports(content):
-                if any(specifier == forbidden or specifier.startswith(forbidden) for forbidden in FORBIDDEN_BROWSER_EXTERNALS):
+                if _is_forbidden_browser_external(specifier):
                     violations.append(Violation(
                         rule_id="22.4-browser-server-boundary",
                         severity="error",
