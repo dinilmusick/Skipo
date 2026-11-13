@@ -86,9 +86,9 @@ export async function authenticateLuthRequest(request: Request): Promise<{ reque
   if (!pathname.startsWith('/api/') || request.method === 'OPTIONS' ||
       pathname === '/health' || pathname === '/api/health' ||
       pathname === '/api/public/routes' || pathname.startsWith('/api/public/routes/')) return { request };
-  if (hasGuestLeaseCredential(request) && !request.headers.get('authorization')) {
-    return { status: 401, error: 'A verified Luth session is required.' };
-  }
+  const guestOnly = hasGuestLeaseCredential(request) &&
+    !request.headers.get('authorization') && !stripGuestLeaseCookie(request.headers.get('cookie'));
+  if (guestOnly) return { status: 401, error: 'A verified Luth session is required.' };
   if (!request.headers.get('authorization') && !stripGuestLeaseCookie(request.headers.get('cookie'))) {
     return { status: 401, error: 'A verified Luth session is required.' };
   }
