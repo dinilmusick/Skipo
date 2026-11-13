@@ -29,7 +29,7 @@ describe("guest capability authorization", () => {
 
   it("hard-denies identity, privileged, secret, billing and durable capabilities even if misconfigured public", async () => {
     const executor = { execute: vi.fn(async () => ({})) };
-    const forbidden = ["account.manage", "secrets.read", "billing.invoice", "admin.settings", "external-account.link", "workspace.persist", "workspace.cross-session-write"];
+    const forbidden = ["account.manage", "secrets.read", "billing.invoice", "admin.settings", "external-account.link", "workspace.persist", "workspace.cross-session-write", "storage.write", "googleDrive.connect"];
     for (const id of forbidden) {
       const registry = new CapabilityRegistry(executor).register({
         ...capability, id, access: "public", guestAccess: true,
