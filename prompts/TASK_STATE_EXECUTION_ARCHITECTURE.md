@@ -1,6 +1,6 @@
 # TASK: STATE_EXECUTION_ARCHITECTURE_ENFORCEMENT
 
-$$\text{Valid}(\mathcal{P}) \iff \text{SkipoState}(\mathcal{P}) \wedge \text{ZustandGlobal}(\mathcal{P}) \wedge \text{AcyclicLifecycle}(\mathcal{P}) \wedge \text{PQueueExecution}(\mathcal{P}) \wedge \text{WorkerFacadeBoundary}(\mathcal{P}) \wedge (\text{ExitCode}(\text{Validator}) = 0)$$
+$$\text{Valid}(\mathcal{P}) \iff \text{SkipoState}(\mathcal{P}) \wedge \text{ZustandGlobal}(\mathcal{P}) \wedge \text{AcyclicLifecycle}(\mathcal{P}) \wedge \text{PQueueExecution}(\mathcal{P}) \wedge \text{QueueRunnerFacadeBoundary}(\mathcal{P}) \wedge (\text{ExitCode}(\text{Validator}) = 0)$$
 
 > **EXCLUSIVE SCOPE**: This prompt owns **frontend state management (`SKIPO_STATE` / Zustand), explicit lifecycle graph governance, execution transport (`SKIPO_COMMAND` / p-queue), Queue-runner-only Backend Facade boundary, and deterministic Operation Components**.
 >
@@ -122,25 +122,25 @@ export function WorkspaceCreator() {
 
 ---
 
-## 3. BACKEND BOUNDARY: WORKER-ONLY FACADE (Invariants I11–I14)
+## 3. BACKEND BOUNDARY: QUEUE-RUNNER-ONLY FACADE (Invariants I11–I14)
 
 $$\text{BACKEND\_FACADE} := \text{SINGLE\_PUBLIC\_EXECUTION\_INTERFACE}, \quad \text{FACADE\_ACCESS} := \text{WORKER\_ONLY}$$
 
 ### 3.1 Backend Facade Invariant
-The backend facade is accessible **ONLY** through the in-process p-queue runner under `WorkerExecutionBoundary`. Any call lacking `isWorkerContext: true` is immediately rejected.
+The backend facade is accessible **ONLY** to the in-process p-queue callback through the existing `WorkerExecutionBoundary` guard. Its `isWorkerContext` marker is an authorization context flag, not a separate worker process.
 
 ```typescript
 // src/backend/AppBackend.ts
 import { ExecutableBackendFacade, WorkerExecutionBoundary } from '@skipo/backend';
 
 export const appBackendFacade = new ExecutableBackendFacade('AppBackend');
-export const appWorker = new WorkerExecutionBoundary('app_worker_1', appBackendFacade);
+export const appQueueRunner = new WorkerExecutionBoundary('app_queue_runner_1', appBackendFacade);
 
 export const AppBackend = {
   services: {},
   orchestrations: {},
-  queueRunner: appWorker,
-  WorkerExecutionBoundary: appWorker,
+  queueRunner: appQueueRunner,
+  queueRunnerBoundary: appQueueRunner,
 };
 ```
 
@@ -186,7 +186,7 @@ $$\text{operation} \to \text{service} \to \text{facade} \to \text{worker} \to \t
 3. **Replace Direct Calls**:
    - Replace direct `fetch()` and `Backend.services.*` with `useCommand(type)`.
 4. **Harden Backend Facade**:
-   - Wrap backend facade with `WorkerExecutionBoundary`.
+   - Wrap the in-process queue runner's backend facade with `WorkerExecutionBoundary`.
 5. **Verify Gate (Mandatory Exit 0)**:
    ```bash
    python3 assistant.py validate . --aspect aspect_13 && pnpm test
