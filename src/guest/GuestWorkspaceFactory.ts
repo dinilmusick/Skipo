@@ -23,6 +23,7 @@ export class GuestWorkspaceFactory {
     createGuestWorkspaceProvider(options);
   }
 
+  /** Allocate exactly once during guest lease bootstrap, before returning the guest credential. */
   async createForLease(lease: GuestLeaseBinding): Promise<GuestWorkspaceProvider> {
     const provider = createGuestWorkspaceProvider(this.options);
     // Store.createNamespace is an atomic create-if-absent operation. Repeated
@@ -31,6 +32,7 @@ export class GuestWorkspaceFactory {
     return provider;
   }
 
+  /** Resolve a provider for an already allocated lease on ordinary requests; never creates a namespace. */
   getProvider(): GuestWorkspaceProvider {
     return createGuestWorkspaceProvider(this.options);
   }
