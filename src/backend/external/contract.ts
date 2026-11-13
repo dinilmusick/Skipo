@@ -5,12 +5,21 @@ export type JsonSchema = {
 };
 export type ExternalTransport = "http" | "mcp";
 export type CapabilityAccess = "public" | "authenticated" | "roles";
-export interface ExternalPrincipal { readonly userId: string; readonly roles?: readonly string[]; readonly sessionId?: string; }
+export interface AuthenticatedExternalPrincipal {
+  readonly kind?: "authenticated"; readonly userId: string; readonly roles?: readonly string[]; readonly sessionId?: string;
+}
+export interface GuestExternalPrincipal {
+  readonly kind: "guest"; readonly leaseId: string; readonly appId: string; readonly deploymentId: string;
+  readonly workspaceId: string; readonly capabilities: readonly string[];
+}
+export type ExternalPrincipal = AuthenticatedExternalPrincipal | GuestExternalPrincipal;
 export interface ExternalCapabilityContext { readonly principal: ExternalPrincipal | null; readonly transport: ExternalTransport; readonly requestId: string; }
 export interface ApplicationCapability {
   readonly id: string; readonly description: string; readonly inputSchema: JsonSchema; readonly outputSchema: JsonSchema;
   readonly invocation: { readonly serviceId: string; readonly operationId: string };
   readonly access?: CapabilityAccess; readonly requiredRoles?: readonly string[]; readonly discoverable?: boolean;
+  /** Explicit framework policy opt-in; guests must also hold this exact capability in their validated lease. */
+  readonly guestAccess?: boolean;
 }
 export interface CapabilityExecutor { execute(serviceId: string, operationId: string, input: unknown, context: ExternalCapabilityContext): Promise<unknown>; }
 export type ExternalErrorCode = "INVALID_REQUEST" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "INVALID_INPUT" | "INVALID_OUTPUT" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "PARSE_ERROR";
