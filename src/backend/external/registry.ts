@@ -30,7 +30,9 @@ function isGuestCapabilityForbidden(capability: ApplicationCapability): boolean 
   const identityAndPrivilege = /(?:^|[^a-z0-9])(auth|account|identity|profile|membership|role|admin|billing|payment|secret|secrets|credential|credentials|oauth|user)(?=$|[^a-z0-9])/i;
   const externalLinking = /external[ ._:-]+(?:account|identity)?[ ._:-]*(?:link|connect|oauth)/i;
   const durableState = /(?:^|[^a-z0-9])(persist(?:ent)?|durable|backup|restore|sync|cross[ ._:-]*session|shared[ ._:-]*workspace)(?=$|[^a-z0-9])/i;
-  return identityAndPrivilege.test(scope) || externalLinking.test(scope) || durableState.test(scope);
+  const persistentStorageService = /^(storage|google[ ._:-]*drive|s3|backblaze|b2|local[ ._:-]*folder|backup|sync)(?:$|[ ._:-])/i;
+  return identityAndPrivilege.test(scope) || externalLinking.test(scope) ||
+    durableState.test(scope) || persistentStorageService.test(capability.invocation.serviceId);
 }
 export class CapabilityRegistry {
   private readonly capabilities = new Map<string, ApplicationCapability>();
