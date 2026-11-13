@@ -115,9 +115,9 @@ export class PQueueAdapter<TPayload = Record<string, unknown>> {
 
   async close(): Promise<void> {
     if (this.closed) return;
+    this.closed = true;
     await this.queue.onIdle();
     this.queue.pause();
-    this.closed = true;
   }
 
   get concurrency(): number {
