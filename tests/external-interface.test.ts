@@ -67,7 +67,7 @@ it("bridges external calls through the canonical BackendFacade executor", async 
   expect(executeCapability).toHaveBeenCalledWith("math", "double", { value: 5 }, {
     serviceId: "math",
     correlationId: "req-1",
-    metadata: { externalInterface: true, transport: "mcp", principal: { userId: "u1", roles: [], sessionId: undefined } },
+    metadata: { externalInterface: true, transport: "mcp", principal: { kind: "authenticated", userId: "u1", roles: [], sessionId: undefined } },
   });
 });
 
