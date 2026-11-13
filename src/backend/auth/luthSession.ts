@@ -1,5 +1,18 @@
 import { DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth';
 
+function stripGuestLeaseCookie(cookie: string | null): string | null {
+  if (!cookie) return null;
+  const retained = cookie.split(";").map((part) => part.trim())
+    .filter((part) => !part.startsWith("__Host-skipo_guest="));
+  return retained.length ? retained.join("; ") : null;
+}
+
+function hasGuestLeaseCredential(request: Request): boolean {
+  if (request.headers.get("x-skipo-guest-lease")) return true;
+  return (request.headers.get("cookie") ?? "").split(";")
+    .some((part) => part.trim().startsWith("__Host-skipo_guest="));
+}
+
 export interface VerifiedLuthSession {
   authenticated: true;
   user: { id: string; [key: string]: unknown };
@@ -9,10 +22,12 @@ export interface VerifiedLuthSession {
 /** Delegate request authentication to Luth; never trust an app-supplied user ID. */
 export async function getLuthSession(request: Request): Promise<VerifiedLuthSession | null> {
   const headers = new Headers({ 'x-app-id': request.headers.get('x-app-id') || new URL(request.url).hostname });
-  for (const name of ['authorization', 'cookie', 'origin']) {
-    const value = request.headers.get(name);
-    if (value) headers.set(name, value);
-  }
+  const authorization = request.headers.get('authorization');
+  if (authorization) headers.set('authorization', authorization);
+  const cookie = stripGuestLeaseCookie(request.headers.get('cookie'));
+  if (cookie) headers.set('cookie', cookie);
+  const origin = request.headers.get('origin');
+  if (origin) headers.set('origin', origin);
 
   let response: Response;
   try {
@@ -40,7 +55,11 @@ export async function proxyLuthAuthRequest(request: Request): Promise<Response |
     return Response.json({ success: false, error: 'Administrative login is not provided by Luth user authentication.' }, { status: 403 });
   }
   const headers = new Headers({ 'x-app-id': request.headers.get('x-app-id') || url.hostname });
-  for (const name of ['authorization', 'cookie', 'content-type', 'origin', 'user-agent']) {
+  const authorization = request.headers.get('authorization');
+  if (authorization) headers.set('authorization', authorization);
+  const cookie = stripGuestLeaseCookie(request.headers.get('cookie'));
+  if (cookie) headers.set('cookie', cookie);
+  for (const name of ['content-type', 'origin', 'user-agent']) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
@@ -67,7 +86,10 @@ export async function authenticateLuthRequest(request: Request): Promise<{ reque
   if (!pathname.startsWith('/api/') || request.method === 'OPTIONS' ||
       pathname === '/health' || pathname === '/api/health' ||
       pathname === '/api/public/routes' || pathname.startsWith('/api/public/routes/')) return { request };
-  if (!request.headers.get('authorization') && !request.headers.get('cookie')) {
+  const guestOnly = hasGuestLeaseCredential(request) &&
+    !request.headers.get('authorization') && !stripGuestLeaseCookie(request.headers.get('cookie'));
+  if (guestOnly) return { status: 401, error: 'A verified Luth session is required.' };
+  if (!request.headers.get('authorization') && !stripGuestLeaseCookie(request.headers.get('cookie'))) {
     return { status: 401, error: 'A verified Luth session is required.' };
   }
   const session = await getLuthSession(request);

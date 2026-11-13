@@ -24,6 +24,16 @@ function validate(schema: JsonSchema, value: unknown, path = "$"): string[] {
   else if (schema.type === "null" && value !== null) errors.push(path + " must be null");
   return errors;
 }
+function isGuestCapabilityForbidden(capability: ApplicationCapability): boolean {
+  const scope = [capability.id, capability.invocation.serviceId, capability.invocation.operationId]
+    .join(" ").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+  const identityAndPrivilege = /(?:^|[^a-z0-9])(auth|account|identity|profile|membership|role|admin|billing|payment|secret|secrets|credential|credentials|oauth|user)(?=$|[^a-z0-9])/i;
+  const externalLinking = /external[ ._:-]+(?:account|identity)?[ ._:-]*(?:link|connect|oauth)/i;
+  const durableState = /(?:^|[^a-z0-9])(persist(?:ent)?|durable|backup|restore|sync|cross[ ._:-]*session|shared[ ._:-]*workspace)(?=$|[^a-z0-9])/i;
+  const persistentStorageService = /^(storage|google[ ._:-]*drive|s3|backblaze|b2|local[ ._:-]*folder|backup|sync)(?:$|[ ._:-])/i;
+  return identityAndPrivilege.test(scope) || externalLinking.test(scope) ||
+    durableState.test(scope) || persistentStorageService.test(capability.invocation.serviceId);
+}
 export class CapabilityRegistry {
   private readonly capabilities = new Map<string, ApplicationCapability>();
   constructor(private readonly executor: CapabilityExecutor) {}
@@ -40,8 +50,13 @@ export class CapabilityRegistry {
   get(id: string): ApplicationCapability | undefined { return this.capabilities.get(id); }
   isAuthorized(capability: ApplicationCapability, principal: ExternalPrincipal | null): boolean {
     const access = capability.access ?? "authenticated";
+    if (principal?.kind === "guest") {
+      if (isGuestCapabilityForbidden(capability)) return false;
+      if (access === "public") return true;
+      return capability.guestAccess === true && principal.capabilities.includes(capability.id);
+    }
     if (access === "public") return true;
-    if (!principal?.userId) return false;
+    if (!principal || !principal.userId) return false;
     if (access === "roles") return (capability.requiredRoles ?? []).some(role => principal.roles?.includes(role));
     return true;
   }
