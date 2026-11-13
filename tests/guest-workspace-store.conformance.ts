@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  createGuestWorkspaceFactory,
-} from '../src/guest/GuestWorkspaceFactory.js';
-import type {
-  GuestLeaseBinding,
-  GuestWorkspaceStore,
-} from '../src/guest/GuestWorkspace.js';
+import { createGuestWorkspaceFactory } from '../src/guest/GuestWorkspaceFactory.js';
+import type { GuestLeaseBinding, GuestWorkspaceStore } from '../src/guest/GuestWorkspace.js';
 
 export interface GuestWorkspaceStorePair {
   first: GuestWorkspaceStore;
@@ -23,11 +18,7 @@ export function defineGuestWorkspaceStoreConformance(
   createPair: GuestWorkspaceStorePairFactory,
 ): void {
   describe(adapterName + ' GuestWorkspaceStore conformance', () => {
-    const capabilities = {
-      leaseAffinity: true,
-      volatileWorkspace: true,
-      ttlCleanup: true,
-    };
+    const capabilities = { leaseAffinity: true, volatileWorkspace: true, ttlCleanup: true };
     const lease = (id: string, expiresAt = 2_000): GuestLeaseBinding => ({
       leaseId: id,
       appId: 'conformance-app',
@@ -43,11 +34,24 @@ export function defineGuestWorkspaceStoreConformance(
         store: stores.first, capabilities, deployment: 'node', now: () => 1_000,
       }).createForLease(binding);
       await first.writeFile(binding, 'state.txt', 'survives reconstruction');
-
       const second = await createGuestWorkspaceFactory({
         store: stores.second, capabilities, deployment: 'node', now: () => 1_000,
       }).createForLease(binding);
       expect(await second.readText(binding, 'state.txt')).toBe('survives reconstruction');
+    });
+
+    it('fails closed when any required deployment capability is absent', () => {
+      const store = createPair().first;
+      const missing = [
+        { ...capabilities, leaseAffinity: false },
+        { ...capabilities, volatileWorkspace: false },
+        { ...capabilities, ttlCleanup: false },
+      ];
+      for (const unsupported of missing) {
+        expect(() => createGuestWorkspaceFactory({
+          store, capabilities: unsupported, deployment: 'node',
+        })).toThrow(/unsupported/);
+      }
     });
 
     it('makes namespace creation idempotent and enforces shared lease capacity', async () => {
@@ -81,11 +85,8 @@ export function defineGuestWorkspaceStoreConformance(
         stores.second.consume('budget', { operations: 1 }, { maxOperations: 1 }),
       ]);
       expect(operations.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-
       const runtimeQuota = {
-        maxRuntimeMemoryBytes: 8,
-        maxRuntimeCpuMs: 10,
-        maxRuntimeDurationMs: 10,
+        maxRuntimeMemoryBytes: 8, maxRuntimeCpuMs: 10, maxRuntimeDurationMs: 10,
       };
       const runtime = await Promise.allSettled([
         stores.first.consumeRuntime('budget', { memoryBytes: 4, cpuMs: 6, durationMs: 4 }, runtimeQuota),
@@ -102,8 +103,8 @@ export function defineGuestWorkspaceStoreConformance(
         maxBytes: 10, maxFiles: 1,
       });
       expect(await stores.second.read('lease-b', 'private.txt')).toBeUndefined();
-
       expect(await stores.second.deleteNamespace('lease-a')).toBe(true);
+      expect(await stores.second.deleteNamespace('lease-a')).toBe(false);
       expect(await stores.first.read('lease-b', 'private.txt')).toBeUndefined();
       expect(await stores.first.deleteExpired(1_500)).toBe(1);
       expect(await stores.second.deleteExpired(1_500)).toBe(0);
