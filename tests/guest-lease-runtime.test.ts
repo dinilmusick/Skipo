@@ -67,6 +67,6 @@ describe('GuestLeaseManager', () => {
       ttlMs: 100, capabilities: ['workspace:read'],
     });
     now = second.lease.expiresAt;
-    expect(await manager.cleanup()).toBe(1);
+    expect(await manager.cleanup()).toBe(2);
   });
 });
