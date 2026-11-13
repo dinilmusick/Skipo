@@ -135,4 +135,4 @@ function createSharedPair(): { first: GuestWorkspaceStore; second: GuestWorkspac
   };
 }
 
-describeGuestWorkspaceStoreConformance('Shared volatile reference fixture', createSharedPair);
+defineGuestWorkspaceStoreConformance('Shared volatile reference fixture', createSharedPair);
