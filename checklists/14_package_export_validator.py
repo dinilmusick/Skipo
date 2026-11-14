@@ -27,7 +27,8 @@ BOOTSTRAP_FALLBACK_EXPORTS: Dict[str, Set[str]] = {
         "services", "contracts", "backend", "client", "audio-midi", "functions",
         "orchestrations", "state-graph", "krnl-ai-services",
         "semantic-runtime", "development", "ai-provider", "ai-inference",
-        "ai-models", "ai-routing", "ai-keys", "ai-tools", "shared"
+        "ai-models", "ai-routing", "ai-keys", "ai-tools", "shared",
+        "auth", "fod", "aiko", "wasm-runtime"
     },
     "@ultrst-armada/krnl": set(),
 }
