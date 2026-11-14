@@ -4,9 +4,11 @@ import {
   type GuestWorkspaceProvider,
   type GuestWorkspaceProviderOptions,
 } from './GuestWorkspace.js';
+import { GuestResourceRegistry } from './GuestResourceRegistry.js';
 
 export interface GuestWorkspaceFactoryOptions extends GuestWorkspaceProviderOptions {
   deployment: 'node' | 'cloudflare' | 'vercel';
+  resourceRegistry?: GuestResourceRegistry;
 }
 
 /**
@@ -29,6 +31,15 @@ export class GuestWorkspaceFactory {
     // Store.createNamespace is an atomic create-if-absent operation. Repeated
     // calls across requests/restarts must preserve the existing lease workspace.
     await provider.createWorkspace(lease);
+    const registry = this.options.resourceRegistry;
+    if (registry) {
+      registry.register({
+        id: 'workspace:' + lease.leaseId,
+        leaseId: lease.leaseId,
+        kind: 'workspace',
+        cleanup: () => provider.destroyWorkspace(lease).then(() => undefined),
+      });
+    }
     return provider;
   }
 
