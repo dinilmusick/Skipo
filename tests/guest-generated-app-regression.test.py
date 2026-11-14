@@ -32,11 +32,10 @@ def test_guest_contract_rejects_local_identity_authority_in_generated_source(tmp
     source = tmp_path / "src" / "guest.ts"
     source.parent.mkdir(parents=True)
     source.write_text(
-        'const principal = { kind: "guest", userId: "guest" };',
+        'const guest = true; const headers = {"x-user-id": "guest"};',
         encoding="utf-8",
     )
-    # The validator's source-tree scan is the authoritative negative gate.
-    assert any("x-user-id" not in item for item in CONTRACT.validate_guest_contract(tmp_path)) is False or CONTRACT.validate_guest_contract(tmp_path) == []
+    assert any("x-user-id" in item for item in CONTRACT.validate_guest_contract(tmp_path))
 
 
 def test_manifests_do_not_add_guest_auth_dependencies():
