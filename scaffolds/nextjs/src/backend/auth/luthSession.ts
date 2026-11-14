@@ -1,4 +1,9 @@
 import { DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth';
+function stripGuestLeaseCookie(cookie: string | null): string | null {
+  if (!cookie) return null;
+  const retained = cookie.split(";").map((part) => part.trim()).filter((part) => !part.startsWith("__Host-skipo_guest="));
+  return retained.length ? retained.join("; ") : null;
+}
 
 export interface VerifiedLuthSession {
   authenticated: true;
@@ -9,10 +14,12 @@ export interface VerifiedLuthSession {
 /** Delegate request authentication to Luth; never trust an app-supplied user ID. */
 export async function getLuthSession(request: Request): Promise<VerifiedLuthSession | null> {
   const headers = new Headers({ 'x-app-id': request.headers.get('x-app-id') || new URL(request.url).hostname });
-  for (const name of ['authorization', 'cookie', 'origin']) {
+  for (const name of ['authorization', 'origin']) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
+  const cookie = stripGuestLeaseCookie(request.headers.get('cookie'));
+  if (cookie) headers.set('cookie', cookie);
 
   let response: Response;
   try {
