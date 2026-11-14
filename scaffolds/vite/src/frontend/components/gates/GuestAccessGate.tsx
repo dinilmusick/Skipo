@@ -5,7 +5,7 @@ export interface GuestAccessGateProps {
   readonly endpoint?: string;
 }
 
-export function GuestAccessGate({ onStarted, endpoint = "/api/auth/guest/session" }: GuestAccessGateProps) {
+export function GuestAccessGate({ onStarted, endpoint = "/api/guest/lease" }: GuestAccessGateProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const start = async () => {

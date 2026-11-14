@@ -14,7 +14,10 @@ export interface GuestLeaseLifecycleAuthority {
 
 function allowedOrigin(request: Request, configuredOrigins: readonly string[]): boolean {
   const origin = request.headers.get("origin");
-  if (!origin) return request.method === "GET" || request.method === "HEAD";
+  if (!origin) {
+    if (request.method === "GET" || request.method === "HEAD") return true;
+    return configuredOrigins.length === 0;
+  }
   if (origin === "null") return false;
   const expected = new Set([new URL(request.url).origin, ...configuredOrigins]);
   return expected.has(origin);

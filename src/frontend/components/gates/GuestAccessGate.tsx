@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
 export interface GuestAccessGateProps {
   readonly onStarted?: () => void;
@@ -7,7 +7,7 @@ export interface GuestAccessGateProps {
 
 export function GuestAccessGate({
   onStarted,
-  endpoint = "/api/auth/guest/session",
+  endpoint = "/api/guest/lease",
 }: GuestAccessGateProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -71,7 +71,7 @@ export async function handleGuestRequest(request: Request): Promise<Response | n
   if (pathname === '/api/auth/guest/session' && request.method === 'GET') {
     const id = guestSessionId(request);
     const lease = id ? leases.get(id) : null;
-    const valid = lease !== undefined && Date.now() - lease.createdAt < GUEST_SESSION_TTL_MS;
+    const valid = lease ? Date.now() - lease.createdAt < GUEST_SESSION_TTL_MS : false;
     if (!valid) return json({ success: false, error: 'Guest session expired or not found.' }, 401);
     return json({ success: true, valid: true, mode: 'ephemeral' });
   }

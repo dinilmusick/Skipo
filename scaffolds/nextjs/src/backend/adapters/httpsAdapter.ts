@@ -22,25 +22,30 @@ const notFound = (path: string) => json({ error: 'Not Found', path }, 404);
 export async function fetchHandler(request: Request, env: Env = {}): Promise<Response> {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
-  const sharedResponse = await universalFetch(request, env);
-  if (sharedResponse.status !== 404) return sharedResponse;
+  const url = new URL(request.url);
+  const path = url.pathname.replace(/^\/api\/auth(?=\/)/, '/api');
 
-  // Guest routes — always public, no Luth auth required
+  if (env.ASSETS && typeof env.ASSETS.fetch === 'function' &&
+      !url.pathname.startsWith('/api/') && url.pathname !== '/health' && url.pathname !== '/mcp') {
+    return env.ASSETS.fetch(request);
+  }
+
+  if (path === '/api/health' || path === '/health') {
+    return json({ status: 'ok', service: 'skipo-application' });
+  }
+
   const guestResponse = await handleGuestRequest(request);
   if (guestResponse) return guestResponse;
+
+  const sharedResponse = await universalFetch(request, env);
+  if (sharedResponse.status !== 404) return sharedResponse;
 
   const auth = await authenticateLuthRequest(request);
   if (auth.status) return json({ error: auth.error || 'Authentication required.' }, auth.status);
   request = auth.request || request;
 
-  const url = new URL(request.url);
-  const path = url.pathname.replace(/^\/api\/auth(?=\/)/, '/api');
   const userId = request.headers.get('x-user-id');
   const services = AppBackend.services as any;
-
-  if (path === '/api/health' || path === '/health') {
-    return json({ status: 'ok', service: 'skipo-application' });
-  }
 
   if (path === '/api/workspaces') {
     if (!userId) return json({ error: 'Authenticated user identity is required.' }, 401);
@@ -65,10 +70,6 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
     return json(await services.storage.testStorageConnection(input, env));
   }
 
-  if (env.ASSETS && typeof env.ASSETS.fetch === 'function' &&
-      !url.pathname.startsWith('/api/') && url.pathname !== '/mcp') {
-    return env.ASSETS.fetch(request);
-  }
   return notFound(url.pathname);
 }
 

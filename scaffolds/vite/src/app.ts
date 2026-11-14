@@ -51,19 +51,26 @@ export async function fetch(
 ): Promise<Response> {
   const url = new URL(request.url);
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
-  const guestResponse = await handleGuestRequest(request);
-  if (guestResponse) return guestResponse;
-  const authProxy = await proxyLuthAuthRequest(request);
-  if (authProxy) return authProxy;
-  const mcp = await externalInterfaces.mcp(request);
-  if (mcp) return mcp;
-  const http = await externalInterfaces.http(request);
-  if (http) return http;
+
+  const assetResponse = await fetchStaticAsset(request, env.ASSETS);
+  if (assetResponse) return assetResponse;
+
   if (url.pathname === "/health" || url.pathname === "/api/health") {
     return Response.json({ status: "ok", runtime: "fetch" }, { headers: cors });
   }
-  const assetResponse = await fetchStaticAsset(request, env.ASSETS);
-  if (assetResponse) return assetResponse;
+
+  const guestResponse = await handleGuestRequest(request);
+  if (guestResponse) return guestResponse;
+
+  const authProxy = await proxyLuthAuthRequest(request);
+  if (authProxy) return authProxy;
+
+  const mcp = await externalInterfaces.mcp(request);
+  if (mcp) return mcp;
+
+  const http = await externalInterfaces.http(request);
+  if (http) return http;
+
   return Response.json({ error: "Not Found" }, { status: 404, headers: cors });
 }
 

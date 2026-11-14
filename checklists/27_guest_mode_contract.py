@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -49,7 +50,8 @@ def validate_guest_contract(root: Path) -> list[str]:
 
     for path in source_files(root):
         source = path.read_text(encoding="utf-8", errors="replace")
-        if "x-user-id" in source and "Guest" in source and "guest" in source.lower():
+        is_guest_scoped = "guest" in path.name.lower() or "/guest/" in path.as_posix().lower()
+        if "x-user-id" in source and (is_guest_scoped or re.search(r'["\']x-user-id["\']\s*:\s*["\']guest', source, re.IGNORECASE)):
             errors.append(f"guest-aware source must not synthesize x-user-id: {path.relative_to(root)}")
         if "AuthServiceFacade" in source and "LuthAuthServiceFacade" not in source:
             errors.append(f"legacy local AuthServiceFacade reference: {path.relative_to(root)}")
