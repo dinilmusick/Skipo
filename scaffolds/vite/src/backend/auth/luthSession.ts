@@ -1,4 +1,9 @@
 import { DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth';
+function stripGuestLeaseCookie(cookie: string | null): string | null {
+  if (!cookie) return null;
+  const retained = cookie.split(";").map((part) => part.trim()).filter((part) => !part.startsWith("__Host-skipo_guest="));
+  return retained.length ? retained.join("; ") : null;
+}
 
 const APP_AUTH_PATHS = [
   '/api/auth/workspaces',
@@ -53,10 +58,12 @@ export async function getLuthSession(request: Request) {
   const headers = new Headers({
     'x-app-id': request.headers.get('x-app-id') || new URL(request.url).hostname,
   });
-  for (const name of ['authorization', 'cookie', 'origin']) {
+  for (const name of ['authorization', 'origin']) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
+  const cookie = stripGuestLeaseCookie(request.headers.get('cookie'));
+  if (cookie) headers.set('cookie', cookie);
   try {
     const response = await fetch(`${DEFAULT_LUTH_URL}/api/session`, {
       method: 'GET', headers, cache: 'no-store', redirect: 'manual',
@@ -88,7 +95,7 @@ export async function authenticateLuthRequest(request: Request): Promise<{
   ) return { request };
 
   const authorization = request.headers.get('authorization');
-  const cookie = request.headers.get('cookie');
+  const cookie = stripGuestLeaseCookie(request.headers.get('cookie'));
   if (!authorization && !cookie) return { status: 401, error: 'A verified Luth session is required.' };
 
   try {
