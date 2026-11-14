@@ -72,3 +72,8 @@ Client Write -> Primary Storage (Synchronous Commit)
 ## 5. CHECKLIST GATE
 `python3 checklists/07_backend_storage_isolation.py .`
 
+
+
+## Guest workspace boundary
+
+Guest workspaces are ephemeral data-plane resources only. They use the guest volatile workspace authority and never attach a persistent provider, backup, sync engine, user-owned bucket, Google Drive connection, or cross-session restore path. The validated guest lease is the only authority for resolving the active workspace namespace. On expiry, revocation, authority restart, or cleanup failure, access fails closed and the authoritative TTL remains in force.
