@@ -31,7 +31,11 @@ export class GuestResourceRegistry {
     cleanup: () => Promise<void> | void;
   }): () => Promise<boolean> {
     if (!input.id || !input.leaseId) throw new Error("Guest resource identity is required.");
-    if (this.resources.has(input.id)) throw new Error("Guest resource is already registered.");
+    const existing = this.resources.get(input.id);
+    if (existing && existing.leaseId === input.leaseId && existing.kind === input.kind) {
+      return async () => this.release(input.id);
+    }
+    if (existing) throw new Error("Guest resource is already registered.");
     const record: ResourceRecord = { ...input, released: false, attempts: 0 };
     this.resources.set(input.id, record);
     this.registered += 1;
