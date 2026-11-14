@@ -197,6 +197,49 @@ class ScaffoldRegressionTest(unittest.TestCase):
             self.assertNotEqual(res.returncode, 0, "Validator must reject obsolete @floks/ui import")
 
 
+    def test_floks_ui_peer_dependencies_are_declared(self):
+        """Scaffolds must install the optional graph peers imported by Floks UI."""
+        expected = {
+            "@xyflow/react": "^12.11.1",
+            "d3-force": "^3.0.0",
+        }
+        for scaffold_name in ["vite", "nextjs"]:
+            manifest_path = SKIPO_ROOT / "scaffolds" / scaffold_name / "package.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            dependencies = manifest.get("dependencies", {})
+            for package, version in expected.items():
+                self.assertEqual(
+                    dependencies.get(package),
+                    version,
+                    f"{scaffold_name} must declare Floks UI peer {package}@{version}",
+                )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            generated_root = Path(tmp) / "PortableApp"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(SKIPO_ROOT / "scripts" / "scaffold_app_structure.py"),
+                    str(generated_root),
+                    "--name",
+                    "PortableApp",
+                    "--no-delete-on-fail",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            generated_manifest = json.loads(
+                (generated_root / "package.json").read_text(encoding="utf-8")
+            )
+            for package, version in expected.items():
+                self.assertEqual(
+                    generated_manifest.get("dependencies", {}).get(package),
+                    version,
+                    f"Fresh generated apps must declare Floks UI peer {package}@{version}",
+                )
+
+
 if __name__ == "__main__":
     unittest.main()
 
