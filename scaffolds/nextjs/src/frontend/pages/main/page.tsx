@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ModuleUIHost } from '../../components/module-ui/ModuleUIHost.js';
 
-export function MainPage({ children }: { children?: React.ReactNode }) {
+export function MainPage({ children, isGuest }: { children?: React.ReactNode; isGuest?: boolean }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   return (
     <div data-skipo-main-page="true" style={{ minHeight: '100vh' }}>

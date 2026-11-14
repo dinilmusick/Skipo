@@ -485,7 +485,7 @@ export {{ default }} from './{pascal}Backend.js';
         created.append(guest_gate_target)
 
     # Generic backend/module framework files are copied verbatim from the canonical framework.
-    for relative_dir in ("module-contract", "modules/runtime", "backend/external", "guest"):
+    for relative_dir in ("module-contract", "modules/runtime", "backend/external", "backend/guest", "guest"):
         source_dir = SKIPO_ROOT / "src" / relative_dir
         target_dir = target_root / "src" / relative_dir
         if source_dir.is_dir():
@@ -515,16 +515,18 @@ export {{ default }} from './{pascal}Backend.js';
 import React from 'react';
 import { LuthAuthPage as FloksLuthAuthPage } from '@ultrst-armada/floks/auth';
 
-export function LuthAuthPage({ applicationId, appName, onAuthenticated, authenticatedContent }: {
+export function LuthAuthPage({ applicationId, appName, onAuthenticated, authenticatedContent, onContinueAsGuest }: {
   applicationId: string;
   appName: string;
   onAuthenticated?: (user: unknown) => void;
   authenticatedContent?: React.ReactNode | ((auth: any) => React.ReactNode);
+  onContinueAsGuest?: () => void;
 }) {
   return <FloksLuthAuthPage ecosystemId="ultrst-armada"
     applicationId={applicationId} appName={appName}
     onAuthenticated={onAuthenticated as any}
-    authenticatedContent={authenticatedContent as any} />;
+    authenticatedContent={authenticatedContent as any}
+    onContinueAsGuest={onContinueAsGuest} />;
 }
 
 export default LuthAuthPage;
@@ -554,8 +556,8 @@ export async function luthFetch(input: RequestInfo | URL, init: RequestInit = {}
         pages_root / "auth" / "page.tsx": (
             "import React from 'react';\n"
             "import { LuthAuthPage } from './LuthAuthPage.js';\n\n"
-            f"export function AuthPage(props: {{ onAuthenticated?: (user: unknown) => void; authenticatedContent?: React.ReactNode | ((auth: any) => React.ReactNode) }}) {{\n"
-            f"  return <LuthAuthPage applicationId=\"{app_name.lower().replace(' ', '-')}\" appName=\"{pascal}\" onAuthenticated={{props.onAuthenticated}} authenticatedContent={{props.authenticatedContent}} />;\n"
+            f"export function AuthPage(props: {{ onAuthenticated?: (user: unknown) => void; authenticatedContent?: React.ReactNode | ((auth: any) => React.ReactNode); onContinueAsGuest?: () => void }}) {{\n"
+            f"  return <LuthAuthPage applicationId=\"{app_name.lower().replace(' ', '-')}\" appName=\"{pascal}\" onAuthenticated={{props.onAuthenticated}} authenticatedContent={{props.authenticatedContent}} onContinueAsGuest={{props.onContinueAsGuest}} />;\n"
             "}\n\n"
             "export default AuthPage;\n"
         ),
@@ -629,10 +631,36 @@ import type { WorkspaceRecord } from '@ultrst-armada/floks/ui';
 export function App() {
   const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([]);
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceRecord | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
   const storageOptions = [{ id: 'memory', provider: 'memory', label: 'In-memory (ephemeral)' }];
 
+  const handleContinueAsGuest = async () => {
+    try {
+      await fetch('/api/auth/guest/session', { method: 'POST', headers: { 'content-type': 'application/json' } });
+    } catch {}
+    const guestWs: WorkspaceRecord = {
+      id: 'ws-guest',
+      title: 'Guest Session',
+      name: 'Guest Session',
+      storageProvider: 'memory',
+    };
+    setWorkspaces([guestWs]);
+    setActiveWorkspace(guestWs);
+    setIsGuest(true);
+  };
+
+  if (isGuest && activeWorkspace) {
+    return <SkipoThemeProvider defaultTheme="dark">
+      <FrnlSemanticInputProvider value={{ workspace: activeWorkspace.id }}>
+        <MainPage>
+          <div data-skipo-active-workspace={activeWorkspace.id} />
+        </MainPage>
+      </FrnlSemanticInputProvider>
+    </SkipoThemeProvider>;
+  }
+
   return <SkipoThemeProvider defaultTheme="dark">
-    <AuthPage authenticatedContent={(auth: any) => {
+    <AuthPage onContinueAsGuest={handleContinueAsGuest} authenticatedContent={(auth: any) => {
     if (!activeWorkspace) {
       return <WorkspaceGate
         workspaces={workspaces}
@@ -656,6 +684,7 @@ export function App() {
         }}
         onLogout={() => {
           setActiveWorkspace(null);
+          setIsGuest(false);
           void auth.signOut();
         }}
         appName="__SKIPO_APP_NAME__"

@@ -1,4 +1,5 @@
 import { authenticateLuthRequest } from '../auth/luthSession.js';
+import { handleGuestRequest } from '../guest/guestSession.js';
 import { fetch as universalFetch } from '../../app.js';
 import { AppBackend } from '../AppBackend.js';
 
@@ -23,6 +24,10 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
 
   const sharedResponse = await universalFetch(request, env);
   if (sharedResponse.status !== 404) return sharedResponse;
+
+  // Guest routes — always public, no Luth auth required
+  const guestResponse = await handleGuestRequest(request);
+  if (guestResponse) return guestResponse;
 
   const auth = await authenticateLuthRequest(request);
   if (auth.status) return json({ error: auth.error || 'Authentication required.' }, auth.status);

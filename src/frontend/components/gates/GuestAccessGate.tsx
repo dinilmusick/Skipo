@@ -7,7 +7,7 @@ export interface GuestAccessGateProps {
 
 export function GuestAccessGate({
   onStarted,
-  endpoint = "/api/guest/lease",
+  endpoint = "/api/auth/guest/session",
 }: GuestAccessGateProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -16,12 +16,13 @@ export const LoginGate: React.FC<LoginGateProps> = ({
   applicationId = getSkipoApplicationId(),
   onSuccess,
 }) => (
-  <div><LuthAuthPage
+  <LuthAuthPage
     ecosystemId="ultrst-armada"
     applicationId={applicationId}
     appName={appName}
     appSubtitle="CANONICAL AUTH"
     footerText="Powered by Luth · Floks · Kloks"
     onSuccess={onSuccess}
-  /><GuestAccessGate onStarted={() => onSuccess({ user: null } as AuthResult)} /></div>
+    onContinueAsGuest={() => onSuccess({ user: null, success: true } as AuthResult)}
+  />
 );

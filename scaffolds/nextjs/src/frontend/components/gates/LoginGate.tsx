@@ -22,5 +22,6 @@ export const LoginGate: React.FC<LoginGateProps> = ({
     appSubtitle="CANONICAL AUTH"
     footerText="Powered by Luth · Floks · Kloks"
     onSuccess={onSuccess}
+    onContinueAsGuest={() => onSuccess({ user: null, success: true } as AuthResult)}
   />
 );

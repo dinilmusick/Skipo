@@ -12,14 +12,16 @@ import {
 } from '../../components/components.js';
 import { apiClient } from '../../../libraries/client/apiClient.js';
 
-export function HomePage() {
-  const [token, setToken] = useState<string | null>(null);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
-  const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([]);
+export function HomePage({ isGuest }: { isGuest?: boolean } = {}) {
+  const [token, setToken] = useState<string | null>(isGuest ? 'guest-token' : null);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(isGuest ? 'ws-guest' : null);
+  const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>(
+    isGuest ? [{ id: 'ws-guest', name: 'Guest Session', storageProvider: 'memory' }] : []
+  );
   const [canvasTransform, setCanvasTransform] = useState({ x: 0, y: 0, scale: 1 });
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || isGuest) return;
     apiClient.getWorkspaces()
       .then((data: any) => {
         if (data && Array.isArray(data.workspaces)) {
@@ -30,7 +32,7 @@ export function HomePage() {
       .catch(() => {
         setWorkspaces([{ id: 'ws-default', name: 'Default Workspace', workspacePath: '/workspace' }]);
       });
-  }, [token]);
+  }, [token, isGuest]);
 
   const createWorkspace = async (input: { name: string; description?: string; storage: any }) => {
     try {
