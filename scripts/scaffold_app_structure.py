@@ -476,8 +476,16 @@ export {{ default }} from './{pascal}Backend.js';
         )
         created.append(components_file)
 
+    # Canonical guest access gate is framework-owned; generated apps never implement guest identity locally.
+    guest_gate_source = SKIPO_ROOT / "src" / "frontend" / "components" / "gates" / "GuestAccessGate.tsx"
+    guest_gate_target = target_root / "src" / "frontend" / "components" / "gates" / "GuestAccessGate.tsx"
+    if guest_gate_source.is_file() and not guest_gate_target.exists():
+        guest_gate_target.parent.mkdir(parents=True, exist_ok=True)
+        guest_gate_target.write_text(guest_gate_source.read_text(encoding="utf-8"), encoding="utf-8")
+        created.append(guest_gate_target)
+
     # Generic backend/module framework files are copied verbatim from the canonical framework.
-    for relative_dir in ("module-contract", "modules/runtime", "backend/external"):
+    for relative_dir in ("module-contract", "modules/runtime", "backend/external", "guest"):
         source_dir = SKIPO_ROOT / "src" / relative_dir
         target_dir = target_root / "src" / relative_dir
         if source_dir.is_dir():
