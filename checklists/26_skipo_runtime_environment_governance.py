@@ -54,19 +54,28 @@ def validate(root: Path) -> ChecklistResult:
         for name, line_no, snippet in candidates:
             if _allowed(name, root) or name in seen: continue
             seen.add(name)
-            if name == "DEPM_GATEWAY_DOMAIN":
-                message = "DEPM_GATEWAY_DOMAIN is reserved for DEPM-Engine only; it is not part of the standard Skipo app contract."
-            else:
-                message = f"{name} is outside the standard Skipo application environment contract. Extra variables are permitted only when genuinely required and are strongly discouraged."
+            message = f"{name} violates the strict Skipo environment contract. Only APP_URL and SYSTEM_DATABASE_URL[_2/_3] are allowed."
             violations.append(Violation(
-                rule_id="ENV-001", severity="warning", message=message,
+                rule_id="ENV-001", severity="error", message=message,
                 file_path=str(path.relative_to(root)), line=line_no, snippet=snippet,
-                suggestion="Prefer APP_URL and SYSTEM_DATABASE_URL[_2/_3]; store service URLs/configuration in the system database or runtime settings. Add an exception only when unavoidable.",
+                suggestion="Remove extra environment variables. Features must be zero-config or persist in the system database.",
             ))
+    for wrangler_name in ("wrangler.toml", "wrangler.jsonc", "wrangler.json"):
+        w_path = root / wrangler_name
+        if w_path.is_file():
+            w_text = w_path.read_text(encoding="utf-8", errors="replace")
+            if re.search(r"^\s*\[vars\]", w_text, re.MULTILINE):
+                violations.append(Violation(
+                    rule_id="ENV-002", severity="error",
+                    message="[vars] table is strictly forbidden in wrangler configuration. No custom env vars allowed.",
+                    file_path=str(w_path.relative_to(root)),
+                    suggestion="Remove [vars] section from wrangler config.",
+                ))
+    has_errors = any(v.severity == "error" for v in violations)
     return ChecklistResult(
-        aspect_id=ASPECT_ID, aspect_title=ASPECT_TITLE, passed=True,
+        aspect_id=ASPECT_ID, aspect_title=ASPECT_TITLE, passed=not has_errors,
         violations=violations, files_scanned=scanned,
-        score=max(0.0, 100.0 - min(50.0, 10.0 * len(violations))),
+        score=0.0 if has_errors else 100.0,
     )
 
 def main():
@@ -77,7 +86,7 @@ def main():
         print(json.dumps(result.to_dict(), indent=2))
     else:
         print_checklist_report(result, args.verbose)
-    sys.exit(0)
+    sys.exit(0 if result.passed else 1)
 
 if __name__ == "__main__":
     main()

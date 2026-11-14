@@ -192,6 +192,19 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
                 suggestion="Delete Express serverless layer and route Vercel api/index.js through universal 'src/backend/adapters/httpsAdapter.ts' via nodeBridge."
             ))
 
+    # 2.3.1 Ban on Express in server.ts (Law L8: ExpressLayers(a) = ∅)
+    server_ts = root_dir / "server.ts"
+    if server_ts.is_file():
+        s_text = read_text_safe(server_ts)
+        if re.search(r"\bfrom\s+['\"]express['\"]|\brequire\s*\(\s*['\"]express['\"]\s*\)", s_text):
+            violations.append(Violation(
+                rule_id="forbidden-express-dev-server",
+                severity="error",
+                message="Express usage detected in 'server.ts'. ExpressLayers(a) = ∅ requires dev servers to use node:http and adaptNodeRequest to call httpsAdapter.ts directly.",
+                file_path="server.ts",
+                suggestion="Replace Express in server.ts with node:http + Vite middleware delegating directly to adaptNodeRequest."
+            ))
+
     # 2.4 Require nodeBridge.ts for Universal Node HTTP / Fetch bridging (Law L8)
     node_bridge_file = backend_dir / "adapters" / "nodeBridge.ts"
     if not node_bridge_file.exists():
