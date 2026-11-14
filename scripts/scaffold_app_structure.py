@@ -477,7 +477,7 @@ export {{ default }} from './{pascal}Backend.js';
         created.append(components_file)
 
     # Generic backend/module framework files are copied verbatim from the canonical framework.
-    for relative_dir in ("module-contract", "modules/runtime", "backend/external"):
+    for relative_dir in ("module-contract", "modules/runtime", "backend/external", "guest"):
         source_dir = SKIPO_ROOT / "src" / relative_dir
         target_dir = target_root / "src" / relative_dir
         if source_dir.is_dir():
