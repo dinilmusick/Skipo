@@ -32,7 +32,7 @@ def _allowed(name: str, root: Path) -> bool:
     return name in STANDARD_VARS or (name == "DEPM_GATEWAY_DOMAIN" and _is_depm_engine(root))
 
 def _iter_files(root: Path):
-    ignored = {".git", "node_modules", "dist", ".next", ".turbo", "coverage", "build", "out", ".cache", "tmp", "scaffolds", "scaffold"}
+    ignored = {".git", "node_modules", "dist", ".next", ".turbo", "coverage", "build", "out", ".cache", "tmp", "scaffolds", "scaffold", "api", "scripts"}
     for path in root.rglob("*"):
         if path.is_file() and not any(part in ignored for part in path.parts):
             if path.name in ENV_FILE_NAMES or path.suffix in {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}:
