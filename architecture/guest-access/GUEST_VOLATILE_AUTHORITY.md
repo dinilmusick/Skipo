@@ -34,3 +34,7 @@ The HTTP client can run in Node, Cloudflare Workers, and Vercel Functions becaus
 - Expired namespace: inaccessible immediately and reclaimed by the reaper.
 
 The in-memory implementation is the reference authority and is suitable for a single-process deployment. A horizontally scaled or highly available deployment must provide a separately reviewed volatile atomic authority and pass the same conformance suite with two independently constructed clients.
+
+## Lease-owned resource cleanup
+
+Guest runtime resources are registered against the lease and released idempotently before workspace destruction. Cleanup retries are bounded; failure increments privacy-safe counters and never writes guest payloads to logs. The resource registry tracks only resource kind and lease-scoped identifiers. Browser page-exit signaling calls the guest teardown endpoint as a best-effort hint. The authoritative cleanup path remains server-side revocation plus namespace destruction and scheduled TTL reaping.
