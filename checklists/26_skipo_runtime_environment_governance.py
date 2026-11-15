@@ -9,7 +9,6 @@ ASPECT_ID = "26"
 ASPECT_TITLE = "Skipo Runtime Environment Governance"
 STANDARD_VARS = {"APP_URL", "SYSTEM_DATABASE_URL", "SYSTEM_DATABASE_URL_2", "SYSTEM_DATABASE_URL_3"}
 TOOLING_VARS = {"NODE_ENV", "PORT", "CI", "DISABLE_HMR"}
-STORAGE_VARS = {"GOOGLE_DRIVE_CLIENT_ID", "GOOGLE_DRIVE_CLIENT_SECRET", "GOOGLE_DRIVE_REDIRECT_URI"}
 SPECIAL_CASE_VARS = {"DEPM_GATEWAY_DOMAIN": "DEPM-Engine only"}
 ENV_FILE_NAMES = {".env", ".env.example", ".env.local", ".env.development", ".env.production", ".env.test", ".env.staging"}
 ENV_REF_PATTERNS = (
@@ -34,7 +33,6 @@ def _allowed(name: str, root: Path) -> bool:
     return (
         name in STANDARD_VARS
         or name in TOOLING_VARS
-        or name in STORAGE_VARS
         or (name == "DEPM_GATEWAY_DOMAIN" and _is_depm_engine(root))
     )
 
