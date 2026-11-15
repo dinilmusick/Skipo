@@ -284,8 +284,10 @@ APP_URL = "http://localhost:3000"
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const zlib = require('zlib');
 
 const rootDir = path.resolve(__dirname, '..');
+const distDir = path.join(rootDir, 'dist');
 
 console.log('[skipo-build] Starting Universal Single-Pass Build...');
 const startTime = Date.now();
@@ -298,9 +300,30 @@ function run(cmd, desc) {
   execSync(cmd, { cwd: rootDir, stdio: 'inherit' });
 }
 
+function compressWasmAssets() {
+  if (!fs.existsSync(distDir)) return;
+  let compressedCount = 0;
+  const visit = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, entry.name);
+      if (entry.isDirectory()) { visit(p); continue; }
+      if (!entry.isFile() || !entry.name.endsWith('.wasm')) continue;
+      const src = fs.readFileSync(p);
+      fs.writeFileSync(`${p}.gz`, zlib.gzipSync(src, { level: 9 }));
+      fs.unlinkSync(p);
+      compressedCount++;
+    }
+  };
+  visit(distDir);
+  if (compressedCount > 0) {
+    console.log(`[skipo-build] Prepared ${compressedCount} compressed WASM asset(s) for Cloudflare.`);
+  }
+}
+
 try {
   // 1. Frontend SPA build
   run('npx vite build', 'Building Vite frontend assets');
+  compressWasmAssets();
 
   const nodeBuiltins = [
     'http', 'https', 'http2', 'events', 'stream', 'buffer', 'fs', 'path',
