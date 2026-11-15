@@ -1,4 +1,3 @@
-export * from './auth/guestLease.js';
 export * from './BackendFacadeTypes.js';
 export * from './BackendFacade.js';
 export * from './ModuleBackendAdapterTypes.js';

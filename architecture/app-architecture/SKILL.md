@@ -148,16 +148,10 @@ The validator is authoritative for machine-checkable architecture. This document
 
 ## 8. Guest-mode framework contract
 
-Every generated Skipo application except Luth exposes the framework-owned Continue as Guest entry point. Guest mode creates an anonymous, deployment-scoped runtime lease; it never creates an identity, Luth session, durable workspace, or application-local authentication authority.
+Guest access is standard access in a reduced state with no persistent workspace. It is NOT a separate system. There are NO extra code assets like separate UIs or separate backend lease systems.
 
-The framework owns the guest policy and lease/workspace boundaries:
-
-- GuestMode derives the trusted (appId, deploymentId) scope and explicit capability allow-list.
-- GuestAccessGate is the only generated UI entry point; applications do not implement guest identity/session code.
-- Guest requests resolve their workspace from the validated lease tuple (appId, deploymentId, leaseId, workspaceId).
-- Luth remains the only identity/session authority. Guest credentials are stripped before Luth session validation.
-- Unknown guest capabilities and unclassified protected routes fail closed.
-- Luth is excluded by backend policy, not merely by hiding UI.
-- Guest workspace data is ephemeral and cannot attach to authenticated persistent storage.
-
-Guest support is therefore a framework composition concern, not a feature-specific authentication implementation.
+- "Continue as guest" (via `onContinueAsGuest` on `LuthAuthPage` or `LoginGate`) is the ONLY extra UI for it.
+- Guest mode creates no durable workspace, no synthetic identity, no Luth session, and no application-local authentication authority.
+- No separate guest UI components (e.g., `GuestAccessGate.tsx`) are permitted.
+- No separate backend guest lease endpoints (e.g., `/api/guest/lease`, `/api/auth/guest/session`) or separate guest authorities exist.
+- Guest access operates in an in-memory, client-reduced state without persistent workspace storage.

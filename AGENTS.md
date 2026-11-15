@@ -31,7 +31,8 @@ $$\begin{array}{ll}
 \mathbf{L_{24}} \text{ (Cloudflare Runtime & Asset Routing)} & \text{AssetsRunWorkerFirst} \equiv \text{true} \wedge \text{AssetPassthrough}(req) \wedge \neg\text{PathRewrite}(\text{"/index.html"}) \wedge \text{DefaultExport} \equiv \{\text{fetch}\} \\
 \mathbf{L_{25}} \text{ (Node Graph Spatial Purity & Zero-Toolbar Spawn)} & \forall g \in \text{NodeGraphs}: \text{SpawnMechanism}(g) \equiv \{\text{RightClick}(\text{CanvasContextMenu}), \text{Key}('N'), \text{WireDrag}(\text{CompatibleNodePicker})\} \wedge \text{TopToolbar}(\text{SpawnButtons}) = \emptyset \wedge \text{GhostRouting.enabled} \equiv \text{true} \wedge \text{MagneticTraces.enabled} \equiv \text{true} \\
 \mathbf{L_{26}} \text{ (Node Ergonomics & Wire Midpoint Hover)} & \text{WireWidgets} \subseteq \text{HoverOnly} \wedge \text{NodeBody}(\text{Minimized}) \equiv \{\text{Icon}(1/3), \text{Title}(2/3)\} \wedge \text{Hover}(node) \implies \text{BottomStrip}(\text{SystemName}(node)) \\
-\mathbf{L_{27}} \text{ (Dual Workspace Paradigms \& Clone Redundancy)} & \forall w \in \text{Workspaces}: \text{Arch}(w) \in \{\text{DirectVault}, \text{WorkingWorkspace}\} \wedge \text{RedundantClones}(w) \subseteq \text{VaultSync}
+\mathbf{L_{27}} \text{ (Dual Workspace Paradigms \& Clone Redundancy)} & \forall w \in \text{Workspaces}: \text{Arch}(w) \in \{\text{DirectVault}, \text{WorkingWorkspace}\} \wedge \text{RedundantClones}(w) \subseteq \text{VaultSync} \\
+\mathbf{L_{28}} \text{ (Guest Access Invariant)} & \text{GuestAccess}(a) \implies \text{ReducedState} \wedge \neg\text{PersistentWorkspace} \wedge \text{SeparateUI}(guest) = \emptyset \wedge \text{UIEntry}(guest) \equiv \text{"Continue as guest"}
 \end{array}$$
 
 ## 2. DETERMINISTIC AGENT EXECUTION ALGORITHM

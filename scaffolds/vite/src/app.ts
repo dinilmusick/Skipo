@@ -1,6 +1,5 @@
 import { externalInterfaces } from "./backend/UniversalBackend.js";
 import { proxyLuthAuthRequest } from "./backend/auth/luthSession.js";
-import { handleGuestRequest } from "./backend/guest/guestSession.js";
 
 /**
  * Canonical Web-standard application entrypoint.
@@ -58,9 +57,6 @@ export async function fetch(
   if (url.pathname === "/health" || url.pathname === "/api/health") {
     return Response.json({ status: "ok", runtime: "fetch" }, { headers: cors });
   }
-
-  const guestResponse = await handleGuestRequest(request);
-  if (guestResponse) return guestResponse;
 
   const authProxy = await proxyLuthAuthRequest(request);
   if (authProxy) return authProxy;

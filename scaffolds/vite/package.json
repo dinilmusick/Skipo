@@ -22,7 +22,7 @@
     "@tailwindcss/vite": "^4.1.14",
     "@ultrst-armada/floks": "^2.0.0",
     "@ultrst-armada/frnlts": "^0.5.23",
-    "@ultrst-armada/kloks": "^2.0.0",
+    "@ultrst-armada/kloks": "^2.0.3",
     "@ultrst-armada/krnl": "^1.0.25",
     "@vitejs/plugin-react": "^5.0.4",
     "@xyflow/react": "^12.11.1",

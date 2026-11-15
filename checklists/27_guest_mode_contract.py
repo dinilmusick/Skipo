@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Aspect 27: Guest-mode scaffold and Luth-boundary governance."""
+"""Aspect 27: Guest-mode contract governance.
+
+Invariant: Guest access is standard access in a reduced state with no persistent workspace.
+There are NO extra code assets like separate UIs or separate backend lease systems.
+"Continue as guest" (onContinueAsGuest on LuthAuthPage / LoginGate) is the ONLY extra UI for it.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +13,9 @@ import sys
 from pathlib import Path
 
 SOURCE_SUFFIXES = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
-REQUIRED_GUEST_MARKERS = ("GuestAccessGate", "Continue as Guest", "/api/guest/lease")
+BANNED_GUEST_UI_FILES = ("GuestAccessGate.tsx", "GuestAccessGate.js")
+BANNED_GUEST_DIRS = ("src/guest", "src/backend/guest")
+BANNED_GUEST_ENDPOINTS = ("/api/guest/lease", "/api/auth/guest/session", "/api/auth/guest/status")
 
 
 def source_files(root: Path):
@@ -20,52 +27,49 @@ def source_files(root: Path):
 
 def validate_guest_contract(root: Path) -> list[str]:
     errors: list[str] = []
-    guest_gate = root / "src/frontend/components/gates/GuestAccessGate.tsx"
-    guest_mode = root / "src/guest/GuestMode.ts"
-    if not guest_gate.is_file():
-        errors.append("canonical guest access gate is missing")
-    if not guest_mode.is_file():
-        errors.append("canonical GuestMode policy is missing")
 
-    for relative in (
-        "scaffolds/nextjs/src/frontend/components/gates/GuestAccessGate.tsx",
-        "scaffolds/vite/src/frontend/components/gates/GuestAccessGate.tsx",
-    ):
-        path = root / relative
-        if not path.is_file():
-            errors.append(f"missing guest gate: {relative}")
-        else:
-            source = path.read_text(encoding="utf-8", errors="replace")
-            for marker in REQUIRED_GUEST_MARKERS:
-                if marker not in source:
-                    errors.append(f"{relative} missing guest marker: {marker}")
+    # 1. Banned separate guest UI components & directories
+    for banned in BANNED_GUEST_UI_FILES:
+        for found in root.rglob(banned):
+            if "node_modules" not in found.parts and ".git" not in found.parts:
+                errors.append(f"separate guest UI asset is forbidden: {found.relative_to(root)}")
 
+    for banned_dir in BANNED_GUEST_DIRS:
+        target_dir = root / banned_dir
+        if target_dir.is_dir():
+            errors.append(f"separate guest subsystem directory is forbidden: {banned_dir}")
+
+    # Check scaffolds for separate guest directories
+    for scaffold in ("scaffolds/nextjs", "scaffolds/vite"):
+        scaffold_guest = root / scaffold / "src/backend/guest"
+        if scaffold_guest.is_dir():
+            errors.append(f"scaffold separate guest backend directory is forbidden: {scaffold_guest.relative_to(root)}")
+
+    # 2. Check login/auth gates expose guest via onContinueAsGuest only (no separate UI components)
     for relative in (
         "scaffolds/nextjs/app/login/page.tsx",
         "scaffolds/vite/src/frontend/components/gates/LoginGate.tsx",
     ):
         path = root / relative
-        if path.is_file() and "GuestAccessGate" not in path.read_text(encoding="utf-8", errors="replace"):
-            errors.append(f"{relative} does not expose the framework guest entry point")
+        if path.is_file():
+            source = path.read_text(encoding="utf-8", errors="replace")
+            if "onContinueAsGuest" not in source:
+                errors.append(f"{relative} does not wire onContinueAsGuest")
+            if "GuestAccessGate" in source:
+                errors.append(f"{relative} must not use separate GuestAccessGate UI")
 
+    # 3. Ensure no separate guest lease endpoints or identity synthesis
     for path in source_files(root):
         source = path.read_text(encoding="utf-8", errors="replace")
+        for endpoint in BANNED_GUEST_ENDPOINTS:
+            if endpoint in source:
+                errors.append(f"separate guest endpoint reference is forbidden ({endpoint}): {path.relative_to(root)}")
+
         is_guest_scoped = "guest" in path.name.lower() or "/guest/" in path.as_posix().lower()
         if "x-user-id" in source and (is_guest_scoped or re.search(r'["\']x-user-id["\']\s*:\s*["\']guest', source, re.IGNORECASE)):
             errors.append(f"guest-aware source must not synthesize x-user-id: {path.relative_to(root)}")
         if "AuthServiceFacade" in source and "LuthAuthServiceFacade" not in source:
             errors.append(f"legacy local AuthServiceFacade reference: {path.relative_to(root)}")
-
-    for relative in (
-        "src/backend/auth/luthSession.ts",
-        "scaffolds/nextjs/src/backend/auth/luthSession.ts",
-        "scaffolds/vite/src/backend/auth/luthSession.ts",
-    ):
-        path = root / relative
-        if path.is_file():
-            source = path.read_text(encoding="utf-8", errors="replace")
-            if "skipo_guest" not in source:
-                errors.append(f"Luth boundary does not explicitly strip guest credentials: {relative}")
 
     return errors
 
@@ -77,7 +81,7 @@ def main() -> int:
         for error in errors:
             print("GUEST CONTRACT VIOLATION:", error, file=sys.stderr)
         return 1
-    print("Guest scaffold and Luth-boundary contract: PASS")
+    print("Guest reduced-state and single-entrypoint contract: PASS")
     return 0
 
 

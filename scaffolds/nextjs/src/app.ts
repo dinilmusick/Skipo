@@ -1,6 +1,5 @@
 import { externalInterfaces } from "./backend/UniversalBackend.js";
 import { proxyLuthAuthRequest } from "./backend/auth/luthSession.js";
-import { handleGuestRequest } from "./backend/guest/guestSession.js";
 
 /**
  * Canonical Web-standard application entrypoint.
@@ -51,8 +50,6 @@ export async function fetch(
 ): Promise<Response> {
   const url = new URL(request.url);
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
-  const guestResponse = await handleGuestRequest(request);
-  if (guestResponse) return guestResponse;
   const authProxy = await proxyLuthAuthRequest(request);
   if (authProxy) return authProxy;
   const mcp = await externalInterfaces.mcp(request);

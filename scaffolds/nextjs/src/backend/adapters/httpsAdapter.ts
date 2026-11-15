@@ -1,5 +1,4 @@
 import { authenticateLuthRequest } from '../auth/luthSession.js';
-import { handleGuestRequest } from '../guest/guestSession.js';
 import { fetch as universalFetch } from '../../app.js';
 import { AppBackend } from '../AppBackend.js';
 
@@ -33,9 +32,6 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
   if (path === '/api/health' || path === '/health') {
     return json({ status: 'ok', service: 'skipo-application' });
   }
-
-  const guestResponse = await handleGuestRequest(request);
-  if (guestResponse) return guestResponse;
 
   const sharedResponse = await universalFetch(request, env);
   if (sharedResponse.status !== 404) return sharedResponse;

@@ -8,22 +8,12 @@ import { getSkipoApplicationId, luthAuthClient } from '../libraries/client/luthA
 
 const routes: Record<string, typeof MainPage> = { '/': MainPage, '/home': MainPage };
 
-async function acquireGuestSession(): Promise<string | null> {
-  try {
-    const res = await fetch('/api/auth/guest/session', { method: 'POST', headers: { 'content-type': 'application/json' } });
-    const data = await res.json() as { success?: boolean; token?: string };
-    return data.success && data.token ? data.token : null;
-  } catch {
-    return null;
-  }
-}
-
 export function App() {
   const Page = routes[window.location.pathname] ?? MainPage;
   const applicationId = getSkipoApplicationId();
-  const [guestToken, setGuestToken] = useState<string | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
 
-  if (guestToken) {
+  if (isGuest) {
     return (
       <SkipoThemeProvider defaultTheme="dark">
         <Page isGuest />
@@ -37,10 +27,7 @@ export function App() {
         ecosystemId="ultrst-armada"
         applicationId={applicationId}
         appName="SKIPO APP"
-        onContinueAsGuest={async () => {
-          const token = await acquireGuestSession();
-          if (token) setGuestToken(token);
-        }}
+        onContinueAsGuest={() => setIsGuest(true)}
         authenticatedContent={
           <>
             <header style={{ display: 'flex', justifyContent: 'flex-end', padding: 12 }}>

@@ -21,3 +21,17 @@ def test_guest_contract_rejects_guest_identity_synthesis(tmp_path):
         encoding="utf-8",
     )
     assert any("x-user-id" in item for item in MODULE.validate_guest_contract(tmp_path))
+
+
+def test_guest_contract_rejects_separate_guest_gate(tmp_path):
+    gate = tmp_path / "src/frontend/components/gates/GuestAccessGate.tsx"
+    gate.parent.mkdir(parents=True)
+    gate.write_text('export function GuestAccessGate() { return null; }', encoding="utf-8")
+    assert any("separate guest UI asset is forbidden" in item for item in MODULE.validate_guest_contract(tmp_path))
+
+
+def test_guest_contract_rejects_banned_guest_endpoints(tmp_path):
+    route = tmp_path / "src/route.ts"
+    route.parent.mkdir(parents=True)
+    route.write_text('const url = "/api/guest/lease";', encoding="utf-8")
+    assert any("separate guest endpoint reference is forbidden" in item for item in MODULE.validate_guest_contract(tmp_path))
