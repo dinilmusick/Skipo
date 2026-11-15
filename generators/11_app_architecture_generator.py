@@ -368,6 +368,7 @@ module.exports = nextConfig;
     # 8. Clean 3-Tier System Environment Template
     env_tpl = """# SYSTEM DATABASE INFRASTRUCTURE (Strict 3-Tier Postgres Architecture)
 # Admin credentials and bucket secrets reside in ultrst_credentials table in the database.
+APP_URL="http://localhost:3000"
 SYSTEM_DATABASE_URL="postgres://postgres:password@db1.region.example.com:5432/postgres?sslmode=require"
 # SYSTEM_DATABASE_URL_2="postgres://postgres:password@db2.region.example.com:5432/postgres?sslmode=require"
 # SYSTEM_DATABASE_URL_3="postgres://postgres:password@db3.region.example.com:5432/postgres?sslmode=require"

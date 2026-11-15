@@ -185,7 +185,7 @@ export {{ fetchHandler, adaptNodeRequest, universalHandler }};
     wrangler_content = f"""name = "{app_name.lower()}-engine"
 main = "api/index.js"
 compatibility_date = "2024-10-01"
-compatibility_flags = ["nodejs_compat"]
+compatibility_flags = ["nodejs_compat", "nodejs_compat_populate_process_env"]
 
 [assets]
 directory = "./dist"
