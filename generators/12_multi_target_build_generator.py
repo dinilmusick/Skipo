@@ -304,7 +304,7 @@ try {
 
   // 2. Single Universal Polyglot Backend bundle
   run(
-    "npx esbuild src/backend/adapters/universalEntry.ts --bundle --platform=neutral --format=esm --alias:crypto=node:crypto '--external:node:*' --outfile=api/index.js",
+    "npx esbuild src/backend/adapters/universalEntry.ts --bundle --platform=neutral --format=esm --alias:crypto=node:crypto --define:import.meta.url='\"https://localhost/api/index.js\"' '--external:node:*' --outfile=api/index.js",
     'Bundling Single Universal Polyglot Backend (api/index.js)'
   );
 
