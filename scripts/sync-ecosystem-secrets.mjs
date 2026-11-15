@@ -54,12 +54,26 @@ let successCount = 0;
 let skipCount = 0;
 let errorCount = 0;
 
-for (const repo of DOWNSTREAM_REPOS) {
-  const fullRepo = `${GITHUB_OWNER}/${repo}`;
-  try {
-    // Check if repo exists and is accessible
-    execSync(`gh repo view "${fullRepo}" >/dev/null 2>&1`);
+const CANDIDATE_OWNERS = ['Blueprint-Ninja-Studios', 'dinilmusick'];
 
+for (const repo of DOWNSTREAM_REPOS) {
+  let fullRepo = null;
+  for (const owner of CANDIDATE_OWNERS) {
+    const candidate = `${owner}/${repo}`;
+    try {
+      execSync(`gh repo view "${candidate}" >/dev/null 2>&1`);
+      fullRepo = candidate;
+      break;
+    } catch {}
+  }
+
+  if (!fullRepo) {
+    console.log(`⚠️  [SKIP] Repository not found in candidates: ${repo}`);
+    skipCount++;
+    continue;
+  }
+
+  try {
     // Set SYSTEM_DATABASE_URL secret
     execSync(
       `gh secret set SYSTEM_DATABASE_URL -R "${fullRepo}" --body "${DEFAULT_DB_URL}"`,
@@ -69,13 +83,8 @@ for (const repo of DOWNSTREAM_REPOS) {
     successCount++;
   } catch (err) {
     const errorStr = String(err?.stderr || err?.message || '');
-    if (errorStr.includes('Could not resolve to a Repository') || errorStr.includes('Not Found')) {
-      console.log(`⚠️  [SKIP] Repository not found: ${fullRepo}`);
-      skipCount++;
-    } else {
-      console.error(`✖ [FAIL] Failed to sync ${fullRepo}:`, errorStr.trim());
-      errorCount++;
-    }
+    console.error(`✖ [FAIL] Failed to sync ${fullRepo}:`, errorStr.trim());
+    errorCount++;
   }
 }
 
