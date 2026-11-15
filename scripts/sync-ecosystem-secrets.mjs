@@ -54,7 +54,7 @@ let successCount = 0;
 let skipCount = 0;
 let errorCount = 0;
 
-const CANDIDATE_OWNERS = ['Blueprint-Ninja-Studios', 'dinilmusick'];
+const CANDIDATE_OWNERS = ['dinilmusick', 'Blueprint-Ninja-Studios'];
 
 for (const repo of DOWNSTREAM_REPOS) {
   let fullRepo = null;
