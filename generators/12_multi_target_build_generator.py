@@ -239,9 +239,10 @@ not_found_handling = "single-page-application"
 command = "npm run build"
 
 [vars]
-API_ENV = "cloudflare"
-BUILD_TARGET = "api"
-SYSTEM_DATABASE_URL_1 = ""
+APP_URL = "http://localhost:3000"
+
+[secrets]
+required = ["SYSTEM_DATABASE_URL"]
 """
     files.append(GeneratedFile(
         relative_path="wrangler.toml",

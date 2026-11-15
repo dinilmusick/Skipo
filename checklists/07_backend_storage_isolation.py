@@ -105,11 +105,11 @@ def validate_backend_storage(root_dir: Path) -> ChecklistResult:
                         violations.append(Violation(
                             rule_id="banned-generic-database-url",
                             severity="error",
-                            message="Obsolete generic 'DATABASE_URL' reference detected. Must use SYSTEM_DATABASE_URL_1/2/3.",
+                            message="Obsolete generic 'DATABASE_URL' reference detected. Must use SYSTEM_DATABASE_URL (or fallbacks 2/3).",
                             file_path=rel_str,
                             line=line_idx,
                             snippet=raw[:100],
-                            suggestion="Replace with SYSTEM_DATABASE_URL_1 (primary), SYSTEM_DATABASE_URL_2, or SYSTEM_DATABASE_URL_3."
+                            suggestion="Replace with SYSTEM_DATABASE_URL (primary), SYSTEM_DATABASE_URL_2, or SYSTEM_DATABASE_URL_3."
                         ))
 
     duration_ms = (time.time() - start_time) * 1000

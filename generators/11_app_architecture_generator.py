@@ -227,7 +227,7 @@ export function cleanDbUrl(url?: unknown): string {
 
 export function getUnifiedDbUrl(env?: Record<string, unknown>): string {
   const fromEnv =
-    cleanDbUrl(env?.SYSTEM_DATABASE_URL_1) ||
+    cleanDbUrl(env?.SYSTEM_DATABASE_URL) ||
     cleanDbUrl(env?.SYSTEM_DATABASE_URL_2) ||
     cleanDbUrl(env?.SYSTEM_DATABASE_URL_3);
 
@@ -235,7 +235,7 @@ export function getUnifiedDbUrl(env?: Record<string, unknown>): string {
 
   if (typeof process !== 'undefined' && process.env) {
     return (
-      cleanDbUrl(process.env.SYSTEM_DATABASE_URL_1) ||
+      cleanDbUrl(process.env.SYSTEM_DATABASE_URL) ||
       cleanDbUrl(process.env.SYSTEM_DATABASE_URL_2) ||
       cleanDbUrl(process.env.SYSTEM_DATABASE_URL_3) ||
       ''
@@ -368,7 +368,7 @@ module.exports = nextConfig;
     # 8. Clean 3-Tier System Environment Template
     env_tpl = """# SYSTEM DATABASE INFRASTRUCTURE (Strict 3-Tier Postgres Architecture)
 # Admin credentials and bucket secrets reside in ultrst_credentials table in the database.
-SYSTEM_DATABASE_URL_1="postgres://postgres:password@db1.region.example.com:5432/postgres?sslmode=require"
+SYSTEM_DATABASE_URL="postgres://postgres:password@db1.region.example.com:5432/postgres?sslmode=require"
 # SYSTEM_DATABASE_URL_2="postgres://postgres:password@db2.region.example.com:5432/postgres?sslmode=require"
 # SYSTEM_DATABASE_URL_3="postgres://postgres:password@db3.region.example.com:5432/postgres?sslmode=require"
 """

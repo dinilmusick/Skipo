@@ -211,7 +211,7 @@ def validate_serverless_code_size(root_dir: Path) -> ChecklistResult:
                         message=f"Banned environment variable '{key_name}' found. Admin credentials and bucket secrets must reside dynamically inside the 'ultrst_credentials' database table.",
                         file_path=rel_path,
                         line=line_no,
-                        suggestion="Remove this variable. Rely on SYSTEM_DATABASE_URL_1..3 and fetch credentials dynamically from the database."
+                        suggestion="Remove this variable. Rely on SYSTEM_DATABASE_URL and fetch credentials dynamically from the database."
                     ))
 
     # 6. Read-Only Serverless Filesystem & Seed Bundling Audit

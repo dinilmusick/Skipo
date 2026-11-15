@@ -64,13 +64,37 @@ def validate(root: Path) -> ChecklistResult:
         w_path = root / wrangler_name
         if w_path.is_file():
             w_text = w_path.read_text(encoding="utf-8", errors="replace")
-            if re.search(r"^\s*\[vars\]", w_text, re.MULTILINE):
-                violations.append(Violation(
-                    rule_id="ENV-002", severity="error",
-                    message="[vars] table is strictly forbidden in wrangler configuration. No custom env vars allowed.",
-                    file_path=str(w_path.relative_to(root)),
-                    suggestion="Remove [vars] section from wrangler config.",
-                ))
+            vars_match = re.search(r"^\s*\[vars\]([\s\S]*?)(?:^\s*\[|\Z)", w_text, re.MULTILINE)
+            if vars_match:
+                for line_no, vline in enumerate(vars_match.group(1).splitlines(), 1):
+                    decl = DECLARATION_PATTERN.match(vline)
+                    if decl:
+                        var_name = decl.group(1)
+                        if not _allowed(var_name, root):
+                            violations.append(Violation(
+                                rule_id="ENV-002", severity="error",
+                                message=f"{var_name} in wrangler [vars] violates the strict Skipo environment contract. Only APP_URL and SYSTEM_DATABASE_URL[_2/_3] are allowed.",
+                                file_path=str(w_path.relative_to(root)),
+                                line=line_no, snippet=vline,
+                                suggestion="Remove non-standard variables from wrangler [vars].",
+                            ))
+            if wrangler_name.endswith((".json", ".jsonc")):
+                try:
+                    clean_json = re.sub(r"//.*$", "", w_text, flags=re.MULTILINE)
+                    import json
+                    parsed = json.loads(clean_json)
+                    vars_obj = parsed.get("vars", {})
+                    if isinstance(vars_obj, dict):
+                        for var_name in vars_obj.keys():
+                            if not _allowed(var_name, root):
+                                violations.append(Violation(
+                                    rule_id="ENV-002", severity="error",
+                                    message=f"{var_name} in wrangler vars violates the strict Skipo environment contract. Only APP_URL and SYSTEM_DATABASE_URL[_2/_3] are allowed.",
+                                    file_path=str(w_path.relative_to(root)),
+                                    suggestion="Remove non-standard variables from wrangler vars.",
+                                ))
+                except Exception:
+                    pass
     has_errors = any(v.severity == "error" for v in violations)
     return ChecklistResult(
         aspect_id=ASPECT_ID, aspect_title=ASPECT_TITLE, passed=not has_errors,
