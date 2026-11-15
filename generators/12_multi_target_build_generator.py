@@ -119,12 +119,22 @@ export type { SkipoEnv as Env } from '../../app.js';
 import {{ fetchHandler, Env }} from './httpsAdapter';
 import {{ adaptNodeRequest }} from './nodeBridge';
 
+function normalizeEnv(env: Env = {{}}, requestUrl?: string): Env {{
+  return {{
+    ...env,
+    SYSTEM_DATABASE_URL: (env.SYSTEM_DATABASE_URL as string) || (typeof process !== 'undefined' ? process.env.SYSTEM_DATABASE_URL : undefined),
+    SYSTEM_DATABASE_URL_2: (env.SYSTEM_DATABASE_URL_2 as string) || (typeof process !== 'undefined' ? process.env.SYSTEM_DATABASE_URL_2 : undefined),
+    SYSTEM_DATABASE_URL_3: (env.SYSTEM_DATABASE_URL_3 as string) || (typeof process !== 'undefined' ? process.env.SYSTEM_DATABASE_URL_3 : undefined),
+    APP_URL: (env.APP_URL as string) || (typeof process !== 'undefined' ? process.env.APP_URL : undefined) || (requestUrl ? new URL(requestUrl).origin : undefined),
+  }};
+}}
+
 // Polyglot Universal Handler (Node / Vercel Serverless)
 const universalHandler = async function (req: any, res?: any, env?: any): Promise<any> {{
   if (req && res && typeof res.writeHead === 'function') {{
-    return adaptNodeRequest(req, res, (webReq) => fetchHandler(webReq, (process.env as unknown as Env) || {{}}));
+    return adaptNodeRequest(req, res, (webReq) => fetchHandler(webReq, normalizeEnv((process.env as unknown as Env) || {{}}, req.url)));
   }}
-  return fetchHandler(req, env || res);
+  return fetchHandler(req, normalizeEnv(env || res, req?.url));
 }};
 
 // Standalone Node.js server launcher (for `node api/index.js` / Docker)
@@ -145,7 +155,7 @@ if (
       const server = http.createServer(async (req, res) => {{
         const url = req.url || '/';
         if (url.startsWith('/api/') || url === '/api' || url.startsWith('/health')) {{
-          return adaptNodeRequest(req, res, (webReq) => fetchHandler(webReq, (process.env as unknown as Env) || {{}}));
+          return adaptNodeRequest(req, res, (webReq) => fetchHandler(webReq, normalizeEnv((process.env as unknown as Env) || {{}}, req.url)));
         }}
 
         const filePath = path.join(distPath, url.split('?')[0]);
@@ -182,7 +192,7 @@ if (
 // Cloudflare Workers ExportedHandler — Law L24: MUST be plain object literal {{ fetch }}
 export default {{
   async fetch(request: Request, env: Env = {{}}, ctx?: any): Promise<Response> {{
-    return fetchHandler(request, env);
+    return fetchHandler(request, normalizeEnv(env, request.url));
   }},
 }};
 
