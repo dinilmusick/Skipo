@@ -302,9 +302,18 @@ try {
   // 1. Frontend SPA build
   run('npx vite build', 'Building Vite frontend assets');
 
+  const nodeBuiltins = [
+    'http', 'https', 'http2', 'events', 'stream', 'buffer', 'fs', 'path',
+    'url', 'util', 'net', 'tls', 'zlib', 'os', 'child_process',
+    'crypto', 'worker_threads', 'cluster', 'dgram', 'dns', 'readline', 'vm',
+    'querystring', 'process', 'assert', 'tty', 'perf_hooks', 'string_decoder',
+    'inspector', '@aws-sdk/*', 'node:*',
+    '@ultrst-armada/kloks/backend/node'
+  ].map((m) => `'--external:${m}'`).join(' ');
+
   // 2. Single Universal Polyglot Backend bundle
   run(
-    "npx esbuild src/backend/adapters/universalEntry.ts --bundle --platform=neutral --format=esm --alias:crypto=node:crypto --define:import.meta.url='\"https://localhost/api/index.js\"' '--external:node:*' --outfile=api/index.js",
+    `npx esbuild src/backend/adapters/universalEntry.ts --bundle --platform=neutral --format=esm --alias:crypto=node:crypto --define:import.meta.url='"https://localhost/api/index.js"' ${nodeBuiltins} --outfile=api/index.js`,
     'Bundling Single Universal Polyglot Backend (api/index.js)'
   );
 
