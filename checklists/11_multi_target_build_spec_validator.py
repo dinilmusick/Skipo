@@ -128,13 +128,41 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
                 file_path=str(universal_entry_file.relative_to(root_dir)),
                 suggestion="Use 'export default { async fetch(request, env, ctx) { return fetchHandler(request, env); } };' as a plain object literal."
             ))
-        elif "export default {" not in ue_content and "export default cfHandler" not in ue_content and "export default {" not in ue_content:
+        elif "export default {" not in ue_content and "export default cfHandler" not in ue_content:
             violations.append(Violation(
                 rule_id="cf-missing-object-default-export",
                 severity="warning",
                 message="universalEntry.ts must provide an ExportedHandler plain object literal as default export ('export default { async fetch(...) }').",
                 file_path=str(universal_entry_file.relative_to(root_dir)),
                 suggestion="Add 'export default { async fetch(request, env, ctx) { return fetchHandler(request, env); } };'."
+            ))
+
+        # Check 2.0b.1: Mandatory normalizeEnv with Dynamic Origin Auto-Detection
+        if "normalizeEnv" not in ue_content:
+            violations.append(Violation(
+                rule_id="universal-entry-missing-normalize-env",
+                severity="error",
+                message="universalEntry.ts must implement and export 'normalizeEnv' to standardize environment variables across local and cloud runtimes.",
+                file_path=str(universal_entry_file.relative_to(root_dir)),
+                suggestion="Export 'normalizeEnv(env, requestUrl)' normalizing SYSTEM_DATABASE_URL and APP_URL."
+            ))
+        elif "new URL(requestUrl).origin" not in ue_content and "new URL(request.url).origin" not in ue_content and "origin" not in ue_content:
+            violations.append(Violation(
+                rule_id="universal-entry-missing-dynamic-origin",
+                severity="error",
+                message="universalEntry.ts normalizeEnv does not auto-detect APP_URL from request origin. Fails dynamic deployment origin detection on Cloudflare/Vercel.",
+                file_path=str(universal_entry_file.relative_to(root_dir)),
+                suggestion="Add dynamic origin detection: 'APP_URL: (env.APP_URL as string) || (typeof process !== \"undefined\" ? process.env.APP_URL : undefined) || (requestUrl ? new URL(requestUrl).origin : undefined)'."
+            ))
+
+        # Check 2.0b.2: Pure Serverless Fetch Compliance (Ban on embedded http.createServer in universalEntry)
+        if "http.createServer" in ue_content or "createServer(" in ue_content:
+            violations.append(Violation(
+                rule_id="universal-entry-embedded-node-server-banned",
+                severity="error",
+                message="universalEntry.ts instantiates a standalone Node HTTP server via 'http.createServer'. Canonical architecture is 100% serverless Fetch ('export default { async fetch(...) }'); dev servers must live in server.ts.",
+                file_path=str(universal_entry_file.relative_to(root_dir)),
+                suggestion="Remove http.createServer from universalEntry.ts to preserve pure serverless Fetch compatibility."
             ))
 
     # 2.0c Strict Ban on new Function() and eval() in Backend (Law L22: Cloudflare V8 Isolate Strict Security)

@@ -112,14 +112,14 @@ export type { SkipoEnv as Env } from '../../app.js';
     # 1.2 universalEntry.ts (Single Universal Polyglot Entrypoint: CF Workers, Vercel, Node)
     universal_entry_code = f"""/**
  * @file universalEntry.ts
- * @description Single Universal Polyglot Backend Entrypoint for {app_name}.
- * Runs identically on Cloudflare Workers, Vercel Serverless, and Local Node.js (Law L8, L22, L24).
+ * @description Single Universal Backend Entrypoint for {app_name}.
+ * Canonical Web-standard Fetch application running on Cloudflare Workers and serverless runtimes.
  */
 
 import {{ fetchHandler, Env }} from './httpsAdapter';
 import {{ adaptNodeRequest }} from './nodeBridge';
 
-function normalizeEnv(env: Env = {{}}, requestUrl?: string): Env {{
+export function normalizeEnv(env: Env = {{}}, requestUrl?: string): Env {{
   return {{
     ...env,
     SYSTEM_DATABASE_URL: (env.SYSTEM_DATABASE_URL as string) || (typeof process !== 'undefined' ? process.env.SYSTEM_DATABASE_URL : undefined),
@@ -129,65 +129,13 @@ function normalizeEnv(env: Env = {{}}, requestUrl?: string): Env {{
   }};
 }}
 
-// Polyglot Universal Handler (Node / Vercel Serverless)
+// Polyglot Universal Handler for Node.js / Serverless bridging
 const universalHandler = async function (req: any, res?: any, env?: any): Promise<any> {{
   if (req && res && typeof res.writeHead === 'function') {{
     return adaptNodeRequest(req, res, (webReq) => fetchHandler(webReq, normalizeEnv((process.env as unknown as Env) || {{}}, req.url)));
   }}
   return fetchHandler(req, normalizeEnv(env || res, req?.url));
 }};
-
-// Standalone Node.js server launcher (for `node api/index.js` / Docker)
-if (
-  typeof process !== 'undefined' &&
-  process.argv &&
-  (process.argv[1]?.endsWith('index.js') || process.argv[1]?.endsWith('server.js'))
-) {{
-  (async () => {{
-    try {{
-      const http = await import('node:http');
-      const fs = await import('node:fs');
-      const path = await import('node:path');
-
-      const port = Number(process.env.PORT) || 3000;
-      const distPath = path.resolve(process.cwd(), 'dist');
-
-      const server = http.createServer(async (req, res) => {{
-        const url = req.url || '/';
-        if (url.startsWith('/api/') || url === '/api' || url.startsWith('/health')) {{
-          return adaptNodeRequest(req, res, (webReq) => fetchHandler(webReq, normalizeEnv((process.env as unknown as Env) || {{}}, req.url)));
-        }}
-
-        const filePath = path.join(distPath, url.split('?')[0]);
-        if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {{
-          const ext = path.extname(filePath).toLowerCase();
-          const mimeTypes: Record<string, string> = {{
-            '.html': 'text/html', '.js': 'application/javascript',
-            '.css': 'text/css', '.json': 'application/json',
-            '.png': 'image/png', '.svg': 'image/svg+xml',
-          }};
-          res.writeHead(200, {{ 'Content-Type': mimeTypes[ext] || 'application/octet-stream' }});
-          return fs.createReadStream(filePath).pipe(res);
-        }}
-
-        const indexPath = path.join(distPath, 'index.html');
-        if (fs.existsSync(indexPath)) {{
-          res.writeHead(200, {{ 'Content-Type': 'text/html' }});
-          return fs.createReadStream(indexPath).pipe(res);
-        }}
-
-        res.writeHead(404, {{ 'Content-Type': 'text/plain' }});
-        res.end('Not Found');
-      }});
-
-      server.listen(port, () => {{
-        console.log(`[{app_name} Universal Server] Listening on http://localhost:${{port}}`);
-      }});
-    }} catch (e) {{
-      // In non-node environments, ignore
-    }}
-  }})();
-}}
 
 // Cloudflare Workers ExportedHandler — Law L24: MUST be plain object literal {{ fetch }}
 export default {{
