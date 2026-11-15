@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { SkipoThemeProvider } from '@ultrst-armada/floks/ui';
+import { BaseButton, SkipoThemeProvider } from '@ultrst-armada/floks/ui';
 import { LuthAuthPage } from '@ultrst-armada/floks/auth';
 import MainPage from './pages/main/page.js';
 import { getSkipoApplicationId, luthAuthClient } from '../libraries/client/luthAuthClient.js';
@@ -31,7 +31,15 @@ export function App() {
         authenticatedContent={
           <>
             <header style={{ display: 'flex', justifyContent: 'flex-end', padding: 12 }}>
-              <button type="button" onClick={() => { void luthAuthClient.signOut().then(() => window.location.assign('/login')); }}>Sign out</button>
+              <BaseButton
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  void luthAuthClient.signOut().then(() => window.location.assign('/login'));
+                }}
+              >
+                Sign out
+              </BaseButton>
             </header>
             <Page />
           </>

@@ -1,6 +1,8 @@
-@import "tailwindcss" source(none);
+@import "tailwindcss";
 @source "./";
-@source "../node_modules/@ultrst-armada/floks/packages/ui/dist";
+@source "../node_modules/@ultrst-armada/floks";
+@import "@xyflow/react/dist/style.css";
+@import "@ultrst-armada/floks/ui/dist/index.css";
 @import "@ultrst-armada/floks/ui/theme/tokens.css";
 
 :root {

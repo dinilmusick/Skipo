@@ -66,13 +66,16 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
             "type": "module",
             "skipo": {"deploy": "fullstack"},
             "dependencies": {
-                "@ultrst-armada/krnl": "^1.0.25",
-                "@ultrst-armada/kloks": "^2.0.0",
-                "@dinilmusick/gutts": "^2.1.0",
+                "@aws-sdk/client-s3": "^3.1130.0",
+                "@aws-sdk/s3-request-presigner": "^3.1132.0",
+                "@dinilmusick/gutts": "^2.1.1",
+                "@neondatabase/serverless": "^1.1.0",
                 "@ultrst-armada/floks": "^2.0.0",
+                "@ultrst-armada/frnlts": "^0.5.23",
+                "@ultrst-armada/kloks": "^2.0.4",
+                "@ultrst-armada/krnl": "^1.0.25",
                 "react": "^19.0.1",
                 "react-dom": "^19.0.1",
-                "@ultrst-armada/frnlts": "^0.5.23",
                 "lucide-react": "^0.553.0",
                 "@xyflow/react": "^12.11.1",
                 "d3-force": "^3.0.0",
@@ -715,9 +718,11 @@ export default App;
 
     frontend_css = target_root / "src" / "index.css"
     if not frontend_css.exists():
-        frontend_css.write_text("""@import "tailwindcss" source(none);
+        frontend_css.write_text("""@import "tailwindcss";
 @source "./frontend";
-@source "../node_modules/@ultrst-armada/floks/packages/ui/dist";
+@source "../node_modules/@ultrst-armada/floks";
+@import "@xyflow/react/dist/style.css";
+@import "@ultrst-armada/floks/ui/dist/index.css";
 @import "@ultrst-armada/floks/ui/theme/tokens.css";
 
 html, body, #root {

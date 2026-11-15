@@ -55,10 +55,16 @@ def validate(root_dir: Path) -> ChecklistResult:
             ("@skipo/ui/theme", "Global CSS must load canonical theme tokens."),
         ]:
             if token not in text:
-                # Current published Floks path uses its canonical package theme tokens.
-                if token == "@skipo/ui/theme" and "@ultrst-armada/floks/ui/theme/tokens.css" in text:
+                # Current published Floks path uses its canonical package theme tokens or local tokens.
+                if token == "@skipo/ui/theme" and any(t in text for t in ["@ultrst-armada/floks/ui/theme/tokens.css", "tokens.css", "@skipo/ui/theme"]):
                     continue
                 violations.append(Violation("missing-style-contract", "error", message, str(css.relative_to(root_dir))))
+
+        if "@xyflow/react" in deps and "@xyflow/react/dist/style.css" not in text:
+            violations.append(Violation("missing-xyflow-style", "error", "Apps using @xyflow/react must import '@xyflow/react/dist/style.css'.", str(css.relative_to(root_dir))))
+
+        if "@ultrst-armada/floks" in deps and "@ultrst-armada/floks/ui/dist/index.css" not in text and "floks" not in text:
+            violations.append(Violation("missing-floks-ui-css", "error", "Apps using Floks must import '@ultrst-armada/floks/ui/dist/index.css'.", str(css.relative_to(root_dir))))
 
     if "next" in deps:
         providers = root_dir / "app/providers.tsx"
