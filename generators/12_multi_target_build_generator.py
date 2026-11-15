@@ -240,9 +240,6 @@ command = "npm run build"
 
 [vars]
 APP_URL = "http://localhost:3000"
-
-[secrets]
-required = ["SYSTEM_DATABASE_URL"]
 """
     files.append(GeneratedFile(
         relative_path="wrangler.toml",
