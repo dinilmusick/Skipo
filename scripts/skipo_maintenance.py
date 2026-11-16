@@ -79,7 +79,10 @@ def inspect(root: Path, environment: dict[str, str | None] | None = None,
     cap_file = state_dir / "capabilities.json"
     cap_state = read_json(cap_file, {"schemaVersion": 1, "installed": {}, "generated": []})
     for rel, entry in generated_entries(cap_state).items():
-        file_path = root / rel
+        file_path = (root / rel).resolve()
+        if root not in file_path.parents:
+            generated_drift.append({"path": rel, "reason": "path-escapes-project"})
+            continue
         if not file_path.is_file():
             generated_drift.append({"path": rel, "reason": "missing"})
         elif entry.get("checksum") and sha256_text(file_path.read_text(encoding="utf-8")) != entry["checksum"]:
@@ -177,8 +180,13 @@ def build_plan(root: Path, framework_version: str,
         actions.append({"phase": "sync", "action": "reconcile-dependency-state",
                         "dependencies": dependency_state_drift})
 
-    if state["lockfile"] is None or any(action["action"] == "dependency" for action in actions):
-        actions.append({"phase": "sync", "action": "reconcile-lockfile", "lockfile": canonical.get("environment", {}).get("lockfile", "package-lock.json")})
+    expected_lockfile = canonical.get("environment", {}).get("lockfile", "package-lock.json")
+    present_lockfiles = [name for name in ("pnpm-lock.yaml", "yarn.lock", "package-lock.json") if (root / name).exists()]
+    unexpected_lockfiles = sorted(name for name in present_lockfiles if name != expected_lockfile)
+    if unexpected_lockfiles:
+        errors.append("Conflicting lockfiles must be resolved manually: " + ", ".join(unexpected_lockfiles))
+    if not (root / expected_lockfile).exists() or any(action["action"] == "dependency" for action in actions):
+        actions.append({"phase": "sync", "action": "reconcile-lockfile", "lockfile": expected_lockfile})
 
     # Git dirtiness is a hard stop: the observed plan remains available, but update
     # will not mix framework-owned mutations with uncommitted application work.
@@ -340,7 +348,10 @@ def verify(root: Path, framework_version: str) -> dict[str, Any]:
                 errors.append(f"Migration not applied: {migration.get('id')}")
         cap_state = read_json(root / ".skipo" / "capabilities.json", {"installed": {}, "generated": []})
         for rel, entry in generated_entries(cap_state).items():
-            path = root / rel
+            path = (root / rel).resolve()
+            if root not in path.parents:
+                errors.append(f"Generated file path escapes project: {rel}")
+                continue
             if not path.is_file():
                 errors.append(f"Generated file missing: {rel}")
             elif entry.get("checksum") and sha256_text(path.read_text(encoding="utf-8")) != entry["checksum"]:
