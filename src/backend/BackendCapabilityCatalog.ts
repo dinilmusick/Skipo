@@ -1,5 +1,5 @@
 import type { IServiceFacade, ServiceNamespace } from '@ultrst-armada/krnl';
-import type { BackendCapabilityDescriptor } from './ModuleBackendAdapterTypes.js';
+import type { BackendCapabilityDescriptor } from './BackendCapabilityTypes.js';
 
 function cloneFrozenSchema(value: unknown): unknown {
   if (Array.isArray(value)) return Object.freeze(value.map(cloneFrozenSchema));
