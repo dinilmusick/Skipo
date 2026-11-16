@@ -115,7 +115,8 @@ def test_baseline_install_does_not_require_historical_contract(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "2.0.0"}, {}, {})
     plan = plan_dependency_migrations(root)
-    assert plan["ok"] and plan["paths"][name]["baseline"]
+    assert plan["ok"] and name not in plan["paths"]
+    assert plan["migrations"] == []
 
 
 def test_contract_dependency_cycle_is_rejected():
