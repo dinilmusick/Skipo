@@ -468,7 +468,10 @@ def repair(root: Path, apply: bool, framework_version: str) -> dict[str, Any]:
     caps = sorted({f["capability"] for f in findings if f["classification"] in {"adapt", "retire"}})
     composed = compose(root, caps, apply=apply) if caps else {"ok": True, "actions": [], "applied": apply}
     if apply and composed.get("ok", False):
-        write_json(root / ".skipo" / "verification-state.json", {"lastRepair": "verified"})
+        from skipo_verification import verify_canonical_state
+        post_repair = verify_canonical_state(root, framework_version)
+        if post_repair.get("ok", False):
+            write_json(root / ".skipo" / "verification-state.json", {"lastRepair": "verified"})
     return {
         "ok": True,
         "operation": "repair",
