@@ -40,9 +40,28 @@ def discover_contract(root: Path, package: str) -> dict[str, Any] | None:
             return json.loads(path.read_text(encoding="utf-8"))
     return None
 
-def validate_contract(contract: dict[str, Any], package: str) -> None:
+def satisfies(actual: str, requirement: str) -> bool:
+    actual_v = version(actual)
+    for clause in requirement.split(","):
+        clause = clause.strip()
+        operator = next((op for op in (">=", "<=", ">", "<", "^", "~") if clause.startswith(op)), "==")
+        expected = version(clause[len(operator):] if operator != "==" else clause)
+        if operator == ">=" and actual_v < expected: return False
+        if operator == "<=" and actual_v > expected: return False
+        if operator == ">" and actual_v <= expected: return False
+        if operator == "<" and actual_v >= expected: return False
+        if operator == "==" and actual_v != expected: return False
+        if operator == "^" and (actual_v < expected or actual_v[0] != expected[0]): return False
+        if operator == "~" and (actual_v < expected or actual_v[:2] != expected[:2]): return False
+    return True
+
+def validate_contract(contract: dict[str, Any], package: str, skipo_version: str = "1.1.0") -> None:
     if contract.get("schemaVersion") != SCHEMA_VERSION or contract.get("package") != package:
         raise ValueError(f"Invalid migration contract identity/schema for {package}")
+    compatibility = contract.get("compatibility", {})
+    requirement = compatibility.get("skipo") or compatibility.get("requiresSkipo")
+    if requirement and not satisfies(skipo_version, requirement):
+        raise ValueError(f"{package} migration contract requires Skipo {requirement}")
     seen = set()
     for item in contract.get("migrations", []):
         required = ("id", "fromVersion", "toVersion")
@@ -75,7 +94,7 @@ def _package_version(root: Path, name: str, declared: str) -> str:
         return str(json.loads(manifest.read_text(encoding="utf-8")).get("version") or declared)
     return str(declared).lstrip("^~")
 
-def plan_dependency_migrations(root: Path) -> dict[str, Any]:
+def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict[str, Any]:
     dependencies = {}
     pkg = json.loads((root / "package.json").read_text(encoding="utf-8"))
     for section in ("dependencies", "devDependencies", "optionalDependencies"):
@@ -97,7 +116,7 @@ def plan_dependency_migrations(root: Path) -> dict[str, Any]:
             contract = discover_contract(root, package)
             if not contract:
                 raise ValueError(f"No migration contract shipped by {package}")
-            validate_contract(contract, package)
+            validate_contract(contract, package, skipo_version)
             chosen = resolve_path(contract, str(old), current)
             paths[package] = {"from": old, "to": current, "migrations": [m["id"] for m in chosen]}
             for item in chosen:
