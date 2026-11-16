@@ -74,14 +74,13 @@ def reconcile(root: Path, apply: bool, framework_version: str) -> dict[str, Any]
                     ),
                 })
         elif item.get("classification") == "adapt":
-            actions.append({
-                "action": "reconcile-canonical-wiring", "capability": cap_id, "path": item.get("path"),
-                "rule": _rule(
-                    "A canonical provider import and a registry duplicate pattern coexist.",
-                    "Preserve application-owned source; reconcile only Skipo-owned generated provider surfaces.",
-                    "Canonical generated provider files and ownership checksums pass verification.",
-                ),
-            })
+            # Canonical generated files naturally contain their own provider symbols;
+            # they are not application duplicates and must not keep repair perpetually dirty.
+            canonical_paths = {
+                entry["path"] for entry in registry.get(cap_id, {}).get("generated", [])
+            }
+            if item.get("path") in canonical_paths:
+                continue
 
     if not dependency_plan.get("ok"):
         conflicts.extend({"type": "dependency-migration", "message": error}
@@ -222,7 +221,7 @@ def reconcile(root: Path, apply: bool, framework_version: str) -> dict[str, Any]
     compose_needed = any(
         action.get("action") in {
             "synchronize-canonical-dependency", "generate-canonical-component",
-            "refresh-owned-canonical-component", "reconcile-canonical-wiring",
+            "refresh-owned-canonical-component",
         } for action in actions
     )
     composed = capabilities.compose(root, sorted(capability_ids), apply=True) if capability_ids and compose_needed else {
