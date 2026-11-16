@@ -34,6 +34,54 @@ def env_values(root):
             if match: result[match.group(1)] = True
     return result
 
+def verification_fingerprint(root: Path) -> str:
+    """Bind a repair receipt to the exact state that was independently verified."""
+    digest = hashlib.sha256()
+    tracked = [
+        (root / "package.json", "package.json"),
+        (root / ".skipo/project.json", ".skipo/project.json"),
+        (root / ".skipo/capabilities.json", ".skipo/capabilities.json"),
+        (root / ".skipo/dependencies.json", ".skipo/dependencies.json"),
+        (root / ".skipo/migration-state.json", ".skipo/migration-state.json"),
+        (REGISTRY, "@canonical/registry.json"),
+        (MIGRATIONS, "@canonical/migrations.json"),
+    ]
+    for path in sorted(root.glob(".env*")):
+        if path.is_file() and not path.is_symlink():
+            tracked.append((path, path.relative_to(root).as_posix()))
+    for path, label in tracked:
+        digest.update(label.encode("utf-8") + b"\\0")
+        try:
+            digest.update(path.read_bytes())
+        except OSError:
+            digest.update(b"<unreadable-or-missing>")
+        digest.update(b"\\0")
+    caps, error = read(root / ".skipo/capabilities.json")
+    if not error and isinstance(caps, dict) and isinstance(caps.get("generated"), list):
+        for entry in sorted(caps["generated"], key=lambda item: str(item.get("path", "")) if isinstance(item, dict) else ""):
+            if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
+                continue
+            path = root / entry["path"]
+            try:
+                path.resolve(strict=False).relative_to(root)
+                if path.is_file() and not path.is_symlink():
+                    digest.update(entry["path"].encode("utf-8") + b"\\0")
+                    digest.update(path.read_bytes())
+            except (OSError, ValueError):
+                continue
+    for name in sorted(set(registry_environment_forbidden(root))):
+        digest.update(name.encode("utf-8") + (b"=present" if name in os.environ else b"=absent"))
+    return digest.hexdigest()
+
+
+def registry_environment_forbidden(root: Path) -> list[str]:
+    registry, error = read(REGISTRY)
+    if error or not isinstance(registry, dict):
+        return []
+    values = registry.get("applicationState", {}).get("environment", {}).get("forbiddenVariables", [])
+    return values if isinstance(values, list) and all(isinstance(value, str) for value in values) else []
+
+
 def verify_canonical_state(root: Path, framework_version: str | None = None):
     root = root.resolve()
     ds = []
@@ -150,19 +198,51 @@ def verify_canonical_state(root: Path, framework_version: str | None = None):
         elif checksum != expected:
             ds.append(diag("SKIPO_CHECKSUM_MISMATCH","repairable","Generated capability file has drifted: "+rel,rel,expected,checksum,"Review diff, run explicit skipo repair, then verify."))
     migrations, err = read(MIGRATIONS)
-    if err or not isinstance(migrations,dict):
-        ds.append(diag("SKIPO_MIGRATION_REGISTRY_INVALID","invalid","Migration registry is unreadable.","architecture/capabilities/migrations.json"))
+    if err or not isinstance(migrations, dict) or not isinstance(migrations.get("migrations"), list):
+        ds.append(diag("SKIPO_MIGRATION_REGISTRY_INVALID", "invalid", "Migration registry must contain a migrations array.", "architecture/capabilities/migrations.json"))
     else:
-        ms = state["migrations"]; applied = ms.get("applied",[]); pending = ms.get("pending",[])
-        if not isinstance(applied,list) or not isinstance(pending,list):
-            ds.append(diag("SKIPO_MIGRATION_STATE_INVALID","invalid","Migration state must have applied and pending arrays.",files["migrations"]))
+        ms = state["migrations"]
+        applied = ms.get("applied", [])
+        pending = ms.get("pending", [])
+        if (
+            not isinstance(applied, list)
+            or not isinstance(pending, list)
+            or any(not isinstance(mid, str) or not mid for mid in applied + pending)
+            or len(applied) != len(set(applied))
+            or len(pending) != len(set(pending))
+            or set(applied) & set(pending)
+        ):
+            ds.append(diag("SKIPO_MIGRATION_STATE_INVALID", "invalid", "Migration state must contain unique string IDs in disjoint applied and pending arrays.", files["migrations"]))
         else:
-            for mid in sorted(set(pending)):
-                ds.append(diag("SKIPO_MIGRATION_PENDING","unresolved","Migration obligation remains pending: "+str(mid),files["migrations"],remediation="Execute declared migration and verify postconditions."))
-            for migration in migrations.get("migrations",[]):
-                mid = migration.get("id")
-                if mid and mid not in applied and mid not in pending:
-                    ds.append(diag("SKIPO_MIGRATION_NOT_APPLIED","repairable","Required migration is not recorded: "+mid,files["migrations"],remediation="Run skipo update explicitly."))
+            declared = {}
+            for migration in migrations["migrations"]:
+                if not isinstance(migration, dict) or not isinstance(migration.get("id"), str) or not migration["id"]:
+                    ds.append(diag("SKIPO_MIGRATION_REGISTRY_INVALID", "invalid", "Every migration must be an object with a non-empty string id.", "architecture/capabilities/migrations.json"))
+                    continue
+                mid = migration["id"]
+                if mid in declared:
+                    ds.append(diag("SKIPO_MIGRATION_REGISTRY_INVALID", "invalid", "Duplicate migration id: " + mid, "architecture/capabilities/migrations.json"))
+                    continue
+                declared[mid] = migration
+                retire_paths = migration.get("retirePaths", [])
+                if not isinstance(retire_paths, list) or any(not isinstance(rel, str) or not rel for rel in retire_paths):
+                    ds.append(diag("SKIPO_MIGRATION_REGISTRY_INVALID", "invalid", "Migration retirePaths must be an array of non-empty relative paths: " + mid, "architecture/capabilities/migrations.json"))
+                    continue
+                for rel in retire_paths:
+                    legacy_path = root / rel
+                    try:
+                        legacy_path.resolve(strict=False).relative_to(root)
+                    except (OSError, ValueError):
+                        ds.append(diag("SKIPO_MIGRATION_PATH_ESCAPE", "invalid", "Migration path escapes project root: " + rel, rel))
+                        continue
+                    if legacy_path.exists():
+                        ds.append(diag("SKIPO_LEGACY_MIGRATION_PATH_REMAINS", "unresolved", "Legacy path required to be retired by migration " + mid + " remains: " + rel, rel, remediation="Run the declared migration explicitly, then verify again."))
+            for mid in sorted(set(applied + pending) - set(declared)):
+                ds.append(diag("SKIPO_MIGRATION_UNKNOWN", "invalid", "Migration state references an unknown migration: " + mid, files["migrations"]))
+            for mid in pending:
+                ds.append(diag("SKIPO_MIGRATION_PENDING", "unresolved", "Migration obligation remains pending: " + mid, files["migrations"], remediation="Execute declared migration and verify postconditions."))
+            for mid in sorted(set(declared) - set(applied) - set(pending)):
+                ds.append(diag("SKIPO_MIGRATION_NOT_APPLIED", "repairable", "Required migration is not recorded: " + mid, files["migrations"], remediation="Run skipo update explicitly."))
     forbidden = sorted(set(app.get("environment",{}).get("forbiddenVariables",[])))
     present = env_values(root)
     for name in forbidden:
@@ -206,7 +286,13 @@ def verify_canonical_state(root: Path, framework_version: str | None = None):
         except Exception as exc:
             ds.append(diag("SKIPO_CONSTRAINT_VALIDATOR_FAILED","invalid","Unable to execute Skipo constraint validator "+filename+": "+str(exc),filename))
     receipt, receipt_error = read(root / ".skipo/verification-state.json")
-    repaired = not ds and receipt_error is None and isinstance(receipt,dict) and receipt.get("lastRepair") == "verified"
+    repaired = (
+        not ds
+        and receipt_error is None
+        and isinstance(receipt, dict)
+        and receipt.get("lastRepair") == "verified"
+        and receipt.get("fingerprint") == verification_fingerprint(root)
+    )
     return result(ds, root, sorted(installed), repaired)
 
 def result(ds, root, installed=None, repaired=False):
