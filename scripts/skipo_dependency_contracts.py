@@ -30,6 +30,8 @@ def discover_contract(root: Path, package: str) -> dict[str, Any] | None:
     if manifest_path.is_file():
         metadata = json.loads(manifest_path.read_text(encoding="utf-8"))
     declaration = metadata.get("skipo", {})
+    if not isinstance(declaration, dict):
+        raise ValueError(f"Invalid Skipo package metadata for {package}")
     relative = declaration.get("migrationContract") or declaration.get("migrations")
     candidates = [pkg_dir / relative] if isinstance(relative, str) else []
     candidates.extend([pkg_dir / "skipo.migrations.json",
@@ -64,7 +66,12 @@ def validate_operations(migration: dict[str, Any]) -> None:
         "json_equals": {"path", "key", "value"},
     }
     for group in ("transformations", "repair", "verification"):
-        for operation in migration.get(group, []):
+        operations = migration.get(group, [])
+        if not isinstance(operations, list):
+            raise ValueError(f"Invalid {group} operations in {migration['id']}")
+        for operation in operations:
+            if not isinstance(operation, dict):
+                raise ValueError(f"Invalid {group} operation in {migration['id']}")
             kind = operation.get("type")
             required = handlers.get(kind)
             if required is None or not required.issubset(operation):
@@ -77,21 +84,31 @@ def validate_operations(migration: dict[str, Any]) -> None:
                 raise ValueError(f"No-op text replacement in {migration['id']}")
 
 def validate_contract(contract: dict[str, Any], package: str, skipo_version: str = "1.1.0") -> None:
+    if not isinstance(contract, dict):
+        raise ValueError(f"Migration contract for {package} must be an object")
     if contract.get("schemaVersion") != SCHEMA_VERSION or contract.get("package") != package:
         raise ValueError(f"Invalid migration contract identity/schema for {package}")
     if not isinstance(contract.get("migrations"), list):
         raise ValueError(f"Migration contract for {package} must contain a migrations array")
     compatibility = contract.get("compatibility", {})
+    if not isinstance(compatibility, dict):
+        raise ValueError(f"Invalid compatibility requirements for {package}")
     requirement = compatibility.get("skipo") or compatibility.get("requiresSkipo")
     if requirement and not satisfies(skipo_version, requirement):
         raise ValueError(f"{package} migration contract requires Skipo {requirement}")
     seen = set()
     for item in contract.get("migrations", []):
+        if not isinstance(item, dict):
+            raise ValueError(f"Invalid migration entry in {package}")
         required = ("id", "fromVersion", "toVersion")
         if any(not item.get(key) for key in required) or item["id"] in seen:
             raise ValueError(f"Invalid or duplicate migration in {package}")
         seen.add(item["id"])
         validate_operations(item)
+        if not isinstance(item.get("dependsOn", []), list) or any(not isinstance(dep, str) for dep in item.get("dependsOn", [])):
+            raise ValueError(f"Invalid migration dependencies in {item['id']}")
+        deprecated_specs(item)
+        canonical_replacement_operations(item)
         if version(item["toVersion"]) <= version(item["fromVersion"]):
             raise ValueError(f"Migration {item['id']} must advance the dependency version")
         if item.get("requiresSkipo") and not satisfies(skipo_version, item["requiresSkipo"]):
@@ -172,7 +189,7 @@ def canonical_replacement_operations(migration: dict[str, Any]) -> list[dict[str
         if not isinstance(find, str) or not find or not isinstance(replace, str) or not replace or find == replace:
             raise ValueError(f"Invalid canonical replacement in {migration['id']}")
         paths = item.get("paths", DEFAULT_SOURCE_PATHS)
-        if not isinstance(paths, list) or not paths or any(Path(path).is_absolute() or ".." in Path(path).parts for path in paths):
+        if not isinstance(paths, list) or not paths or any(not isinstance(path, str) or Path(path).is_absolute() or ".." in Path(path).parts for path in paths):
             raise ValueError(f"Unsafe canonical replacement path in {migration['id']}")
         operations.append({"type": "replace_text", "paths": paths,
                            "find": find, "replace": replace, "expectedMatches": 0})
