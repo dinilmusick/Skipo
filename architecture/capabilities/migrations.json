@@ -22,7 +22,8 @@
         "no legacy module runtime paths",
         "capability state exists",
         "capability verifier passes"
-      ]
+      ],
+      "classification": "retire"
     }
   ]
 }
