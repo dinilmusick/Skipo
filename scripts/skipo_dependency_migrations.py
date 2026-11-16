@@ -250,13 +250,24 @@ def execute_dependency_migrations(root: Path, plan: dict[str, Any]) -> dict[str,
         (root / ".skipo/dependencies.json").write_text(json.dumps(dependencies, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return {**plan, "ok": not errors, "errors": errors, "actions": actions, "applied": not errors}
 
-def verify_dependency_migrations(root: Path) -> dict[str, Any]:
-    plan = plan_dependency_migrations(root)
+def verify_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict[str, Any]:
+    plan = plan_dependency_migrations(root, skipo_version)
     errors = list(plan["errors"])
-    for migration in plan["migrations"]:
-        for operation in migration.get("verification", []):
-            try:
-                verify_operation(root, operation)
-            except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
-                errors.append(f"{migration['id']}: {exc}")
+    state_file = root / ".skipo/migration-state.json"
+    applied = set(json.loads(state_file.read_text(encoding="utf-8")).get("applied", [])) if state_file.is_file() else set()
+    pkg = json.loads((root / "package.json").read_text(encoding="utf-8"))
+    names = set(pkg.get("dependencies", {})) | set(pkg.get("devDependencies", {})) | set(pkg.get("optionalDependencies", {}))
+    for package in sorted(names):
+        if not package.startswith("@ultrst-armada/") and package != "@dinilmusick/gutts":
+            continue
+        try:
+            contract = discover_contract(root, package)
+            if contract:
+                validate_contract(contract, package, skipo_version)
+                for migration in contract.get("migrations", []):
+                    if migration["id"] in applied:
+                        for operation in migration.get("verification", []):
+                            verify_operation(root, operation)
+        except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
+            errors.append(f"{package}: {exc}")
     return {"ok": not errors, "errors": errors, "paths": plan["paths"]}
