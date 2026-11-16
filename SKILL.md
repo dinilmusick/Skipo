@@ -5,6 +5,8 @@ description: Deterministic Skipo application construction, capability compositio
 
 # SKIPO APPLICATION COMPOSER
 
+Canonical application contract: [architecture/app-architecture/SKILL.md](./architecture/app-architecture/SKILL.md). Workspace architecture: [architecture/workspace-architectures/SKILL.md](./architecture/workspace-architectures/SKILL.md).
+
 Skipo is an application framework, not an agent manager.
 
 ## Canonical engine
@@ -34,6 +36,10 @@ python3 scripts/skipo_cli.py test .
 ```
 
 Applications are composed from canonical Floks/Kloks providers. Agents must not hand-code infrastructure that exists as a registered capability.
+
+## BLOCKING VERIFICATION GATE
+
+A task is complete only when `python3 scripts/skipo_cli.py verify .` exits 0 and the full Skipo validation suite passes.
 
 ## Drift policy
 

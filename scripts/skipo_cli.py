@@ -195,7 +195,7 @@ def main() -> int:
     p.add_argument("name"); p.add_argument("target",nargs="?",default=None)
     p.add_argument("--framework",choices=["nextjs","vite"],default="vite"); p.add_argument("--force",action="store_true")
 
-    for cmd in ["inspect","check","diagnose","plan","adopt","sync","update","repair","verify","test"]:
+    for cmd in ["inspect","check","diagnose","plan","adopt","sync","update","repair","fix","verify","test"]:
         q=sub.add_parser(cmd); q.add_argument("target",nargs="?",default=".")
     q=sub.choices["sync"]; q.add_argument("--install",action="store_true")
     q=sub.choices["repair"]; q.add_argument("--plan",action="store_true")
@@ -224,7 +224,7 @@ def main() -> int:
         return verify_project(Path(a.target).resolve())
     if a.command=="test":
         return test_project(Path(a.target).resolve())
-    if a.command=="repair":
+    if a.command in {"repair", "fix"}:
         return repair_project(Path(a.target).resolve(), apply=not a.plan)
     items, target = parse_items(a.items)
     if not items:

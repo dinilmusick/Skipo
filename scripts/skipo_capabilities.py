@@ -73,8 +73,8 @@ def ensure_project(root: Path) -> None:
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 def scan_text_files(root: Path):
-    skip = {".git", "node_modules", "dist", ".next", ".turbo", ".skipo"}
-    for base in ("src", "app", "pages", "components", "lib", "server", "scripts"):
+    skip = {".git", "node_modules", "dist", ".next", ".turbo", ".skipo", "scripts"}
+    for base in ("src", "app", "pages", "components", "lib", "server"):
         start = root / base
         if not start.exists():
             continue
@@ -92,23 +92,55 @@ def canonical_import_present(text: str, package: str) -> bool:
     return package in text
 
 def diagnose(root: Path) -> list[dict[str, Any]]:
-    registry = load_registry()["capabilities"]
+    registry_data = load_registry()
+    registry = registry_data["capabilities"]
+    aliases = registry_data.get("aliases", {})
     files = list(scan_text_files(root))
     findings: list[dict[str, Any]] = []
+
     for cap_id, spec in registry.items():
+        safe_retire = set(spec.get("safeRetire", []))
         for path, text in files:
+            rel = path.relative_to(root).as_posix()
             matched = [pattern for pattern in spec.get("duplicatePatterns", []) if re.search(pattern, text, re.I)]
-            if not matched:
+            explicit_safe = rel in safe_retire
+            if not matched and not explicit_safe:
                 continue
+
             canonical = any(canonical_import_present(text, p["package"]) for p in spec.get("providers", []))
-            classification = "adapt" if canonical else "retire"
+            if explicit_safe:
+                classification = "retire"
+            elif canonical:
+                classification = "adapt"
+            else:
+                # A pattern match alone is not proof of a duplicate implementation.
+                # Report it as keep so repair never deletes application code merely
+                # because it references a canonical symbol.
+                classification = "keep"
+
             findings.append({
                 "capability": cap_id,
                 "classification": classification,
-                "path": path.relative_to(root).as_posix(),
+                "path": rel,
                 "patterns": matched,
                 "canonical_import_present": canonical,
+                "safe_retire": explicit_safe,
             })
+
+    # Surface aliases in machine-readable diagnostics without treating aliases as
+    # independent capabilities.
+    for alias, target in aliases.items():
+        if target in registry:
+            continue
+        findings.append({
+            "capability": alias,
+            "classification": "keep",
+            "path": "",
+            "patterns": [],
+            "canonical_import_present": False,
+            "safe_retire": False,
+            "error": f"Alias target '{target}' is not registered",
+        })
     return findings
 
 def normalize_items(items: list[str]) -> list[str]:
@@ -121,13 +153,23 @@ def normalize_items(items: list[str]) -> list[str]:
     return items
 
 def resolve_capabilities(items: list[str]) -> list[tuple[str, dict[str, Any]]]:
-    registry = load_registry()["capabilities"]
+    registry_data = load_registry()
+    registry = registry_data["capabilities"]
+    aliases = registry_data.get("aliases", {})
     resolved = []
     for item in normalize_items(items):
-        if item not in registry:
-            raise ValueError(f"Unknown capability '{item}'. Available: {', '.join(sorted(registry))}")
-        resolved.append((item, registry[item]))
-    return resolved
+        canonical = aliases.get(item, item)
+        if canonical not in registry:
+            raise ValueError(
+                f"Unknown capability '{item}'. Available: {', '.join(sorted(registry))}; "
+                f"aliases: {', '.join(sorted(aliases))}"
+            )
+        resolved.append((canonical, registry[canonical]))
+    # Preserve deterministic order while de-duplicating aliases and repeated args.
+    unique = {}
+    for cap_id, spec in resolved:
+        unique[cap_id] = spec
+    return list(unique.items())
 
 def compose(root: Path, items: list[str], apply: bool = True) -> dict[str, Any]:
     ensure_project(root)
@@ -257,34 +299,84 @@ def install_dependencies(root: Path) -> dict[str, Any]:
     completed = subprocess.run(command, cwd=root)
     return {"ok": completed.returncode == 0, "command": command, "returncode": completed.returncode}
 
+def legacy_migration_paths() -> list[str]:
+    migration_file = ROOT / "architecture" / "capabilities" / "migrations.json"
+    data = read_json(migration_file, {"migrations": []})
+    paths = []
+    for migration in data.get("migrations", []):
+        if migration.get("id") == "1.1.0-capability-composition":
+            paths.extend(migration.get("retirePaths", []))
+    return paths
+
+def remove_legacy_paths(root: Path, apply: bool) -> list[dict[str, Any]]:
+    actions = []
+    for rel in legacy_migration_paths():
+        path = root / rel
+        if not path.exists():
+            continue
+        actions.append({"action": "retire-legacy-module-path", "path": rel})
+        if apply:
+            if path.is_dir():
+                import shutil
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+    return actions
+
 def update(root: Path, framework_version: str) -> dict[str, Any]:
     ensure_project(root)
     manifest_path = root / ".skipo" / "project.json"
     manifest = project_manifest(root)
     previous = manifest.get("skipo_version", "unknown")
-    findings = diagnose(root)
-    applied_migrations = list(read_json(root / ".skipo" / "migration-state.json", {"applied": []}).get("applied", []))
-    legacy_module_markers = [p for p in ["src/modules", "src/module-contract", "src/module-runtime"] if (root / p).exists()]
+    migration_state = read_json(
+        root / ".skipo" / "migration-state.json",
+        {"schemaVersion": 1, "applied": [], "pending": []},
+    )
     migration_id = "1.1.0-capability-composition"
     actions = []
-    if legacy_module_markers:
-        actions.append({"action": "legacy-module-detected", "paths": legacy_module_markers, "migration": migration_id})
-    manifest.update({"framework": "skipo", "skipo_version": framework_version, "updated_by": "skipo"})
+    if canonical_version(previous) < canonical_version("1.1.0"):
+        legacy_actions = remove_legacy_paths(root, apply=True)
+        actions.extend(legacy_actions)
+        if migration_id not in migration_state.get("applied", []):
+            migration_state.setdefault("applied", []).append(migration_id)
+    manifest.update({
+        "framework": "skipo",
+        "skipo_version": framework_version,
+        "updated_by": "skipo",
+        "migration_policy": "deterministic",
+    })
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    migration_state = read_json(root / ".skipo" / "migration-state.json", {"schemaVersion": 1, "applied": [], "pending": []})
-    if migration_id not in applied_migrations:
-        migration_state["applied"].append(migration_id)
-    migration_state["pending"] = sorted({f["capability"] for f in findings if f["classification"] == "retire"})
+    migration_state["pending"] = []
     write_json(root / ".skipo" / "migration-state.json", migration_state)
-    return {"ok": True, "operation": "update", "from_version": previous, "to_version": framework_version, "actions": actions, "findings": findings}
+    return {
+        "ok": True,
+        "operation": "update",
+        "from_version": previous,
+        "to_version": framework_version,
+        "actions": actions,
+        "migration_state": migration_state,
+    }
 
 def repair(root: Path, apply: bool, framework_version: str) -> dict[str, Any]:
+    updated = update(root, framework_version) if apply else {
+        "ok": True,
+        "operation": "update",
+        "planned": True,
+        "legacy_paths": legacy_migration_paths(),
+    }
     findings = diagnose(root)
     retired = retire_known_duplicates(root, findings, apply)
     caps = sorted({f["capability"] for f in findings if f["classification"] in {"adapt", "retire"}})
     composed = compose(root, caps, apply=apply) if caps else {"ok": True, "actions": [], "applied": apply}
-    updated = update(root, framework_version) if apply else {"ok": True, "operation": "update", "planned": True}
-    return {"ok": True, "operation": "repair", "findings": findings, "retired": retired, "composition": composed, "update": updated, "applied": apply}
+    return {
+        "ok": True,
+        "operation": "repair",
+        "findings": findings,
+        "retired": retired,
+        "composition": composed,
+        "update": updated,
+        "applied": apply,
+    }
 
 def verify(root: Path) -> dict[str, Any]:
     findings = diagnose(root)
@@ -294,8 +386,11 @@ def verify(root: Path) -> dict[str, Any]:
         if cap_id not in load_registry()["capabilities"]:
             errors.append(f"Unknown installed capability: {cap_id}")
     for finding in findings:
-        if finding["classification"] == "retire":
+        if finding.get("classification") == "retire":
             cap_id = finding["capability"]
             if finding["path"] not in load_registry()["capabilities"][cap_id].get("safeRetire", []):
                 errors.append(f"Unresolved duplicate for {cap_id}: {finding['path']}")
+    for rel in legacy_migration_paths():
+        if (root / rel).exists():
+            errors.append(f"Legacy Skipo module path remains: {rel}")
     return {"ok": not errors, "operation": "verify", "errors": errors, "findings": findings, "capabilities": sorted(state.get("installed", {}).keys())}

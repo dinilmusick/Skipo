@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "migrations": [
+    {
+      "id": "1.1.0-capability-composition",
+      "version": "1.1.0",
+      "description": "Replace the Skipo application module architecture with capability composition state.",
+      "retirePaths": [
+        "src/module-contract",
+        "src/module-runtime",
+        "src/frontend/components/module-ui",
+        "src/backend/ModuleBackendAdapter.ts",
+        "src/backend/ModuleBackendAdapterTypes.ts",
+        "schemas/skipo.module.schema.json",
+        "src/modules/index.ts"
+      ],
+      "verification": [
+        "no legacy module runtime paths",
+        "capability state exists",
+        "capability verifier passes"
+      ]
+    }
+  ]
+}

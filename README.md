@@ -87,3 +87,7 @@ Skipo consumes:
 - `@dinilmusick/gutts) for shared ecosystem utilities
 
 Skipo never becomes the implementation owner of those underlying capabilities.
+
+## Canonical Application Contract
+
+The repository's canonical application contract remains [architecture/app-architecture/SKILL.md](./architecture/app-architecture/SKILL.md). Workspace and storage rules remain [architecture/workspace-architectures/SKILL.md](./architecture/workspace-architectures/SKILL.md).
