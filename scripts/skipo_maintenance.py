@@ -232,7 +232,7 @@ def execute_plan(root: Path, plan: dict[str, Any], framework_version: str,
     root = root.resolve()
     state = plan["state"]
     # Reject stale plans rather than applying against state that changed after planning.
-    current = inspect(root, environment=state["environment"], git_status="\\n".join(state["git_status"]))
+    current = inspect(root, environment=state["environment"])
     for key in ("package", "project", "capability_state", "generated_drift", "lockfile", "git_status"):
         if current.get(key) != state.get(key):
             return {"ok": False, "operation": "update", "applied": False,
