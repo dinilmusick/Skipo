@@ -123,7 +123,15 @@ def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict
                 selected.append({"package": package, **item})
         except (ValueError, OSError, json.JSONDecodeError) as exc:
             errors.append(str(exc))
-    ordered = order_migrations(selected, errors)
+    last_by_package = {}
+    for item in selected:
+        previous_id = last_by_package.get(item["package"])
+        if previous_id:
+            item["dependsOn"] = sorted(set(item.get("dependsOn", [])) | {previous_id})
+        last_by_package[item["package"]] = item["id"]
+    state_file = root / ".skipo/migration-state.json"
+    applied_ids = set(json.loads(state_file.read_text(encoding="utf-8")).get("applied", [])) if state_file.is_file() else set()
+    ordered = order_migrations(selected, errors, applied_ids)
     return {"ok": not errors, "operation": "dependency-migration-plan", "paths": paths,
             "migrations": ordered, "errors": sorted(set(errors)), "applied": False}
 
