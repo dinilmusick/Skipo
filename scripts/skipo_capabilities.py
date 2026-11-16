@@ -482,27 +482,10 @@ def update(root: Path, framework_version: str) -> dict[str, Any]:
     }
 
 def repair(root: Path, apply: bool, framework_version: str) -> dict[str, Any]:
-    dependency_plan = plan_dependency_migrations(root, framework_version)
-    updated = update(root, framework_version) if apply else {
-        "ok": dependency_plan["ok"],
-        "operation": "update",
-        "planned": True,
-        "legacy_paths": legacy_migration_paths(),
-        "dependency_migrations": dependency_plan,
-    }
-    findings = diagnose(root)
-    retired = retire_known_duplicates(root, findings, apply)
-    caps = sorted({f["capability"] for f in findings if f["classification"] in {"adapt", "retire"}})
-    composed = compose(root, caps, apply=apply) if caps else {"ok": True, "actions": [], "applied": apply}
-    return {
-        "ok": updated.get("ok", False) and composed.get("ok", False),
-        "operation": "repair",
-        "findings": findings,
-        "retired": retired,
-        "composition": composed,
-        "update": updated,
-        "applied": apply,
-    }
+    """Run the fail-closed deterministic repair transaction."""
+    from skipo_reconciliation import reconcile
+    return reconcile(root, apply=apply, framework_version=framework_version)
+
 
 def verify(root: Path) -> dict[str, Any]:
     findings = diagnose(root)
