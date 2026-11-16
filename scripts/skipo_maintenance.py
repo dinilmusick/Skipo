@@ -14,7 +14,7 @@ from typing import Any, Callable
 
 from skipo_state_registry import load_registry
 from skipo_capabilities import (
-    capability_state, generated_entries, sha256_text, compose, verify as verify_capabilities,
+    capability_state, generated_entries, sha256_text, compose,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -301,8 +301,12 @@ def verify(root: Path, framework_version: str) -> dict[str, Any]:
                 errors.append(f"Generated file drift: {rel}")
         if canonical.get("environment", {}).get("lockfile") and not (root / canonical["environment"]["lockfile"]).exists():
             errors.append(f"Canonical lockfile missing: {canonical['environment']['lockfile']}")
-        capability_result = verify_capabilities(root)
-        errors.extend(capability_result.get("errors", []))
+        registry_capabilities = load_registry().get("capabilities", {})
+        for capability_id in cap_state.get("installed", {}):
+            if capability_id not in registry_capabilities:
+                errors.append(f"Unknown installed capability: {capability_id}")
+            elif registry_capabilities[capability_id].get("status") == "deprecated":
+                errors.append(f"Deprecated installed capability: {capability_id}")
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         errors.append(str(exc))
     return {"ok": not errors, "operation": "verify", "errors": sorted(set(errors))}
