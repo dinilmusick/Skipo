@@ -82,6 +82,13 @@ class EnvironmentContractTests(unittest.TestCase):
         self.assertIn("UNKNOWN_DEPLOY_FLAG", variables)
         self.assertNotIn("KLOKS_CANONICAL_CONTRACT", variables)
 
+    def test_shell_local_variables_are_not_environment_declarations(self):
+        self.write("scripts/sample.sh", "LOCAL_PATH=/tmp/work\nexport UNDECLARED_SECRET=value\n")
+        findings = env.diagnose(self.root)["findings"]
+        variables = {item["variable"] for item in findings}
+        self.assertIn("UNDECLARED_SECRET", variables)
+        self.assertNotIn("LOCAL_PATH", variables)
+
     def test_explicit_product_specific_classification_is_preserved(self):
         self.assertEqual(env.classify("NODE_ENV"), "explicitly_supported_product_specific")
         self.assertEqual(env.classify("GITHUB_ACTIONS"), "explicitly_supported_product_specific")
