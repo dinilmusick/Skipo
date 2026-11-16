@@ -280,6 +280,10 @@
     "toolbar": "navigation",
     "bottom-strip": "navigation",
     "infinite-canvas": "canvas",
-    "dock-bar": "canvas"
+    "dock-bar": "canvas",
+    "themes": "settings",
+    "theme": "settings",
+    "auth": "auth",
+    "workspace": "workspace"
   }
 }

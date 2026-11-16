@@ -196,9 +196,7 @@ def compose(root: Path, items: list[str], apply: bool = True) -> dict[str, Any]:
             current = path.read_text(encoding="utf-8") if path.exists() else None
             if current != desired:
                 actions.append({"action": "generate", "capability": cap_id, "path": item["path"]})
-                if apply:
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_text(desired, encoding="utf-8")
+                pending_writes[path] = desired
             generated.add(item["path"])
         installed[cap_id] = {
             "kind": spec["kind"],

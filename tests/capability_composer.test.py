@@ -78,3 +78,21 @@ def test_adopt_does_not_overwrite_existing_project_manifest():
         result = run("adopt", str(root))
         assert result.returncode == 0
         assert json.loads((root / ".skipo/project.json").read_text()) == original
+
+def test_add_does_not_overwrite_modified_generated_files_or_partially_apply():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "package.json").write_text(json.dumps({"name":"demo","dependencies":{}}))
+        seed = run("add", "auth", str(root))
+        assert seed.returncode == 0, seed.stdout + seed.stderr
+        generated = root / "src/libraries/skipo/auth.ts"
+        original = generated.read_text()
+        generated.write_text("application-owned change")
+        before_pkg = json.loads((root / "package.json").read_text())
+        result = run("add", "auth", "workspace", str(root))
+        assert result.returncode != 0
+        assert generated.read_text() == "application-owned change"
+        assert json.loads((root / "package.json").read_text()) == before_pkg
+        verified = run("verify", str(root))
+        assert verified.returncode != 0
+        assert "Generated capability file has drifted" in verified.stdout

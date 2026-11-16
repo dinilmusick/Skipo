@@ -115,17 +115,17 @@ def compose_project(items: list[str], target: Path, apply: bool) -> int:
     except (ValueError, OSError) as exc:
         print(json.dumps({"ok":False,"error":str(exc)}, indent=2)); return 2
     print(json.dumps(payload, indent=2))
-    return 0
+    return 0 if payload.get("ok", False) else 1
 
-def remove_project(items: list[str], target: Path, apply: bool) -> int:
+def remove_project(items: list[str], target: Path, apply: bool)
     try:
         payload = capability_remove(target, items, apply=apply)
     except (ValueError, OSError) as exc:
         print(json.dumps({"ok":False,"error":str(exc)}, indent=2)); return 2
     print(json.dumps(payload, indent=2))
-    return 0
+    return 0 if payload.get("ok", False) else 1
 
-def adopt_project(root: Path) -> int:
+def adopt_project(root: Path) -> int
     try:
         payload = capability_adopt(root)
     except OSError as exc:
