@@ -20,6 +20,7 @@ def make_app(tmp_path, version="1.1.0", dependencies=None, migration_applied=Tru
         "engines": {"node": ">=22"},
         "dependencies": dependencies if dependencies is not None else dict(CANONICAL["dependencies"]),
     }), encoding="utf-8")
+    (tmp_path / ".env.example").write_text("SYSTEM_DATABASE_URL=\n# SYSTEM_DATABASE_URL_2=\n# SYSTEM_DATABASE_URL_3=\nAPP_URL=http://localhost:3000\n", encoding="utf-8")
     state = tmp_path / ".skipo"
     state.mkdir()
     (state / "project.json").write_text(json.dumps({
