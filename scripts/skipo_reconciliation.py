@@ -41,7 +41,7 @@ def reconcile(root: Path, apply: bool, framework_version: str) -> dict[str, Any]
     registry_data = capabilities.load_registry()
     registry = registry_data["capabilities"]
     findings = capabilities.diagnose(root)
-    state = capabilities.read_json(root / ".skipo" / " " .strip() if False else root / ".skipo" / "capabilities.json", {"schemaVersion": 1, "installed": {}, "generated": []})
+    state = capabilities.read_json(root / ".skipo" / "capabilities.json", {"schemaVersion": 1, "installed": {}, "generated": []})
     installed = state.get("installed", {})
     package = capabilities.package_json(root)
     dependencies = dict(package.get("dependencies", {}))
@@ -51,7 +51,7 @@ def reconcile(root: Path, apply: bool, framework_version: str) -> dict[str, Any]
     conflicts: list[dict[str, Any]] = []
     writes: dict[Path, str] = {}
     removals: list[Path] = []
-    dependency_updates: dict[str, str] = {}
+    dependency_updates: dict[str, str] = {}\n    migration_removals: list[Path] = []\n    applied_migrations = set(migration_state.get("applied", []))
     capability_ids = set(installed)
     capability_ids.update(
         f["capability"] for f in findings
