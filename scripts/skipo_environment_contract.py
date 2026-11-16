@@ -223,19 +223,21 @@ def plan(root: Path) -> dict[str, Any]:
                 conflicts.append({"path": rel, "variable": alias,
                                   "reason": "Obsolete variable has no declared canonical replacement; manual review required."})
                 continue
-            if _is_env_file(path):
-                alias_values = [m.group(2).strip().strip('"').strip("'") for line in source.splitlines()
-                                if (m := ENV_ASSIGN.match(line)) and m.group(1) == alias]
-                target_values = [m.group(2).strip().strip('"').strip("'") for line in source.splitlines()
-                                 if (m := ENV_ASSIGN.match(line)) and m.group(1) == target]
-                if target_values:
-                    conflicts.append({"path": rel, "variable": alias, "target": target,
-                                      "reason": "Both deprecated alias and canonical target are declared; duplicate/conflicting values require manual reconciliation."})
-                    continue
-                if len(set(alias_values)) > 1:
-                    conflicts.append({"path": rel, "variable": alias, "target": target,
-                                      "reason": "Alias has multiple conflicting values; automatic migration is unsafe."})
-                    continue
+            declarations = [
+                (name, value.strip().strip('"').strip("'"))
+                for name, _line, occurrence, value in _candidate_names(path, source)
+                if occurrence == "declaration"
+            ]
+            alias_values = [value for name, value in declarations if name == alias]
+            target_values = [value for name, value in declarations if name == target]
+            if alias_values and target_values:
+                conflicts.append({"path": rel, "variable": alias, "target": target,
+                                  "reason": "Both deprecated alias and canonical target are declared; duplicate/conflicting values require manual reconciliation."})
+                continue
+            if len(set(alias_values)) > 1:
+                conflicts.append({"path": rel, "variable": alias, "target": target,
+                                  "reason": "Alias has multiple conflicting values; automatic migration is unsafe."})
+                continue
             actions.append({"action": "rename-variable", "path": rel, "from": alias, "to": target})
     return {"ok": not conflicts and not blocked, "operation": "plan", "actions": actions,
             "conflicts": conflicts, "blocked_findings": blocked, "findings": diagnostic["findings"]}
