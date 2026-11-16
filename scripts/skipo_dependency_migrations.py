@@ -46,6 +46,9 @@ def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict
             paths[package] = {"from": old, "to": current, "specifier": dependencies[package], "migrations": [m["id"] for m in chosen]}
             for item in chosen:
                 migration = {"package": package, **item}
+                migration["contractId"] = item["id"]
+                migration["id"] = f"{package}::{item['id']}"
+                migration["dependsOn"] = [dep if "::" in dep else f"{package}::{dep}" for dep in item.get("dependsOn", [])]
                 migration["affectedState"] = detect_affected_state(root, item)
                 migration["transformations"] = list(item.get("transformations", [])) + canonical_replacement_operations(item)
                 handled = {op.get("find") for op in migration["transformations"] + migration.get("repair", []) if op.get("type") == "replace_text"}
@@ -62,7 +65,7 @@ def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict
             item["dependsOn"] = sorted(set(item.get("dependsOn", [])) | {previous_id})
         last_by_package[item["package"]] = item["id"]
     state_file = root / ".skipo/migration-state.json"
-    applied_ids = set(json.loads(state_file.read_text(encoding="utf-8")).get("applied", [])) if state_file.is_file() else set()
+    applied_ids = set(json.loads(state_file.read_text(encoding="utf-8")).get("dependencyApplied", [])) if state_file.is_file() else set()
     ordered = order_migrations(selected, errors, applied_ids)
     return {"ok": not errors, "operation": "dependency-migration-plan", "paths": paths,
             "migrations": ordered, "errors": sorted(set(errors)), "applied": False}
@@ -132,7 +135,7 @@ def execute_dependency_migrations(root: Path, plan: dict[str, Any]) -> dict[str,
     actions, errors = [], []
     state_path = root / ".skipo/migration-state.json"
     state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else dict(STATE_DEFAULT)
-    applied = set(state.get("applied", []))
+    applied = set(state.get("dependencyApplied", []))
     snapshots: dict[Path, bytes | None] = {}
     for migration in plan["migrations"]:
         if migration["id"] in applied:
@@ -167,7 +170,7 @@ def execute_dependency_migrations(root: Path, plan: dict[str, Any]) -> dict[str,
                 path.write_bytes(content)
         actions = []
     if not errors:
-        state.update({"schemaVersion": max(1, state.get("schemaVersion", 1)), "applied": sorted(applied), "pending": []})
+        state.update({"schemaVersion": max(1, state.get("schemaVersion", 1)), "dependencyApplied": sorted(applied), "pending": []})
         state_path.parent.mkdir(parents=True, exist_ok=True)
         state_path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         dependencies = json.loads((root / ".skipo/dependencies.json").read_text(encoding="utf-8")) if (root / ".skipo/dependencies.json").is_file() else {}
@@ -182,7 +185,7 @@ def verify_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> di
     plan = plan_dependency_migrations(root, skipo_version)
     errors = list(plan["errors"])
     state_file = root / ".skipo/migration-state.json"
-    applied = set(json.loads(state_file.read_text(encoding="utf-8")).get("applied", [])) if state_file.is_file() else set()
+    applied = set(json.loads(state_file.read_text(encoding="utf-8")).get("dependencyApplied", [])) if state_file.is_file() else set()
     pkg = json.loads((root / "package.json").read_text(encoding="utf-8"))
     names = set(pkg.get("dependencies", {})) | set(pkg.get("devDependencies", {})) | set(pkg.get("optionalDependencies", {}))
     for package in sorted(names):
@@ -191,7 +194,7 @@ def verify_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> di
             if contract:
                 validate_contract(contract, package, skipo_version)
                 for migration in contract.get("migrations", []):
-                    if migration["id"] in applied:
+                    if f"{package}::{migration['id']}" in applied:
                         for operation in migration.get("verification", []):
                             verify_operation(root, operation)
         except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
