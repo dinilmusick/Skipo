@@ -273,9 +273,13 @@ def compose(root: Path, items: list[str], apply: bool = True) -> dict[str, Any]:
         write_generated_entries(state, generated)
         write_capability_state(root, state)
         deps_state = dependency_state(root)
+        resolved = deps_state.setdefault("_resolved", {})
         for package, version in deps.items():
             if package.startswith("@ultrst-armada/") or package == "@dinilmusick/gutts":
                 deps_state[package] = version
+                installed = root / "node_modules" / package / "package.json"
+                if installed.is_file():
+                    resolved[package] = read_json(installed, {}).get("version", version)
         write_json(root / ".skipo" / "dependencies.json", deps_state)
 
     return {
@@ -387,6 +391,15 @@ def sync(root: Path, install: bool = False) -> dict[str, Any]:
     result["operation"] = "sync"
     if install:
         result["install"] = install_dependencies(root)
+        if result["install"].get("ok"):
+            deps_state = dependency_state(root)
+            resolved = deps_state.setdefault("_resolved", {})
+            for package in list(deps_state):
+                if package.startswith("@ultrst-armada/") or package == "@dinilmusick/gutts":
+                    installed = root / "node_modules" / package / "package.json"
+                    if installed.is_file():
+                        resolved[package] = read_json(installed, {}).get("version", deps_state[package])
+            write_json(root / ".skipo" / "dependencies.json", deps_state)
     return result
 
 def install_dependencies(root: Path) -> dict[str, Any]:
