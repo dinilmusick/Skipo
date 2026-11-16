@@ -1,0 +1,222 @@
+#!/usr/bin/env python3
+"""Canonical, fail-closed Skipo environment contract and migration engine."""
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parents[1]
+CONTRACT_PATH = ROOT / "architecture" / "environment" / "contract.json"
+ENV_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
+ENV_ASSIGN = re.compile(r"^\s*(?:export\s+)?([A-Z][A-Z0-9_]*)\s*=\s*(.*)$")
+KEY_ASSIGN = re.compile(r'^\s*["\']?([A-Z][A-Z0-9_]*)["\']?\s*[:=]\s*(.*?)(?:[,#]\s*)?$')
+REF_PATTERNS = (
+    re.compile(r"\bprocess\.env\.([A-Z][A-Z0-9_]*)"),
+    re.compile(r"\bimport\.meta\.env\.([A-Z][A-Z0-9_]*)"),
+    re.compile(r"\bos\.environ(?:\.get)?\(\s*['\"]([A-Z][A-Z0-9_]*)['\"]"),
+    re.compile(r"\bos\.environ\s*\[\s*['\"]([A-Z][A-Z0-9_]*)['\"]\s*\]"),
+    re.compile(r"\bos\.getenv\(\s*['\"]([A-Z][A-Z0-9_]*)['\"]"),
+    re.compile(r"\bgetenv\(\s*['\"]([A-Z][A-Z0-9_]*)['\"]"),
+    re.compile(r"\$\{\{\s*(?:secrets|vars|env)\.([A-Z][A-Z0-9_]*)\s*\}\}"),
+)
+ENV_FILE = re.compile(r"(^|/)\.env(?:[.-].*)?$", re.I)
+SKIP_PARTS = set(json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))["scan"]["ignored_directories"])
+
+
+def load_contract() -> dict[str, Any]:
+    data = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+    if data.get("schema_version") != 1:
+        raise ValueError("Unsupported Skipo environment contract schema.")
+    canonical = set(data.get("canonical", {}).get("required", [])) | set(data.get("canonical", {}).get("optional", []))
+    if not canonical or any(not ENV_NAME.fullmatch(x) for x in canonical):
+        raise ValueError("Invalid canonical environment variable declaration.")
+    for alias, spec in data.get("deprecated_aliases", {}).items():
+        if not ENV_NAME.fullmatch(alias) or spec.get("target") not in canonical:
+            raise ValueError(f"Invalid environment alias declaration: {alias}")
+    for name, spec in data.get("obsolete_framework_variables", {}).items():
+        if not ENV_NAME.fullmatch(name) or spec.get("target") not in canonical | {None}:
+            raise ValueError(f"Invalid obsolete environment declaration: {name}")
+    return data
+
+
+def classify(name: str, contract: dict[str, Any] | None = None) -> str:
+    contract = contract or load_contract()
+    canonical = set(contract["canonical"]["required"]) | set(contract["canonical"]["optional"])
+    if name in canonical:
+        return "canonical"
+    if name in contract.get("deprecated_aliases", {}):
+        return "known_deprecated_alias"
+    if name in contract.get("obsolete_framework_variables", {}):
+        return "known_obsolete_framework_variable"
+    if name in contract.get("product_specific", {}):
+        return "explicitly_supported_product_specific"
+    for item in contract.get("product_specific_patterns", []):
+        if re.fullmatch(item["pattern"], name):
+            return "explicitly_supported_product_specific"
+    return "undeclared_framework_configuration"
+
+
+def _is_env_file(path: Path) -> bool:
+    return bool(ENV_FILE.search(path.as_posix()))
+
+
+def _is_relevant(path: Path, root: Path, extensions: set[str]) -> bool:
+    rel = path.relative_to(root)
+    if any(part in SKIP_PARTS for part in rel.parts):
+        return False
+    if path.is_symlink() or not path.is_file():
+        return False
+    if _is_env_file(path):
+        return True
+    if path.suffix.lower() not in extensions:
+        return False
+    parts = set(rel.parts)
+    if path.suffix.lower() in {".md", ".mdx", ".txt"}:
+        return any(part in {"docs", "documentation", ".github"} for part in parts) or path.name.lower() in {"readme.md", "agents.md"}
+    return True
+
+
+def iter_configuration_files(root: Path):
+    contract = load_contract()
+    extensions = set(contract["scan"]["extensions"])
+    for path in sorted(root.rglob("*")):
+        if _is_relevant(path, root, extensions):
+            yield path
+
+
+def _candidate_names(path: Path, text: str):
+    for line_no, line in enumerate(text.splitlines(), 1):
+        stripped = line.lstrip()
+        if not stripped or stripped.startswith(("#", "//", "*")):
+            continue
+        if _is_env_file(path):
+            match = ENV_ASSIGN.match(line)
+            if match:
+                yield match.group(1), line_no, "declaration", match.group(2).strip()
+        else:
+            match = KEY_ASSIGN.match(line)
+            if match and (path.suffix.lower() in {".toml", ".json", ".jsonc", ".yaml", ".yml", ".ini", ".cfg", ".properties"} or "env" in line.lower()):
+                yield match.group(1), line_no, "declaration", match.group(2).strip()
+        for pattern in REF_PATTERNS:
+            for found in pattern.finditer(line):
+                yield found.group(1), line_no, "reference", None
+
+
+def diagnose(root: Path) -> dict[str, Any]:
+    contract = load_contract()
+    findings = []
+    scanned = 0
+    for path in iter_configuration_files(root):
+        scanned += 1
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        rel = path.relative_to(root).as_posix()
+        for name, line, occurrence, value in _candidate_names(path, text):
+            classification = classify(name, contract)
+            if classification == "canonical" or classification == "explicitly_supported_product_specific":
+                continue
+            spec = contract.get("deprecated_aliases", {}).get(name) or contract.get("obsolete_framework_variables", {}).get(name, {})
+            findings.append({
+                "variable": name,
+                "classification": classification,
+                "target": spec.get("target"),
+                "path": rel,
+                "line": line,
+                "occurrence": occurrence,
+                "reason": spec.get("reason"),
+            })
+    # Stable de-duplication without suppressing distinct paths or lines.
+    unique = {(x["variable"], x["path"], x["line"], x["occurrence"]): x for x in findings}
+    findings = [unique[k] for k in sorted(unique)]
+    return {"ok": not any(x["classification"] == "undeclared_framework_configuration" for x in findings),
+            "operation": "diagnose", "files_scanned": scanned, "findings": findings}
+
+
+def plan(root: Path) -> dict[str, Any]:
+    diagnostic = diagnose(root)
+    contract = load_contract()
+    actions, conflicts = [], []
+    by_path: dict[str, list[dict[str, Any]]] = {}
+    for finding in diagnostic["findings"]:
+        if finding["classification"] == "undeclared_framework_configuration":
+            conflicts.append({"path": finding["path"], "line": finding["line"], "variable": finding["variable"],
+                              "reason": "No canonical migration or explicit product-specific declaration exists."})
+            continue
+        by_path.setdefault(finding["path"], []).append(finding)
+    for rel, findings in sorted(by_path.items()):
+        path = root / rel
+        text = path.read_text(encoding="utf-8")
+        aliases = {x["variable"]: x["target"] for x in findings}
+        # Conflicting aliases targeting the same canonical key are ambiguous.
+        for alias, target in sorted(aliases.items()):
+            alias_values = []
+            canonical_values = []
+            for line in text.splitlines():
+                m = ENV_ASSIGN.match(line)
+                if m and m.group(1) == alias:
+                    alias_values.append(m.group(2).strip().strip('"').strip("'"))
+                if m and m.group(1) == target:
+                    canonical_values.append(m.group(2).strip().strip('"').strip("'"))
+            nonempty_alias = {x for x in alias_values if x}
+            nonempty_canonical = {x for x in canonical_values if x}
+            if len(nonempty_alias) > 1 or (nonempty_alias and nonempty_canonical and nonempty_alias != nonempty_canonical):
+                conflicts.append({"path": rel, "variable": alias, "target": target,
+                                  "reason": "Conflicting source and target values; automatic migration is unsafe."})
+                continue
+            actions.append({"action": "rename-variable", "path": rel, "from": alias, "to": target})
+    return {"ok": not conflicts, "operation": "plan", "actions": actions, "conflicts": conflicts,
+            "blocked_findings": [x for x in diagnostic["findings"] if x["classification"] == "undeclared_framework_configuration"],
+            "findings": diagnostic["findings"]}
+
+
+def repair(root: Path, apply: bool = True) -> dict[str, Any]:
+    planned = plan(root)
+    if not planned["ok"]:
+        return {"ok": False, "operation": "repair", "applied": False, "actions": [], "conflicts": planned["conflicts"],
+                "blocked_findings": planned["blocked_findings"]}
+    actions = planned["actions"]
+    if not apply:
+        return {"ok": True, "operation": "repair", "applied": False, "actions": actions, "conflicts": []}
+    by_path: dict[str, set[str]] = {}
+    for action in actions:
+        by_path.setdefault(action["path"], set()).add(action["from"])
+    for rel, aliases in sorted(by_path.items()):
+        path = root / rel
+        original = path.read_text(encoding="utf-8")
+        updated = original
+        for alias in sorted(aliases):
+            updated = re.sub(rf"\b{re.escape(alias)}\b", _target_for(alias), updated)
+        if updated != original:
+            path.write_text(updated, encoding="utf-8")
+    verification = verify(root)
+    return {"ok": verification["ok"], "operation": "repair", "applied": True, "actions": actions,
+            "conflicts": [], "verification": verification}
+
+
+def _target_for(alias: str) -> str:
+    contract = load_contract()
+    spec = contract.get("deprecated_aliases", {}).get(alias) or contract.get("obsolete_framework_variables", {}).get(alias, {})
+    target = spec.get("target")
+    if not target:
+        raise ValueError(f"Obsolete variable {alias} has no safe canonical target; manual removal is required.")
+    return target
+
+
+def synchronize(root: Path) -> dict[str, Any]:
+    return repair(root, apply=True)
+
+
+def verify(root: Path) -> dict[str, Any]:
+    diagnostic = diagnose(root)
+    errors = []
+    for finding in diagnostic["findings"]:
+        if finding["classification"] == "undeclared_framework_configuration":
+            errors.append(f"Undeclared environment variable {finding['variable']} at {finding['path']}:{finding['line']}")
+        else:
+            errors.append(f"Unmigrated {finding['classification']} {finding['variable']} at {finding['path']}:{finding['line']}")
+    return {"ok": not errors, "operation": "verify", "errors": errors, "findings": diagnostic["findings"],
+            "files_scanned": diagnostic["files_scanned"]}
