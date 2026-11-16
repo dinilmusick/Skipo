@@ -148,7 +148,7 @@ def build_plan(root: Path, framework_version: str,
     for migration in sorted(migrations, key=lambda item: (version_tuple(item.get("version")), item.get("id", ""))):
         migration_id = migration.get("id")
         migration_version = migration.get("version", "0.0.0")
-        if migration_id not in applied and version_tuple(previous_framework) < version_tuple(migration_version) <= version_tuple(framework_version):
+        if migration_id not in applied and version_tuple(migration_version) <= version_tuple(framework_version):
             paths = sorted(path for path in migration.get("retirePaths", []) if (Path(state["root"]) / path).exists())
             action = {"phase": "update", "action": "migration", "id": migration_id, "version": migration_version, "retire_paths": paths}
             actions.append(action)
