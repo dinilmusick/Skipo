@@ -10,7 +10,6 @@ from skipo_dependency_migrations import (
     verify_dependency_migrations, resolve_path, order_migrations, safe_path, version,
 )
 
-
 def project(tmp_path, versions, contracts, previous):
     root = tmp_path
     deps = {name: f"^{ver}" for name, ver in versions.items()}
@@ -25,14 +24,11 @@ def project(tmp_path, versions, contracts, previous):
         (folder / "skipo.migrations.json").write_text(json.dumps(contract), encoding="utf-8")
     return root
 
-
 def contract(package, migrations, compatibility=None):
     return {"schemaVersion": 1, "package": package, "compatibility": compatibility or {}, "migrations": migrations}
 
-
 def migration(mid, old, new, **extra):
     return {"id": mid, "fromVersion": old, "toVersion": new, **extra}
-
 
 def test_plan_is_read_only_and_contains_full_ordered_path(tmp_path):
     package = "@ultrst-armada/demo"
@@ -45,7 +41,6 @@ def test_plan_is_read_only_and_contains_full_ordered_path(tmp_path):
     assert [m["id"] for m in plan["migrations"]] == ["demo-1", "demo-2"]
     assert json.loads((root / ".skipo/dependencies.json").read_text())[package] == "1.0.0"
 
-
 def test_multiple_dependency_migrations_are_merged_and_ordered(tmp_path):
     a, b = "@ultrst-armada/a", "@ultrst-armada/b"
     root = project(tmp_path, {a: "2.0.0", b: "3.0.0"}, {
@@ -56,7 +51,6 @@ def test_multiple_dependency_migrations_are_merged_and_ordered(tmp_path):
     assert plan["ok"]
     assert [m["id"] for m in plan["migrations"]] == ["b-3", "a-2"]
 
-
 def test_missing_migration_path_blocks_upgrade(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "3.0.0"}, {name: ("3.0.0", contract(name, [
@@ -66,7 +60,6 @@ def test_missing_migration_path_blocks_upgrade(tmp_path):
     assert not plan["ok"]
     assert "Missing migration path" in plan["errors"][0]
 
-
 def test_invalid_contract_identity_is_rejected(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract("@wrong/name", [
@@ -74,14 +67,12 @@ def test_invalid_contract_identity_is_rejected(tmp_path):
     ]))}, {name: "1.0.0"})
     assert not plan_dependency_migrations(root)["ok"]
 
-
 def test_skipo_compatibility_is_enforced(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
         migration("m1", "1.0.0", "2.0.0")
     ], {"skipo": ">=2.0.0"}))}, {name: "1.0.0"})
     assert not plan_dependency_migrations(root, "1.1.0")["ok"]
-
 
 def test_transform_repair_and_verification_execute_once(tmp_path):
     name = "@ultrst-armada/demo"
@@ -110,14 +101,12 @@ def test_transform_repair_and_verification_execute_once(tmp_path):
     repeated = execute_dependency_migrations(root, plan)
     assert repeated["ok"] and repeated["actions"] == []
 
-
 def test_baseline_install_does_not_require_historical_contract(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "2.0.0"}, {}, {})
     plan = plan_dependency_migrations(root)
     assert plan["ok"] and name not in plan["paths"]
     assert plan["migrations"] == []
-
 
 def test_contract_dependency_cycle_is_rejected():
     errors = []
@@ -128,7 +117,6 @@ def test_contract_dependency_cycle_is_rejected():
     assert order_migrations(items, errors) == []
     assert errors
 
-
 def test_unsupported_operation_fails_closed(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
@@ -138,7 +126,6 @@ def test_unsupported_operation_fails_closed(tmp_path):
     assert not result["ok"]
     assert not (root / ".skipo/migration-state.json").read_text().find("m1") >= 0
 
-
 def test_contract_path_traversal_is_rejected(tmp_path):
     try:
         safe_path(tmp_path, "../outside.json")
@@ -147,16 +134,13 @@ def test_contract_path_traversal_is_rejected(tmp_path):
     else:
         raise AssertionError("path traversal must be rejected")
 
-
 def test_semantic_versions_normalize_missing_patch_component():
     assert version("1.2") == version("1.2.0")
-
 
 def test_missing_migration_dependency_is_rejected():
     errors = []
     assert order_migrations([{"id": "a", "dependsOn": ["missing"]}], errors) == [{"id": "a", "dependsOn": ["missing"]}]
     assert any("unavailable migrations" in error for error in errors)
-
 
 def test_resolved_baseline_takes_precedence_over_declared_range(tmp_path):
     name = "@ultrst-armada/demo"
@@ -168,7 +152,6 @@ def test_resolved_baseline_takes_precedence_over_declared_range(tmp_path):
     assert plan["paths"][name]["from"] == "1.5.0"
     assert plan["paths"][name]["specifier"] == "^2.0.0"
 
-
 def test_contract_discovery_is_not_limited_to_ultrst_package_names(tmp_path):
     name = "@vendor/example"
     root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
@@ -177,7 +160,6 @@ def test_contract_discovery_is_not_limited_to_ultrst_package_names(tmp_path):
     plan = plan_dependency_migrations(root)
     assert plan["ok"]
     assert [item["id"] for item in plan["migrations"]] == ["vendor-1-to-2"]
-
 
 def test_framework_update_executes_dependency_contract_before_advancing_version(tmp_path):
     name = "@ultrst-armada/demo"
@@ -190,7 +172,6 @@ def test_framework_update_executes_dependency_contract_before_advancing_version(
     assert result["dependency_migrations"]["applied"]
     assert json.loads((root / ".skipo/project.json").read_text())["skipo_version"] == "1.1.0"
     assert "demo-1-to-2" in json.loads((root / ".skipo/migration-state.json").read_text())["applied"]
-
 
 def test_framework_update_does_not_advance_when_migration_path_is_missing(tmp_path):
     name = "@ultrst-armada/demo"
