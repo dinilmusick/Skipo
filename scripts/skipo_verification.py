@@ -201,6 +201,7 @@ def verify_canonical_state(root: Path, framework_version: str | None = None):
     if err or not isinstance(migrations, dict) or not isinstance(migrations.get("migrations"), list):
         ds.append(diag("SKIPO_MIGRATION_REGISTRY_INVALID", "invalid", "Migration registry must contain a migrations array.", "architecture/capabilities/migrations.json"))
     else:
+        target_framework = framework_version or app["framework"].get("version")
         ms = state["migrations"]
         applied = ms.get("applied", [])
         pending = ms.get("pending", [])
@@ -220,6 +221,8 @@ def verify_canonical_state(root: Path, framework_version: str | None = None):
                     ds.append(diag("SKIPO_MIGRATION_REGISTRY_INVALID", "invalid", "Every migration must be an object with a non-empty string id.", "architecture/capabilities/migrations.json"))
                     continue
                 mid = migration["id"]
+                if version_tuple(migration.get("version", "0.0.0")) > version_tuple(target_framework):
+                    continue
                 if mid in declared:
                     ds.append(diag("SKIPO_MIGRATION_REGISTRY_INVALID", "invalid", "Duplicate migration id: " + mid, "architecture/capabilities/migrations.json"))
                     continue
