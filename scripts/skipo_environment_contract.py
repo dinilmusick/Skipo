@@ -99,30 +99,70 @@ def iter_configuration_files(root: Path):
 
 def _candidate_names(path: Path, source: str):
     in_doc_fence = False
+    yaml_env_indent = None
+    toml_env_section = False
+    json_env_depth = None
+    suffix = path.suffix.lower()
+    is_shell = suffix in {".sh", ".bash", ".zsh"}
+    is_yaml = suffix in {".yaml", ".yml"}
+    is_toml = suffix == ".toml"
+    is_json = suffix in {".json", ".jsonc"}
+    is_doc = suffix in TEXT_DOCS
+    is_test_source = "tests" in path.parts and "fixtures" not in path.parts
+
     for line_no, line in enumerate(source.splitlines(), 1):
         stripped = line.strip()
-        if path.suffix.lower() in TEXT_DOCS and stripped.startswith(chr(96) * 3):
+        indent = len(line) - len(line.lstrip())
+        if is_doc and stripped.startswith(chr(96) * 3):
             in_doc_fence = not in_doc_fence
             continue
         if not stripped or stripped.startswith(("#", "//", "*")):
             continue
-        if _is_env_file(path) or (path.suffix.lower() in TEXT_DOCS and in_doc_fence):
+
+        if _is_env_file(path) or is_shell or (is_doc and in_doc_fence):
             match = ENV_ASSIGN.match(line)
             if match:
                 yield match.group(1), line_no, "declaration", match.group(2).strip()
-        elif path.suffix.lower() in DECLARATION_SUFFIXES:
-            match = KEY_ASSIGN.match(line)
-            if match:
-                yield match.group(1), line_no, "declaration", match.group(2).strip()
-        # Test source frequently mentions forbidden names inside assertions and
-        # fixture builders. Scan concrete fixture/config files under tests, but
-        # do not treat test implementation strings as live runtime references.
-        scan_source_references = "tests" not in path.parts or "fixtures" in path.parts
-        if scan_source_references:
+        elif is_yaml:
+            if re.match(r"^\s*(?:env|environment|vars)\s*:", line):
+                yaml_env_indent = indent
+            elif yaml_env_indent is not None:
+                if indent <= yaml_env_indent:
+                    yaml_env_indent = None
+                else:
+                    match = KEY_ASSIGN.match(line)
+                    if match:
+                        yield match.group(1), line_no, "declaration", match.group(2).strip()
+        elif is_toml:
+            section = re.match(r"^\s*\[([^\]]+)\]\s*(?:#.*)?$", line)
+            if section:
+                section_name = section.group(1).strip().lower()
+                toml_env_section = section_name in {"env", "environment", "vars"} or section_name.startswith(("env.", "environment.", "vars."))
+            elif toml_env_section:
+                match = KEY_ASSIGN.match(line)
+                if match:
+                    yield match.group(1), line_no, "declaration", match.group(2).strip()
+        elif is_json:
+            if json_env_depth is None and re.search(r'"(?:env|environment|vars)"\s*:\s*\{', line):
+                json_env_depth = line.count("{") - line.count("}")
+                match = KEY_ASSIGN.match(line)
+                if match and match.group(1) in {"ENV", "ENVIRONMENT", "VARS"}:
+                    match = None
+            elif json_env_depth is not None:
+                match = KEY_ASSIGN.match(line)
+                if match:
+                    yield match.group(1), line_no, "declaration", match.group(2).strip()
+                json_env_depth += line.count("{") - line.count("}")
+                if json_env_depth <= 0:
+                    json_env_depth = None
+
+        # Environment references in source and CI expressions are checked
+        # independently from declarations. Test implementation strings are
+        # intentionally excluded; concrete config fixtures remain in scope.
+        if not is_test_source:
             for pattern in REF_PATTERNS:
                 for found in pattern.finditer(line):
                     yield found.group(1), line_no, "reference", None
-
 
 def diagnose(root: Path) -> dict[str, Any]:
     root = root.resolve()
