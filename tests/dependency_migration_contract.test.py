@@ -196,5 +196,5 @@ def test_contract_rejects_non_forward_migration_edges(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
         migration("backwards", "2.0.0", "1.0.0")
-    ]))}, {name: "2.0.0"})
+    ]))}, {name: "1.0.0"})
     assert not plan_dependency_migrations(root)["ok"]
