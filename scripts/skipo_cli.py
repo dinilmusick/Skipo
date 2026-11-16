@@ -27,6 +27,12 @@ from skipo_capabilities import (
     capability_state,
     install_dependencies,
 )
+from skipo_environment_contract import (
+    diagnose as environment_diagnose,
+    plan as environment_plan,
+    repair as environment_repair,
+    verify as environment_verify,
+)
 
 def run(cmd: list[str], cwd: Path) -> int:
     return subprocess.run(cmd, cwd=str(cwd)).returncode
