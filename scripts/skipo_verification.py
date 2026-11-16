@@ -1,6 +1,6 @@
 """Read-only deterministic canonical-state gate."""
 from __future__ import annotations
-import hashlib, json, os, re
+import hashlib, importlib.util, json, os, re, sys
 from pathlib import Path
 from typing import Any
 from skipo_state_registry import validate_registry_contract
@@ -108,6 +108,21 @@ def verify_canonical_state(root: Path, framework_version: str | None = None):
                 ds.append(diag("SKIPO_CANONICAL_DEPENDENCY_MISMATCH","repairable","Canonical dependency contract is unsatisfied: "+name,"package.json",version,deps.get(name),"Run skipo add or update, reinstall dependencies, then verify."))
             if dep_state.get(name) != version:
                 ds.append(diag("SKIPO_DEPENDENCY_STATE_MISMATCH","repairable","Recorded dependency state differs: "+name,files["dependencies"],version,dep_state.get(name),"Run skipo sync or update explicitly."))
+    ownership_records = {
+        entry.get("path"): entry for entry in generated
+        if isinstance(entry, dict) and isinstance(entry.get("path"), str)
+    }
+    for cap_id in sorted(installed):
+        spec = caps.get(cap_id, {})
+        for expected_file in spec.get("generated", []):
+            rel = expected_file.get("path")
+            if not rel or rel in ownership_records:
+                continue
+            path = root / rel
+            if path.exists():
+                ds.append(diag("SKIPO_GENERATED_OWNERSHIP_UNRECORDED","unsafe/ambiguous","Canonical generated file exists without a Skipo ownership record: "+rel,rel,remediation="Review provenance and explicitly adopt or recompose the file."))
+            else:
+                ds.append(diag("SKIPO_GENERATED_MISSING","repairable","Canonical generated file and ownership record are missing: "+rel,rel,remediation="Run explicit skipo repair, then verify."))
     seen = set()
     for entry in generated:
         if not isinstance(entry,dict) or not isinstance(entry.get("path"),str):
@@ -153,6 +168,30 @@ def verify_canonical_state(root: Path, framework_version: str | None = None):
     for name in forbidden:
         if name in os.environ or name in present:
             ds.append(diag("SKIPO_FORBIDDEN_ENVIRONMENT_VARIABLE","unsafe/ambiguous","Forbidden environment variable is present: "+name,".env* or process environment",remediation="Remove the variable from process and project environment files."))
+    # Execute existing Skipo architecture and runtime-environment constraints.
+    checklist_dir = SKIPO_ROOT / "checklists"
+    if str(checklist_dir) not in sys.path:
+        sys.path.insert(0, str(checklist_dir))
+    for filename, aspect in (("24_capability_architecture.py", "24"), ("26_skipo_runtime_environment_governance.py", "26")):
+        module_path = checklist_dir / filename
+        try:
+            spec_obj = importlib.util.spec_from_file_location("skipo_verify_aspect_" + aspect, module_path)
+            module = importlib.util.module_from_spec(spec_obj)
+            spec_obj.loader.exec_module(module)
+            constraint_result = module.validate(root)
+            for violation in constraint_result.violations:
+                rule = getattr(violation, "rule_id", getattr(violation, "rule", "SKIPO_CONSTRAINT"))
+                if aspect == "26" and rule not in {"ENV-001", "ENV-002", "ENV-004"}:
+                    continue
+                ds.append(diag(
+                    "SKIPO_CONSTRAINT_" + str(rule).replace(".", "_"),
+                    "unresolved",
+                    str(getattr(violation, "message", "Skipo constraint failed.")),
+                    getattr(violation, "file_path", None),
+                    remediation=getattr(violation, "suggestion", None),
+                ))
+        except Exception as exc:
+            ds.append(diag("SKIPO_CONSTRAINT_VALIDATOR_FAILED","invalid","Unable to execute Skipo constraint validator "+filename+": "+str(exc),filename))
     receipt, receipt_error = read(root / ".skipo/verification-state.json")
     repaired = not ds and receipt_error is None and isinstance(receipt,dict) and receipt.get("lastRepair") == "verified"
     return result(ds, root, sorted(installed), repaired)
