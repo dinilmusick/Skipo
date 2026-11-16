@@ -97,12 +97,20 @@ def check_project(root: Path) -> int:
     return result.returncode
 
 def diagnose_project(root: Path) -> int:
-    print(json.dumps({"ok":True,"operation":"diagnose","findings":capability_diagnose(root)}, indent=2))
-    return 0
+    capabilities = capability_diagnose(root)
+    environment = environment_diagnose(root)
+    payload = {"ok": environment["ok"], "operation": "diagnose",
+               "capabilities": capabilities, "environment": environment}
+    print(json.dumps(payload, indent=2))
+    return 0 if payload["ok"] else 1
 
 def plan_project(root: Path) -> int:
-    print(json.dumps(capability_plan(root), indent=2))
-    return 0
+    capabilities = capability_plan(root)
+    environment = environment_plan(root)
+    payload = {"ok": environment["ok"] and capabilities.get("ok", True),
+               "operation": "plan", "capabilities": capabilities, "environment": environment}
+    print(json.dumps(payload, indent=2))
+    return 0 if payload["ok"] else 1
 
 def parse_items(items: list[str]) -> tuple[list[str], Path]:
     if items and Path(items[-1]).exists() and len(items) > 1:
@@ -153,20 +161,36 @@ def update_project(root: Path) -> int:
 
 def repair_project(root: Path, apply: bool) -> int:
     try:
+        env_plan = environment_plan(root)
+        if not env_plan["ok"]:
+            print(json.dumps({"ok": False, "operation": "repair", "applied": False,
+                              "environment": env_plan,
+                              "error": "Environment contract has unresolved or ambiguous findings; no repair was applied."}, indent=2))
+            return 1
+        env_result = environment_repair(root, apply=apply)
+        if not env_result.get("ok", False):
+            print(json.dumps({"ok": False, "operation": "repair", "environment": env_result}, indent=2))
+            return 1
         payload = capability_repair(root, apply=apply, framework_version=VERSION)
     except (ValueError, OSError) as exc:
         print(json.dumps({"ok":False,"error":str(exc)}, indent=2)); return 2
-    print(json.dumps(payload, indent=2))
-    if not apply:
-        return 0
-    verify_payload = capability_verify(root)
-    print(json.dumps(verify_payload, indent=2))
-    return 0 if verify_payload.get("ok") else 1
-
-def verify_project(root: Path) -> int:
-    payload = capability_verify(root)
+    payload["environment"] = env_result
+    if apply:
+        payload["verification"] = {
+            "capabilities": capability_verify(root),
+            "environment": environment_verify(root),
+        }
+        payload["ok"] = payload["verification"]["capabilities"].get("ok", False) and payload["verification"]["environment"].get("ok", False)
     print(json.dumps(payload, indent=2))
     return 0 if payload.get("ok", False) else 1
+
+def verify_project(root: Path) -> int:
+    capabilities = capability_verify(root)
+    environment = environment_verify(root)
+    payload = {"ok": capabilities.get("ok", False) and environment.get("ok", False),
+               "operation": "verify", "capabilities": capabilities, "environment": environment}
+    print(json.dumps(payload, indent=2))
+    return 0 if payload["ok"] else 1
 
 def test_project(root: Path) -> int:
     if not is_project(root):
