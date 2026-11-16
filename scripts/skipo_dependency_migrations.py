@@ -12,7 +12,8 @@ STATE_DEFAULT = {"schemaVersion": 1, "applied": [], "pending": []}
 
 def version(value: str) -> tuple[int, ...]:
     match = re.search(r"(\d+(?:\.\d+){0,2})", str(value or ""))
-    return tuple(int(part) for part in match.group(1).split(".")) if match else (0,)
+    parts = [int(part) for part in match.group(1).split(".")] if match else [0]
+    return tuple((parts + [0, 0, 0])[:3])
 
 def safe_path(root: Path, relative: str) -> Path:
     candidate = (root / relative).resolve()
