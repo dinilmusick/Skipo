@@ -67,14 +67,18 @@ def test_already_current_update_is_a_noop(tmp_path):
     root = project(tmp_path, "1.2.0")
     migrations.initialize_migration_state(root, "1.2.0")
     state_path = root / ".skipo/migration-state.json"
+    manifest_path = root / ".skipo/project.json"
     before = state_path.read_bytes()
+    manifest_before = manifest_path.read_bytes()
 
     result = migrations.update_project(root, "1.2.0")
 
     assert result["ok"] is True
+    assert result["already_current"] is True
     assert result["unapplied_migrations"] == []
     assert result["applied_operations"] == []
     assert state_path.read_bytes() == before
+    assert manifest_path.read_bytes() == manifest_before
 
 
 def test_interrupted_migration_resumes_from_persisted_operation_checkpoint(tmp_path, monkeypatch):
