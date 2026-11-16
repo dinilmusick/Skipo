@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+from skipo_dependency_migrations import plan_dependency_migrations, execute_dependency_migrations, verify_dependency_migrations
 REGISTRY_PATH = ROOT / "architecture" / "capabilities" / "registry.json"
 
 def load_registry() -> dict[str, Any]:
@@ -349,12 +351,14 @@ def retire_known_duplicates(root: Path, findings: list[dict[str, Any]], apply: b
 
 def plan(root: Path) -> dict[str, Any]:
     findings = diagnose(root)
+    dependency_plan = plan_dependency_migrations(root)
     return {
-        "ok": True,
+        "ok": dependency_plan["ok"],
         "operation": "plan",
         "findings": findings,
         "retirement_actions": retire_known_duplicates(root, findings, False),
         "canonical_capabilities": sorted(capability_state(root).get("installed", {}).keys()),
+        "dependency_migrations": dependency_plan,
     }
 
 def adopt(root: Path) -> dict[str, Any]:
@@ -417,6 +421,14 @@ def remove_legacy_paths(root: Path, apply: bool) -> list[dict[str, Any]]:
 
 def update(root: Path, framework_version: str) -> dict[str, Any]:
     ensure_project(root)
+    dependency_plan = plan_dependency_migrations(root, framework_version)
+    if not dependency_plan.get("ok"):
+        return {"ok": False, "operation": "update", "dependency_migrations": dependency_plan,
+                "error": "Dependency migration plan is incomplete or incompatible; no dependency migration was applied."}
+    dependency_result = execute_dependency_migrations(root, dependency_plan)
+    if not dependency_result.get("ok"):
+        return {"ok": False, "operation": "update", "dependency_migrations": dependency_result,
+                "error": "Dependency migration execution failed; framework version was not advanced."}
     manifest_path = root / ".skipo" / "project.json"
     manifest = project_manifest(root)
     previous = manifest.get("skipo_version", "unknown")
@@ -447,6 +459,7 @@ def update(root: Path, framework_version: str) -> dict[str, Any]:
         "to_version": framework_version,
         "actions": actions,
         "migration_state": migration_state,
+        "dependency_migrations": dependency_result,
     }
 
 def repair(root: Path, apply: bool, framework_version: str) -> dict[str, Any]:
@@ -474,6 +487,8 @@ def verify(root: Path) -> dict[str, Any]:
     findings = diagnose(root)
     state = capability_state(root)
     errors = []
+    dependency_verification = verify_dependency_migrations(root)
+    errors.extend(dependency_verification.get("errors", []))
     registry = load_registry()["capabilities"]
 
     for cap_id in state.get("installed", {}):
@@ -505,4 +520,5 @@ def verify(root: Path) -> dict[str, Any]:
         "errors": errors,
         "findings": findings,
         "capabilities": sorted(state.get("installed", {}).keys()),
+        "dependency_migrations": dependency_verification,
     }
