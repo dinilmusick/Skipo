@@ -69,7 +69,7 @@ class EnvironmentContractTests(unittest.TestCase):
 
     def test_scans_scaffolds_ci_and_environment_references(self):
         self.write("scaffolds/vite/.env.example", "SYSTEM_DATABASE_URL=postgres://db\nDEPM_GATEWAY_DOMAIN=https://app.example\n")
-        self.write(".github/workflows/deploy.yml", "env:\n  SYSTEM_DATABASE_URL: \${{ secrets.SYSTEM_DATABASE_URL }}\n")
+        self.write(".github/workflows/deploy.yml", "env:\n  SYSTEM_DATABASE_URL: " + chr(36) + "{{ secrets.SYSTEM_DATABASE_URL }}\n")
         result = env.diagnose(self.root)
         paths = {x["path"] for x in result["findings"]}
         self.assertIn("scaffolds/vite/.env.example", paths)
