@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from skipo_dependency_migrations import (
     plan_dependency_migrations, execute_dependency_migrations,
-    verify_dependency_migrations, resolve_path, order_migrations,
+    verify_dependency_migrations, resolve_path, order_migrations, safe_path,
 )
 
 
@@ -135,9 +135,9 @@ def test_unsupported_operation_fails_closed(tmp_path):
 
 
 def test_contract_path_traversal_is_rejected(tmp_path):
-    name = "@ultrst-armada/demo"
-    root = project(tmp_path, {name: "2.0.0"}, {}, {name: "1.0.0"})
     try:
-        plan_dependency_migrations(root)
-    except ValueError:
-        assert False, "invalid paths must be reported as a failed plan"
+        safe_path(tmp_path, "../outside.json")
+    except ValueError as error:
+        assert "escapes application root" in str(error)
+    else:
+        raise AssertionError("path traversal must be rejected")
