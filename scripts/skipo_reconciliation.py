@@ -62,7 +62,7 @@ def reconcile(root: Path, apply: bool, framework_version: str) -> dict[str, Any]
                 conflicts.append({"path": item.get("path"), "message": "Retirement is not explicitly registry-approved."})
                 continue
             target = _path(root, item["path"])
-            if target.exists() and (target.is_symlink() or not target.is_file()):
+            if _contains_symlink(root, item["path"]) or (target.exists() and not target.is_file()):
                 conflicts.append({"path": item["path"], "message": "Only explicitly classified regular files may be retired."})
             elif target.exists():
                 actions.append({
@@ -116,6 +116,9 @@ def reconcile(root: Path, apply: bool, framework_version: str) -> dict[str, Any]
         for item in spec.get("generated", []):
             relative = item["path"]
             target = _path(root, relative)
+            if _contains_symlink(root, relative):
+                conflicts.append({"capability": cap_id, "path": relative, "message": "Canonical target traverses a symlink."})
+                continue
             desired = item["content"]
             current = target.read_text(encoding="utf-8") if target.is_file() else None
             previous = generated.get(relative)
@@ -151,6 +154,9 @@ def reconcile(root: Path, apply: bool, framework_version: str) -> dict[str, Any]
     # Legacy paths are only removable when named by the versioned migration catalogue.
     for relative in capabilities.legacy_migration_paths():
         target = _path(root, relative)
+        if _contains_symlink(root, relative):
+            conflicts.append({"path": relative, "message": "Legacy migration target traverses a symlink."})
+            continue
         if target.exists():
             actions.append({
                 "action": "retire-versioned-legacy-path", "path": relative,
@@ -209,7 +215,7 @@ def reconcile(root: Path, apply: bool, framework_version: str) -> dict[str, Any]
         if relative not in registry[item["capability"]].get("safeRetire", []):
             continue
         target = _path(root, relative)
-        if target.exists():
+        if target.exists() and not _contains_symlink(root, relative):
             target.unlink()
             retired.append(relative)
 
