@@ -4,6 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+import skipo_capabilities
 from skipo_state_registry import (
     canonical_state_json, resolve_application_state, validate_registry_contract,
 )
@@ -45,3 +46,15 @@ def test_invalid_and_unknown_capability_state_is_rejected():
     registry["schemaVersion"] = 999
     assert any("Unsupported canonical registry schemaVersion" in error
                for error in validate_registry_contract(registry))
+
+def test_deprecated_capability_is_rejected_with_its_migration_strategy(monkeypatch):
+    registry = json.loads((ROOT / "architecture/capabilities/registry.json").read_text())
+    registry["capabilities"]["auth"]["status"] = "deprecated"
+    registry["capabilities"]["auth"]["migration"]["strategy"] = "migrate-auth-provider"
+    monkeypatch.setattr(skipo_capabilities, "load_registry", lambda: registry)
+    try:
+        skipo_capabilities.resolve_capabilities(["auth"])
+    except ValueError as exc:
+        assert "migrate-auth-provider" in str(exc)
+    else:
+        raise AssertionError("Deprecated capability was accepted for composition.")
