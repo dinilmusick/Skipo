@@ -428,18 +428,29 @@ def update(root: Path, framework_version: str, apply: bool = True) -> dict[str, 
     return run_framework_update(root, framework_version, apply=apply)
 
 def repair(root: Path, apply: bool, framework_version: str) -> dict[str, Any]:
-    updated = update(root, framework_version) if apply else {
-        "ok": True,
-        "operation": "update",
-        "planned": True,
-        "legacy_paths": legacy_migration_paths(),
-    }
+    manifest = project_manifest(root)
+    if apply and manifest.get("framework") == "skipo":
+        updated = update(root, framework_version)
+    elif apply:
+        updated = {
+            "ok": True,
+            "operation": "update",
+            "skipped": True,
+            "reason": "Framework migrations require an adopted, versioned Skipo project.",
+        }
+    else:
+        updated = {
+            "ok": True,
+            "operation": "update",
+            "planned": True,
+            "legacy_paths": legacy_migration_paths(),
+        }
     findings = diagnose(root)
     retired = retire_known_duplicates(root, findings, apply)
     caps = sorted({f["capability"] for f in findings if f["classification"] in {"adapt", "retire"}})
     composed = compose(root, caps, apply=apply) if caps else {"ok": True, "actions": [], "applied": apply}
     return {
-        "ok": True,
+        "ok": bool(updated.get("ok", True) and composed.get("ok", True)),
         "operation": "repair",
         "findings": findings,
         "retired": retired,
