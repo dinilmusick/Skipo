@@ -18,7 +18,9 @@ REQUIRED_STATE_SECTIONS = (
 
 def load_registry(path: Path = REGISTRY_PATH) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
-    validate_registry_contract(data)
+    errors = validate_registry_contract(data)
+    if errors:
+        raise ValueError("; ".join(errors))
     return data
 
 
@@ -26,11 +28,11 @@ def validate_registry_contract(data: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     if data.get("schemaVersion") != 2:
         errors.append("Unsupported canonical registry schemaVersion.")
-    version = data.get("registryVersion", "")
-    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+    version = data.get("registryVersion")
+    if not isinstance(version, str) or not re.fullmatch(r"\d+\.\d+\.\d+", version):
         errors.append("registryVersion must be an exact semantic version.")
     supported = data.get("supportedVersions", [])
-    if version not in supported:
+    if not isinstance(supported, list) or version not in supported:
         errors.append("Current registryVersion must be listed in supportedVersions.")
     state = data.get("applicationState")
     if not isinstance(state, dict):
@@ -39,11 +41,16 @@ def validate_registry_contract(data: dict[str, Any]) -> list[str]:
     for section in REQUIRED_STATE_SECTIONS:
         if section not in state:
             errors.append(f"Missing applicationState section: {section}")
+    if not isinstance(state.get("deprecated"), list):
+        errors.append("applicationState.deprecated must be a list.")
     capabilities = data.get("capabilities")
     if not isinstance(capabilities, dict) or not capabilities:
         errors.append("At least one canonical capability is required.")
     else:
         for capability_id, spec in sorted(capabilities.items()):
+            if not isinstance(spec, dict):
+                errors.append(f"Capability {capability_id} must be an object.")
+                continue
             for field in ("status", "ownership", "migration", "repair", "verification"):
                 if field not in spec:
                     errors.append(f"Capability {capability_id} is missing {field}.")

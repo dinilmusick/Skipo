@@ -5,7 +5,6 @@ import json
 import re
 import sys
 import time
-import sys
 from pathlib import Path
 try:
     from .common import ChecklistResult, Violation
