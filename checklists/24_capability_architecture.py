@@ -5,11 +5,15 @@ import json
 import re
 import sys
 import time
+import sys
 from pathlib import Path
 try:
     from .common import ChecklistResult, Violation
 except ImportError:
     from common import ChecklistResult, Violation
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from skipo_state_registry import registry_errors
 
 def validate(root: Path) -> ChecklistResult:
     started = time.time()
@@ -26,8 +30,8 @@ def validate(root: Path) -> ChecklistResult:
         return ChecklistResult("aspect_24", "Skipo Capability Composition", False, violations, 0, (time.time()-started)*1000, 0)
 
     data = json.loads(registry.read_text(encoding="utf-8"))
-    if data.get("schemaVersion") != 1:
-        add("24.registry-version", "Unsupported capability registry schema.", registry)
+    for error in registry_errors(registry):
+        add("24.state-registry", error, registry, "Repair the canonical versioned applicationState contract.")
 
     project = state / "project.json"
     if project.is_file():

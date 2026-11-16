@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "framework": "skipo",
   "capabilities": {
     "auth": {
@@ -47,7 +47,33 @@
         "local auth provider",
         "local password authority",
         "local session authority"
-      ]
+      ],
+      "status": "canonical",
+      "ownership": {
+        "composition": "skipo",
+        "implementations": [
+          "@ultrst-armada/floks",
+          "@ultrst-armada/kloks"
+        ]
+      },
+      "migration": {
+        "strategy": "capability-composition",
+        "target": "current",
+        "from": []
+      },
+      "repair": {
+        "strategy": "recompose-owned-files",
+        "idempotent": true,
+        "unknownState": "preserve"
+      },
+      "verification": {
+        "strategy": "provider-and-generated-file-integrity",
+        "checks": [
+          "provider-resolution",
+          "generated-file-checksum",
+          "dependency-contract"
+        ]
+      }
     },
     "workspace": {
       "kind": "capability",
@@ -94,7 +120,33 @@
         "\\bcreateWorkspace\\b",
         "\\bgetWorkspaces\\b",
         "\\bdeleteWorkspace\\b"
-      ]
+      ],
+      "status": "canonical",
+      "ownership": {
+        "composition": "skipo",
+        "implementations": [
+          "@ultrst-armada/floks",
+          "@ultrst-armada/kloks"
+        ]
+      },
+      "migration": {
+        "strategy": "capability-composition",
+        "target": "current",
+        "from": []
+      },
+      "repair": {
+        "strategy": "recompose-owned-files",
+        "idempotent": true,
+        "unknownState": "preserve"
+      },
+      "verification": {
+        "strategy": "provider-and-generated-file-integrity",
+        "checks": [
+          "provider-resolution",
+          "generated-file-checksum",
+          "dependency-contract"
+        ]
+      }
     },
     "storage": {
       "kind": "service",
@@ -119,7 +171,32 @@
         "\\bStorageServiceFacade\\b",
         "\\bnew S3Client\\b",
         "\\bGoogleDrive\\b"
-      ]
+      ],
+      "status": "canonical",
+      "ownership": {
+        "composition": "skipo",
+        "implementations": [
+          "@ultrst-armada/kloks"
+        ]
+      },
+      "migration": {
+        "strategy": "capability-composition",
+        "target": "current",
+        "from": []
+      },
+      "repair": {
+        "strategy": "recompose-owned-files",
+        "idempotent": true,
+        "unknownState": "preserve"
+      },
+      "verification": {
+        "strategy": "provider-and-generated-file-integrity",
+        "checks": [
+          "provider-resolution",
+          "generated-file-checksum",
+          "dependency-contract"
+        ]
+      }
     },
     "midi": {
       "kind": "service",
@@ -149,7 +226,32 @@
         "\\bMidiServiceFacade\\b",
         "\\bMidiManager\\b",
         "\\bWebMidi\\b"
-      ]
+      ],
+      "status": "canonical",
+      "ownership": {
+        "composition": "skipo",
+        "implementations": [
+          "@ultrst-armada/kloks"
+        ]
+      },
+      "migration": {
+        "strategy": "capability-composition",
+        "target": "current",
+        "from": []
+      },
+      "repair": {
+        "strategy": "recompose-owned-files",
+        "idempotent": true,
+        "unknownState": "preserve"
+      },
+      "verification": {
+        "strategy": "provider-and-generated-file-integrity",
+        "checks": [
+          "provider-resolution",
+          "generated-file-checksum",
+          "dependency-contract"
+        ]
+      }
     },
     "settings": {
       "kind": "ui",
@@ -177,7 +279,32 @@
       "duplicatePatterns": [
         "\\bSettingsModal\\b",
         "\\bSettingsPage\\b"
-      ]
+      ],
+      "status": "canonical",
+      "ownership": {
+        "composition": "skipo",
+        "implementations": [
+          "@ultrst-armada/floks"
+        ]
+      },
+      "migration": {
+        "strategy": "capability-composition",
+        "target": "current",
+        "from": []
+      },
+      "repair": {
+        "strategy": "recompose-owned-files",
+        "idempotent": true,
+        "unknownState": "preserve"
+      },
+      "verification": {
+        "strategy": "provider-and-generated-file-integrity",
+        "checks": [
+          "provider-resolution",
+          "generated-file-checksum",
+          "dependency-contract"
+        ]
+      }
     },
     "accounts": {
       "kind": "ui",
@@ -201,7 +328,32 @@
       "duplicatePatterns": [
         "\\bAccountSettings\\b",
         "\\bAccountsPage\\b"
-      ]
+      ],
+      "status": "canonical",
+      "ownership": {
+        "composition": "skipo",
+        "implementations": [
+          "@ultrst-armada/floks"
+        ]
+      },
+      "migration": {
+        "strategy": "capability-composition",
+        "target": "current",
+        "from": []
+      },
+      "repair": {
+        "strategy": "recompose-owned-files",
+        "idempotent": true,
+        "unknownState": "preserve"
+      },
+      "verification": {
+        "strategy": "provider-and-generated-file-integrity",
+        "checks": [
+          "provider-resolution",
+          "generated-file-checksum",
+          "dependency-contract"
+        ]
+      }
     },
     "navigation": {
       "kind": "ui",
@@ -236,7 +388,32 @@
         "\\bAppShell\\b",
         "\\bTopToolbar\\b",
         "\\bBottomStrip\\b"
-      ]
+      ],
+      "status": "canonical",
+      "ownership": {
+        "composition": "skipo",
+        "implementations": [
+          "@ultrst-armada/floks"
+        ]
+      },
+      "migration": {
+        "strategy": "capability-composition",
+        "target": "current",
+        "from": []
+      },
+      "repair": {
+        "strategy": "recompose-owned-files",
+        "idempotent": true,
+        "unknownState": "preserve"
+      },
+      "verification": {
+        "strategy": "provider-and-generated-file-integrity",
+        "checks": [
+          "provider-resolution",
+          "generated-file-checksum",
+          "dependency-contract"
+        ]
+      }
     },
     "canvas": {
       "kind": "ui",
@@ -265,7 +442,32 @@
       "duplicatePatterns": [
         "\\bInfiniteCanvas\\b",
         "\\bDockBar\\b"
-      ]
+      ],
+      "status": "canonical",
+      "ownership": {
+        "composition": "skipo",
+        "implementations": [
+          "@ultrst-armada/floks"
+        ]
+      },
+      "migration": {
+        "strategy": "capability-composition",
+        "target": "current",
+        "from": []
+      },
+      "repair": {
+        "strategy": "recompose-owned-files",
+        "idempotent": true,
+        "unknownState": "preserve"
+      },
+      "verification": {
+        "strategy": "provider-and-generated-file-integrity",
+        "checks": [
+          "provider-resolution",
+          "generated-file-checksum",
+          "dependency-contract"
+        ]
+      }
     }
   },
   "aliases": {
@@ -285,5 +487,148 @@
     "theme": "settings",
     "auth": "auth",
     "workspace": "workspace"
+  },
+  "registryVersion": "2.0.0",
+  "supportedVersions": [
+    "2.0.0"
+  ],
+  "applicationState": {
+    "framework": {
+      "name": "skipo",
+      "version": "1.1.0",
+      "owner": "skipo",
+      "lifecycle": "canonical"
+    },
+    "dependencies": {
+      "@dinilmusick/gutts": "^2.1.1",
+      "@ultrst-armada/krnl": "^1.0.25",
+      "@ultrst-armada/frnlts": "^0.5.23",
+      "@ultrst-armada/kloks": "^2.0.4",
+      "@ultrst-armada/floks": "^2.0.0"
+    },
+    "ownership": {
+      "applicationComposition": "skipo",
+      "backendServices": "@ultrst-armada/kloks",
+      "uiCapabilities": "@ultrst-armada/floks",
+      "backendFoundation": "@ultrst-armada/krnl",
+      "frontendFoundation": "@ultrst-armada/frnlts",
+      "foundationalLibraries": "@dinilmusick/gutts",
+      "authenticationAuthority": "luth"
+    },
+    "canonicalServices": [
+      "midi",
+      "storage"
+    ],
+    "canonicalUiCapabilities": [
+      "accounts",
+      "canvas",
+      "navigation",
+      "settings",
+      "workspace"
+    ],
+    "auth": {
+      "authority": "luth",
+      "capability": "auth",
+      "providerPackages": [
+        "@ultrst-armada/floks",
+        "@ultrst-armada/kloks"
+      ]
+    },
+    "workspaces": {
+      "capability": "workspace",
+      "uiOwner": "@ultrst-armada/floks",
+      "serviceOwner": "@ultrst-armada/kloks",
+      "storagePolicyOwner": "@ultrst-armada/kloks"
+    },
+    "configuration": {
+      "projectManifest": ".skipo/project.json",
+      "dependencyState": ".skipo/dependencies.json",
+      "capabilityState": ".skipo/capabilities.json",
+      "overrides": ".skipo/overrides.json",
+      "migrationState": ".skipo/migration-state.json"
+    },
+    "commands": [
+      "adopt",
+      "inspect",
+      "diagnose",
+      "plan",
+      "add",
+      "remove",
+      "sync",
+      "update",
+      "repair",
+      "verify",
+      "test"
+    ],
+    "environment": {
+      "node": ">=22",
+      "packageManager": "pnpm@10.33.0",
+      "lockfile": "pnpm-lock.yaml"
+    },
+    "migrations": {
+      "registry": "architecture/capabilities/migrations.json",
+      "stateFile": ".skipo/migration-state.json",
+      "policy": "deterministic-idempotent"
+    },
+    "deprecated": [],
+    "repairRules": [
+      {
+        "id": "preserve-unknown",
+        "when": "unrecognized-or-application-owned-state",
+        "strategy": "preserve-and-report",
+        "owner": "skipo"
+      },
+      {
+        "id": "recompose-owned",
+        "when": "canonical-generated-file-drift",
+        "strategy": "recompose-only-skipo-owned-files",
+        "owner": "skipo"
+      },
+      {
+        "id": "retire-explicit",
+        "when": "registry-declared-safe-retirement",
+        "strategy": "retire-only-explicit-safe-paths",
+        "owner": "skipo"
+      }
+    ],
+    "constraints": [
+      {
+        "id": "single-canonical-provider",
+        "rule": "canonical implementations remain in their owning provider packages",
+        "owner": "skipo"
+      },
+      {
+        "id": "no-downstream-identities",
+        "rule": "registry describes framework capabilities and never names downstream applications",
+        "owner": "skipo"
+      },
+      {
+        "id": "unknown-state-preserved",
+        "rule": "unknown or application-owned state is never destructively repaired",
+        "owner": "skipo"
+      }
+    ],
+    "verification": [
+      {
+        "id": "registry-schema",
+        "strategy": "validate-registry-schema-and-version"
+      },
+      {
+        "id": "capability-resolution",
+        "strategy": "resolve-every-capability-and-alias"
+      },
+      {
+        "id": "provider-ownership",
+        "strategy": "verify-provider-package-ownership"
+      },
+      {
+        "id": "generated-integrity",
+        "strategy": "verify-generated-file-checksums"
+      },
+      {
+        "id": "migration-integrity",
+        "strategy": "verify-migration-paths-and-state"
+      }
+    ]
   }
 }
