@@ -160,16 +160,19 @@ def order_migrations(items: list[dict[str, Any]], errors: list[str], applied: se
         return []
     return ordered
 
+def files_for_pattern(root: Path, pattern: str) -> list[Path]:
+    safe_path(root, pattern)
+    return [p for p in sorted(root.glob(pattern)) if p.is_file() and not p.is_symlink()]
+
 def apply_operation(root: Path, operation: dict[str, Any], apply: bool) -> dict[str, Any]:
     kind = operation.get("type")
     if kind == "replace_text":
         matches = []
         for pattern in operation.get("paths", []):
-            for path in sorted(root.glob(pattern)):
-                if path.is_file() and not path.is_symlink():
-                    text = path.read_text(encoding="utf-8")
-                    if operation["find"] in text or operation["replace"] in text:
-                        matches.append((path, text))
+            for path in files_for_pattern(root, pattern):
+                text = path.read_text(encoding="utf-8")
+                if operation["find"] in text or operation["replace"] in text:
+                    matches.append((path, text))
         changed = 0
         for path, text in matches:
             count = text.count(operation["find"])
@@ -202,11 +205,11 @@ def verify_operation(root: Path, operation: dict[str, Any]) -> None:
     kind = operation.get("type")
     if kind == "text_absent":
         for pattern in operation.get("paths", []):
-            for path in root.glob(pattern):
-                if path.is_file() and operation["text"] in path.read_text(encoding="utf-8"):
+            for path in files_for_pattern(root, pattern):
+                if operation["text"] in path.read_text(encoding="utf-8"):
                     raise ValueError(f"Deprecated pattern remains: {path.relative_to(root)}")
     elif kind == "text_present":
-        if not any(operation["text"] in p.read_text(encoding="utf-8") for pattern in operation.get("paths", []) for p in root.glob(pattern) if p.is_file()):
+        if not any(operation["text"] in p.read_text(encoding="utf-8") for pattern in operation.get("paths", []) for p in files_for_pattern(root, pattern)):
             raise ValueError(f"Required canonical pattern missing: {operation['text']}")
     elif kind == "json_equals":
         path = safe_path(root, operation["path"])
