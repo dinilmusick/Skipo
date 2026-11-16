@@ -467,6 +467,8 @@ def repair(root: Path, apply: bool, framework_version: str) -> dict[str, Any]:
     retired = retire_known_duplicates(root, findings, apply)
     caps = sorted({f["capability"] for f in findings if f["classification"] in {"adapt", "retire"}})
     composed = compose(root, caps, apply=apply) if caps else {"ok": True, "actions": [], "applied": apply}
+    if apply and composed.get("ok", False):
+        write_json(root / ".skipo" / "verification-state.json", {"lastRepair": "verified"})
     return {
         "ok": True,
         "operation": "repair",
@@ -478,41 +480,6 @@ def repair(root: Path, apply: bool, framework_version: str) -> dict[str, Any]:
     }
 
 def verify(root: Path) -> dict[str, Any]:
-    findings = diagnose(root)
-    state = capability_state(root)
-    errors = []
-    registry = load_registry()["capabilities"]
-
-    for cap_id in state.get("installed", {}):
-        if cap_id not in registry:
-            errors.append(f"Unknown installed capability: {cap_id}")
-        elif registry[cap_id].get("status") == "deprecated":
-            strategy = registry[cap_id].get("migration", {}).get("strategy", "manual-review")
-            errors.append(f"Deprecated installed capability: {cap_id} (migration: {strategy})")
-
-    for rel, entry in generated_entries(state).items():
-        path = root / rel
-        if not path.exists():
-            errors.append(f"Generated capability file is missing: {rel}")
-            continue
-        expected = entry.get("checksum")
-        if expected and sha256_text(path.read_text(encoding="utf-8")) != expected:
-            errors.append(f"Generated capability file has drifted: {rel}")
-
-    for finding in findings:
-        if finding.get("classification") == "retire":
-            cap_id = finding["capability"]
-            if finding["path"] not in registry[cap_id].get("safeRetire", []):
-                errors.append(f"Unresolved duplicate for {cap_id}: {finding['path']}")
-
-    for rel in legacy_migration_paths():
-        if (root / rel).exists():
-            errors.append(f"Legacy Skipo module path remains: {rel}")
-
-    return {
-        "ok": not errors,
-        "operation": "verify",
-        "errors": errors,
-        "findings": findings,
-        "capabilities": sorted(state.get("installed", {}).keys()),
-    }
+    """Read-only canonical-state verification; never initialize or mutate project state."""
+    from skipo_verification import verify_canonical_state
+    return verify_canonical_state(root, load_registry()["applicationState"]["framework"].get("version"))
