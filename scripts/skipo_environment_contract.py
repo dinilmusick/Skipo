@@ -108,6 +108,7 @@ def diagnose(root: Path) -> dict[str, Any]:
     contract = load_contract()
     findings = []
     scanned = 0
+    declared = set()
     for path in iter_configuration_files(root):
         scanned += 1
         try:
@@ -116,6 +117,8 @@ def diagnose(root: Path) -> dict[str, Any]:
             continue
         rel = path.relative_to(root).as_posix()
         for name, line, occurrence, value in _candidate_names(path, text):
+            if occurrence == "declaration":
+                declared.add(name)
             classification = classify(name, contract)
             if classification == "canonical" or classification == "explicitly_supported_product_specific":
                 continue
@@ -129,10 +132,15 @@ def diagnose(root: Path) -> dict[str, Any]:
                 "occurrence": occurrence,
                 "reason": spec.get("reason"),
             })
+    for required in contract["canonical"]["required"]:
+        if required not in declared:
+            findings.append({"variable": required, "classification": "missing_required", "target": None,
+                             "path": ".env.example", "line": None, "occurrence": "required_declaration",
+                             "reason": "Required canonical environment variable is not declared in any scanned configuration surface."})
     # Stable de-duplication without suppressing distinct paths or lines.
     unique = {(x["variable"], x["path"], x["line"], x["occurrence"]): x for x in findings}
     findings = [unique[k] for k in sorted(unique)]
-    return {"ok": not any(x["classification"] == "undeclared_framework_configuration" for x in findings),
+    return {"ok": not any(x["classification"] in {"undeclared_framework_configuration", "missing_required"} for x in findings),
             "operation": "diagnose", "files_scanned": scanned, "findings": findings}
 
 
@@ -142,9 +150,9 @@ def plan(root: Path) -> dict[str, Any]:
     actions, conflicts = [], []
     by_path: dict[str, list[dict[str, Any]]] = {}
     for finding in diagnostic["findings"]:
-        if finding["classification"] == "undeclared_framework_configuration":
-            conflicts.append({"path": finding["path"], "line": finding["line"], "variable": finding["variable"],
-                              "reason": "No canonical migration or explicit product-specific declaration exists."})
+        if finding["classification"] in {"undeclared_framework_configuration", "missing_required"}:
+            blocked_findings = True
+            continue
             continue
         by_path.setdefault(finding["path"], []).append(finding)
     for rel, findings in sorted(by_path.items()):
@@ -169,7 +177,7 @@ def plan(root: Path) -> dict[str, Any]:
                 continue
             actions.append({"action": "rename-variable", "path": rel, "from": alias, "to": target})
     return {"ok": not conflicts, "operation": "plan", "actions": actions, "conflicts": conflicts,
-            "blocked_findings": [x for x in diagnostic["findings"] if x["classification"] == "undeclared_framework_configuration"],
+            "blocked_findings": [x for x in diagnostic["findings"] if x["classification"] in {"undeclared_framework_configuration", "missing_required"}],
             "findings": diagnostic["findings"]}
 
 
@@ -216,6 +224,8 @@ def verify(root: Path) -> dict[str, Any]:
     for finding in diagnostic["findings"]:
         if finding["classification"] == "undeclared_framework_configuration":
             errors.append(f"Undeclared environment variable {finding['variable']} at {finding['path']}:{finding['line']}")
+        elif finding["classification"] == "missing_required":
+            errors.append(f"Required environment variable {finding['variable']} is not declared.")
         else:
             errors.append(f"Unmigrated {finding['classification']} {finding['variable']} at {finding['path']}:{finding['line']}")
     return {"ok": not errors, "operation": "verify", "errors": errors, "findings": diagnostic["findings"],
