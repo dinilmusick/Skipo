@@ -134,6 +134,9 @@ def build_plan(root: Path, framework_version: str,
         actions.append({"phase": "update", "action": "framework", "from": previous_framework, "to": framework_version})
 
     package = state["package"]
+    required_manager = canonical.get("environment", {}).get("packageManager")
+    if required_manager and package.get("packageManager") != required_manager:
+        errors.append(f"package.json must declare packageManager={required_manager}.")
     current_dependencies = dict(package.get("dependencies", {}))
     canonical_dependencies = canonical.get("dependencies", {})
     for name, desired in sorted(canonical_dependencies.items()):
@@ -322,6 +325,10 @@ def verify(root: Path, framework_version: str) -> dict[str, Any]:
         package = read_json(root / "package.json", {})
         project = read_json(root / ".skipo" / "project.json", {})
         canonical = load_registry()["applicationState"]
+        environment_errors = _environment_errors(inspect(root), canonical)
+        errors.extend(environment_errors)
+        if package.get("packageManager") != canonical.get("environment", {}).get("packageManager"):
+            errors.append(f"package.json packageManager must be {canonical.get('environment', {}).get('packageManager')}.")
         for name, desired in sorted(canonical.get("dependencies", {}).items()):
             if package.get("dependencies", {}).get(name) != desired:
                 errors.append(f"Dependency contract mismatch: {name}")
