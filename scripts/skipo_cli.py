@@ -207,9 +207,15 @@ def repair_project(root: Path, apply: bool) -> int:
                 payload = {"ok": False, "operation": "repair", "applied": False,
                            "environment": planned}
             elif apply:
-                payload = environment_repair(root, apply=True)
-                payload["environment"] = environment_verify(root)
-                payload["ok"] = payload["environment"].get("ok", False)
+                environment_result = environment_repair(root, apply=True)
+                capability_result = capability_repair(root, apply=True, framework_version=VERSION)
+                payload = {
+                    "ok": environment_result.get("ok", False) and capability_result.get("ok", False),
+                    "operation": "repair",
+                    "applied": True,
+                    "environment": environment_result,
+                    "capabilities": capability_result,
+                }
             else:
                 payload = {"ok": True, "operation": "repair", "planned": True,
                            "environment": planned}
