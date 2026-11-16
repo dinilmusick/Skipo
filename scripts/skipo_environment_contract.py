@@ -119,8 +119,12 @@ def _candidate_names(path: Path, source: str):
         if not stripped or stripped.startswith(("#", "//", "*")):
             continue
 
-        if _is_env_file(path) or is_shell or (is_doc and in_doc_fence):
+        if _is_env_file(path) or (is_doc and in_doc_fence):
             match = ENV_ASSIGN.match(line)
+            if match:
+                yield match.group(1), line_no, "declaration", match.group(2).strip()
+        elif is_shell:
+            match = SHELL_EXPORT_ASSIGN.match(line)
             if match:
                 yield match.group(1), line_no, "declaration", match.group(2).strip()
         elif is_yaml:
