@@ -74,6 +74,14 @@ class EnvironmentContractTests(unittest.TestCase):
         paths = {x["path"] for x in result["findings"]}
         self.assertIn("scaffolds/vite/.env.example", paths)
 
+    def test_only_environment_blocks_are_treated_as_config_declarations(self):
+        self.write(".skipo/contracts/kloks.json", '{"KLOKS_CANONICAL_CONTRACT": true}')
+        self.write(".github/workflows/deploy.yml", "jobs:\n  deploy:\n    env:\n      UNKNOWN_DEPLOY_FLAG: enabled\n")
+        findings = env.diagnose(self.root)["findings"]
+        variables = {item["variable"] for item in findings}
+        self.assertIn("UNKNOWN_DEPLOY_FLAG", variables)
+        self.assertNotIn("KLOKS_CANONICAL_CONTRACT", variables)
+
     def test_explicit_product_specific_classification_is_preserved(self):
         self.assertEqual(env.classify("NODE_ENV"), "explicitly_supported_product_specific")
         self.assertEqual(env.classify("GITHUB_ACTIONS"), "explicitly_supported_product_specific")
