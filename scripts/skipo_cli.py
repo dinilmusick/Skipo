@@ -215,6 +215,9 @@ def repair_project(root: Path, apply: bool) -> int:
                 composition = capability_compose(root, caps, apply=True) if caps else {"ok": True, "actions": [], "applied": True}
                 capability_result = {"ok": composition.get("ok", False), "findings": findings,
                                      "retired": retired, "composition": composition, "applied": True}
+                manifest_path = root / ".skipo" / "project.json"
+                if manifest_path.exists():
+                    manifest_path.unlink()
                 payload = {
                     "ok": environment_result.get("ok", False) and capability_result.get("ok", False),
                     "operation": "repair",
