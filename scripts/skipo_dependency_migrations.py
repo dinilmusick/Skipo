@@ -127,9 +127,15 @@ def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict
     return {"ok": not errors, "operation": "dependency-migration-plan", "paths": paths,
             "migrations": ordered, "errors": sorted(set(errors)), "applied": False}
 
-def order_migrations(items: list[dict[str, Any]], errors: list[str]) -> list[dict[str, Any]]:
+def order_migrations(items: list[dict[str, Any]], errors: list[str], applied: set[str] | None = None) -> list[dict[str, Any]]:
     by_id = {item["id"]: item for item in items}
-    incoming = {key: set(item.get("dependsOn", [])) & by_id.keys() for key, item in by_id.items()}
+    completed = applied or set()
+    incoming = {}
+    for key, item in by_id.items():
+        missing = set(item.get("dependsOn", [])) - by_id.keys() - completed
+        if missing:
+            errors.append(f"Migration {key} depends on unavailable migrations: {', '.join(sorted(missing))}")
+        incoming[key] = set(item.get("dependsOn", [])) & by_id.keys()
     ready = sorted(key for key, deps in incoming.items() if not deps)
     ordered = []
     while ready:
