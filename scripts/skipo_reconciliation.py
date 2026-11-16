@@ -45,7 +45,7 @@ def reconcile(root: Path, apply: bool, framework_version: str) -> dict[str, Any]
     installed = state.get("installed", {})
     package = capabilities.package_json(root)
     dependencies = dict(package.get("dependencies", {}))
-    dependency_owners = capabilities.dependency_state(root)
+    dependency_owners = capabilities.read_json(root / ".skipo" / "dependencies.json", {})
     generated = capabilities.generated_entries(state)
     actions: list[dict[str, Any]] = []
     conflicts: list[dict[str, Any]] = []
