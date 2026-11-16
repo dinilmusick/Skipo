@@ -26,20 +26,21 @@ def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict
     selected, errors, paths = [], [], {}
     resolved_previous = previous.get("_resolved", {})
     for package in sorted(dependencies):
-        if not package.startswith("@ultrst-armada/") and package != "@dinilmusick/gutts":
-            continue
         current = _package_version(root, package, dependencies[package])
         old = resolved_previous.get(package) or previous.get(package)
         if isinstance(old, dict):
             old = old.get("version") or old.get("specifier")
-        if not old:
-            paths[package] = {"from": None, "to": current, "specifier": dependencies[package], "migrations": [], "baseline": True}
-            continue
-        if version(old) == version(current):
-            paths[package] = {"from": old, "to": current, "specifier": dependencies[package], "migrations": []}
-            continue
         try:
-            contract = discover_contract(root, package)
+            contract = discover_contract(root, package) if not old or version(old) != version(current) else None
+            if not old:
+                if not contract:
+                    continue
+                validate_contract(contract, package, skipo_version)
+                paths[package] = {"from": None, "to": current, "specifier": dependencies[package], "migrations": [], "baseline": True}
+                continue
+            if version(old) == version(current):
+                paths[package] = {"from": old, "to": current, "specifier": dependencies[package], "migrations": []}
+                continue
             if not contract:
                 raise ValueError(f"No migration contract shipped by {package}")
             validate_contract(contract, package, skipo_version)
@@ -182,8 +183,6 @@ def verify_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> di
     pkg = json.loads((root / "package.json").read_text(encoding="utf-8"))
     names = set(pkg.get("dependencies", {})) | set(pkg.get("devDependencies", {})) | set(pkg.get("optionalDependencies", {}))
     for package in sorted(names):
-        if not package.startswith("@ultrst-armada/") and package != "@dinilmusick/gutts":
-            continue
         try:
             contract = discover_contract(root, package)
             if contract:
