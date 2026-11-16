@@ -165,3 +165,13 @@ def test_resolved_baseline_takes_precedence_over_declared_range(tmp_path):
     assert plan["ok"]
     assert plan["paths"][name]["from"] == "1.5.0"
     assert plan["paths"][name]["specifier"] == "^2.0.0"
+
+
+def test_contract_discovery_is_not_limited_to_ultrst_package_names(tmp_path):
+    name = "@vendor/example"
+    root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
+        migration("vendor-1-to-2", "1.0.0", "2.0.0")
+    ]))}, {name: "1.0.0"})
+    plan = plan_dependency_migrations(root)
+    assert plan["ok"]
+    assert [item["id"] for item in plan["migrations"]] == ["vendor-1-to-2"]
