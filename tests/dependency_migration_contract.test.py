@@ -162,8 +162,6 @@ def test_framework_update_does_not_advance_when_migration_path_is_missing(tmp_pa
     result = update_capabilities(root, "1.1.0")
     assert not result["ok"]
     assert json.loads((root / ".skipo/project.json").read_text())["skipo_version"] == "1.0.0"
-
-
 def test_contract_detects_affected_files_and_applies_canonical_replacement(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
