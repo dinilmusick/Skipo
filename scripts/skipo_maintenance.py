@@ -17,6 +17,11 @@ from skipo_capabilities import (
     capability_state, generated_entries, sha256_text, compose, diagnose as diagnose_capabilities,
 )
 
+from skipo_dependency_migrations import plan_dependency_migrations, execute_dependency_migrations
+from skipo_migrations import plan_upgrade, update_project as update_framework
+from skipo_environment_contract import plan as plan_environment, repair as repair_environment
+from skipo_verification import verify_canonical_state
+
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS_PATH = ROOT / "architecture" / "capabilities" / "migrations.json"
 
@@ -187,6 +192,16 @@ def build_plan(root: Path, framework_version: str,
         actions.append({"phase": "sync", "action": "reconcile-dependency-state",
                         "dependencies": dependency_state_drift})
 
+    dependency_plan = plan_dependency_migrations(root, framework_version)
+    framework_upgrade_plan = plan_upgrade(root, framework_version)
+    environment_plan = plan_environment(root)
+    if not dependency_plan.get("ok", False):
+        errors.extend(dependency_plan.get("errors", []))
+    if not framework_upgrade_plan.get("ok", False):
+        errors.extend(framework_upgrade_plan.get("errors", []))
+    if not environment_plan.get("ok", False):
+        errors.extend(environment_plan.get("errors", []))
+
     expected_lockfile = canonical.get("environment", {}).get("lockfile", "package-lock.json")
     present_lockfiles = [name for name in ("pnpm-lock.yaml", "yarn.lock", "package-lock.json") if (root / name).exists()]
     unexpected_lockfiles = sorted(name for name in present_lockfiles if name != expected_lockfile)
@@ -214,6 +229,9 @@ def build_plan(root: Path, framework_version: str,
         "errors": sorted(errors),
         "pending_migrations": sorted(pending_migrations),
         "findings": findings,
+        "dependency_migrations": dependency_plan,
+        "framework_upgrade": framework_upgrade_plan,
+        "environment": environment_plan,
     }
 
 
@@ -258,13 +276,39 @@ def execute_plan(root: Path, plan: dict[str, Any], framework_version: str,
     package = dict(state["package"])
     project = dict(state["project"])
     actions = plan["actions"]
+
+    dependency_plan = plan.get("dependency_migrations", {})
+    if dependency_plan.get("migrations"):
+        dependency_result = execute_dependency_migrations(root, dependency_plan)
+        if not dependency_result.get("ok", False):
+            return {"ok": False, "operation": "update", "applied": False,
+                    "errors": dependency_result.get("errors", []),
+                    "dependency_migrations": dependency_result, "actions": actions}
+        package = read_json(root / "package.json", package)
+    else:
+        dependency_result = {"ok": True, "applied": [], "actions": []}
+
+    framework_upgrade = plan.get("framework_upgrade", {})
+    if framework_upgrade.get("unapplied_migrations") or framework_upgrade.get("current_state", {}).get("framework_version") != framework_version:
+        try:
+            framework_result = update_framework(root, framework_version, apply=True)
+        except (OSError, ValueError) as exc:
+            return {"ok": False, "operation": "update", "applied": False,
+                    "errors": [str(exc)], "actions": actions}
+        if not framework_result.get("ok", False):
+            return {"ok": False, "operation": "update", "applied": False,
+                    "errors": framework_result.get("errors", []),
+                    "framework_migration": framework_result, "actions": actions}
+        package = read_json(root / "package.json", package)
+        project = read_json(root / ".skipo" / "project.json", project)
+
     migration_state_path = root / ".skipo" / "migration-state.json"
     migration_state = read_json(migration_state_path, {"schemaVersion": 1, "applied": [], "pending": []})
     completed = []
 
     for action in actions:
         if action["action"] == "dependency":
-            package.setdefault("dependencies", {})[action["package"]] = action["to"]
+            continue
         elif action["action"] == "framework":
             project.update({"framework": "skipo", "skipo_version": framework_version,
                             "updated_by": "skipo", "migration_policy": "deterministic-idempotent"})
@@ -281,6 +325,8 @@ def execute_plan(root: Path, plan: dict[str, Any], framework_version: str,
             if path.is_file():
                 path.unlink()
         elif action["action"] == "migration":
+            continue
+        elif action["action"] == "migration-legacy":
             for rel in action["retire_paths"]:
                 path = (root / rel).resolve()
                 if root not in path.parents:
@@ -325,74 +371,30 @@ def execute_plan(root: Path, plan: dict[str, Any], framework_version: str,
             return {"ok": False, "operation": "update", "applied": True,
                     "errors": ["Lockfile reconciliation failed."], "sync": sync_result, "actions": actions}
 
+    environment_plan = plan.get("environment", {})
+    environment_result = {"ok": True, "skipped": True}
+    if environment_plan.get("actions"):
+        environment_result = repair_environment(root, apply=True)
+        if not environment_result.get("ok", False):
+            return {"ok": False, "operation": "update", "applied": True,
+                    "errors": environment_result.get("errors", ["Environment repair failed."]),
+                    "environment": environment_result, "actions": actions}
     verification = verify(root, framework_version)
     return {
         "ok": verification["ok"], "operation": "update", "applied": True,
         "actions": actions, "completed_migrations": sorted(completed),
+        "dependency_migrations": dependency_result,
+        "framework_migration": locals().get("framework_result", {"ok": True, "skipped": True}),
+        "environment": environment_result,
         "sync": sync_result, "verification": verification,
         "errors": verification["errors"],
     }
 
 
 def verify(root: Path, framework_version: str) -> dict[str, Any]:
-    """Independent read-only verification; never creates missing state."""
+    """Independent canonical-state verification; never mutates the target."""
     root = root.resolve()
-    errors = []
-    try:
-        package = read_json(root / "package.json", {})
-        project = read_json(root / ".skipo" / "project.json", {})
-        canonical = load_registry()["applicationState"]
-        environment_errors = _environment_errors(inspect(root), canonical)
-        errors.extend(environment_errors)
-        if package.get("packageManager") != canonical.get("environment", {}).get("packageManager"):
-            errors.append(f"package.json packageManager must be {canonical.get('environment', {}).get('packageManager')}.")
-        if package.get("packageManager") != canonical.get("environment", {}).get("packageManager"):
-            errors.append(f"package.json packageManager must be {canonical.get('environment', {}).get('packageManager')}.")
-        for name, desired in sorted(canonical.get("dependencies", {}).items()):
-            if package.get("dependencies", {}).get(name) != desired:
-                errors.append(f"Dependency contract mismatch: {name}")
-        if version_tuple(project.get("skipo_version")) < version_tuple(framework_version):
-            errors.append("Framework version is not current.")
-        migration_state = read_json(root / canonical["migrations"]["stateFile"], {"applied": []})
-        for migration in read_json(MIGRATIONS_PATH, {"migrations": []}).get("migrations", []):
-            if version_tuple(migration.get("version")) <= version_tuple(framework_version):
-                if migration.get("id") not in migration_state.get("applied", []):
-                    errors.append(f"Migration not applied: {migration.get('id')}")
-                for rel in migration.get("retirePaths", []):
-                    if (root / rel).exists():
-                        errors.append(f"Legacy migration path remains: {rel}")
-        cap_state = read_json(root / ".skipo" / "capabilities.json", {"installed": {}, "generated": []})
-        for rel, entry in generated_entries(cap_state).items():
-            path = (root / rel).resolve()
-            if root not in path.parents:
-                errors.append(f"Generated file path escapes project: {rel}")
-                continue
-            if not path.is_file():
-                errors.append(f"Generated file missing: {rel}")
-            elif entry.get("checksum") and sha256_text(path.read_text(encoding="utf-8")) != entry["checksum"]:
-                errors.append(f"Generated file drift: {rel}")
-        expected_lockfile = canonical.get("environment", {}).get("lockfile")
-        if expected_lockfile and not (root / expected_lockfile).exists():
-            errors.append(f"Canonical lockfile missing: {expected_lockfile}")
-        unexpected_lockfiles = sorted(
-            name for name in ("pnpm-lock.yaml", "yarn.lock", "package-lock.json")
-            if name != expected_lockfile and (root / name).exists()
-        )
-        if unexpected_lockfiles:
-            errors.append("Conflicting lockfiles remain: " + ", ".join(unexpected_lockfiles))
-        dependency_state = read_json(root / canonical["configuration"]["dependencyState"], {})
-        for name, desired in sorted(canonical.get("dependencies", {}).items()):
-            if dependency_state.get(name) != desired:
-                errors.append(f"Canonical dependency state mismatch: {name}")
-        registry_capabilities = load_registry().get("capabilities", {})
-        for capability_id in cap_state.get("installed", {}):
-            if capability_id not in registry_capabilities:
-                errors.append(f"Unknown installed capability: {capability_id}")
-            elif registry_capabilities[capability_id].get("status") == "deprecated":
-                errors.append(f"Deprecated installed capability: {capability_id}")
-        for finding in diagnose_capabilities(root):
-            if finding.get("classification") == "retire":
-                errors.append(f"Unresolved safe duplicate: {finding.get('path')}")
-    except (OSError, ValueError, json.JSONDecodeError) as exc:
-        errors.append(str(exc))
-    return {"ok": not errors, "operation": "verify", "errors": sorted(set(errors))}
+    result = verify_canonical_state(root, framework_version)
+    result["framework_version"] = framework_version
+    return result
+
