@@ -21,6 +21,7 @@ def make_project(root, *, installed=None, dependencies=None, generated=None, ver
     (state / "capabilities.json").write_text(json.dumps({
         "schemaVersion": 1, "installed": installed or {}, "generated": generated or []
     }, indent=2) + "\n")
+    (state / "overrides.json").write_text(json.dumps({"schemaVersion": 1, "capabilities": {}}, indent=2) + "\n")
     (state / "dependencies.json").write_text("{}\n")
     (state / "migration-state.json").write_text(
         json.dumps({"schemaVersion": 1, "applied": [], "pending": [], "dependencyApplied": []}, indent=2) + "\n"
