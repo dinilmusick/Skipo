@@ -53,8 +53,12 @@ Skipo also recognizes `skipo.migrations.json` at the package root and an applica
     "newState": {},
     "apiChanges": [],
     "configurationChanges": [],
-    "deprecatedPatterns": [],
-    "canonicalReplacements": [],
+    "deprecatedPatterns": [
+      { "text": "OldFacade", "paths": ["src/**/*.ts"] }
+    ],
+    "canonicalReplacements": [
+      { "find": "OldFacade", "replace": "NewFacade", "paths": ["src/**/*.ts"] }
+    ],
     "transformations": [],
     "repair": [],
     "verification": [],
@@ -75,7 +79,7 @@ Transformation and repair handlers are declarative; contracts cannot execute she
 - `text_present`: verify canonical text exists in `paths`.
 - `json_equals`: verify a JSON `path` and dotted `key` equal `value`.
 
-Paths are constrained to the application root, symlink files are not transformed, and unsupported operation types fail closed. Repeated application is idempotent: an already-applied migration ID is skipped, and replacement operations recognize their canonical replacement.
+The plan records every affected application file and match count for declared deprecated patterns. Canonical replacement declarations generate deterministic text transformations; an affected deprecated pattern without a declared transformation/replacement blocks the plan. Paths are constrained to the application root, symlink files are not transformed, and unsupported operation types fail closed. Repeated application is idempotent: an already-applied migration ID is skipped, and replacement operations recognize their canonical replacement.
 
 ## Commands
 
