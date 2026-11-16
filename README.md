@@ -24,6 +24,9 @@ There is no application-level module architecture. Reusable functionality is exp
 
 ## Deterministic commands
 
+The installed-framework maintenance lifecycle is specified in [docs/SKIPO-MAINTENANCE-CONTRACT.md](./docs/SKIPO-MAINTENANCE-CONTRACT.md), including the current CLI behavior, migration boundary, environment contract and verification limits.
+
+
 ```bash
 skipo create MyApp
 skipo adopt .

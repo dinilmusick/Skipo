@@ -18,6 +18,7 @@ REQUIRED_FILES = (
     "architecture/workspace-architectures/SKILL.md",
     "SKILL.md",
     "README.md",
+    "docs/SKIPO-MAINTENANCE-CONTRACT.md",
 )
 
 REQUIRED_MARKERS = {
@@ -41,6 +42,13 @@ REQUIRED_MARKERS = {
         "Canonical Application Contract",
         "architecture/app-architecture/SKILL.md",
         "architecture/workspace-architectures/SKILL.md",
+        "docs/SKIPO-MAINTENANCE-CONTRACT.md",
+    ),
+    "docs/SKIPO-MAINTENANCE-CONTRACT.md": (
+        "Deterministic maintenance lifecycle",
+        "inspect", "diagnose", "plan", "update", "repair", "sync", "verify",
+        "SYSTEM_DATABASE_URL", "SYSTEM_DATABASE_URL_2", "SYSTEM_DATABASE_URL_3",
+        "APP_URL", "Canonical dependency migration extension point",
     ),
 }
 
