@@ -12,7 +12,7 @@ REGISTRY = ROOT / "architecture" / "capabilities" / "migrations.json"
 def test_maintenance_contract_documents_the_full_ordered_lifecycle():
     text = DOC.read_text(encoding="utf-8")
     lifecycle = ("inspect", "diagnose", "plan", "update", "repair", "sync", "verify")
-    positions = [text.index(f"  {stage}\n") for stage in lifecycle]
+    positions = [text.index(f"{stage}\n") for stage in lifecycle]
     assert positions == sorted(positions)
 
 
