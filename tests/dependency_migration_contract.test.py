@@ -100,6 +100,9 @@ def test_transform_repair_and_verification_execute_once(tmp_path):
     plan = plan_dependency_migrations(root)
     result = execute_dependency_migrations(root, plan)
     assert result["ok"]
+    dependency_state = json.loads((root / ".skipo/dependencies.json").read_text())
+    assert dependency_state[name] == "^2.0.0"
+    assert dependency_state["_resolved"][name] == "2.0.0"
     assert "NewFacade" in source.read_text()
     assert json.loads((root / "config.json").read_text())["provider"]["mode"] == "canonical"
     assert verify_dependency_migrations(root)["ok"]
@@ -151,3 +154,14 @@ def test_missing_migration_dependency_is_rejected():
     errors = []
     assert order_migrations([{"id": "a", "dependsOn": ["missing"]}], errors) == [{"id": "a", "dependsOn": ["missing"]}]
     assert any("unavailable migrations" in error for error in errors)
+
+
+def test_resolved_baseline_takes_precedence_over_declared_range(tmp_path):
+    name = "@ultrst-armada/demo"
+    root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
+        migration("demo-1.5-to-2", "1.5.0", "2.0.0")
+    ]))}, {name: "^1.0.0", "_resolved": {name: "1.5.0"}})
+    plan = plan_dependency_migrations(root)
+    assert plan["ok"]
+    assert plan["paths"][name]["from"] == "1.5.0"
+    assert plan["paths"][name]["specifier"] == "^2.0.0"
