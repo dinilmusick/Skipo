@@ -166,7 +166,7 @@ def deprecated_specs(migration: dict[str, Any]) -> list[dict[str, Any]]:
         if not isinstance(paths, list) or not paths:
             raise ValueError(f"Invalid deprecated pattern paths in {migration['id']}")
         for path in paths:
-            if Path(path).is_absolute() or ".." in Path(path).parts:
+            if not isinstance(path, str) or Path(path).is_absolute() or ".." in Path(path).parts:
                 raise ValueError(f"Unsafe deprecated pattern path: {path}")
         specs.append({"text": spec["text"], "paths": paths})
     return specs
