@@ -67,6 +67,22 @@ class EnvironmentContractTests(unittest.TestCase):
         self.assertEqual(path.read_text(encoding="utf-8"), before)
         self.assertTrue(result["conflicts"])
 
+    def test_yaml_environment_alias_and_canonical_conflict_blocks_repair(self):
+        path = self.write(
+            ".github/workflows/deploy.yml",
+            "env:\\n"
+            "  SYSTEM_DATABASE_URL: postgres://db\\n"
+            "  DEPM_GATEWAY_DOMAIN: https://old.example\\n"
+            "  APP_URL: https://new.example\\n",
+        )
+        before = path.read_text(encoding="utf-8")
+        planned = env.plan(self.root)
+        self.assertFalse(planned["ok"])
+        self.assertTrue(any(item["variable"] == "DEPM_GATEWAY_DOMAIN" for item in planned["conflicts"]))
+        repaired = env.repair(self.root, apply=True)
+        self.assertFalse(repaired["ok"])
+        self.assertEqual(path.read_text(encoding="utf-8"), before)
+
     def test_scans_scaffolds_ci_and_environment_references(self):
         self.write("scaffolds/vite/.env.example", "SYSTEM_DATABASE_URL=postgres://db\nDEPM_GATEWAY_DOMAIN=https://app.example\n")
         self.write(".github/workflows/deploy.yml", "env:\n  SYSTEM_DATABASE_URL: " + chr(36) + "{{ secrets.SYSTEM_DATABASE_URL }}\n")
