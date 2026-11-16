@@ -248,8 +248,14 @@ def repair_project(root: Path, apply: bool) -> int:
 def verify_project(root: Path) -> int:
     try:
         if not (root / ".skipo" / "project.json").exists():
-            payload = {"ok": environment_verify(root).get("ok", False),
-                       "operation": "verify", "environment": environment_verify(root)}
+            environment_result = environment_verify(root)
+            capability_result = capability_verify(root)
+            payload = {
+                "ok": environment_result.get("ok", False) and capability_result.get("ok", False),
+                "operation": "verify",
+                "environment": environment_result,
+                "capabilities": capability_result,
+            }
         else:
             payload = maintenance_verify(root, VERSION)
     except (ValueError, OSError) as exc:
