@@ -2,7 +2,8 @@ import json, sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"scripts"))
-from skipo_verification import verify_canonical_state
+from skipo_verification import verify_canonical_state, verification_fingerprint
+from skipo_capabilities import repair
 
 def project(root):
     (root/".skipo").mkdir()
@@ -76,9 +77,47 @@ def test_canonical_dependency_mismatch_is_repairable(tmp_path):
     assert result["status"]=="repairable"
     assert "SKIPO_CANONICAL_DEPENDENCY_MISMATCH" in {d["code"] for d in result["diagnostics"]}
 
-def test_successful_repair_receipt_is_reported_as_repaired(tmp_path):
+def test_matching_repair_receipt_is_reported_as_repaired(tmp_path):
     project(tmp_path)
-    (tmp_path/".skipo/verification-state.json").write_text(json.dumps({"lastRepair":"verified"}))
+    (tmp_path/".skipo/verification-state.json").write_text(json.dumps({
+        "lastRepair":"verified",
+        "fingerprint":verification_fingerprint(tmp_path),
+    }))
     result=verify_canonical_state(tmp_path,"1.1.0")
     assert result["status"]=="repaired"
     assert result["ok"] is True
+
+def test_stale_repair_receipt_does_not_mark_later_state_as_repaired(tmp_path):
+    project(tmp_path)
+    receipt={"lastRepair":"verified","fingerprint":verification_fingerprint(tmp_path)}
+    (tmp_path/".skipo/verification-state.json").write_text(json.dumps(receipt))
+    package=json.loads((tmp_path/"package.json").read_text())
+    package["description"]="changed after repair"
+    (tmp_path/"package.json").write_text(json.dumps(package))
+    result=verify_canonical_state(tmp_path,"1.1.0")
+    assert result["status"]=="clean"
+    assert result["ok"] is True
+
+def test_legacy_migration_paths_remain_unresolved_even_when_marked_applied(tmp_path):
+    project(tmp_path)
+    legacy=tmp_path/"src/module-contract"
+    legacy.mkdir(parents=True)
+    result=verify_canonical_state(tmp_path,"1.1.0")
+    assert result["status"]=="unresolved"
+    assert "SKIPO_LEGACY_MIGRATION_PATH_REMAINS" in {d["code"] for d in result["diagnostics"]}
+
+def test_malformed_migration_state_is_invalid_without_crashing(tmp_path):
+    project(tmp_path)
+    (tmp_path/".skipo/migration-state.json").write_text(json.dumps({"applied":[],"pending":[{"bad":"id"}]}))
+    result=verify_canonical_state(tmp_path,"1.1.0")
+    assert result["status"]=="invalid"
+    assert "SKIPO_MIGRATION_STATE_INVALID" in {d["code"] for d in result["diagnostics"]}
+
+def test_repair_fails_when_post_repair_verification_is_unresolved(tmp_path):
+    project(tmp_path)
+    legacy=tmp_path/"src/module-contract"
+    legacy.mkdir(parents=True)
+    result=repair(tmp_path,True,"1.1.0")
+    assert result["ok"] is False
+    assert result["verification"]["status"]=="unresolved"
+    assert not (tmp_path/".skipo/verification-state.json").exists()
