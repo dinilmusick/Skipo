@@ -1,0 +1,10 @@
+{
+  "name": "skipo",
+  "version": "0.1.0",
+  "description": "Skipo application framework CLI.",
+  "type": "module",
+  "bin": {"skipo": "./bin/skipo.js"},
+  "engines": {"node": ">=18"},
+  "files": ["bin"],
+  "publishConfig": {"access": "public"}
+}

@@ -1,0 +1,35 @@
+name: Skipo Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "Skipo operation"
+        required: true
+        default: check
+        type: choice
+        options:
+          - inspect
+          - check
+          - fix
+          - update
+          - test
+  pull_request:
+    paths:
+      - ".skipo/**"
+      - "src/**"
+      - "package.json"
+      - "tsconfig.json"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  skipo:
+    uses: dinilmusick/Skipo/.github/workflows/skipo-reusable.yml@main
+    permissions:
+      contents: write
+      pull-requests: write
+    with:
+      operation: ${{ github.event.inputs.operation || 'check' }}
