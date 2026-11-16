@@ -20,7 +20,7 @@ The versioned canonical application-state registry is `architecture/capabilities
 
 ## Deterministic maintenance lifecycle
 
-The maintenance lifecycle is an ordered operating model. Each command is independently invocable; the CLI does not currently expose one command that runs the entire sequence as a transaction.
+The maintenance lifecycle is an ordered operating model. `skipo plan` produces a deterministic read-only plan and `skipo update`/`skipo repair` execute that plan with stale-state checks and independent post-verification.
 
 ```text
 inspect
@@ -43,10 +43,10 @@ verify
 | Inspect | `skipo inspect [target]` | Read the project manifest and capability state. It is an informational snapshot, not a drift repair. |
 | Diagnose | `skipo diagnose [target]` | Scan application source for registry-declared patterns and classify findings as `keep`, `adapt` or `retire`. A pattern match alone is not proof that application code is a duplicate. |
 | Plan | `skipo plan [target]` | Produce findings and safe retirement actions without applying them. |
-| Update | `skipo update [target]` | Update the local Skipo project manifest to the version of the installed CLI and apply the currently implemented legacy capability-composition migration when applicable. |
-| Repair | `skipo repair [target]` | Apply update, retire only registry-approved safe paths, and recompose the capabilities selected from diagnosis. `skipo repair --plan` reports the planned operation without applying it. |
+| Update | `skipo update [target]` | Reconcile dependency migrations, framework self-upgrade migrations, canonical environment changes, capability repair and lockfile state, then independently verify the resulting state. |
+| Repair | `skipo repair [target]` | Execute the same deterministic maintenance plan while repairing safe canonical drift and environment aliases. `skipo repair --plan` reports the planned operation without applying it. |
 | Sync | `skipo sync [target]` | Recompose the capabilities already recorded as installed. Use `--install` to run the detected package manager after composition. |
-| Verify | `skipo verify [target]` | Gate capability-state cleanliness by checking installed capability validity, generated-file presence and checksums, and remaining legacy paths. |
+| Verify | `skipo verify [target]` | Run the independent canonical-state verifier, including capability ownership/checksums, migration state, dependency state, environment constraints and architectural drift. |
 
 The lifecycle is deterministic in ordering and decision inputs. Repeated composition and synchronization should converge on the same registry-derived wiring. Repair is conservative: it must not overwrite modified application-owned generated files, and it must not delete paths unless the registry explicitly declares them safe to retire.
 
@@ -60,9 +60,9 @@ A successful `verify` is not a substitute for the application's test, typecheck,
 
 ## Update and migration boundary
 
-The installed framework CLI is the entry point for `skipo update`. The current implementation updates application-side Skipo metadata and migration state. It does **not** download or install a newer Skipo npm package; upgrading the installed CLI package remains the responsibility of the application's package manager or its dependency-update workflow.
+The installed framework CLI is the entry point for `skipo update`. The framework self-upgrade engine applies versioned Skipo migrations already shipped with the installed CLI. It does **not** download or replace the CLI package itself; obtaining a newer Skipo CLI remains the responsibility of the package manager or dependency-update workflow.
 
-The migration registry is `architecture/capabilities/migrations.json`; application progress is recorded in `.skipo/migration-state.json`. At present, the update executor recognizes the single migration identifier `1.1.0-capability-composition` and its declared retirement paths. The presence of additional migration metadata in the registry must not be interpreted as proof that a generic migration executor exists.
+The migration registry is `architecture/capabilities/migrations.json`; application progress is recorded in `.skipo/migration-state.json`. Framework migrations are version-aware, resumable and idempotent. Dependency migrations are discovered from package-shipped declarative contracts and recorded with package-scoped migration identities.
 
 ### Canonical dependency migration extension point
 
@@ -77,7 +77,7 @@ Future upstream dependency migrations must be expressed as versioned, declarativ
 - postconditions and machine-verifiable acceptance checks;
 - an idempotency rule and recorded applied state.
 
-The registry and migration-state file are the intended Skipo-owned extension points. The generic dependency-contract consumer, dependency-specific migration planning, and full migration validation are **not yet implemented**. Until they are implemented and tested, Skipo must not claim that it can automatically interpret arbitrary upstream dependency migration contracts.
+The registry and migration-state file are Skipo-owned state surfaces. Installed dependencies may publish a constrained declarative migration contract; Skipo resolves deterministic version paths, rejects missing/unsafe operations, executes only supported transformations, records applied identities, and independently verifies postconditions.
 
 ## Environment contract
 
