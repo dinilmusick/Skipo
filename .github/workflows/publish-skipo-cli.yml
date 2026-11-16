@@ -25,24 +25,15 @@ jobs:
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#skipo-v}"
           SKIPO_VERSION="$(node -p "require('./packages/skipo/package.json').version")"
-          CREATE_VERSION="$(node -p "require('./packages/create-skipo-app/package.json').version")"
           ROOT_VERSION="$(node -p "require('./package.json').version")"
           test "$TAG_VERSION" = "$SKIPO_VERSION"
-          test "$TAG_VERSION" = "$CREATE_VERSION"
           test "$TAG_VERSION" = "$ROOT_VERSION"
 
       - name: Pack Skipo
         working-directory: packages/skipo
         run: npm pack --dry-run
 
-      - name: Pack create-skipo-app
-        working-directory: packages/create-skipo-app
-        run: npm pack --dry-run
-
-      - name: Publish skipo
+      - name: Publish @ultrst-armada/skipo
         working-directory: packages/skipo
         run: npm publish --access public
 
-      - name: Publish create-skipo-app
-        working-directory: packages/create-skipo-app
-        run: npm publish --access public

@@ -6,29 +6,28 @@ Skipo is the application framework and governance engine for Skipo-based project
 
 The **Skipo GitHub repository remains private**. The public consumption boundary is npm.
 
-The release pipeline produces two public packages:
+The release pipeline produces the public package:
 
-- `skipo` — the self-contained framework CLI and engine.
-- `create-skipo-app` — the zero-friction application initializer; it depends on the published `skipo` package.
+- `@ultrst-armada/skipo` — the self-contained framework CLI and engine.
 
-The npm packages do not download or clone the private Skipo repository at runtime.
+The npm package does not download or clone the private Skipo repository at runtime.
 
 ## Consumer workflow
 
 Create a project:
 
 ```bash
-npx create-skipo-app@latest MyApp
+npx @ultrst-armada/skipo create MyApp
 ```
 
 Or use the framework directly:
 
 ```bash
-npx skipo inspect .
-npx skipo check .
-npx skipo fix .
-npx skipo update .
-npx skipo test .
+npx @ultrst-armada/skipo inspect .
+npx @ultrst-armada/skipo check .
+npx @ultrst-armada/skipo fix .
+npx @ultrst-armada/skipo update .
+npx @ultrst-armada/skipo test .
 ```
 
 The same npm-distributed engine can run in:
@@ -47,7 +46,7 @@ The private repository publishes from tags matching:
 skipo-v<version>
 ```
 
-The root Skipo version and both npm package versions must match the release tag.
+The root Skipo version and the npm package version must match the release tag.
 
 The GitHub workflow uses npm Trusted Publishing (OIDC), so normal releases do not require a long-lived npm token. npm requires a trusted-publisher relationship for each package and the workflow has `id-token: write`. npm currently requires Node 22.14+ and npm 11.5.1+ for trusted publishing; the release workflow uses Node 24.
 
@@ -55,11 +54,11 @@ Because the source repository is private, npm provenance attestations are not ge
 
 ## One-time npm setup
 
-After the first package exists on npm, configure the GitHub Actions trusted publisher for each package:
+After the package exists on npm, configure the GitHub Actions trusted publisher for the package:
 
 - Organization/user: `dinilmusick`
 - Repository: `Skipo`
 - Workflow filename: `publish-skipo-cli.yml`
 - Allow `npm publish`
 
-Each package has its own trusted-publisher configuration. npm documents this as the token-free recommended CI/CD publishing mechanism.
+npm documents this as the token-free recommended CI/CD publishing mechanism.
