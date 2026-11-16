@@ -2,6 +2,7 @@
 """Deterministic Skipo capability resolver, composer, drift detector and verifier."""
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -24,6 +25,21 @@ def read_json(path: Path, default: Any) -> Any:
 def write_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+def sha256_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+def generated_entries(state: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    entries = {}
+    for item in state.get("generated", []):
+        if isinstance(item, str):
+            entries[item] = {"path": item, "owner": "skipo", "capability": None, "checksum": None}
+        elif isinstance(item, dict) and item.get("path"):
+            entries[item["path"]] = dict(item)
+    return entries
+
+def write_generated_entries(state: dict[str, Any], entries: dict[str, dict[str, Any]]) -> None:
+    state["generated"] = [entries[k] for k in sorted(entries)]
 
 def project_manifest(root: Path) -> dict[str, Any]:
     return read_json(root / ".skipo" / "project.json", {})
@@ -178,61 +194,139 @@ def compose(root: Path, items: list[str], apply: bool = True) -> dict[str, Any]:
     pkg = package_json(root)
     if not pkg:
         raise ValueError("Target has no package.json.")
-    deps = pkg.setdefault("dependencies", {})
+
+    deps = dict(pkg.get("dependencies", {}))
     state = capability_state(root)
-    generated = set(state.get("generated", []))
+    generated = generated_entries(state)
     installed = dict(state.get("installed", {}))
     actions = []
+    conflicts = []
+    pending_writes: dict[Path, str] = {}
+
     for cap_id, spec in resolved:
         for package, version in spec.get("dependencies", {}).items():
             current = deps.get(package)
             if current != version:
-                actions.append({"action": "dependency", "capability": cap_id, "package": package, "from": current, "to": version})
-                if apply:
-                    deps[package] = version
+                actions.append({
+                    "action": "dependency",
+                    "capability": cap_id,
+                    "package": package,
+                    "from": current,
+                    "to": version,
+                })
+                deps[package] = version
+
         for item in spec.get("generated", []):
-            path = root / item["path"]
+            rel = item["path"]
+            path = root / rel
             desired = item["content"]
             current = path.read_text(encoding="utf-8") if path.exists() else None
-            if current != desired:
-                actions.append({"action": "generate", "capability": cap_id, "path": item["path"]})
+            prior = generated.get(rel)
+
+            if current is None:
+                actions.append({"action": "generate", "capability": cap_id, "path": rel})
                 pending_writes[path] = desired
-            generated.add(item["path"])
+            elif current == desired:
+                actions.append({"action": "unchanged", "capability": cap_id, "path": rel})
+            elif prior and prior.get("owner") == "skipo" and (
+                not prior.get("checksum") or prior.get("checksum") == sha256_text(current)
+            ):
+                actions.append({"action": "refresh-owned", "capability": cap_id, "path": rel})
+                pending_writes[path] = desired
+            else:
+                conflicts.append({
+                    "capability": cap_id,
+                    "path": rel,
+                    "action": "conflict",
+                    "message": "Existing application-owned content was not overwritten.",
+                })
+                continue
+
+            generated[rel] = {
+                "path": rel,
+                "owner": "skipo",
+                "capability": cap_id,
+                "checksum": sha256_text(desired),
+            }
+
         installed[cap_id] = {
             "kind": spec["kind"],
             "description": spec["description"],
             "providers": spec["providers"],
         }
-    if apply:
+
+    if apply and not conflicts:
+        pkg["dependencies"] = deps
+        for path, desired in pending_writes.items():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(desired, encoding="utf-8")
         pkg_path.write_text(json.dumps(pkg, indent=2) + "\n", encoding="utf-8")
         state["installed"] = installed
-        state["generated"] = sorted(generated)
+        write_generated_entries(state, generated)
         write_capability_state(root, state)
         deps_state = dependency_state(root)
-        for package, version in pkg.get("dependencies", {}).items():
+        for package, version in deps.items():
             if package.startswith("@ultrst-armada/") or package == "@dinilmusick/gutts":
                 deps_state[package] = version
         write_json(root / ".skipo" / "dependencies.json", deps_state)
-    return {"ok": True, "operation": "compose", "capabilities": [x[0] for x in resolved], "actions": actions, "applied": apply}
+
+    return {
+        "ok": not conflicts,
+        "operation": "compose",
+        "capabilities": [x[0] for x in resolved],
+        "actions": actions,
+        "conflicts": conflicts,
+        "applied": apply,
+    }
 
 def remove(root: Path, items: list[str], apply: bool = True) -> dict[str, Any]:
-    registry = load_registry()["capabilities"]
     resolved = resolve_capabilities(items)
     state = capability_state(root)
+    generated = generated_entries(state)
     actions = []
+    conflicts = []
+
     for cap_id, spec in resolved:
         for item in spec.get("generated", []):
-            path = root / item["path"]
-            if path.exists():
-                actions.append({"action": "delete-generated", "capability": cap_id, "path": item["path"]})
+            rel = item["path"]
+            path = root / rel
+            if not path.exists():
+                generated.pop(rel, None)
+                continue
+            prior = generated.get(rel)
+            current = path.read_text(encoding="utf-8")
+            safe_owned = bool(
+                prior and prior.get("owner") == "skipo" and (
+                    not prior.get("checksum") or prior.get("checksum") == sha256_text(current)
+                )
+            )
+            if safe_owned or current == item["content"]:
+                actions.append({"action": "delete-generated", "capability": cap_id, "path": rel})
                 if apply:
                     path.unlink()
+                generated.pop(rel, None)
+            else:
+                conflicts.append({
+                    "capability": cap_id,
+                    "path": rel,
+                    "action": "conflict",
+                    "message": "Modified generated content was not deleted.",
+                })
         state.get("installed", {}).pop(cap_id, None)
-        for item in spec.get("generated", []):
-            state["generated"] = [p for p in state.get("generated", []) if p != item["path"]]
-    if apply:
+
+    if apply and not conflicts:
+        write_generated_entries(state, generated)
         write_capability_state(root, state)
-    return {"ok": True, "operation": "remove", "capabilities": [x[0] for x in resolved], "actions": actions, "applied": apply}
+
+    return {
+        "ok": not conflicts,
+        "operation": "remove",
+        "capabilities": [x[0] for x in resolved],
+        "actions": actions,
+        "conflicts": conflicts,
+        "applied": apply,
+    }
+
 
 def retire_known_duplicates(root: Path, findings: list[dict[str, Any]], apply: bool) -> list[dict[str, Any]]:
     registry = load_registry()["capabilities"]
@@ -380,15 +474,35 @@ def verify(root: Path) -> dict[str, Any]:
     findings = diagnose(root)
     state = capability_state(root)
     errors = []
-    for cap_id, installed in state.get("installed", {}).items():
-        if cap_id not in load_registry()["capabilities"]:
+    registry = load_registry()["capabilities"]
+
+    for cap_id in state.get("installed", {}):
+        if cap_id not in registry:
             errors.append(f"Unknown installed capability: {cap_id}")
+
+    for rel, entry in generated_entries(state).items():
+        path = root / rel
+        if not path.exists():
+            errors.append(f"Generated capability file is missing: {rel}")
+            continue
+        expected = entry.get("checksum")
+        if expected and sha256_text(path.read_text(encoding="utf-8")) != expected:
+            errors.append(f"Generated capability file has drifted: {rel}")
+
     for finding in findings:
         if finding.get("classification") == "retire":
             cap_id = finding["capability"]
-            if finding["path"] not in load_registry()["capabilities"][cap_id].get("safeRetire", []):
+            if finding["path"] not in registry[cap_id].get("safeRetire", []):
                 errors.append(f"Unresolved duplicate for {cap_id}: {finding['path']}")
+
     for rel in legacy_migration_paths():
         if (root / rel).exists():
             errors.append(f"Legacy Skipo module path remains: {rel}")
-    return {"ok": not errors, "operation": "verify", "errors": errors, "findings": findings, "capabilities": sorted(state.get("installed", {}).keys())}
+
+    return {
+        "ok": not errors,
+        "operation": "verify",
+        "errors": errors,
+        "findings": findings,
+        "capabilities": sorted(state.get("installed", {}).keys()),
+    }

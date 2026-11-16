@@ -146,8 +146,10 @@ def update_project(root: Path) -> int:
         payload = capability_update(root, VERSION)
     except (ValueError, OSError) as exc:
         print(json.dumps({"ok":False,"error":str(exc)}, indent=2)); return 2
+    verification = capability_verify(root)
+    payload["verification"] = verification
     print(json.dumps(payload, indent=2))
-    return check_project(root)
+    return 0 if payload.get("ok", False) and verification.get("ok", False) else 1
 
 def repair_project(root: Path, apply: bool) -> int:
     try:
