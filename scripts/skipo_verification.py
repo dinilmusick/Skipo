@@ -5,6 +5,11 @@ from pathlib import Path
 from typing import Any
 from skipo_state_registry import validate_registry_contract
 ROOT = Path(__file__).resolve().parents[1]
+
+def version_tuple(value: str | None) -> tuple[int, ...]:
+    match = re.search(r"(\d+(?:\.\d+){0,2})", value or "")
+    return tuple(int(part) for part in match.group(1).split(".")) if match else (0,)
+
 REGISTRY = ROOT / "architecture/capabilities/registry.json"
 MIGRATIONS = ROOT / "architecture/capabilities/migrations.json"
 
