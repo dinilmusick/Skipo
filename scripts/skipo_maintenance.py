@@ -14,7 +14,7 @@ from typing import Any, Callable
 
 from skipo_state_registry import load_registry
 from skipo_capabilities import (
-    capability_state, generated_entries, sha256_text, compose,
+    capability_state, generated_entries, sha256_text, compose, diagnose as diagnose_capabilities,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -156,8 +156,23 @@ def build_plan(root: Path, framework_version: str,
 
     if not state["capability_state"].get("installed") and not (root / ".skipo" / "capabilities.json").exists():
         actions.append({"phase": "repair", "action": "initialize-capability-state"})
+    findings = diagnose_capabilities(root)
+    for finding in findings:
+        if finding.get("classification") == "retire":
+            actions.append({"phase": "repair", "action": "retire-safe-duplicate",
+                            "capability": finding["capability"], "path": finding["path"]})
     for drift in state["generated_drift"]:
         actions.append({"phase": "repair", "action": "restore-generated-file", **drift})
+
+    dependency_state_path = root / canonical["configuration"]["dependencyState"]
+    dependency_state = read_json(dependency_state_path, {})
+    dependency_state_drift = {
+        name: version for name, version in canonical_dependencies.items()
+        if dependency_state.get(name) != version
+    }
+    if dependency_state_drift:
+        actions.append({"phase": "sync", "action": "reconcile-dependency-state",
+                        "dependencies": dependency_state_drift})
 
     if state["lockfile"] is None or any(action["action"] == "dependency" for action in actions):
         actions.append({"phase": "sync", "action": "reconcile-lockfile", "lockfile": canonical.get("environment", {}).get("lockfile", "package-lock.json")})
@@ -180,6 +195,7 @@ def build_plan(root: Path, framework_version: str,
         "actions": ordered,
         "errors": sorted(errors),
         "pending_migrations": sorted(pending_migrations),
+        "findings": findings,
     }
 
 
@@ -215,6 +231,12 @@ def execute_plan(root: Path, plan: dict[str, Any], framework_version: str,
 
     root = root.resolve()
     state = plan["state"]
+    # Reject stale plans rather than applying against state that changed after planning.
+    current = inspect(root, environment=state["environment"], git_status="\\n".join(state["git_status"]))
+    for key in ("package", "project", "capability_state", "generated_drift", "lockfile", "git_status"):
+        if current.get(key) != state.get(key):
+            return {"ok": False, "operation": "update", "applied": False,
+                    "errors": [f"Plan precondition changed after planning: {key}. Re-run skipo plan."]}
     package = dict(state["package"])
     project = dict(state["project"])
     actions = plan["actions"]
@@ -228,6 +250,16 @@ def execute_plan(root: Path, plan: dict[str, Any], framework_version: str,
         elif action["action"] == "framework":
             project.update({"framework": "skipo", "skipo_version": framework_version,
                             "updated_by": "skipo", "migration_policy": "deterministic-idempotent"})
+        elif action["action"] == "retire-safe-duplicate":
+            registry = load_registry()["capabilities"]
+            spec = registry.get(action["capability"], {})
+            rel = action["path"]
+            path = (root / rel).resolve()
+            if rel not in spec.get("safeRetire", []) or root not in path.parents:
+                return {"ok": False, "operation": "update", "applied": False,
+                        "errors": [f"Refusing unapproved retirement path: {rel}"]}
+            if path.is_file():
+                path.unlink()
         elif action["action"] == "migration":
             for rel in action["retire_paths"]:
                 path = (root / rel).resolve()
@@ -258,6 +290,13 @@ def execute_plan(root: Path, plan: dict[str, Any], framework_version: str,
         if not repaired.get("ok"):
             return {"ok": False, "operation": "update", "applied": True,
                     "errors": repaired.get("conflicts", ["Capability repair failed."]), "actions": actions}
+
+    sync_actions = [action for action in actions if action["action"] == "reconcile-dependency-state"]
+    if sync_actions:
+        dependency_state_path = root / load_registry()["applicationState"]["configuration"]["dependencyState"]
+        dependency_state = read_json(dependency_state_path, {})
+        dependency_state.update(load_registry()["applicationState"]["dependencies"])
+        _write_json(dependency_state_path, dependency_state)
 
     sync_result = {"ok": True, "skipped": True}
     if any(action["action"] == "reconcile-lockfile" for action in actions):
@@ -301,12 +340,19 @@ def verify(root: Path, framework_version: str) -> dict[str, Any]:
                 errors.append(f"Generated file drift: {rel}")
         if canonical.get("environment", {}).get("lockfile") and not (root / canonical["environment"]["lockfile"]).exists():
             errors.append(f"Canonical lockfile missing: {canonical['environment']['lockfile']}")
+        dependency_state = read_json(root / canonical["configuration"]["dependencyState"], {})
+        for name, desired in sorted(canonical.get("dependencies", {}).items()):
+            if dependency_state.get(name) != desired:
+                errors.append(f"Canonical dependency state mismatch: {name}")
         registry_capabilities = load_registry().get("capabilities", {})
         for capability_id in cap_state.get("installed", {}):
             if capability_id not in registry_capabilities:
                 errors.append(f"Unknown installed capability: {capability_id}")
             elif registry_capabilities[capability_id].get("status") == "deprecated":
                 errors.append(f"Deprecated installed capability: {capability_id}")
+        for finding in diagnose_capabilities(root):
+            if finding.get("classification") == "retire":
+                errors.append(f"Unresolved safe duplicate: {finding.get('path')}")
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         errors.append(str(exc))
     return {"ok": not errors, "operation": "verify", "errors": sorted(set(errors))}
