@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_PATH = ROOT / "architecture" / "environment" / "contract.json"
 ENV_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
 ENV_ASSIGN = re.compile(r"^\s*(?:export\s+)?([A-Z][A-Z0-9_]*)\s*=\s*(.*)$")
+SHELL_EXPORT_ASSIGN = re.compile(r"^\s*(?:export\s+|env\s+)([A-Z][A-Z0-9_]*)\s*=\s*(.*)$")
 KEY_ASSIGN = re.compile(r"""^\s*["']?([A-Z][A-Z0-9_]*)["']?\s*[:=]\s*(.*?)(?:,\s*)?$""")
 REF_PATTERNS = (
     re.compile(r"""\bprocess\.env\.([A-Z][A-Z0-9_]*)"""),
