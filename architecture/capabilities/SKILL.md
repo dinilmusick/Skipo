@@ -67,7 +67,7 @@ Skipo also recognizes `skipo.migrations.json` at the package root and an applica
 }
 ```
 
-Migration edges must form a complete path from the recorded installed version to the package's installed version. Skipo rejects missing paths, invalid contract identities, unsupported schemas, incompatible Skipo requirements, unresolved dependencies, and ordering cycles. Version paths are selected deterministically; migrations within one package retain their version-chain order, and `dependsOn` orders migrations across packages.
+Migration edges must form a complete path from the recorded installed version to the package's installed version. Skipo rejects missing paths, invalid contract identities, unsupported schemas, incompatible Skipo requirements, unresolved dependencies, and ordering cycles. Version paths are selected deterministically; migrations within one package retain their version-chain order, and `dependsOn` orders migrations across packages. Applied identities are stored as `<package>::<migration-id>` to prevent collisions between packages. An unqualified `dependsOn` refers to the same package; cross-package dependencies use the fully qualified `<package>::<migration-id>` form.
 
 ## Deterministic operation handlers
 
