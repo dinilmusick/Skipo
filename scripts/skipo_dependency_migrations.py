@@ -54,7 +54,7 @@ def satisfies(actual: str, requirement: str) -> bool:
         if operator == ">" and actual_v <= expected: return False
         if operator == "<" and actual_v >= expected: return False
         if operator == "==" and actual_v != expected: return False
-        if operator == "^" and (actual_v < expected or actual_v[0] != expected[0]): return False
+        if operator == "^" and (actual_v < expected or (expected[0] > 0 and actual_v[0] != expected[0]) or (expected[0] == 0 and expected[1] > 0 and actual_v[:2] != expected[:2]) or (expected[:2] == (0, 0) and actual_v[:2] != (0, 0))): return False
         if operator == "~" and (actual_v < expected or actual_v[:2] != expected[:2]): return False
     return True
 
