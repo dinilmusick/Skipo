@@ -1,0 +1,10 @@
+{
+  "name": "create-skipo-app",
+  "version": "0.1.0",
+  "description": "Official Skipo project initializer.",
+  "type": "module",
+  "bin": {"create-skipo-app": "./bin/create-skipo-app.js"},
+  "engines": {"node": ">=18"},
+  "files": ["bin"],
+  "publishConfig": {"access": "public"}
+}
