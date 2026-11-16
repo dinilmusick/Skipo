@@ -9,6 +9,7 @@ import type {
   ServiceNamespace,
   OperationContext,
 } from '@ultrst-armada/krnl';
+import type { BackendCapabilityDescriptor } from './BackendCapabilityTypes.js';
 
 export type CapabilityCategory = 'libraries' | 'functionalities' | 'orchestrations';
 
@@ -33,7 +34,7 @@ export interface IBackendFacade {
   readonly orchestrations: Record<string, unknown>;
 
   registerService(facade: IServiceFacade, alias?: string): this;
-  listCapabilities(): readonly import('./ModuleBackendAdapterTypes.js').BackendCapabilityDescriptor[];
+  listCapabilities(): readonly BackendCapabilityDescriptor[];
   getLibrary<TLib = unknown>(name: string, serviceNamespace?: string): TLib;
   getFunctionality<TFunc = unknown>(name: string, serviceNamespace?: string): TFunc;
   getOrchestration<TOrch = unknown>(name: string, serviceNamespace?: string): TOrch;

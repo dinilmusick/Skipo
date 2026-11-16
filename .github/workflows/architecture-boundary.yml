@@ -20,7 +20,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
       - run: pnpm run boundary
-      - run: pnpm run module:architecture
+      - run: pnpm run capability:architecture
       - run: pnpm run boundary:relative
       - if: always()
         uses: actions/upload-artifact@v4

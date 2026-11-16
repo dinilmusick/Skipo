@@ -1,4 +1,3 @@
-import { ModuleUIHost } from '../../components/module-ui/ModuleUIHost.js';
 import { useEffect, useState } from 'react';
 import {
   FrnlPage,
@@ -29,31 +28,16 @@ export function HomePage({ isGuest }: { isGuest?: boolean } = {}) {
           if (data.activeWorkspaceId) setActiveWorkspaceId(data.activeWorkspaceId);
         }
       })
-      .catch(() => {
-        setWorkspaces([{ id: 'ws-default', name: 'Default Workspace', workspacePath: '/workspace' }]);
-      });
+      .catch(() => setWorkspaces([{ id: 'ws-default', name: 'Default Workspace', workspacePath: '/workspace' }]));
   }, [token, isGuest]);
 
   const createWorkspace = async (input: { name: string; description?: string; storage: any }) => {
-    try {
-      const created = await apiClient.createWorkspace('system', input);
-      setWorkspaces((current) => [...current, created]);
-      setActiveWorkspaceId(created.id);
-    } catch {
-      const fallback: WorkspaceRecord = {
-        id: `ws-${Date.now()}`,
-        name: input.name,
-        description: input.description,
-        storageProvider: input.storage?.provider ?? 'memory',
-      };
-      setWorkspaces((current) => [...current, fallback]);
-      setActiveWorkspaceId(fallback.id);
-    }
+    const created = await apiClient.createWorkspace('system', input);
+    setWorkspaces((current) => [...current, created]);
+    setActiveWorkspaceId(created.id);
   };
 
-  if (!token) {
-    return <LoginGate appName="Skipo App" onSuccess={(result) => setToken(result.token || 'demo-token')} />;
-  }
+  if (!token) return <LoginGate appName="Skipo App" onSuccess={(result) => setToken(result.token || 'demo-token')} />;
 
   if (!activeWorkspaceId) {
     return (
@@ -63,30 +47,19 @@ export function HomePage({ isGuest }: { isGuest?: boolean } = {}) {
         activeWorkspaceId={activeWorkspaceId}
         onSelectWorkspace={(workspace) => setActiveWorkspaceId(workspace.id)}
         onCreateWorkspace={createWorkspace}
-        onLogout={() => {
-          setToken(null);
-          setActiveWorkspaceId(null);
-        }}
+        onLogout={() => { setToken(null); setActiveWorkspaceId(null); }}
       />
     );
   }
 
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId);
-
   return (
-    <FrnlPage
-      appName="Skipo"
-      title={activeWorkspace?.name ?? 'Workspace'}
-      topBarActions={
-        <BaseButton onClick={() => setActiveWorkspaceId(null)}>
-          Switch Workspace
-        </BaseButton>
-      }
-    >
+    <FrnlPage appName="Skipo" title={activeWorkspace?.name ?? 'Workspace'}
+      topBarActions={<BaseButton onClick={() => setActiveWorkspaceId(null)}>Switch Workspace</BaseButton>}>
       <BaseCard>
         <InfiniteCanvas items={[]} transform={canvasTransform} onTransformChange={setCanvasTransform} />
         <DockBar items={[]} />
-      </BaseCard>      <ModuleUIHost />
+      </BaseCard>
     </FrnlPage>
   );
 }

@@ -1,0 +1,289 @@
+{
+  "schemaVersion": 1,
+  "framework": "skipo",
+  "capabilities": {
+    "auth": {
+      "kind": "capability",
+      "description": "Canonical Luth authentication and Floks auth surface.",
+      "dependencies": {
+        "@ultrst-armada/floks": "^2.0.0",
+        "@ultrst-armada/kloks": "^2.0.4"
+      },
+      "providers": [
+        {
+          "package": "@ultrst-armada/floks",
+          "surface": "auth",
+          "symbol": "LuthAuthPage"
+        },
+        {
+          "package": "@ultrst-armada/kloks",
+          "surface": "backend",
+          "symbol": "AuthServiceFacade"
+        }
+      ],
+      "generated": [
+        {
+          "path": "src/libraries/skipo/auth.ts",
+          "content": "export { LuthAuthPage } from '@ultrst-armada/floks/auth';\nexport { AuthServiceFacade } from '@ultrst-armada/kloks/backend';\n"
+        },
+        {
+          "path": "src/frontend/pages/auth/page.tsx",
+          "content": "import { LuthAuthPage } from '@ultrst-armada/floks/auth';\n\nexport default function AuthPage() {\n  return <LuthAuthPage ecosystemId=\"ultrst-armada\" applicationId=\"skipo-app\" appName=\"SKIPO APP\" />;\n}\n"
+        }
+      ],
+      "safeRetire": [
+        "src/frontend/components/AuthPage.tsx",
+        "src/frontend/components/LoginPage.tsx",
+        "src/frontend/auth/AuthPage.tsx"
+      ],
+      "duplicatePatterns": [
+        "\\bPBKDF2\\b",
+        "\\bbcrypt\\b",
+        "\\bpasswordHash\\b",
+        "\\blocalAuthProvider\\b",
+        "fetch\\([^\\n]*(?:/api/auth|/login|/signin)"
+      ],
+      "forbiddenWithoutCanonical": [
+        "local auth provider",
+        "local password authority",
+        "local session authority"
+      ]
+    },
+    "workspace": {
+      "kind": "capability",
+      "description": "Canonical workspace selection and workspace service.",
+      "dependencies": {
+        "@ultrst-armada/floks": "^2.0.0",
+        "@ultrst-armada/kloks": "^2.0.4"
+      },
+      "providers": [
+        {
+          "package": "@ultrst-armada/floks",
+          "surface": "ui",
+          "symbol": "WorkspaceTilesMenu"
+        },
+        {
+          "package": "@ultrst-armada/kloks",
+          "surface": "backend",
+          "symbol": "WorkspaceServiceFacade"
+        },
+        {
+          "package": "@ultrst-armada/kloks",
+          "surface": "backend",
+          "symbol": "WorkspaceBackendFacade"
+        }
+      ],
+      "generated": [
+        {
+          "path": "src/libraries/skipo/workspace.ts",
+          "content": "export { WorkspaceTilesMenu } from '@ultrst-armada/floks/ui';\nexport { WorkspaceServiceFacade, WorkspaceBackendFacade } from '@ultrst-armada/kloks/backend';\n"
+        },
+        {
+          "path": "src/frontend/pages/menus/workspaces/page.tsx",
+          "content": "import { WorkspaceTilesMenu } from '@ultrst-armada/floks/ui';\nimport type { WorkspaceRecord } from '@ultrst-armada/floks/ui';\n\nexport default function WorkspacesPage() {\n  return <WorkspaceTilesMenu workspaces={[] as WorkspaceRecord[]} activeWorkspaceId={null} />;\n}\n"
+        }
+      ],
+      "safeRetire": [
+        "src/frontend/components/WorkspaceTilesMenu.tsx",
+        "src/frontend/components/WorkspaceCreateDialog.tsx",
+        "src/frontend/components/WorkspaceGate.tsx"
+      ],
+      "duplicatePatterns": [
+        "\\bWorkspaceCreateDialog\\b",
+        "\\bWorkspaceTilesMenu\\b",
+        "\\bcreateWorkspace\\b",
+        "\\bgetWorkspaces\\b",
+        "\\bdeleteWorkspace\\b"
+      ]
+    },
+    "storage": {
+      "kind": "service",
+      "description": "Canonical workspace storage service.",
+      "dependencies": {
+        "@ultrst-armada/kloks": "^2.0.4"
+      },
+      "providers": [
+        {
+          "package": "@ultrst-armada/kloks",
+          "surface": "backend",
+          "symbol": "StorageServiceFacade"
+        }
+      ],
+      "generated": [
+        {
+          "path": "src/libraries/skipo/services/storage.ts",
+          "content": "export { StorageServiceFacade } from '@ultrst-armada/kloks/backend';\n"
+        }
+      ],
+      "duplicatePatterns": [
+        "\\bStorageServiceFacade\\b",
+        "\\bnew S3Client\\b",
+        "\\bGoogleDrive\\b"
+      ]
+    },
+    "midi": {
+      "kind": "service",
+      "description": "Canonical MIDI service.",
+      "dependencies": {
+        "@ultrst-armada/kloks": "^2.0.4"
+      },
+      "providers": [
+        {
+          "package": "@ultrst-armada/kloks",
+          "surface": "audio-midi",
+          "symbol": "MidiServiceFacade"
+        },
+        {
+          "package": "@ultrst-armada/kloks",
+          "surface": "audio-midi",
+          "symbol": "MidiManager"
+        }
+      ],
+      "generated": [
+        {
+          "path": "src/libraries/skipo/services/midi.ts",
+          "content": "export { MidiServiceFacade, MidiManager } from '@ultrst-armada/kloks/audio-midi';\n"
+        }
+      ],
+      "duplicatePatterns": [
+        "\\bMidiServiceFacade\\b",
+        "\\bMidiManager\\b",
+        "\\bWebMidi\\b"
+      ]
+    },
+    "settings": {
+      "kind": "ui",
+      "description": "Canonical Floks settings primitive.",
+      "dependencies": {
+        "@ultrst-armada/floks": "^2.0.0"
+      },
+      "providers": [
+        {
+          "package": "@ultrst-armada/floks",
+          "surface": "ui",
+          "symbol": "SettingsTab"
+        }
+      ],
+      "generated": [
+        {
+          "path": "src/libraries/skipo/ui/settings.ts",
+          "content": "export { SettingsTab } from '@ultrst-armada/floks/ui';\n"
+        },
+        {
+          "path": "src/frontend/pages/settings/page.tsx",
+          "content": "import { SettingsTab } from '@ultrst-armada/floks/ui';\n\nexport default function SettingsPage() {\n  return <SettingsTab />;\n}\n"
+        }
+      ],
+      "duplicatePatterns": [
+        "\\bSettingsModal\\b",
+        "\\bSettingsPage\\b"
+      ]
+    },
+    "accounts": {
+      "kind": "ui",
+      "description": "Canonical Floks settings/account surface.",
+      "dependencies": {
+        "@ultrst-armada/floks": "^2.0.0"
+      },
+      "providers": [
+        {
+          "package": "@ultrst-armada/floks",
+          "surface": "ui",
+          "symbol": "SettingsTab"
+        }
+      ],
+      "generated": [
+        {
+          "path": "src/libraries/skipo/ui/accounts.ts",
+          "content": "export { SettingsTab } from '@ultrst-armada/floks/ui';\n"
+        }
+      ],
+      "duplicatePatterns": [
+        "\\bAccountSettings\\b",
+        "\\bAccountsPage\\b"
+      ]
+    },
+    "navigation": {
+      "kind": "ui",
+      "description": "Canonical Floks application navigation primitives.",
+      "dependencies": {
+        "@ultrst-armada/floks": "^2.0.0"
+      },
+      "providers": [
+        {
+          "package": "@ultrst-armada/floks",
+          "surface": "ui",
+          "symbol": "AppShell"
+        },
+        {
+          "package": "@ultrst-armada/floks",
+          "surface": "ui",
+          "symbol": "TopToolbar"
+        },
+        {
+          "package": "@ultrst-armada/floks",
+          "surface": "ui",
+          "symbol": "BottomStrip"
+        }
+      ],
+      "generated": [
+        {
+          "path": "src/libraries/skipo/ui/navigation.ts",
+          "content": "export { AppShell, TopToolbar, BottomStrip } from '@ultrst-armada/floks/ui';\n"
+        }
+      ],
+      "duplicatePatterns": [
+        "\\bAppShell\\b",
+        "\\bTopToolbar\\b",
+        "\\bBottomStrip\\b"
+      ]
+    },
+    "canvas": {
+      "kind": "ui",
+      "description": "Canonical graph/canvas primitives from Floks.",
+      "dependencies": {
+        "@ultrst-armada/floks": "^2.0.0"
+      },
+      "providers": [
+        {
+          "package": "@ultrst-armada/floks",
+          "surface": "canvas-ui",
+          "symbol": "InfiniteCanvas"
+        },
+        {
+          "package": "@ultrst-armada/floks",
+          "surface": "canvas-ui",
+          "symbol": "DockBar"
+        }
+      ],
+      "generated": [
+        {
+          "path": "src/libraries/skipo/ui/canvas.ts",
+          "content": "export { InfiniteCanvas, DockBar } from '@ultrst-armada/floks/canvas-ui';\n"
+        }
+      ],
+      "duplicatePatterns": [
+        "\\bInfiniteCanvas\\b",
+        "\\bDockBar\\b"
+      ]
+    }
+  },
+  "aliases": {
+    "auth-page": "auth",
+    "login": "auth",
+    "workspace-tiles": "workspace",
+    "workspace-gate": "workspace",
+    "workspace-service": "workspace",
+    "settings-page": "settings",
+    "account-settings": "accounts",
+    "app-shell": "navigation",
+    "toolbar": "navigation",
+    "bottom-strip": "navigation",
+    "infinite-canvas": "canvas",
+    "dock-bar": "canvas",
+    "themes": "settings",
+    "theme": "settings",
+    "auth": "auth",
+    "workspace": "workspace"
+  }
+}
