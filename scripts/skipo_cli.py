@@ -27,6 +27,7 @@ from skipo_capabilities import (
     capability_state,
     install_dependencies,
 )
+from skipo_migrations import initialize_migration_state
 
 def run(cmd: list[str], cwd: Path) -> int:
     return subprocess.run(cmd, cwd=str(cwd)).returncode
@@ -71,6 +72,7 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
         encoding="utf-8",
     )
     capability_adopt(target)
+    initialize_migration_state(target, VERSION)
     print(json.dumps({"ok":True,"operation":"create","name":name,"framework":framework,"target":str(target),"skipo_version":VERSION}))
     return 0
 
@@ -141,11 +143,14 @@ def sync_project(root: Path, install: bool) -> int:
     print(json.dumps(payload, indent=2))
     return 0 if payload.get("ok", False) else 1
 
-def update_project(root: Path) -> int:
+def update_project(root: Path, apply: bool = True) -> int:
     try:
-        payload = capability_update(root, VERSION)
+        payload = capability_update(root, VERSION, apply=apply)
     except (ValueError, OSError) as exc:
         print(json.dumps({"ok":False,"error":str(exc)}, indent=2)); return 2
+    if not apply:
+        print(json.dumps(payload, indent=2))
+        return 0 if payload.get("ok", False) else 1
     verification = capability_verify(root)
     payload["verification"] = verification
     print(json.dumps(payload, indent=2))
@@ -198,6 +203,7 @@ def main() -> int:
     for cmd in ["inspect","check","diagnose","plan","adopt","sync","update","repair","fix","verify","test"]:
         q=sub.add_parser(cmd); q.add_argument("target",nargs="?",default=".")
     q=sub.choices["sync"]; q.add_argument("--install",action="store_true")
+    q=sub.choices["update"]; q.add_argument("--plan",action="store_true")
     q=sub.choices["repair"]; q.add_argument("--plan",action="store_true")
 
     for cmd in ["add","remove"]:
@@ -219,7 +225,7 @@ def main() -> int:
     if a.command=="sync":
         return sync_project(Path(a.target).resolve(), a.install)
     if a.command=="update":
-        return update_project(Path(a.target).resolve())
+        return update_project(Path(a.target).resolve(), apply=not a.plan)
     if a.command=="verify":
         return verify_project(Path(a.target).resolve())
     if a.command=="test":
