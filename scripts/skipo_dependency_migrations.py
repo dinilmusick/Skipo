@@ -69,6 +69,8 @@ def validate_contract(contract: dict[str, Any], package: str, skipo_version: str
         seen.add(item["id"])
         if version(item["toVersion"]) == version(item["fromVersion"]):
             raise ValueError(f"Migration {item['id']} does not change version")
+        if item.get("requiresSkipo") and not satisfies(skipo_version, item["requiresSkipo"]):
+            raise ValueError(f"Migration {item['id']} requires Skipo {item['requiresSkipo']}")
 
 def resolve_path(contract: dict[str, Any], start: str, target: str) -> list[dict[str, Any]]:
     migrations = contract.get("migrations", [])
