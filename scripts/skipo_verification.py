@@ -182,7 +182,7 @@ def verify_canonical_state(root: Path, framework_version: str | None = None):
     except Exception as exc:
         ds.append(diag("SKIPO_ARCHITECTURE_DIAGNOSIS_FAILED","invalid","Unable to execute Skipo capability drift detection: "+str(exc)))
     # Execute existing Skipo architecture and runtime-environment constraints.
-    checklist_dir = SKIPO_ROOT / "checklists"
+    checklist_dir = ROOT / "checklists"
     if str(checklist_dir) not in sys.path:
         sys.path.insert(0, str(checklist_dir))
     for filename, aspect in (("24_capability_architecture.py", "24"), ("26_skipo_runtime_environment_governance.py", "26")):
