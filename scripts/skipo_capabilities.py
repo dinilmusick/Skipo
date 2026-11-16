@@ -450,25 +450,10 @@ def update(root: Path, framework_version: str) -> dict[str, Any]:
     }
 
 def repair(root: Path, apply: bool, framework_version: str) -> dict[str, Any]:
-    updated = update(root, framework_version) if apply else {
-        "ok": True,
-        "operation": "update",
-        "planned": True,
-        "legacy_paths": legacy_migration_paths(),
-    }
-    findings = diagnose(root)
-    retired = retire_known_duplicates(root, findings, apply)
-    caps = sorted({f["capability"] for f in findings if f["classification"] in {"adapt", "retire"}})
-    composed = compose(root, caps, apply=apply) if caps else {"ok": True, "actions": [], "applied": apply}
-    return {
-        "ok": True,
-        "operation": "repair",
-        "findings": findings,
-        "retired": retired,
-        "composition": composed,
-        "update": updated,
-        "applied": apply,
-    }
+    """Run the deterministic dirty-to-clean reconciliation transaction."""
+    from skipo_reconciliation import reconcile
+    return reconcile(root, apply=apply, framework_version=framework_version)
+
 
 def verify(root: Path) -> dict[str, Any]:
     findings = diagnose(root)
