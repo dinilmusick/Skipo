@@ -44,6 +44,18 @@ def verify_canonical_state(root: Path, framework_version: str | None = None):
     for error in validate_registry_contract(registry):
         ds.append(diag("SKIPO_REGISTRY_INVALID","invalid",error,"architecture/capabilities/registry.json"))
     if ds: return result(ds, root)
+    # The framework source repository is not itself an adopted downstream application.
+    # Validate its package/registry contract without demanding application-local .skipo state.
+    package_probe, package_probe_error = read(root / "package.json")
+    if root == ROOT.resolve() and isinstance(package_probe, dict) and package_probe.get("name") == "skipo":
+        expected = registry["applicationState"]["framework"].get("version")
+        actual = package_probe.get("version")
+        if actual != expected:
+            ds.append(diag("SKIPO_FRAMEWORK_PACKAGE_VERSION_MISMATCH","invalid","Framework package version differs from canonical registry.","package.json",expected,actual))
+        migration_probe, migration_error = read(MIGRATIONS)
+        if migration_error or not isinstance(migration_probe, dict):
+            ds.append(diag("SKIPO_MIGRATION_REGISTRY_INVALID","invalid","Migration registry is unreadable.","architecture/capabilities/migrations.json"))
+        return result(ds, root, [], False)
     app = registry["applicationState"]
     manifest, me = read(root / ".skipo/project.json")
     package, pe = read(root / "package.json")
