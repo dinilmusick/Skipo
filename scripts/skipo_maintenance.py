@@ -163,7 +163,11 @@ def build_plan(root: Path, framework_version: str,
 
     if not state["capability_state"].get("installed") and not (root / ".skipo" / "capabilities.json").exists():
         actions.append({"phase": "repair", "action": "initialize-capability-state"})
-    findings = diagnose_capabilities(root)
+    findings = sorted(
+        diagnose_capabilities(root),
+        key=lambda finding: (finding.get("capability", ""), finding.get("path", ""),
+                             finding.get("classification", "")),
+    )
     for finding in findings:
         if finding.get("classification") == "retire":
             actions.append({"phase": "repair", "action": "retire-safe-duplicate",
