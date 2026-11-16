@@ -57,9 +57,30 @@ def satisfies(actual: str, requirement: str) -> bool:
         if operator == "~" and (actual_v < expected or actual_v[:2] != expected[:2]): return False
     return True
 
+def validate_operations(migration: dict[str, Any]) -> None:
+    handlers = {
+        "replace_text": {"find", "replace", "paths"}, "set_json": {"path", "key", "value"},
+        "text_absent": {"text", "paths"}, "text_present": {"text", "paths"},
+        "json_equals": {"path", "key", "value"},
+    }
+    for group in ("transformations", "repair", "verification"):
+        for operation in migration.get(group, []):
+            kind = operation.get("type")
+            required = handlers.get(kind)
+            if required is None or not required.issubset(operation):
+                raise ValueError(f"Unsupported or incomplete {group} operation in {migration['id']}: {kind}")
+            paths = operation.get("paths", []) if "paths" in operation else [operation["path"]]
+            for path in paths:
+                if not isinstance(path, str) or Path(path).is_absolute() or ".." in Path(path).parts:
+                    raise ValueError(f"Unsafe migration operation path: {path}")
+            if kind == "replace_text" and operation["find"] == operation["replace"]:
+                raise ValueError(f"No-op text replacement in {migration['id']}")
+
 def validate_contract(contract: dict[str, Any], package: str, skipo_version: str = "1.1.0") -> None:
     if contract.get("schemaVersion") != SCHEMA_VERSION or contract.get("package") != package:
         raise ValueError(f"Invalid migration contract identity/schema for {package}")
+    if not isinstance(contract.get("migrations"), list):
+        raise ValueError(f"Migration contract for {package} must contain a migrations array")
     compatibility = contract.get("compatibility", {})
     requirement = compatibility.get("skipo") or compatibility.get("requiresSkipo")
     if requirement and not satisfies(skipo_version, requirement):
@@ -70,6 +91,7 @@ def validate_contract(contract: dict[str, Any], package: str, skipo_version: str
         if any(not item.get(key) for key in required) or item["id"] in seen:
             raise ValueError(f"Invalid or duplicate migration in {package}")
         seen.add(item["id"])
+        validate_operations(item)
         if version(item["toVersion"]) == version(item["fromVersion"]):
             raise ValueError(f"Migration {item['id']} does not change version")
         if item.get("requiresSkipo") and not satisfies(skipo_version, item["requiresSkipo"]):
