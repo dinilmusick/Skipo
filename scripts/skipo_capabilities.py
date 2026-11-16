@@ -396,7 +396,7 @@ def legacy_migration_paths() -> list[str]:
     data = read_json(migration_file, {"migrations": []})
     paths = []
     for migration in data.get("migrations", []):
-        if migration.get("id") == "1.1.0-capability-composition":
+        if migration.get("id") == "1.1.0-capability-composition" and migration.get("classification") == "retire":
             paths.extend(migration.get("retirePaths", []))
     return paths
 
@@ -460,13 +460,40 @@ def verify(root: Path) -> dict[str, Any]:
     state = capability_state(root)
     errors = []
     registry = load_registry()["capabilities"]
+    pkg = package_json(root)
+    dependencies = pkg.get("dependencies", {})
+    dependency_owners = dependency_state(root)
+    installed = state.get("installed", {})
 
-    for cap_id in state.get("installed", {}):
+    for cap_id, record in installed.items():
         if cap_id not in registry:
             errors.append(f"Unknown installed capability: {cap_id}")
+            continue
+        spec = registry[cap_id]
+        if record.get("providers") != spec.get("providers"):
+            errors.append(f"Canonical provider ownership has drifted: {cap_id}")
+        for package, expected in spec.get("dependencies", {}).items():
+            if dependencies.get(package) != expected:
+                errors.append(f"Canonical dependency version is incorrect for {cap_id}: {package} (expected {expected})")
+        for item in spec.get("generated", []):
+            path = root / item["path"]
+            if not path.is_file():
+                errors.append(f"Canonical capability component is missing: {item['path']}")
+            elif path.read_text(encoding="utf-8") != item["content"]:
+                entry = generated_entries(state).get(item["path"])
+                if not (entry and entry.get("owner") == "skipo" and entry.get("checksum") == sha256_text(path.read_text(encoding="utf-8"))):
+                    errors.append(f"Canonical capability component has unverified ownership or content: {item['path']}")
+
+    for package, expected in dependency_owners.items():
+        if package in dependencies and dependencies[package] != expected:
+            errors.append(f"Skipo-owned dependency version has drifted: {package}")
 
     for rel, entry in generated_entries(state).items():
         path = root / rel
+        if entry.get("owner") != "skipo":
+            errors.append(f"Generated capability file has incorrect ownership: {rel}")
+        if entry.get("capability") and entry.get("capability") not in registry:
+            errors.append(f"Generated capability file has unknown capability owner: {rel}")
         if not path.exists():
             errors.append(f"Generated capability file is missing: {rel}")
             continue
@@ -489,5 +516,5 @@ def verify(root: Path) -> dict[str, Any]:
         "operation": "verify",
         "errors": errors,
         "findings": findings,
-        "capabilities": sorted(state.get("installed", {}).keys()),
+        "capabilities": sorted(installed.keys()),
     }
