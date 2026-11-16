@@ -21,17 +21,17 @@ importers:
         specifier: ^1.1.0
         version: 1.2.1
       '@ultrst-armada/floks':
-        specifier: ^2.0.0
-        version: 2.0.0(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/react@19.3.0)(@xyflow/react@12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(cactus-needle@0.3.0)(d3-force@3.0.0)(lucide-react@0.553.0(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))(zustand@5.0.15(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0)))
+        specifier: ^2.0.4
+        version: 2.0.4(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/react@19.3.0)(@xyflow/react@12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(cactus-needle@0.3.0)(d3-force@3.0.0)(lucide-react@0.553.0(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))(zustand@5.0.15(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0)))
       '@ultrst-armada/frnlts':
-        specifier: ^0.5.23
-        version: 0.5.23(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/react@19.3.0)(cactus-needle@0.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
+        specifier: ^0.5.24
+        version: 0.5.24(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/react@19.3.0)(cactus-needle@0.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
       '@ultrst-armada/kloks':
         specifier: ^2.0.4
-        version: 2.0.4(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@neondatabase/serverless@1.2.1)(@types/node@22.20.5)(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.25(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(ts-morph@25.0.1)(ws@8.22.0))(cactus-needle@0.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
+        version: 2.0.4(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@neondatabase/serverless@1.2.1)(@types/node@22.20.5)(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.27(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(ts-morph@25.0.1)(ws@8.22.0))(cactus-needle@0.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
       '@ultrst-armada/krnl':
-        specifier: ^1.0.25
-        version: 1.0.25(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(ts-morph@25.0.1)(ws@8.22.0)
+        specifier: ^1.0.27
+        version: 1.0.27(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(ts-morph@25.0.1)(ws@8.22.0)
       '@xyflow/react':
         specifier: ^12.11.1
         version: 12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -782,8 +782,8 @@ packages:
   '@types/react@19.3.0':
     resolution: {integrity: sha512-N0rFCuH9YoxG9/m61l9MfpJKfmLOVU0em7ipIz6TRgSSkvReLB9vL85GB+yr8Bs5leqpvg96JSwF4ZS1s4viQg==}
 
-  '@ultrst-armada/floks@2.0.0':
-    resolution: {integrity: sha512-uEKCyxKA+nhM08O3M8q8pJib8/u5LubvIJJpaBeI/Hey/Q7Vo8P4zQdhkT/+1MJjLlHCGU8bP88ZsypaYA2Cow==}
+  '@ultrst-armada/floks@2.0.4':
+    resolution: {integrity: sha512-KGZDI0gqmOqw4VOwgTwi019c3ZeBWqbr30VE5M1+C8kgtZtVIrL6ZwqxXDf7IO47t14//kybu2RVJLBUhLb3Pw==}
     peerDependencies:
       '@types/react': ^18.0.0 || ^19.0.0
       '@xyflow/react': ^12.8.6
@@ -808,8 +808,8 @@ packages:
       zustand:
         optional: true
 
-  '@ultrst-armada/frnlts@0.5.23':
-    resolution: {integrity: sha512-4snMFC4oLdhYdtM3G7Ywd7bfVVqjBKjD0SzFM4NzHp+vDU/rymPFtfey2D3lkayvZD980OzzED2aMKTGEhaNYw==}
+  '@ultrst-armada/frnlts@0.5.24':
+    resolution: {integrity: sha512-hhQZek+PfSljgqKZ/i4uW1rkoyUb0kuIWro5b6IcgCrT2hG7TQKPn5B8Z+x5pyAACuV6d/ndtqrqD1i55cr5Vg==}
     engines: {node: '>=20.0.0'}
     hasBin: true
     peerDependencies:
@@ -842,8 +842,8 @@ packages:
       react:
         optional: true
 
-  '@ultrst-armada/krnl@1.0.25':
-    resolution: {integrity: sha512-vMvKI3NfjUOFQJ4cgGQh/P9QU5nnGvtHrxjntsbZn84mfPwkdGki/J7f5OC9aKCwXbzYm5D3SgpkWUrE+y8IQg==}
+  '@ultrst-armada/krnl@1.0.27':
+    resolution: {integrity: sha512-yh21/AjAxwj+u0wiquQ+Kh8sLC1gO1qyqiZcpSwmA0nvFmS+XsPJdDtB3Fy1Fs3EGRgtLIirW4Ijg6hgKjbBFg==}
     hasBin: true
     peerDependencies:
       '@types/node': '>=20.0.0'
@@ -2100,10 +2100,10 @@ snapshots:
     dependencies:
       csstype: 3.2.3
 
-  '@ultrst-armada/floks@2.0.0(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/react@19.3.0)(@xyflow/react@12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(cactus-needle@0.3.0)(d3-force@3.0.0)(lucide-react@0.553.0(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))(zustand@5.0.15(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0)))':
+  '@ultrst-armada/floks@2.0.4(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/react@19.3.0)(@xyflow/react@12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(cactus-needle@0.3.0)(d3-force@3.0.0)(lucide-react@0.553.0(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))(zustand@5.0.15(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0)))':
     dependencies:
       '@dinilmusick/gutts': 2.1.1(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(cactus-needle@0.3.0)
-      '@ultrst-armada/frnlts': 0.5.23(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/react@19.3.0)(cactus-needle@0.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
+      '@ultrst-armada/frnlts': 0.5.24(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/react@19.3.0)(cactus-needle@0.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
       zod: 3.25.76
     optionalDependencies:
       '@types/react': 19.3.0
@@ -2120,7 +2120,7 @@ snapshots:
       - immer
       - use-sync-external-store
 
-  '@ultrst-armada/frnlts@0.5.23(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/react@19.3.0)(cactus-needle@0.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
+  '@ultrst-armada/frnlts@0.5.24(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/react@19.3.0)(cactus-needle@0.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
     dependencies:
       '@dinilmusick/gutts': 2.1.1(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(cactus-needle@0.3.0)
       react: 19.3.0
@@ -2135,7 +2135,7 @@ snapshots:
       - immer
       - use-sync-external-store
 
-  '@ultrst-armada/kloks@2.0.4(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@neondatabase/serverless@1.2.1)(@types/node@22.20.5)(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.25(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(ts-morph@25.0.1)(ws@8.22.0))(cactus-needle@0.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
+  '@ultrst-armada/kloks@2.0.4(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@neondatabase/serverless@1.2.1)(@types/node@22.20.5)(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.27(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(ts-morph@25.0.1)(ws@8.22.0))(cactus-needle@0.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
     dependencies:
       '@dinilmusick/gutts': 2.1.1(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(cactus-needle@0.3.0)
       '@types/node': 22.20.5
@@ -2147,7 +2147,7 @@ snapshots:
       '@aws-sdk/client-s3': 3.1164.0
       '@neondatabase/serverless': 1.2.1
       '@types/react': 19.3.0
-      '@ultrst-armada/krnl': 1.0.25(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(ts-morph@25.0.1)(ws@8.22.0)
+      '@ultrst-armada/krnl': 1.0.27(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(ts-morph@25.0.1)(ws@8.22.0)
       react: 19.3.0
     transitivePeerDependencies:
       - '@huggingface/transformers'
@@ -2157,7 +2157,7 @@ snapshots:
       - use-sync-external-store
       - utf-8-validate
 
-  '@ultrst-armada/krnl@1.0.25(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(ts-morph@25.0.1)(ws@8.22.0)':
+  '@ultrst-armada/krnl@1.0.27(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(ts-morph@25.0.1)(ws@8.22.0)':
     dependencies:
       '@dinilmusick/gutts': 2.1.1(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(cactus-needle@0.3.0)
     optionalDependencies:
