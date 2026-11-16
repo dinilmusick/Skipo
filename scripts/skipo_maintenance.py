@@ -155,11 +155,13 @@ def build_plan(root: Path, framework_version: str,
     for migration in sorted(migrations, key=lambda item: (version_tuple(item.get("version")), item.get("id", ""))):
         migration_id = migration.get("id")
         migration_version = migration.get("version", "0.0.0")
-        if migration_id not in applied and version_tuple(migration_version) <= version_tuple(framework_version):
+        if version_tuple(migration_version) <= version_tuple(framework_version):
             paths = sorted(path for path in migration.get("retirePaths", []) if (Path(state["root"]) / path).exists())
-            action = {"phase": "update", "action": "migration", "id": migration_id, "version": migration_version, "retire_paths": paths}
-            actions.append(action)
-            pending_migrations.append(migration_id)
+            if migration_id not in applied or paths:
+                action = {"phase": "update", "action": "migration", "id": migration_id, "version": migration_version, "retire_paths": paths}
+                actions.append(action)
+                if migration_id not in applied:
+                    pending_migrations.append(migration_id)
 
     if not state["capability_state"].get("installed") and not (root / ".skipo" / "capabilities.json").exists():
         actions.append({"phase": "repair", "action": "initialize-capability-state"})
@@ -353,8 +355,12 @@ def verify(root: Path, framework_version: str) -> dict[str, Any]:
             errors.append("Framework version is not current.")
         migration_state = read_json(root / canonical["migrations"]["stateFile"], {"applied": []})
         for migration in read_json(MIGRATIONS_PATH, {"migrations": []}).get("migrations", []):
-            if version_tuple(migration.get("version")) <= version_tuple(framework_version) and migration.get("id") not in migration_state.get("applied", []):
-                errors.append(f"Migration not applied: {migration.get('id')}")
+            if version_tuple(migration.get("version")) <= version_tuple(framework_version):
+                if migration.get("id") not in migration_state.get("applied", []):
+                    errors.append(f"Migration not applied: {migration.get('id')}")
+                for rel in migration.get("retirePaths", []):
+                    if (root / rel).exists():
+                        errors.append(f"Legacy migration path remains: {rel}")
         cap_state = read_json(root / ".skipo" / "capabilities.json", {"installed": {}, "generated": []})
         for rel, entry in generated_entries(cap_state).items():
             path = (root / rel).resolve()
