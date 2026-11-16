@@ -8,6 +8,8 @@ import re
 import sys
 from pathlib import Path
 
+# Minimum supported published ecosystem baselines. Upstream sync may advance
+# patch/minor versions inside each compatible caret range.
 PACKAGE_BASELINE = {
     "@dinilmusick/gutts": "^2.1.1",
     "@ultrst-armada/kloks": "^2.0.4",
@@ -15,6 +17,37 @@ PACKAGE_BASELINE = {
     "@ultrst-armada/frnlts": "^0.5.23",
     "@ultrst-armada/krnl": "^1.0.25",
 }
+def _version_tuple(value: str) -> tuple[int, int, int]:
+    match = re.search(r"(\d+)\.(\d+)\.(\d+)", str(value))
+    if not match:
+        raise ValueError(f"Invalid semantic version: {value}")
+    return tuple(int(part) for part in match.groups())
+
+def package_spec_satisfies_minimum(actual: str, minimum: str) -> bool:
+    if not isinstance(actual, str) or not actual.startswith("^") or not isinstance(minimum, str) or not minimum.startswith("^"):
+        return False
+    current = _version_tuple(actual)
+    floor = _version_tuple(minimum)
+    if current < floor:
+        return False
+    # Mirror caret compatibility: major version stays fixed for >=1; for 0.x
+    # the minor version is also fixed.
+    if floor[0] > 0:
+        return current[0] == floor[0]
+    return current[0] == 0 and current[1] == floor[1]
+
+def resolved_version_satisfies_minimum(resolved: str, minimum: str) -> bool:
+    try:
+        current = _version_tuple(resolved)
+        floor = _version_tuple(minimum)
+    except ValueError:
+        return False
+    if current < floor:
+        return False
+    if floor[0] > 0:
+        return current[0] == floor[0]
+    return current[0] == 0 and current[1] == floor[1]
+
 SOURCE_SUFFIXES = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
 FORBIDDEN_SOURCE_PATTERNS = (
     (r"@dinilmusick/gutts/auth", "application must consume the public Kloks auth API rather than GutTS internals"),
@@ -88,8 +121,11 @@ def validate_repository(root: Path) -> list[str]:
             if name in dependencies:
                 errors.append(f"{label} installs forbidden auth dependency: {name}")
         for name, expected in PACKAGE_BASELINE.items():
-            if dependencies.get(name) != expected:
-                errors.append(f"{label} baseline mismatch for {name}: expected {expected}, got {dependencies.get(name)}")
+            actual = dependencies.get(name)
+            if not package_spec_satisfies_minimum(actual, expected):
+                errors.append(
+                    f"{label} baseline mismatch for {name}: minimum {expected}, got {actual}"
+                )
         gutts_spec = dependencies.get("@dinilmusick/gutts", "")
         if isinstance(gutts_spec, str) and gutts_spec.startswith(("git+", "git:", "github:")):
             errors.append(f"{label} must consume published GutTS, not a Git dependency")

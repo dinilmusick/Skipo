@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -25,7 +26,7 @@ def test_workspace_creation_dialog_is_owned_by_floks_for_all_skipo_scaffolds():
         assert "WorkspaceTilesMenu" in gate
         assert "storageOptions" in gate
         assert "onManageStorage={onManageStorage}" in gate
-        assert package["dependencies"]["@ultrst-armada/floks"] == "^2.0.0"
+        assert re.fullmatch(r"\^2\.\d+\.\d+", package["dependencies"]["@ultrst-armada/floks"])
 
     generator = (ROOT / "scripts/scaffold_app_structure.py").read_text()
     root_package = __import__("json").loads((ROOT / "package.json").read_text())
@@ -33,7 +34,7 @@ def test_workspace_creation_dialog_is_owned_by_floks_for_all_skipo_scaffolds():
     assert "WorkspaceGate.tsx" in generator
     assert "onManageStorage" in generator
     assert '"@ultrst-armada/floks": "^2.0.0"' in generator
-    assert root_package["dependencies"]["@ultrst-armada/floks"] == "^2.0.0"
+    assert re.fullmatch(r"\^2\.\d+\.\d+", root_package["dependencies"]["@ultrst-armada/floks"])
 
 
 def test_google_drive_uses_kloks_adapter_in_every_canonical_scaffold():
