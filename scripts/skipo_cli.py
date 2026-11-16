@@ -125,7 +125,7 @@ def remove_project(items: list[str], target: Path, apply: bool) -> int:
     print(json.dumps(payload, indent=2))
     return 0 if payload.get("ok", False) else 1
 
-def adopt_project(root: Path) -> int
+def adopt_project(root: Path) -> int:
     try:
         payload = capability_adopt(root)
     except OSError as exc:
