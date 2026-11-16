@@ -27,7 +27,7 @@ jobs:
       - run: python -m pytest -q --import-mode=importlib tests/linked_dependencies.test.py
       - run: python -m compileall -q scripts/skipo_builder.py checklists/24_module_architecture.py
       - run: pnpm test
-      - run: pnpm run module:architecture
+      - run: pnpm run capability:architecture
       - run: pnpm typecheck
       - run: pnpm build
       - run: pnpm validate
