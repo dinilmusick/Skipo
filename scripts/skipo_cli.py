@@ -77,8 +77,10 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
 
 def inspect_project(root: Path) -> int:
     data = manifest(root)
-    state = capability_state(root) if is_project(root) else {}
-    payload = {"project":str(root), "skipo_project":bool(data), **data, "capabilities":state}
+    observed = maintenance_inspect(root) if is_project(root) else {}
+    state = observed.get("capability_state", {})
+    payload = {"project":str(root), "skipo_project":bool(data), **data,
+               "capabilities":state, "maintenance_observation":observed}
     print(json.dumps(payload, indent=2))
     return 0
 
