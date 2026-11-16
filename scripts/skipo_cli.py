@@ -176,7 +176,7 @@ def repair_project(root: Path, apply: bool) -> int:
     print(json.dumps(payload, indent=2))
     if not apply:
         return 0
-    verify_payload = maintenance_verify(root, VERSION)
+    verify_payload = capability_verify(root)
     print(json.dumps(verify_payload, indent=2))
     return 0 if verify_payload.get("ok") else 1
 
