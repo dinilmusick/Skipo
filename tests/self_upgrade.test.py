@@ -159,3 +159,32 @@ def test_downgrade_and_malformed_state_fail_safely(tmp_path):
     state_path.write_text("{broken")
     with pytest.raises(migrations.MigrationStateError, match="Cannot read migration state"):
         migrations.update_project(root, "1.2.0")
+
+
+def test_committed_migration_with_old_manifest_is_recovered(tmp_path, monkeypatch):
+    root = project(tmp_path, "1.0.0")
+    manifest_path = root / ".skipo/project.json"
+    original_write = migrations.atomic_write_json
+    interrupted = {"value": False}
+
+    def fail_once_on_manifest(path, value):
+        if path == manifest_path and not interrupted["value"]:
+            interrupted["value"] = True
+            raise OSError("simulated interruption before manifest version commit")
+        return original_write(path, value)
+
+    monkeypatch.setattr(migrations, "atomic_write_json", fail_once_on_manifest)
+    with pytest.raises(OSError, match="simulated interruption"):
+        migrations.update_project(root, "1.2.0")
+
+    state = json.loads((root / ".skipo/migration-state.json").read_text())
+    assert "1.2.0-resumable-framework-upgrade" in state["applied"]
+    assert json.loads(manifest_path.read_text())["skipo_version"] == "1.0.0"
+    assert migrations.verify_migration_state(root)["ok"] is False
+
+    monkeypatch.setattr(migrations, "atomic_write_json", original_write)
+    resumed = migrations.update_project(root, "1.2.0")
+
+    assert resumed["ok"] is True
+    assert json.loads(manifest_path.read_text())["skipo_version"] == "1.2.0"
+    assert migrations.verify_migration_state(root)["ok"] is True
