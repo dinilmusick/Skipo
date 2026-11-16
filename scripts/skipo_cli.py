@@ -101,7 +101,11 @@ def diagnose_project(root: Path) -> int:
     return 0
 
 def plan_project(root: Path) -> int:
-    payload = capability_plan(root)
+    try:
+        payload = capability_plan(root)
+    except (ValueError, OSError) as exc:
+        print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
+        return 2
     print(json.dumps(payload, indent=2))
     return 0 if payload.get("ok", False) else 1
 
@@ -159,7 +163,7 @@ def repair_project(root: Path, apply: bool) -> int:
         print(json.dumps({"ok":False,"error":str(exc)}, indent=2)); return 2
     print(json.dumps(payload, indent=2))
     if not apply:
-        return 0
+        return 0 if payload.get("ok", False) else 1
     verify_payload = capability_verify(root)
     print(json.dumps(verify_payload, indent=2))
     return 0 if verify_payload.get("ok") else 1
