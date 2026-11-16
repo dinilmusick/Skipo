@@ -14,6 +14,7 @@ SCAFFOLDS = ROOT / "scaffolds"
 VERSION = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
 
 sys.path.insert(0, str(ROOT / "scripts"))
+from skipo_maintenance import build_plan as maintenance_plan, execute_plan as execute_maintenance_plan, inspect as maintenance_inspect
 from skipo_capabilities import (
     adopt as capability_adopt,
     diagnose as capability_diagnose,
@@ -101,8 +102,12 @@ def diagnose_project(root: Path) -> int:
     return 0
 
 def plan_project(root: Path) -> int:
-    print(json.dumps(capability_plan(root), indent=2))
-    return 0
+    try:
+        payload = maintenance_plan(root, VERSION)
+    except (ValueError, OSError) as exc:
+        print(json.dumps({"ok": False, "operation": "maintenance-plan", "errors": [str(exc)]}, indent=2)); return 2
+    print(json.dumps(payload, indent=2))
+    return 0 if payload.get("ok", False) else 1
 
 def parse_items(items: list[str]) -> tuple[list[str], Path]:
     if items and Path(items[-1]).exists() and len(items) > 1:
@@ -143,13 +148,15 @@ def sync_project(root: Path, install: bool) -> int:
 
 def update_project(root: Path) -> int:
     try:
-        payload = capability_update(root, VERSION)
+        plan = maintenance_plan(root, VERSION)
+        payload = execute_maintenance_plan(root, plan, VERSION) if plan.get("ok") else {
+            "ok": False, "operation": "update", "applied": False,
+            "errors": plan.get("errors", []), "plan": plan,
+        }
     except (ValueError, OSError) as exc:
         print(json.dumps({"ok":False,"error":str(exc)}, indent=2)); return 2
-    verification = capability_verify(root)
-    payload["verification"] = verification
     print(json.dumps(payload, indent=2))
-    return 0 if payload.get("ok", False) and verification.get("ok", False) else 1
+    return 0 if payload.get("ok", False) else 1
 
 def repair_project(root: Path, apply: bool) -> int:
     try:
