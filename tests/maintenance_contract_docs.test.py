@@ -40,10 +40,12 @@ def test_current_update_executor_limit_is_explicit_and_matches_registry():
     doc = DOC.read_text(encoding="utf-8")
     code = CAPABILITIES.read_text(encoding="utf-8")
     migration_data = REGISTRY.read_text(encoding="utf-8")
-    assert "generic migration executor exists" in doc
+    assert "generic dependency-contract consumer" in doc
     assert "does **not** download or install a newer Skipo npm package" in doc
-    assert 'migration_id = "1.1.0-capability-composition"' in code
+    assert "skipo_dependency_migrations" in code
+    assert "skipo_migrations" in code
     assert '"id": "1.1.0-capability-composition"' in migration_data
+    assert '"id": "1.2.0-resumable-framework-upgrade"' in migration_data
 
 
 def test_verify_and_full_system_check_are_not_conflated():
@@ -51,4 +53,4 @@ def test_verify_and_full_system_check_are_not_conflated():
     cli = CLI.read_text(encoding="utf-8")
     assert "broader than the capability-state checks" in doc
     assert "full_system_validator.py" in cli
-    assert "payload = capability_verify(root)" in cli
+    assert "maintenance_verify(root, VERSION)" in cli
