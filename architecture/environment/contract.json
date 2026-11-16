@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "contract_version": "1.0.0",
+  "canonical": {
+    "required": ["SYSTEM_DATABASE_URL"],
+    "optional": ["SYSTEM_DATABASE_URL_2", "SYSTEM_DATABASE_URL_3", "APP_URL"]
+  },
+  "deprecated_aliases": {
+    "DEPM_GATEWAY_DOMAIN": {
+      "target": "APP_URL",
+      "reason": "The former Depm gateway origin is now the canonical application origin."
+    }
+  },
+  "obsolete_framework_variables": {},
+  "product_specific": {
+    "NODE_ENV": "Node.js runtime mode, owned by the application runtime.",
+    "PORT": "Local Node server binding, owned by the hosting adapter.",
+    "CI": "CI platform execution marker.",
+    "DISABLE_HMR": "Development tooling switch.",
+    "PATH": "Operating-system executable search path, not application configuration.",
+    "HOME": "Operating-system home directory, not application configuration.",
+    "PWD": "Operating-system working directory, not application configuration."
+  },
+  "product_specific_patterns": [
+    {"pattern": "^GITHUB_[A-Z0-9_]+$", "reason": "GitHub Actions platform-provided context."},
+    {"pattern": "^VERCEL_[A-Z0-9_]+$", "reason": "Vercel platform-provided context."},
+    {"pattern": "^CF_[A-Z0-9_]+$", "reason": "Cloudflare platform-provided context."}
+  ],
+  "scan": {
+    "extensions": [".env", ".example", ".local", ".development", ".production", ".test", ".staging", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".sh", ".bash", ".zsh", ".toml", ".json", ".jsonc", ".yaml", ".yml", ".ini", ".cfg", ".properties", ".md", ".mdx", ".txt"],
+    "ignored_directories": [".git", "node_modules", ".venv", "venv", "__pycache__", "dist", "build", ".next", ".turbo", "coverage", ".cache", ".pytest_cache"]
+  }
+}
