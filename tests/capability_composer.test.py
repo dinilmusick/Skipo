@@ -47,7 +47,7 @@ def test_diagnose_and_repair_only_retire_registry_safe_duplicates():
         payload = json.loads(diagnosed.stdout)
         retire = [f for f in payload["capabilities"] if f["classification"] == "retire"]
         assert any(f["path"].endswith("WorkspaceCreateDialog.tsx") for f in retire)
-        assert not any(f["path"].endswith("home/page.tsx") and f["classification"] == "retire" for f in payload["findings"])
+        assert not any(f["path"].endswith("home/page.tsx") and f["classification"] == "retire" for f in payload["capabilities"])
         repaired = run("repair", str(root))
         assert repaired.returncode == 0, repaired.stdout + repaired.stderr
         assert not safe.exists()
