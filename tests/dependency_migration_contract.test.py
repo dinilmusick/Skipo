@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from skipo_dependency_migrations import (
     plan_dependency_migrations, execute_dependency_migrations,
-    verify_dependency_migrations, resolve_path, order_migrations, safe_path,
+    verify_dependency_migrations, resolve_path, order_migrations, safe_path, version,
 )
 
 
@@ -141,3 +141,13 @@ def test_contract_path_traversal_is_rejected(tmp_path):
         assert "escapes application root" in str(error)
     else:
         raise AssertionError("path traversal must be rejected")
+
+
+def test_semantic_versions_normalize_missing_patch_component():
+    assert version("1.2") == version("1.2.0")
+
+
+def test_missing_migration_dependency_is_rejected():
+    errors = []
+    assert order_migrations([{"id": "a", "dependsOn": ["missing"]}], errors) == [{"id": "a", "dependsOn": ["missing"]}]
+    assert any("unavailable migrations" in error for error in errors)
