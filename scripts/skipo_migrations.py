@@ -205,12 +205,12 @@ def _migration_plan(current: tuple[int, int, int], target: tuple[int, int, int],
             required.append(migration)
             verification.extend({"migration": migration_id, "requirement": item} for item in migration.get("verification", []))
             if status != "applied":
-            completed = set(state["migrations"][migration_id]["completedOperations"])
-            repairs.extend(
-                {"migration": migration_id, "operation": "retire-path", "path": relative}
-                for relative in migration.get("retirePaths", [])
-                if relative not in completed
-            )
+                completed = set(state["migrations"][migration_id]["completedOperations"])
+                repairs.extend(
+                    {"migration": migration_id, "operation": "retire-path", "path": relative}
+                    for relative in migration.get("retirePaths", [])
+                    if relative not in completed
+                )
     applied = [item["id"] for item in catalogue if state["migrations"][item["id"]]["status"] == "applied"]
     unapplied = [item["id"] for item in required if state["migrations"][item["id"]]["status"] != "applied"]
     return {
