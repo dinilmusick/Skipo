@@ -139,7 +139,8 @@ def build_plan(root: Path, framework_version: str,
     package = state["package"]
     required_manager = canonical.get("environment", {}).get("packageManager")
     if required_manager and package.get("packageManager") != required_manager:
-        errors.append(f"package.json must declare packageManager={required_manager}.")
+        actions.append({"phase": "update", "action": "package-manager",
+                        "from": package.get("packageManager"), "to": required_manager})
     current_dependencies = dict(package.get("dependencies", {}))
     canonical_dependencies = canonical.get("dependencies", {})
     for name, desired in sorted(canonical_dependencies.items()):
@@ -261,6 +262,8 @@ def execute_plan(root: Path, plan: dict[str, Any], framework_version: str,
         elif action["action"] == "framework":
             project.update({"framework": "skipo", "skipo_version": framework_version,
                             "updated_by": "skipo", "migration_policy": "deterministic-idempotent"})
+        elif action["action"] == "package-manager":
+            package["packageManager"] = action["to"]
         elif action["action"] == "retire-safe-duplicate":
             registry = load_registry()["capabilities"]
             spec = registry.get(action["capability"], {})
@@ -286,7 +289,7 @@ def execute_plan(root: Path, plan: dict[str, Any], framework_version: str,
             completed.append(action["id"])
 
     # Commit manifest/state only after the full plan has been validated.
-    if any(action["action"] in {"dependency", "framework", "migration"} for action in actions):
+    if any(action["action"] in {"dependency", "framework", "package-manager", "migration"} for action in actions):
         (root / "package.json").write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
         if project:
             _write_json(root / ".skipo" / "project.json", project)
@@ -337,6 +340,8 @@ def verify(root: Path, framework_version: str) -> dict[str, Any]:
         errors.extend(environment_errors)
         if package.get("packageManager") != canonical.get("environment", {}).get("packageManager"):
             errors.append(f"package.json packageManager must be {canonical.get('environment', {}).get('packageManager')}.")
+        if package.get("packageManager") != canonical.get("environment", {}).get("packageManager"):
+            errors.append(f"package.json packageManager must be {canonical.get('environment', {}).get('packageManager')}.")
         for name, desired in sorted(canonical.get("dependencies", {}).items()):
             if package.get("dependencies", {}).get(name) != desired:
                 errors.append(f"Dependency contract mismatch: {name}")
@@ -356,8 +361,15 @@ def verify(root: Path, framework_version: str) -> dict[str, Any]:
                 errors.append(f"Generated file missing: {rel}")
             elif entry.get("checksum") and sha256_text(path.read_text(encoding="utf-8")) != entry["checksum"]:
                 errors.append(f"Generated file drift: {rel}")
-        if canonical.get("environment", {}).get("lockfile") and not (root / canonical["environment"]["lockfile"]).exists():
-            errors.append(f"Canonical lockfile missing: {canonical['environment']['lockfile']}")
+        expected_lockfile = canonical.get("environment", {}).get("lockfile")
+        if expected_lockfile and not (root / expected_lockfile).exists():
+            errors.append(f"Canonical lockfile missing: {expected_lockfile}")
+        unexpected_lockfiles = sorted(
+            name for name in ("pnpm-lock.yaml", "yarn.lock", "package-lock.json")
+            if name != expected_lockfile and (root / name).exists()
+        )
+        if unexpected_lockfiles:
+            errors.append("Conflicting lockfiles remain: " + ", ".join(unexpected_lockfiles))
         dependency_state = read_json(root / canonical["configuration"]["dependencyState"], {})
         for name, desired in sorted(canonical.get("dependencies", {}).items()):
             if dependency_state.get(name) != desired:
