@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Contract-driven, deterministic dependency migrations for Skipo applications."""
 from __future__ import annotations
-import fnmatch
 import json
 import re
-from collections import defaultdict, deque
+from collections import deque
 from pathlib import Path
 from typing import Any
 
