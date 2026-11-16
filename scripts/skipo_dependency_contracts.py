@@ -92,8 +92,8 @@ def validate_contract(contract: dict[str, Any], package: str, skipo_version: str
             raise ValueError(f"Invalid or duplicate migration in {package}")
         seen.add(item["id"])
         validate_operations(item)
-        if version(item["toVersion"]) == version(item["fromVersion"]):
-            raise ValueError(f"Migration {item['id']} does not change version")
+        if version(item["toVersion"]) <= version(item["fromVersion"]):
+            raise ValueError(f"Migration {item['id']} must advance the dependency version")
         if item.get("requiresSkipo") and not satisfies(skipo_version, item["requiresSkipo"]):
             raise ValueError(f"Migration {item['id']} requires Skipo {item['requiresSkipo']}")
 
