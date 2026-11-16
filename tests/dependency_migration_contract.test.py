@@ -121,12 +121,10 @@ def test_contract_path_traversal_is_rejected(tmp_path):
         raise AssertionError("path traversal must be rejected")
 def test_semantic_versions_normalize_missing_patch_component():
     assert version("1.2") == version("1.2.0")
-
 def test_missing_migration_dependency_is_rejected():
     errors = []
     assert order_migrations([{"id": "a", "dependsOn": ["missing"]}], errors) == [{"id": "a", "dependsOn": ["missing"]}]
     assert any("unavailable migrations" in error for error in errors)
-
 def test_resolved_baseline_takes_precedence_over_declared_range(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
@@ -136,7 +134,6 @@ def test_resolved_baseline_takes_precedence_over_declared_range(tmp_path):
     assert plan["ok"]
     assert plan["paths"][name]["from"] == "1.5.0"
     assert plan["paths"][name]["specifier"] == "^2.0.0"
-
 def test_contract_discovery_is_not_limited_to_ultrst_package_names(tmp_path):
     name = "@vendor/example"
     root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
@@ -145,7 +142,6 @@ def test_contract_discovery_is_not_limited_to_ultrst_package_names(tmp_path):
     plan = plan_dependency_migrations(root)
     assert plan["ok"]
     assert [item["id"] for item in plan["migrations"]] == ["vendor-1-to-2"]
-
 def test_framework_update_executes_dependency_contract_before_advancing_version(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
@@ -157,7 +153,6 @@ def test_framework_update_executes_dependency_contract_before_advancing_version(
     assert result["dependency_migrations"]["applied"]
     assert json.loads((root / ".skipo/project.json").read_text())["skipo_version"] == "1.1.0"
     assert "demo-1-to-2" in json.loads((root / ".skipo/migration-state.json").read_text())["applied"]
-
 def test_framework_update_does_not_advance_when_migration_path_is_missing(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "3.0.0"}, {name: ("3.0.0", contract(name, [
@@ -196,3 +191,11 @@ def test_unresolved_deprecated_patterns_block_dependency_upgrade(tmp_path):
     plan = plan_dependency_migrations(root)
     assert not plan["ok"]
     assert any("without deterministic replacements" in error for error in plan["errors"])
+
+
+def test_contract_rejects_non_forward_migration_edges(tmp_path):
+    name = "@ultrst-armada/demo"
+    root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
+        migration("backwards", "2.0.0", "1.0.0")
+    ]))}, {name: "2.0.0"})
+    assert not plan_dependency_migrations(root)["ok"]
