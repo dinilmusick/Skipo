@@ -21,11 +21,11 @@ installed dependency change -> discover package contract -> validate compatibili
  -> verify canonical state -> persist applied migration IDs and dependency baseline
 ```
 
-Dependency migrations extend the existing `.skipo/migration-state.json` and `.skipo/dependencies.json` state. They are not a second update mechanism. `skipo plan .` exposes the deterministic migration plan; `skipo update .` executes it before advancing the framework manifest; `skipo verify .` rechecks verification operations for applied contracts.
+Dependency migrations extend the existing `.skipo/migration-state.json` and `.skipo/dependencies.json` state. The dependency-state file retains the declared package specifier and records exact installed versions under `_resolved`, so later upgrades start from the actual prior package version rather than a caret/range lower bound. They are not a second update mechanism. `skipo plan .` exposes the deterministic migration plan; `skipo update .` executes it before advancing the framework manifest; `skipo verify .` rechecks verification operations for applied contracts.
 
 ## Package contract discovery
 
-An installed dependency may publish a JSON contract and point to it from its package manifest:
+Any installed dependency may publish a JSON contract and point to it from its package manifest. Discovery is package-agnostic; Skipo does not contain Kloks/Floks version branches:
 
 ```json
 {
