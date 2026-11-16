@@ -57,3 +57,8 @@ def test_malformed_state_is_invalid(tmp_path):
     result=verify_canonical_state(tmp_path,"1.1.0")
     assert result["status"]=="invalid"
     assert "SKIPO_STATE_INVALID" in {d["code"] for d in result["diagnostics"]}
+
+def test_framework_repository_verifies_without_application_adoption_state():
+    result=verify_canonical_state(ROOT)
+    assert result["status"] in {"clean","repaired"}
+    assert result["ok"] is True
