@@ -9,7 +9,6 @@ import {
   type WorkspaceRecord,
   LuthAuthPage,
 } from '../../components/components.js';
-import { ModuleUIHost } from '../../components/module-ui/ModuleUIHost.js';
 
 export function HomePage() {
   const [active, setActive] = useState<WorkspaceRecord | null>(null);
@@ -65,7 +64,6 @@ export function HomePage() {
               <InfiniteCanvas items={[]} transform={transform} onTransformChange={setTransform} />
               <DockBar items={[]} />
             </BaseCard>
-            <ModuleUIHost />
           </FrnlPage>
         );
       }}

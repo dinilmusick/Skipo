@@ -61,8 +61,9 @@ mod_20 = _load_aspect_module("mod_20", "20_skipo_documentation_contract.py")
 mod_21 = _load_aspect_module("mod_21", "lockfile_contract.py")
 mod_22 = _load_aspect_module("mod_22", "22_import_direction_governance.py")
 mod_23 = _load_aspect_module("mod_23", "23_graph_application_contract.py")
-mod_24 = _load_aspect_module("mod_24", "25_skipo_ui_style_pipeline.py")
-mod_25 = _load_aspect_module("mod_25", "26_skipo_runtime_environment_governance.py")
+mod_24 = _load_aspect_module("mod_24", "24_capability_architecture.py")
+mod_25 = _load_aspect_module("mod_25", "25_skipo_ui_style_pipeline.py")
+mod_26 = _load_aspect_module("mod_26", "26_skipo_runtime_environment_governance.py")
 
 ASPECT_RUNNERS = [
     ("aspect_01", "Structure & Governance", mod_01.validate_structure),
@@ -88,8 +89,9 @@ ASPECT_RUNNERS = [
     ("aspect_21", "Package Manager & Lockfile Contract", mod_21.validate_lockfile_contract),
     ("aspect_22", "Skipo Import Direction Governance", mod_22.validate_import_direction),
     ("aspect_23", "Graph Application Contract", mod_23.validate_graph_application_contract),
-    ("aspect_25", "Skipo UI Style Pipeline", mod_24.validate),
-    ("aspect_26", "Skipo Runtime Environment Governance", mod_25.validate)
+    ("aspect_24", "Skipo Capability Composition", mod_24.validate),
+    ("aspect_25", "Skipo UI Style Pipeline", mod_25.validate),
+    ("aspect_26", "Skipo Runtime Environment Governance", mod_26.validate)
 ]
 
 def detect_validation_profile(root_dir: Path, requested: str) -> str:

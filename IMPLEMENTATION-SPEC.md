@@ -1,134 +1,85 @@
 # SKIPO — IMPLEMENTATION SPECIFICATION
 
 STATUS := CANONICAL
-AUTHORITY := SKIPO repository
-ROLE := application construction / composition layer
+ROLE := deterministic application construction and evolution layer
 
 ## 1. CORE MODEL
 
 KRNLTS := backend framework.
-KLOKS := reusable backend service library.
+KLOKS := canonical backend service library.
 REACT := frontend framework.
-FLOKS := reusable React UI library.
-SKIPO := application builder/composition system consuming these layers.
-
-CRUCIBLE := an application built on SKIPO.
-CRUCIBLE is NOT a replacement for SKIPO.
+FLOKS := canonical React UI library.
+SKIPO := application builder, composer, migrator, drift detector and verifier.
 
 ## 2. OWNERSHIP
 
 SKIPO OWNS:
 - application construction
-- application composition
-- application-level backend/frontend wiring
+- capability composition
+- application wiring and generated adapters
 - application contracts
-- generators/scaffolds/mutators/validators used to construct SKIPO applications
-- application graph/composition semantics
-- SKIPO development/build/test governance
+- capability registry and provider resolution
+- versioned migrations and update flow
+- duplicate detection and canonicalization
+- validation and verification
 
 SKIPO DOES NOT OWN:
+- ATAX agent coordination
 - KRNLTS framework internals
 - KLOKS service implementations
-- React internals
 - FLOKS reusable component implementations
-- KRUSBL promotion engine
-- CRUCIBLE ecosystem control-plane behavior
+- Luth authentication authority
 
-## 3. DEPENDENCY DIRECTION
+## 3. CAPABILITY MODEL
 
-KRNLTS → KLOKS
-React → FLOKS
+A capability is the deterministic application composition unit.
 
-KRNLTS + KLOKS + React + FLOKS
-                  ↓
-                SKIPO
-                  ↓
-               CRUCIBLE
+```text
+capability
+  -> canonical providers
+  -> dependencies
+  -> generated wiring
+  -> duplicate patterns
+  -> migration/verification rules
+```
 
-SKIPO MAY consume all four foundational layers.
-Foundational layers MUST NOT depend on SKIPO.
+Skipo does not copy provider implementations into applications.
 
-## 4. APPLICATION MODEL
+## 4. DETERMINISTIC OPERATIONS
 
-APPLICATION :=
-{
-  frontend,
-  backend,
-  contracts,
-  configuration,
-  composition,
-  runtime wiring
-}
+```text
+adopt     register an existing application without replacing code
+add       ensure a capability exists and is canonically wired
+diagnose  detect local/custom duplicate implementations
+plan      show deterministic repair/composition actions without mutation
+repair    diagnose + canonicalize + migrate + verify
+sync      reconcile installed capabilities with the registry
+update    apply framework migration state and version metadata
+remove    remove Skipo-generated capability wiring
+verify    prove capability state and drift status
+test      execute application tests/build plus Skipo verification
+```
 
-BACKEND:
-  KRNLTS + KLOKS
+All mutations are idempotent.
 
-FRONTEND:
-  React + FLOKS
+## 5. NO MODULE ARCHITECTURE
 
-SKIPO connects the two.
+Applications do not contain a Skipo module layer. Reusable infrastructure is provided by canonical ecosystem libraries and composed as capabilities. Application-specific functionality remains application code.
 
-## 5. SERVICE / COMPONENT MODEL
+## 6. PROVIDER BOUNDARY
 
-Backend:
-  service → KLOKS → application
+Skipo → Kloks / Floks
+Kloks / Floks → their own implementations
 
-Frontend:
-  component → FLOKS → application
+Skipo owns only the wiring and contract between them.
 
-Application-specific behavior belongs in SKIPO application code, not KLOKS/FLOKS.
-
-## 6. GOVERNANCE
-
-Existing SKIPO generators, mutators, validators, scripts, scaffolds, and contract-boundary mechanisms remain authoritative for SKIPO implementation.
-
-No new governance subsystem is introduced solely for CRUCIBLE.
-
-## 7. CRUCIBLE BOUNDARY
-
-CRUCIBLE:
-  uses SKIPO
-  uses KRNLTS/KLOKS/FLOKS through SKIPO-compatible application contracts
-  orchestrates ecosystem update/check workflows
-
-SKIPO:
-  provides the application foundation
-  does not become the ecosystem orchestrator
-
-## 8. TEST MODEL
-
-REPO_TEST:
-  build
-  typecheck
-  unit tests
-  generator tests
-  mutator tests
-  validator tests
-  application composition tests
-
-CONTRACT_TEST:
-  KLOKS consumption
-  FLOKS consumption
-  KRNLTS compatibility
-  React compatibility
-  generated application validity
-
-## 9. ACCEPTANCE
+## 7. ACCEPTANCE
 
 PASS ⇔
-  existing validation suite passes
-  ∧ composition tests pass
-  ∧ dependency boundaries hold
-  ∧ generators/mutators remain deterministic
-  ∧ no lower-layer ownership leakage
-  ∧ CRUCIBLE remains an application consumer
-
-## 10. AGENT RULE
-
-AGENT_SKIPO:
-  inspect current generators/mutators/validators first
-  preserve valid existing governance
-  implement missing application-layer requirements
-  update tests
-  do not absorb CRUCIBLE orchestration
-  do not reimplement KRNLTS/KLOKS/FLOKS internals
+- deterministic capability commands work
+- duplicate detection distinguishes keep/adapt/retire
+- repair uses the same composer as add
+- update records and applies migrations
+- generated state is explicit and reproducible
+- no legacy module architecture remains
+- verification fails on unresolved canonical duplicates
