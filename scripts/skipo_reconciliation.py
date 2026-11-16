@@ -12,16 +12,19 @@ def _path(root: Path, relative: str) -> Path:
     candidate = Path(relative)
     if candidate.is_absolute() or ".." in candidate.parts:
         raise ValueError(f"Unsafe repair path: {relative}")
-    current = root
-    for part in candidate.parts:
-        current = current / part
-        if current.is_symlink():
-            raise ValueError(f"Repair path traverses a symlink: {relative}")
     resolved = (root / candidate).resolve(strict=False)
     if resolved != root and root not in resolved.parents:
         raise ValueError(f"Repair path escapes project root: {relative}")
     return root / candidate
 
+
+def _contains_symlink(root: Path, relative: str) -> bool:
+    current = root
+    for part in Path(relative).parts:
+        current = current / part
+        if current.is_symlink():
+            return True
+    return False
 
 def _rule(detection: str, remediation: str, verification: str) -> dict[str, str]:
     return {"detection": detection, "remediation": remediation, "verification": verification}
