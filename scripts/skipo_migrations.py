@@ -140,6 +140,9 @@ def _normalize_state(raw: dict[str, Any], catalogue: list[dict[str, Any]]) -> di
         elif status not in ("pending", "applying", "applied"):
             raise MigrationStateError(f"Unknown status for migration {migration_id}: {status!r}")
         completed = record.get("completedOperations", [])
+        if schema == 1 and migration_id in applied:
+            # Schema v1 only marked a migration applied after all catalogued paths were retired.
+            completed = list(migration.get("retirePaths", []))
         if not isinstance(completed, list) or any(not isinstance(item, str) for item in completed):
             raise MigrationStateError(f"Migration {migration_id} has invalid completedOperations.")
         allowed_operations = set(migration.get("retirePaths", []))
@@ -342,7 +345,7 @@ def verify_migration_state(root: Path) -> dict[str, Any]:
                 errors.append(f"Migration not applied for installed framework version: {migration_id}")
             if status == "applied":
                 for relative in migration.get("retirePaths", []):
-                    if (root / relative).exists():
+                    if (root / relative).exists() or (root / relative).is_symlink():
                         errors.append(f"Migration {migration_id} left retired path in place: {relative}")
         return {
             "ok": not errors,
