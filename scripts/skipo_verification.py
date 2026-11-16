@@ -168,6 +168,19 @@ def verify_canonical_state(root: Path, framework_version: str | None = None):
     for name in forbidden:
         if name in os.environ or name in present:
             ds.append(diag("SKIPO_FORBIDDEN_ENVIRONMENT_VARIABLE","unsafe/ambiguous","Forbidden environment variable is present: "+name,".env* or process environment",remediation="Remove the variable from process and project environment files."))
+    # Reuse the capability drift detector; never apply its proposed actions during verification.
+    try:
+        from skipo_capabilities import diagnose
+        for finding in diagnose(root):
+            classification = finding.get("classification")
+            if finding.get("error"):
+                ds.append(diag("SKIPO_ARCHITECTURE_DIAGNOSIS_INVALID","invalid",str(finding["error"]),finding.get("path")))
+            elif classification == "retire":
+                ds.append(diag("SKIPO_ARCHITECTURAL_DRIFT_RETIRE","repairable","Explicitly retireable canonical duplicate remains: "+str(finding.get("path")),finding.get("path"),remediation="Run explicit skipo repair, then verify."))
+            elif classification == "keep":
+                ds.append(diag("SKIPO_ARCHITECTURE_AMBIGUOUS","unsafe/ambiguous","Potential duplicate implementation requires ownership review: "+str(finding.get("path")),finding.get("path"),remediation="Confirm canonical ownership or retain the implementation with an explicit architecture decision."))
+    except Exception as exc:
+        ds.append(diag("SKIPO_ARCHITECTURE_DIAGNOSIS_FAILED","invalid","Unable to execute Skipo capability drift detection: "+str(exc)))
     # Execute existing Skipo architecture and runtime-environment constraints.
     checklist_dir = SKIPO_ROOT / "checklists"
     if str(checklist_dir) not in sys.path:
@@ -201,6 +214,6 @@ def result(ds, root, installed=None, repaired=False):
     status = max((d["status"] for d in ds),key=lambda x:rank.get(x,0),default="clean")
     if status == "clean" and repaired: status = "repaired"
     ds.sort(key=lambda d:(d["code"],d.get("path",""),d["message"]))
-    return {"ok":status in {"clean","repaired"},"operation":"verify","status":status,"project":str(root),
+    return {"ok":status in {"clean","repaired"},"operation":"verify","status":status,"project":".",
             "capabilities":installed or [],"diagnostic_count":len(ds),"diagnostics":ds,
             "errors":[d["message"] for d in ds]}
