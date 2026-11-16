@@ -10,11 +10,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from skipo_state_registry import load_registry as load_validated_registry
+
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = ROOT / "architecture" / "capabilities" / "registry.json"
 
 def load_registry() -> dict[str, Any]:
-    return json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
+    """Load the shared capability registry only after state-contract validation."""
+    return load_validated_registry(REGISTRY_PATH)
 
 def read_json(path: Path, default: Any) -> Any:
     try:
@@ -180,7 +183,11 @@ def resolve_capabilities(items: list[str]) -> list[tuple[str, dict[str, Any]]]:
                 f"Unknown capability '{item}'. Available: {', '.join(sorted(registry))}; "
                 f"aliases: {', '.join(sorted(aliases))}"
             )
-        resolved.append((canonical, registry[canonical]))
+        spec = registry[canonical]
+        if spec.get("status") == "deprecated":
+            strategy = spec.get("migration", {}).get("strategy", "manual-review")
+            raise ValueError(f"Capability '{canonical}' is deprecated; migration strategy: {strategy}")
+        resolved.append((canonical, spec))
     # Preserve deterministic order while de-duplicating aliases and repeated args.
     unique = {}
     for cap_id, spec in resolved:
@@ -479,6 +486,9 @@ def verify(root: Path) -> dict[str, Any]:
     for cap_id in state.get("installed", {}):
         if cap_id not in registry:
             errors.append(f"Unknown installed capability: {cap_id}")
+        elif registry[cap_id].get("status") == "deprecated":
+            strategy = registry[cap_id].get("migration", {}).get("strategy", "manual-review")
+            errors.append(f"Deprecated installed capability: {cap_id} (migration: {strategy})")
 
     for rel, entry in generated_entries(state).items():
         path = root / rel
