@@ -178,6 +178,7 @@ def apply_operation(root: Path, operation: dict[str, Any], apply: bool) -> dict[
                 if operation["find"] in text or operation["replace"] in text:
                     matches.append((path, text))
         changed = 0
+        replacement_present = any(operation["replace"] in p.read_text(encoding="utf-8") for pattern in operation.get("paths", []) for p in files_for_pattern(root, pattern))
         for path, text in matches:
             count = text.count(operation["find"])
             if not count and operation["replace"] in text:
@@ -187,6 +188,8 @@ def apply_operation(root: Path, operation: dict[str, Any], apply: bool) -> dict[
             changed += count
             if apply:
                 path.write_text(text.replace(operation["find"], operation["replace"]), encoding="utf-8")
+        if changed < operation.get("expectedMatches", 1) and not replacement_present:
+            raise ValueError(f"Expected source pattern not found: {operation['find']}")
         return {"type": kind, "matches": changed, "files": [p.relative_to(root).as_posix() for p, _ in matches]}
     if kind == "set_json":
         path = safe_path(root, operation["path"])
