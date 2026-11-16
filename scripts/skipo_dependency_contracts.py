@@ -6,23 +6,18 @@ import re
 from collections import deque
 from pathlib import Path
 from typing import Any
-
 SCHEMA_VERSION = 1
-
 def version(value: str) -> tuple[int, ...]:
     match = re.search(r"(\d+(?:\.\d+){0,2})", str(value or ""))
     parts = [int(part) for part in match.group(1).split(".")] if match else [0]
     return tuple((parts + [0, 0, 0])[:3])
-
 def safe_path(root: Path, relative: str) -> Path:
     candidate = (root / relative).resolve()
     if candidate != root.resolve() and root.resolve() not in candidate.parents:
         raise ValueError(f"Migration path escapes application root: {relative}")
     return candidate
-
 def package_name_path(name: str) -> str:
     return name.replace("@", "").replace("/", "__")
-
 def discover_contract(root: Path, package: str) -> dict[str, Any] | None:
     pkg_dir = safe_path(root, f"node_modules/{package}")
     manifest_path = pkg_dir / "package.json"
@@ -43,7 +38,6 @@ def discover_contract(root: Path, package: str) -> dict[str, Any] | None:
         if path.is_file():
             return json.loads(path.read_text(encoding="utf-8"))
     return None
-
 def satisfies(actual: str, requirement: str) -> bool:
     actual_v = version(actual)
     for clause in requirement.split(","):
@@ -58,7 +52,6 @@ def satisfies(actual: str, requirement: str) -> bool:
         if operator == "^" and (actual_v < expected or (expected[0] > 0 and actual_v[0] != expected[0]) or (expected[0] == 0 and expected[1] > 0 and actual_v[:2] != expected[:2]) or (expected[:2] == (0, 0) and actual_v[:2] != (0, 0))): return False
         if operator == "~" and (actual_v < expected or actual_v[:2] != expected[:2]): return False
     return True
-
 def validate_operations(migration: dict[str, Any]) -> None:
     handlers = {
         "replace_text": {"find", "replace", "paths"}, "set_json": {"path", "key", "value"},
