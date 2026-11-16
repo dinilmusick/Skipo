@@ -1,26 +1,81 @@
-# Skipo Capability Composition
+# Skipo Capability Composition and Dependency Migrations
 
 Capabilities are the application composition unit. Skipo does not use modules as an application architecture primitive.
 
-## Model
+## Composition model
 
 ```
-Capability Registry
-  -> Resolver
-  -> Composer
-  -> Application
-  -> Verifier
-       ^       |
-       |       v
-   Drift Detector
-       ^
-       |
-    Repair/Migrate
+Capability Registry -> Resolver -> Composer -> Application -> Verifier
+                                      ^                 |
+                                      |                 v
+                              Drift Detector <- Repair/Migrate
 ```
 
-A capability declares the canonical provider packages, public symbols, generated wiring surfaces, duplicate-implementation patterns, and verification requirements.
+A capability declares canonical provider packages, public symbols, generated wiring surfaces, duplicate-implementation patterns, and verification requirements. Skipo installs canonical dependencies and generates only thin application-owned wiring/adapters; it never copies Floks or Kloks implementation code into an application.
 
-Skipo never copies Floks or Kloks implementation code into an application. It installs the canonical dependency and generates only thin application-owned wiring/adapters.
+## Dependency migration lifecycle
+
+```
+installed dependency change -> discover package contract -> validate compatibility
+ -> resolve exact version path -> build ordered dry-run plan -> transform -> repair
+ -> verify canonical state -> persist applied migration IDs and dependency baseline
+```
+
+Dependency migrations extend the existing `.skipo/migration-state.json` and `.skipo/dependencies.json` state. They are not a second update mechanism. `skipo plan .` exposes the deterministic migration plan; `skipo update .` executes it before advancing the framework manifest; `skipo verify .` rechecks verification operations for applied contracts.
+
+## Package contract discovery
+
+An installed dependency may publish a JSON contract and point to it from its package manifest:
+
+```json
+{
+  "name": "@vendor/example",
+  "version": "2.0.0",
+  "skipo": { "migrationContract": "./skipo.migrations.json" }
+}
+```
+
+Skipo also recognizes `skipo.migrations.json` at the package root and an application override at `.skipo/contracts/<normalized-package>.migrations.json`. Package-declared contract paths must remain inside the package directory.
+
+## Contract schema (version 1)
+
+```json
+{
+  "schemaVersion": 1,
+  "package": "@vendor/example",
+  "compatibility": { "skipo": ">=1.1.0" },
+  "migrations": [{
+    "id": "example-1-to-2",
+    "fromVersion": "1.0.0",
+    "toVersion": "2.0.0",
+    "requiresSkipo": ">=1.1.0",
+    "oldState": {},
+    "newState": {},
+    "apiChanges": [],
+    "configurationChanges": [],
+    "deprecatedPatterns": [],
+    "canonicalReplacements": [],
+    "transformations": [],
+    "repair": [],
+    "verification": [],
+    "dependsOn": []
+  }]
+}
+```
+
+Migration edges must form a complete path from the recorded installed version to the package's installed version. Skipo rejects missing paths, invalid contract identities, unsupported schemas, incompatible Skipo requirements, unresolved dependencies, and ordering cycles. Version paths are selected deterministically; migrations within one package retain their version-chain order, and `dependsOn` orders migrations across packages.
+
+## Deterministic operation handlers
+
+Transformation and repair handlers are declarative; contracts cannot execute shell commands or arbitrary code.
+
+- `replace_text`: `paths`, `find`, `replace`, optional `expectedMatches`.
+- `set_json`: `path`, dotted `key`, `value`, optional `expectedOld`.
+- `text_absent`: verify deprecated text is absent from `paths`.
+- `text_present`: verify canonical text exists in `paths`.
+- `json_equals`: verify a JSON `path` and dotted `key` equal `value`.
+
+Paths are constrained to the application root, symlink files are not transformed, and unsupported operation types fail closed. Repeated application is idempotent: an already-applied migration ID is skipped, and replacement operations recognize their canonical replacement.
 
 ## Commands
 
@@ -42,31 +97,14 @@ skipo verify .
 skipo test .
 ```
 
-All composition operations are idempotent. `plan` is read-only. `diagnose` classifies findings as keep, adapt or retire. `repair` applies the same composition engine used by `add`.
-
 ## Canonical ownership
 
 - Floks owns reusable UI implementations.
 - Kloks owns reusable backend services.
 - Luth remains the authentication authority.
-- Skipo owns application composition, contracts, generated wiring, migration state and verification.
+- Skipo owns application composition, migration state, generated wiring and verification.
 - ATAX owns agent coordination and persistent work state; Skipo does not manage agents.
 
-## Application state
+## Safety and compatibility
 
-Every adopted application gets:
-
-```text
-.skipo/
-  project.json
-  dependencies.json
-  capabilities.json
-  overrides.json
-  migration-state.json
-```
-
-Generated files are recorded with their owner and capability. Local implementations of canonical capabilities are drift, not a second source of truth.
-
-## Safety
-
-Repair never deletes arbitrary application code. A duplicate is retired only when a capability registry entry explicitly identifies the file/pattern as safe to replace. Unknown or app-specific code is classified as `keep` or `adapt`.
+Repair never deletes arbitrary application code. A duplicate is retired only when a capability registry entry explicitly identifies the file/pattern as safe to replace. Unknown or app-specific code remains protected. Migration contracts describe old/new dependency state, API/configuration changes, deprecated patterns and canonical replacements; deterministic handlers perform the declared transformations, repairs and verification.
