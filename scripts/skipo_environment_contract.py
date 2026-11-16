@@ -23,7 +23,7 @@ REF_PATTERNS = (
 )
 ENV_FILE = re.compile(r"(^|/)\.env(?:[.-].*)?$", re.I)
 IGNORE_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", "dist", "build",
-               ".next", ".turbo", "coverage", ".cache", ".pytest_cache", ".system_generated"}
+               ".next", ".turbo", "coverage", ".cache", ".pytest_cache"}
 TEXT_DOCS = {".md", ".mdx", ".txt"}
 DECLARATION_SUFFIXES = {".toml", ".json", ".jsonc", ".yaml", ".yml", ".ini", ".cfg", ".properties"}
 
@@ -74,7 +74,7 @@ def _is_env_file(path: Path) -> bool:
 
 def _is_relevant(path: Path, root: Path, extensions: set[str]) -> bool:
     rel = path.relative_to(root)
-    if any(part in IGNORE_DIRS or (part.startswith(".") and part != ".github") for part in rel.parts[:-1]):
+    if any(part in IGNORE_DIRS for part in rel.parts[:-1]):
         return False
     if path.is_symlink() or not path.is_file():
         return False
