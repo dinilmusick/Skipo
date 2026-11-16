@@ -114,9 +114,14 @@ def _candidate_names(path: Path, source: str):
             match = KEY_ASSIGN.match(line)
             if match:
                 yield match.group(1), line_no, "declaration", match.group(2).strip()
-        for pattern in REF_PATTERNS:
-            for found in pattern.finditer(line):
-                yield found.group(1), line_no, "reference", None
+        # Test source frequently mentions forbidden names inside assertions and
+        # fixture builders. Scan concrete fixture/config files under tests, but
+        # do not treat test implementation strings as live runtime references.
+        scan_source_references = "tests" not in path.parts or "fixtures" in path.parts
+        if scan_source_references:
+            for pattern in REF_PATTERNS:
+                for found in pattern.finditer(line):
+                    yield found.group(1), line_no, "reference", None
 
 
 def diagnose(root: Path) -> dict[str, Any]:
