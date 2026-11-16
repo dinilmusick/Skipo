@@ -95,10 +95,18 @@ def apply_operation(root: Path, operation: dict[str, Any], apply: bool) -> dict[
     if kind == "set_json":
         path = safe_path(root, operation["path"])
         data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        if not isinstance(data, dict):
+            raise ValueError(f"Expected a JSON object at {operation['path']}")
         cursor = data
         parts = operation["key"].split(".")
         for part in parts[:-1]:
-            cursor = cursor.setdefault(part, {})
+            child = cursor.get(part)
+            if child is None:
+                child = {}
+                cursor[part] = child
+            if not isinstance(child, dict):
+                raise ValueError(f"Expected a JSON object at {operation['path']}:{part}")
+            cursor = child
         old, desired = cursor.get(parts[-1]), operation["value"]
         if old not in (operation.get("expectedOld", old), desired):
             raise ValueError(f"Unexpected JSON value at {operation['path']}:{operation['key']}")
