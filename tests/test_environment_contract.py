@@ -70,10 +70,10 @@ class EnvironmentContractTests(unittest.TestCase):
     def test_yaml_environment_alias_and_canonical_conflict_blocks_repair(self):
         path = self.write(
             ".github/workflows/deploy.yml",
-            "env:\\n"
-            "  SYSTEM_DATABASE_URL: postgres://db\\n"
-            "  DEPM_GATEWAY_DOMAIN: https://old.example\\n"
-            "  APP_URL: https://new.example\\n",
+            "env:\n"
+            "  SYSTEM_DATABASE_URL: postgres://db\n"
+            "  DEPM_GATEWAY_DOMAIN: https://old.example\n"
+            "  APP_URL: https://new.example\n",
         )
         before = path.read_text(encoding="utf-8")
         planned = env.plan(self.root)
