@@ -143,3 +143,42 @@ def files_for_pattern(root: Path, pattern: str) -> list[Path]:
     safe_path(root, pattern)
     return [p for p in sorted(root.glob(pattern)) if p.is_file() and not p.is_symlink()]
 
+
+DEFAULT_SOURCE_PATHS = ["src/**/*", "app/**/*", "components/**/*", "server/**/*", "lib/**/*"]
+
+def deprecated_specs(migration: dict[str, Any]) -> list[dict[str, Any]]:
+    specs = []
+    for item in migration.get("deprecatedPatterns", []):
+        spec = {"text": item, "paths": DEFAULT_SOURCE_PATHS} if isinstance(item, str) else item
+        if not isinstance(spec, dict) or not isinstance(spec.get("text"), str) or not spec.get("text"):
+            raise ValueError(f"Invalid deprecated pattern in {migration['id']}")
+        paths = spec.get("paths", DEFAULT_SOURCE_PATHS)
+        for path in paths:
+            if Path(path).is_absolute() or ".." in Path(path).parts:
+                raise ValueError(f"Unsafe deprecated pattern path: {path}")
+        specs.append({"text": spec["text"], "paths": paths})
+    return specs
+
+def canonical_replacement_operations(migration: dict[str, Any]) -> list[dict[str, Any]]:
+    operations = []
+    for item in migration.get("canonicalReplacements", []):
+        if isinstance(item, str):
+            continue
+        if not isinstance(item, dict):
+            raise ValueError(f"Invalid canonical replacement in {migration['id']}")
+        find, replace = item.get("find"), item.get("replace")
+        if not isinstance(find, str) or not find or not isinstance(replace, str) or not replace or find == replace:
+            raise ValueError(f"Invalid canonical replacement in {migration['id']}")
+        operations.append({"type": "replace_text", "paths": item.get("paths", DEFAULT_SOURCE_PATHS),
+                           "find": find, "replace": replace, "expectedMatches": 0})
+    return operations
+
+def detect_affected_state(root: Path, migration: dict[str, Any]) -> list[dict[str, Any]]:
+    findings = []
+    for spec in deprecated_specs(migration):
+        for pattern in spec["paths"]:
+            for path in files_for_pattern(root, pattern):
+                count = path.read_text(encoding="utf-8").count(spec["text"])
+                if count:
+                    findings.append({"path": path.relative_to(root).as_posix(), "pattern": spec["text"], "matches": count})
+    return sorted(findings, key=lambda item: (item["path"], item["pattern"]))
