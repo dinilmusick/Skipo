@@ -35,6 +35,9 @@ def discover_contract(root: Path, package: str) -> dict[str, Any] | None:
     candidates.extend([pkg_dir / "skipo.migrations.json",
         safe_path(root, f".skipo/contracts/{package_name_path(package)}.migrations.json")])
     for path in candidates:
+        resolved = path.resolve()
+        if isinstance(relative, str) and path == candidates[0] and resolved != pkg_dir.resolve() and pkg_dir.resolve() not in resolved.parents:
+            raise ValueError(f"Migration contract path escapes package: {relative}")
         if path.is_file():
             return json.loads(path.read_text(encoding="utf-8"))
     return None
