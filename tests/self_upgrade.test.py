@@ -30,6 +30,9 @@ def test_fresh_upgrade_applies_all_required_catalogue_migrations(tmp_path):
     assert result["ok"] is True
     assert result["from_version"] == "1.0.0"
     assert result["to_version"] == "1.2.0"
+    assert result["current_state"]["framework_version"] == "1.0.0"
+    assert result["target_state"]["framework_version"] == "1.2.0"
+    assert result["target_state"]["pending_migrations"] == []
     assert result["unapplied_migrations"] == [
         "1.1.0-capability-composition",
         "1.2.0-resumable-framework-upgrade",
