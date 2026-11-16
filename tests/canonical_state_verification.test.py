@@ -62,3 +62,23 @@ def test_framework_repository_verifies_without_application_adoption_state():
     result=verify_canonical_state(ROOT)
     assert result["status"] in {"clean","repaired"}
     assert result["ok"] is True
+
+def test_canonical_dependency_mismatch_is_repairable(tmp_path):
+    project(tmp_path)
+    from skipo_state_registry import load_registry
+    auth=load_registry()["capabilities"]["auth"]
+    (tmp_path/"package.json").write_text(json.dumps({"name":"demo","dependencies":{}}))
+    (tmp_path/".skipo/capabilities.json").write_text(json.dumps({
+        "installed":{"auth":{"providers":auth["providers"]}},
+        "generated":[],
+    }))
+    result=verify_canonical_state(tmp_path,"1.1.0")
+    assert result["status"]=="repairable"
+    assert "SKIPO_CANONICAL_DEPENDENCY_MISMATCH" in {d["code"] for d in result["diagnostics"]}
+
+def test_successful_repair_receipt_is_reported_as_repaired(tmp_path):
+    project(tmp_path)
+    (tmp_path/".skipo/verification-state.json").write_text(json.dumps({"lastRepair":"verified"}))
+    result=verify_canonical_state(tmp_path,"1.1.0")
+    assert result["status"]=="repaired"
+    assert result["ok"] is True
