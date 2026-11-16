@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from skipo_state_registry import load_registry as load_validated_registry
+from skipo_migrations import update_project as run_framework_update, verify_migration_state
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = ROOT / "architecture" / "capabilities" / "registry.json"
@@ -422,39 +423,9 @@ def remove_legacy_paths(root: Path, apply: bool) -> list[dict[str, Any]]:
                 path.unlink()
     return actions
 
-def update(root: Path, framework_version: str) -> dict[str, Any]:
-    ensure_project(root)
-    manifest_path = root / ".skipo" / "project.json"
-    manifest = project_manifest(root)
-    previous = manifest.get("skipo_version", "unknown")
-    migration_state = read_json(
-        root / ".skipo" / "migration-state.json",
-        {"schemaVersion": 1, "applied": [], "pending": []},
-    )
-    migration_id = "1.1.0-capability-composition"
-    actions = []
-    if canonical_version(previous) < canonical_version("1.1.0"):
-        legacy_actions = remove_legacy_paths(root, apply=True)
-        actions.extend(legacy_actions)
-        if migration_id not in migration_state.get("applied", []):
-            migration_state.setdefault("applied", []).append(migration_id)
-    manifest.update({
-        "framework": "skipo",
-        "skipo_version": framework_version,
-        "updated_by": "skipo",
-        "migration_policy": "deterministic",
-    })
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    migration_state["pending"] = []
-    write_json(root / ".skipo" / "migration-state.json", migration_state)
-    return {
-        "ok": True,
-        "operation": "update",
-        "from_version": previous,
-        "to_version": framework_version,
-        "actions": actions,
-        "migration_state": migration_state,
-    }
+def update(root: Path, framework_version: str, apply: bool = True) -> dict[str, Any]:
+    """Upgrade the installed framework through the canonical migration catalogue."""
+    return run_framework_update(root, framework_version, apply=apply)
 
 def repair(root: Path, apply: bool, framework_version: str) -> dict[str, Any]:
     updated = update(root, framework_version) if apply else {
@@ -505,6 +476,12 @@ def verify(root: Path) -> dict[str, Any]:
             if finding["path"] not in registry[cap_id].get("safeRetire", []):
                 errors.append(f"Unresolved duplicate for {cap_id}: {finding['path']}")
 
+    migration_verification = None
+    manifest = project_manifest(root)
+    if manifest.get("skipo_version") not in (None, "", "unknown"):
+        migration_verification = verify_migration_state(root)
+        errors.extend(migration_verification.get("errors", []))
+
     for rel in legacy_migration_paths():
         if (root / rel).exists():
             errors.append(f"Legacy Skipo module path remains: {rel}")
@@ -515,4 +492,5 @@ def verify(root: Path) -> dict[str, Any]:
         "errors": errors,
         "findings": findings,
         "capabilities": sorted(state.get("installed", {}).keys()),
+        "migration_verification": migration_verification,
     }
