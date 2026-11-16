@@ -24,16 +24,19 @@ def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict
         dependencies.update(pkg.get(section, {}))
     previous = json.loads((root / ".skipo/dependencies.json").read_text(encoding="utf-8")) if (root / ".skipo/dependencies.json").is_file() else {}
     selected, errors, paths = [], [], {}
+    resolved_previous = previous.get("_resolved", {})
     for package in sorted(dependencies):
         if not package.startswith("@ultrst-armada/") and package != "@dinilmusick/gutts":
             continue
         current = _package_version(root, package, dependencies[package])
-        old = previous.get(package)
+        old = resolved_previous.get(package) or previous.get(package)
+        if isinstance(old, dict):
+            old = old.get("version") or old.get("specifier")
         if not old:
-            paths[package] = {"from": None, "to": current, "migrations": [], "baseline": True}
+            paths[package] = {"from": None, "to": current, "specifier": dependencies[package], "migrations": [], "baseline": True}
             continue
         if version(old) == version(current):
-            paths[package] = {"from": old, "to": current, "migrations": []}
+            paths[package] = {"from": old, "to": current, "specifier": dependencies[package], "migrations": []}
             continue
         try:
             contract = discover_contract(root, package)
@@ -41,7 +44,7 @@ def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict
                 raise ValueError(f"No migration contract shipped by {package}")
             validate_contract(contract, package, skipo_version)
             chosen = resolve_path(contract, str(old), current)
-            paths[package] = {"from": old, "to": current, "migrations": [m["id"] for m in chosen]}
+            paths[package] = {"from": old, "to": current, "specifier": dependencies[package], "migrations": [m["id"] for m in chosen]}
             for item in chosen:
                 selected.append({"package": package, **item})
         except (ValueError, OSError, json.JSONDecodeError) as exc:
@@ -164,7 +167,10 @@ def execute_dependency_migrations(root: Path, plan: dict[str, Any]) -> dict[str,
         state_path.parent.mkdir(parents=True, exist_ok=True)
         state_path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         dependencies = json.loads((root / ".skipo/dependencies.json").read_text(encoding="utf-8")) if (root / ".skipo/dependencies.json").is_file() else {}
-        dependencies.update({name: item["to"] for name, item in plan["paths"].items()})
+        resolved = dependencies.setdefault("_resolved", {})
+        for name, item in plan["paths"].items():
+            dependencies[name] = item.get("specifier") or dependencies.get(name) or item["to"]
+            resolved[name] = item["to"]
         (root / ".skipo/dependencies.json").write_text(json.dumps(dependencies, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return {**plan, "ok": not errors, "errors": errors, "actions": actions, "applied": not errors}
 
