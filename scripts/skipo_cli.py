@@ -117,7 +117,7 @@ def compose_project(items: list[str], target: Path, apply: bool) -> int:
     print(json.dumps(payload, indent=2))
     return 0 if payload.get("ok", False) else 1
 
-def remove_project(items: list[str], target: Path, apply: bool)
+def remove_project(items: list[str], target: Path, apply: bool) -> int:
     try:
         payload = capability_remove(target, items, apply=apply)
     except (ValueError, OSError) as exc:
