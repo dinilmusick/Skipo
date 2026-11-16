@@ -27,7 +27,7 @@ def make_app(tmp_path, version="1.1.0", dependencies=None, migration_applied=Tru
     (state / "capabilities.json").write_text(json.dumps({
         "schemaVersion": 1, "installed": {}, "generated": [],
     }), encoding="utf-8")
-    (state / "dependencies.json").write_text("{}", encoding="utf-8")
+    (state / "dependencies.json").write_text(json.dumps(CANONICAL["dependencies"]), encoding="utf-8")
     (state / "migration-state.json").write_text(json.dumps({
         "schemaVersion": 1,
         "applied": MIGRATION_IDS if migration_applied else [],
