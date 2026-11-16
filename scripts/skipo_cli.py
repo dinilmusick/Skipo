@@ -76,10 +76,11 @@ def test_project(root: Path) -> int:
     pkg=root/"package.json"
     if not pkg.exists(): return 2
     scripts=json.loads(pkg.read_text(encoding="utf-8")).get("scripts",{})
+    runner = "pnpm" if (root / "pnpm-lock.yaml").exists() or "pnpm@" in pkg.read_text(encoding="utf-8") else ("yarn" if (root / "yarn.lock").exists() else "npm")
     commands=[]
-    if "typecheck" in scripts: commands.append(["npm","run","typecheck"])
-    elif "lint" in scripts: commands.append(["npm","run","lint"])
-    if "build" in scripts: commands.append(["npm","run","build"])
+    if "typecheck" in scripts: commands.append([runner,"run","typecheck"])
+    elif "lint" in scripts: commands.append([runner,"run","lint"])
+    if "build" in scripts: commands.append([runner,"run","build"])
     for cmd in commands:
         if run(cmd,root): return 1
     return check_project(root)
