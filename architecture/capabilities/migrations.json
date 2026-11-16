@@ -22,7 +22,13 @@
         "no legacy module runtime paths",
         "capability state exists",
         "capability verifier passes"
-      ]
+      ],
+      "kind": "framework"
     }
+  ],
+  "contractSchemaVersion": 1,
+  "supportedMigrationKinds": [
+    "framework",
+    "dependency"
   ]
 }

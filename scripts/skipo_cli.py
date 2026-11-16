@@ -101,8 +101,9 @@ def diagnose_project(root: Path) -> int:
     return 0
 
 def plan_project(root: Path) -> int:
-    print(json.dumps(capability_plan(root), indent=2))
-    return 0
+    payload = capability_plan(root)
+    print(json.dumps(payload, indent=2))
+    return 0 if payload.get("ok", False) else 1
 
 def parse_items(items: list[str]) -> tuple[list[str], Path]:
     if items and Path(items[-1]).exists() and len(items) > 1:

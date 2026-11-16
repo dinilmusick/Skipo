@@ -10,14 +10,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from skipo_state_registry import load_registry as load_validated_registry
-
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+from skipo_dependency_migrations import plan_dependency_migrations, execute_dependency_migrations, verify_dependency_migrations
 REGISTRY_PATH = ROOT / "architecture" / "capabilities" / "registry.json"
 
 def load_registry() -> dict[str, Any]:
-    """Load the shared capability registry only after state-contract validation."""
-    return load_validated_registry(REGISTRY_PATH)
+    return json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
 
 def read_json(path: Path, default: Any) -> Any:
     try:
@@ -183,11 +182,7 @@ def resolve_capabilities(items: list[str]) -> list[tuple[str, dict[str, Any]]]:
                 f"Unknown capability '{item}'. Available: {', '.join(sorted(registry))}; "
                 f"aliases: {', '.join(sorted(aliases))}"
             )
-        spec = registry[canonical]
-        if spec.get("status") == "deprecated":
-            strategy = spec.get("migration", {}).get("strategy", "manual-review")
-            raise ValueError(f"Capability '{canonical}' is deprecated; migration strategy: {strategy}")
-        resolved.append((canonical, spec))
+        resolved.append((canonical, registry[canonical]))
     # Preserve deterministic order while de-duplicating aliases and repeated args.
     unique = {}
     for cap_id, spec in resolved:
@@ -356,12 +351,14 @@ def retire_known_duplicates(root: Path, findings: list[dict[str, Any]], apply: b
 
 def plan(root: Path) -> dict[str, Any]:
     findings = diagnose(root)
+    dependency_plan = plan_dependency_migrations(root)
     return {
-        "ok": True,
+        "ok": dependency_plan["ok"],
         "operation": "plan",
         "findings": findings,
         "retirement_actions": retire_known_duplicates(root, findings, False),
         "canonical_capabilities": sorted(capability_state(root).get("installed", {}).keys()),
+        "dependency_migrations": dependency_plan,
     }
 
 def adopt(root: Path) -> dict[str, Any]:
@@ -424,6 +421,14 @@ def remove_legacy_paths(root: Path, apply: bool) -> list[dict[str, Any]]:
 
 def update(root: Path, framework_version: str) -> dict[str, Any]:
     ensure_project(root)
+    dependency_plan = plan_dependency_migrations(root, framework_version)
+    if not dependency_plan.get("ok"):
+        return {"ok": False, "operation": "update", "dependency_migrations": dependency_plan,
+                "error": "Dependency migration plan is incomplete or incompatible; no dependency migration was applied."}
+    dependency_result = execute_dependency_migrations(root, dependency_plan)
+    if not dependency_result.get("ok"):
+        return {"ok": False, "operation": "update", "dependency_migrations": dependency_result,
+                "error": "Dependency migration execution failed; framework version was not advanced."}
     manifest_path = root / ".skipo" / "project.json"
     manifest = project_manifest(root)
     previous = manifest.get("skipo_version", "unknown")
@@ -454,21 +459,24 @@ def update(root: Path, framework_version: str) -> dict[str, Any]:
         "to_version": framework_version,
         "actions": actions,
         "migration_state": migration_state,
+        "dependency_migrations": dependency_result,
     }
 
 def repair(root: Path, apply: bool, framework_version: str) -> dict[str, Any]:
+    dependency_plan = plan_dependency_migrations(root, framework_version)
     updated = update(root, framework_version) if apply else {
-        "ok": True,
+        "ok": dependency_plan["ok"],
         "operation": "update",
         "planned": True,
         "legacy_paths": legacy_migration_paths(),
+        "dependency_migrations": dependency_plan,
     }
     findings = diagnose(root)
     retired = retire_known_duplicates(root, findings, apply)
     caps = sorted({f["capability"] for f in findings if f["classification"] in {"adapt", "retire"}})
     composed = compose(root, caps, apply=apply) if caps else {"ok": True, "actions": [], "applied": apply}
     return {
-        "ok": True,
+        "ok": updated.get("ok", False) and composed.get("ok", False),
         "operation": "repair",
         "findings": findings,
         "retired": retired,
@@ -481,14 +489,13 @@ def verify(root: Path) -> dict[str, Any]:
     findings = diagnose(root)
     state = capability_state(root)
     errors = []
+    dependency_verification = verify_dependency_migrations(root)
+    errors.extend(dependency_verification.get("errors", []))
     registry = load_registry()["capabilities"]
 
     for cap_id in state.get("installed", {}):
         if cap_id not in registry:
             errors.append(f"Unknown installed capability: {cap_id}")
-        elif registry[cap_id].get("status") == "deprecated":
-            strategy = registry[cap_id].get("migration", {}).get("strategy", "manual-review")
-            errors.append(f"Deprecated installed capability: {cap_id} (migration: {strategy})")
 
     for rel, entry in generated_entries(state).items():
         path = root / rel
@@ -515,4 +522,5 @@ def verify(root: Path) -> dict[str, Any]:
         "errors": errors,
         "findings": findings,
         "capabilities": sorted(state.get("installed", {}).keys()),
+        "dependency_migrations": dependency_verification,
     }
