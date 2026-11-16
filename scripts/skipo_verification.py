@@ -121,7 +121,7 @@ def verify_canonical_state(root: Path, framework_version: str | None = None):
         if not isinstance(expected,str) or not re.fullmatch(r"[0-9a-f]{64}",expected):
             ds.append(diag("SKIPO_CHECKSUM_INVALID","invalid","Generated checksum is missing or malformed: "+rel,rel))
         elif checksum != expected:
-            ds.append(diag("SKIPO_CHECKSUM_MISMATCH","repairable","Skipo-owned generated file has drifted: "+rel,rel,expected,checksum,"Review diff, run explicit skipo repair, then verify."))
+            ds.append(diag("SKIPO_CHECKSUM_MISMATCH","repairable","Generated capability file has drifted: "+rel,rel,expected,checksum,"Review diff, run explicit skipo repair, then verify."))
     migrations, err = read(MIGRATIONS)
     if err or not isinstance(migrations,dict):
         ds.append(diag("SKIPO_MIGRATION_REGISTRY_INVALID","invalid","Migration registry is unreadable.","architecture/capabilities/migrations.json"))
@@ -141,8 +141,8 @@ def verify_canonical_state(root: Path, framework_version: str | None = None):
     for name in forbidden:
         if name in os.environ or name in present:
             ds.append(diag("SKIPO_FORBIDDEN_ENVIRONMENT_VARIABLE","unsafe/ambiguous","Forbidden environment variable is present: "+name,".env* or process environment",remediation="Remove the variable from process and project environment files."))
-    receipt, re = read(root / ".skipo/verification-state.json")
-    repaired = not ds and re is None and isinstance(receipt,dict) and receipt.get("lastRepair") == "verified"
+    receipt, receipt_error = read(root / ".skipo/verification-state.json")
+    repaired = not ds and receipt_error is None and isinstance(receipt,dict) and receipt.get("lastRepair") == "verified"
     return result(ds, root, sorted(installed), repaired)
 
 def result(ds, root, installed=None, repaired=False):
