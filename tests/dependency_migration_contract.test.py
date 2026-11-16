@@ -38,12 +38,13 @@ def test_plan_is_read_only_and_contains_full_ordered_path(tmp_path):
 def test_multiple_dependency_migrations_are_merged_and_ordered(tmp_path):
     a, b = "@ultrst-armada/a", "@ultrst-armada/b"
     root = project(tmp_path, {a: "2.0.0", b: "3.0.0"}, {
-        a: ("2.0.0", contract(a, [migration("a-2", "1.0.0", "2.0.0", dependsOn=["@ultrst-armada/b::b-3"])])),
-        b: ("3.0.0", contract(b, [migration("b-3", "2.0.0", "3.0.0")])),
+        a: ("2.0.0", contract(a, [migration("upgrade", "1.0.0", "2.0.0", dependsOn=["@ultrst-armada/b::upgrade"])])),
+        b: ("3.0.0", contract(b, [migration("upgrade", "2.0.0", "3.0.0")])),
     }, {a: "1.0.0", b: "2.0.0"})
     plan = plan_dependency_migrations(root)
     assert plan["ok"]
-    assert [m["contractId"] for m in plan["migrations"]] == ["b-3", "a-2"]
+    assert [m["contractId"] for m in plan["migrations"]] == ["upgrade", "upgrade"]
+    assert [m["id"] for m in plan["migrations"]] == ["@ultrst-armada/b::upgrade", "@ultrst-armada/a::upgrade"]
 def test_missing_migration_path_blocks_upgrade(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "3.0.0"}, {name: ("3.0.0", contract(name, [
