@@ -128,7 +128,6 @@ def verify_operation(root: Path, operation: dict[str, Any]) -> None:
             raise ValueError(f"Verification failed at {operation['path']}:{operation['key']}")
     else:
         raise ValueError(f"Unsupported migration verification operation: {kind}")
-
 def execute_dependency_migrations(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
     if not plan.get("ok"):
         return {**plan, "applied": False}
@@ -180,7 +179,6 @@ def execute_dependency_migrations(root: Path, plan: dict[str, Any]) -> dict[str,
             resolved[name] = item["to"]
         (root / ".skipo/dependencies.json").write_text(json.dumps(dependencies, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return {**plan, "ok": not errors, "errors": errors, "actions": actions, "applied": not errors}
-
 def verify_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict[str, Any]:
     plan = plan_dependency_migrations(root, skipo_version)
     errors = list(plan["errors"])
