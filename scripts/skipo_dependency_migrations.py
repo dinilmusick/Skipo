@@ -9,15 +9,12 @@ from skipo_dependency_contracts import (
     resolve_path, order_migrations, files_for_pattern,
     detect_affected_state, canonical_replacement_operations,
 )
-
 STATE_DEFAULT = {"schemaVersion": 1, "applied": [], "pending": []}
-
 def _package_version(root: Path, name: str, declared: str) -> str:
     manifest = safe_path(root, f"node_modules/{name}/package.json")
     if manifest.is_file():
         return str(json.loads(manifest.read_text(encoding="utf-8")).get("version") or declared)
     return str(declared).lstrip("^~")
-
 def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict[str, Any]:
     dependencies = {}
     pkg = json.loads((root / "package.json").read_text(encoding="utf-8"))
@@ -69,7 +66,6 @@ def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict
     ordered = order_migrations(selected, errors, applied_ids)
     return {"ok": not errors, "operation": "dependency-migration-plan", "paths": paths,
             "migrations": ordered, "errors": sorted(set(errors)), "applied": False}
-
 def apply_operation(root: Path, operation: dict[str, Any], apply: bool) -> dict[str, Any]:
     kind = operation.get("type")
     if kind == "replace_text":
@@ -109,7 +105,6 @@ def apply_operation(root: Path, operation: dict[str, Any], apply: bool) -> dict[
             path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
         return {"type": kind, "path": operation["path"], "key": operation["key"], "changed": old != desired}
     raise ValueError(f"Unsupported deterministic migration operation: {kind}")
-
 def verify_operation(root: Path, operation: dict[str, Any]) -> None:
     kind = operation.get("type")
     if kind == "text_absent":
