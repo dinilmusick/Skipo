@@ -2,7 +2,7 @@ name: Skipo CI
 
 on:
   push:
-    branches: [main, feat/canonical-luth-auth-consolidation]
+    branches: [main, feat/canonical-luth-auth-consolidation, feat/canonical-environment-constraint]
   pull_request:
   workflow_dispatch:
 
