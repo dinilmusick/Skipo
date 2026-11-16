@@ -77,6 +77,8 @@ def _is_relevant(path: Path, root: Path, extensions: set[str]) -> bool:
         return False
     if path.is_symlink() or not path.is_file():
         return False
+    if rel.as_posix() == "architecture/environment/contract.json":
+        return False
     if _is_env_file(path) or path.suffix.lower() in ALLOWED_SURFACE_SUFFIXES:
         return True
     if path.suffix.lower() not in extensions:
