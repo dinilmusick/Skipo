@@ -467,18 +467,30 @@ def repair(root: Path, apply: bool, framework_version: str) -> dict[str, Any]:
     retired = retire_known_duplicates(root, findings, apply)
     caps = sorted({f["capability"] for f in findings if f["classification"] in {"adapt", "retire"}})
     composed = compose(root, caps, apply=apply) if caps else {"ok": True, "actions": [], "applied": apply}
-    if apply and composed.get("ok", False):
-        from skipo_verification import verify_canonical_state
-        post_repair = verify_canonical_state(root, framework_version)
-        if post_repair.get("ok", False):
-            write_json(root / ".skipo" / "verification-state.json", {"lastRepair": "verified"})
+    post_repair = None
+    if apply:
+        receipt_path = root / ".skipo" / "verification-state.json"
+        if receipt_path.exists():
+            receipt_path.unlink()
+        if composed.get("ok", False):
+            from skipo_verification import verify_canonical_state, verification_fingerprint
+            post_repair = verify_canonical_state(root, framework_version)
+            if post_repair.get("ok", False):
+                write_json(receipt_path, {
+                    "lastRepair": "verified",
+                    "fingerprint": verification_fingerprint(root),
+                })
+    repair_ok = bool(updated.get("ok", True)) and bool(composed.get("ok", False))
+    if apply:
+        repair_ok = repair_ok and post_repair is not None and bool(post_repair.get("ok", False))
     return {
-        "ok": True,
+        "ok": repair_ok,
         "operation": "repair",
         "findings": findings,
         "retired": retired,
         "composition": composed,
         "update": updated,
+        "verification": post_repair,
         "applied": apply,
     }
 
