@@ -14,7 +14,8 @@ SCAFFOLDS = ROOT / "scaffolds"
 VERSION = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
 
 sys.path.insert(0, str(ROOT / "scripts"))
-from skipo_maintenance import build_plan as maintenance_plan, execute_plan as execute_maintenance_plan, inspect as maintenance_inspect
+from skipo_maintenance import (build_plan as maintenance_plan, execute_plan as execute_maintenance_plan,
+                              inspect as maintenance_inspect, verify as maintenance_verify)
 from skipo_capabilities import (
     adopt as capability_adopt,
     diagnose as capability_diagnose,
@@ -100,8 +101,15 @@ def check_project(root: Path) -> int:
     return result.returncode
 
 def diagnose_project(root: Path) -> int:
-    print(json.dumps({"ok":True,"operation":"diagnose","findings":capability_diagnose(root)}, indent=2))
-    return 0
+    try:
+        plan = maintenance_plan(root, VERSION)
+    except (ValueError, OSError) as exc:
+        print(json.dumps({"ok": False, "operation": "diagnose", "errors": [str(exc)]}, indent=2)); return 2
+    payload = {"ok": plan.get("ok", False), "operation": "diagnose",
+               "state": plan.get("state"), "findings": plan.get("findings", []),
+               "proposed_actions": plan.get("actions", []), "errors": plan.get("errors", [])}
+    print(json.dumps(payload, indent=2))
+    return 0 if payload["ok"] else 1
 
 def plan_project(root: Path) -> int:
     try:
@@ -168,12 +176,12 @@ def repair_project(root: Path, apply: bool) -> int:
     print(json.dumps(payload, indent=2))
     if not apply:
         return 0
-    verify_payload = capability_verify(root)
+    verify_payload = maintenance_verify(root, VERSION)
     print(json.dumps(verify_payload, indent=2))
     return 0 if verify_payload.get("ok") else 1
 
 def verify_project(root: Path) -> int:
-    payload = capability_verify(root)
+    payload = maintenance_verify(root, VERSION)
     print(json.dumps(payload, indent=2))
     return 0 if payload.get("ok", False) else 1
 
