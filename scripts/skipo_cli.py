@@ -39,6 +39,7 @@ from skipo_environment_contract import (
     repair as environment_repair,
     verify as environment_verify,
 )
+from skipo_capabilities import retire_known_duplicates
 
 def run(cmd: list[str], cwd: Path) -> int:
     return subprocess.run(cmd, cwd=str(cwd)).returncode
@@ -208,7 +209,12 @@ def repair_project(root: Path, apply: bool) -> int:
                            "environment": planned}
             elif apply:
                 environment_result = environment_repair(root, apply=True)
-                capability_result = capability_repair(root, apply=True, framework_version=VERSION)
+                findings = capability_diagnose(root)
+                retired = retire_known_duplicates(root, findings, apply=True)
+                caps = sorted({f["capability"] for f in findings if f.get("classification") in {"adapt", "retire"}})
+                composition = capability_compose(root, caps, apply=True) if caps else {"ok": True, "actions": [], "applied": True}
+                capability_result = {"ok": composition.get("ok", False), "findings": findings,
+                                     "retired": retired, "composition": composition, "applied": True}
                 payload = {
                     "ok": environment_result.get("ok", False) and capability_result.get("ok", False),
                     "operation": "repair",
