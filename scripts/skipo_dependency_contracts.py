@@ -153,6 +153,8 @@ def deprecated_specs(migration: dict[str, Any]) -> list[dict[str, Any]]:
         if not isinstance(spec, dict) or not isinstance(spec.get("text"), str) or not spec.get("text"):
             raise ValueError(f"Invalid deprecated pattern in {migration['id']}")
         paths = spec.get("paths", DEFAULT_SOURCE_PATHS)
+        if not isinstance(paths, list) or not paths:
+            raise ValueError(f"Invalid deprecated pattern paths in {migration['id']}")
         for path in paths:
             if Path(path).is_absolute() or ".." in Path(path).parts:
                 raise ValueError(f"Unsafe deprecated pattern path: {path}")
@@ -169,7 +171,10 @@ def canonical_replacement_operations(migration: dict[str, Any]) -> list[dict[str
         find, replace = item.get("find"), item.get("replace")
         if not isinstance(find, str) or not find or not isinstance(replace, str) or not replace or find == replace:
             raise ValueError(f"Invalid canonical replacement in {migration['id']}")
-        operations.append({"type": "replace_text", "paths": item.get("paths", DEFAULT_SOURCE_PATHS),
+        paths = item.get("paths", DEFAULT_SOURCE_PATHS)
+        if not isinstance(paths, list) or not paths or any(Path(path).is_absolute() or ".." in Path(path).parts for path in paths):
+            raise ValueError(f"Unsafe canonical replacement path in {migration['id']}")
+        operations.append({"type": "replace_text", "paths": paths,
                            "find": find, "replace": replace, "expectedMatches": 0})
     return operations
 
