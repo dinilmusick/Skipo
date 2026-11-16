@@ -62,7 +62,7 @@ def _read_json(path: Path, label: str) -> dict[str, Any]:
 
 def load_catalogue() -> list[dict[str, Any]]:
     data = _read_json(CATALOGUE_PATH, "Skipo migration catalogue")
-    if data.get("schemaVersion") != 1 or not isinstance(data.get("migrations"), list):
+    if type(data.get("schemaVersion")) is not int or data.get("schemaVersion") != 1 or not isinstance(data.get("migrations"), list):
         raise MigrationStateError("Unsupported or malformed Skipo migration catalogue.")
     migrations: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -80,9 +80,11 @@ def load_catalogue() -> list[dict[str, Any]]:
         retire_paths = raw.get("retirePaths", [])
         if not isinstance(retire_paths, list) or any(not isinstance(path, str) for path in retire_paths):
             raise MigrationStateError(f"Migration {migration_id} has invalid retirePaths.")
+        if len(retire_paths) != len(set(retire_paths)):
+            raise MigrationStateError(f"Migration {migration_id} contains duplicate retirePaths.")
         for relative in retire_paths:
             candidate = Path(relative)
-            if candidate.is_absolute() or not relative or ".." in candidate.parts:
+            if candidate.is_absolute() or not relative or ".." in candidate.parts or candidate.parts[0] in {".", ".skipo", ".git"}:
                 raise MigrationStateError(f"Migration {migration_id} contains unsafe path: {relative!r}")
         verification = raw.get("verification", [])
         if not isinstance(verification, list) or any(not isinstance(item, str) for item in verification):
@@ -98,7 +100,7 @@ def _state_path(root: Path) -> Path:
 def _normalize_state(raw: dict[str, Any], catalogue: list[dict[str, Any]]) -> dict[str, Any]:
     known = {item["id"] for item in catalogue}
     schema = raw.get("schemaVersion", 1)
-    if schema not in (1, STATE_SCHEMA_VERSION):
+    if type(schema) is not int or schema not in (1, STATE_SCHEMA_VERSION):
         raise MigrationStateError(f"Unsupported migration state schema: {schema!r}")
 
     applied = raw.get("applied", [])
@@ -202,9 +204,12 @@ def _migration_plan(current: tuple[int, int, int], target: tuple[int, int, int],
         if current < version <= target:
             required.append(migration)
             verification.extend({"migration": migration_id, "requirement": item} for item in migration.get("verification", []))
+            if status != "applied":
+            completed = set(state["migrations"][migration_id]["completedOperations"])
             repairs.extend(
                 {"migration": migration_id, "operation": "retire-path", "path": relative}
                 for relative in migration.get("retirePaths", [])
+                if relative not in completed
             )
     applied = [item["id"] for item in catalogue if state["migrations"][item["id"]]["status"] == "applied"]
     unapplied = [item["id"] for item in required if state["migrations"][item["id"]]["status"] != "applied"]
