@@ -22,7 +22,24 @@
         "no legacy module runtime paths",
         "capability state exists",
         "capability verifier passes"
-      ]
+      ],
+      "kind": "framework"
+    },
+    {
+      "id": "1.2.0-resumable-framework-upgrade",
+      "version": "1.2.0",
+      "description": "Establish the resumable, version-aware framework self-upgrade ledger.",
+      "retirePaths": [],
+      "verification": [
+        "framework version matches migration ledger",
+        "all required migrations are recorded as applied"
+      ],
+      "kind": "framework"
     }
+  ],
+  "contractSchemaVersion": 1,
+  "supportedMigrationKinds": [
+    "framework",
+    "dependency"
   ]
 }

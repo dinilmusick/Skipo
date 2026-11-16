@@ -27,12 +27,19 @@ from skipo_capabilities import (
     capability_state,
     install_dependencies,
 )
+from skipo_maintenance import (
+    inspect as maintenance_inspect,
+    build_plan as maintenance_plan,
+    execute_plan as execute_maintenance_plan,
+    verify as maintenance_verify,
+)
 from skipo_environment_contract import (
     diagnose as environment_diagnose,
     plan as environment_plan,
     repair as environment_repair,
     verify as environment_verify,
 )
+from skipo_capabilities import retire_known_duplicates
 
 def run(cmd: list[str], cwd: Path) -> int:
     return subprocess.run(cmd, cwd=str(cwd)).returncode
@@ -82,8 +89,10 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
 
 def inspect_project(root: Path) -> int:
     data = manifest(root)
-    state = capability_state(root) if is_project(root) else {}
-    payload = {"project":str(root), "skipo_project":bool(data), **data, "capabilities":state}
+    observed = maintenance_inspect(root) if is_project(root) else {}
+    state = observed.get("capability_state", {})
+    payload = {"project": str(root), "skipo_project": bool(data), **data,
+               "capabilities": state, "maintenance_observation": observed}
     print(json.dumps(payload, indent=2))
     return 0
 
@@ -103,20 +112,43 @@ def check_project(root: Path) -> int:
     return result.returncode
 
 def diagnose_project(root: Path) -> int:
-    capabilities = capability_diagnose(root)
-    environment = environment_diagnose(root)
-    payload = {"ok": environment["ok"], "operation": "diagnose",
-               "capabilities": capabilities, "environment": environment}
+    if not (root / ".skipo" / "project.json").exists():
+        capabilities = capability_diagnose(root)
+        environment = environment_diagnose(root)
+        payload = {"ok": environment.get("ok", True), "operation": "diagnose",
+                   "capabilities": capabilities, "environment": environment}
+        print(json.dumps(payload, indent=2))
+        return 0 if payload["ok"] else 1
+    try:
+        planned = maintenance_plan(root, VERSION)
+    except (ValueError, OSError) as exc:
+        print(json.dumps({"ok": False, "operation": "diagnose", "errors": [str(exc)]}, indent=2))
+        return 2
+    payload = {"ok": planned.get("ok", False), "operation": "diagnose",
+               "state": planned.get("state"), "findings": planned.get("findings", []),
+               "proposed_actions": planned.get("actions", []),
+               "dependency_migrations": planned.get("dependency_migrations", {}),
+               "framework_upgrade": planned.get("framework_upgrade", {}),
+               "environment": planned.get("environment", {}),
+               "errors": planned.get("errors", [])}
     print(json.dumps(payload, indent=2))
     return 0 if payload["ok"] else 1
 
 def plan_project(root: Path) -> int:
-    capabilities = capability_plan(root)
-    environment = environment_plan(root)
-    payload = {"ok": environment["ok"] and capabilities.get("ok", True),
-               "operation": "plan", "capabilities": capabilities, "environment": environment}
+    if not (root / ".skipo" / "project.json").exists():
+        payload = {"ok": True, "operation": "plan",
+                   "capabilities": capability_plan(root),
+                   "environment": environment_plan(root)}
+        payload["ok"] = payload["environment"].get("ok", True) and payload["capabilities"].get("ok", True)
+        print(json.dumps(payload, indent=2))
+        return 0 if payload["ok"] else 1
+    try:
+        payload = maintenance_plan(root, VERSION)
+    except (ValueError, OSError) as exc:
+        print(json.dumps({"ok": False, "operation": "plan", "errors": [str(exc)]}, indent=2))
+        return 2
     print(json.dumps(payload, indent=2))
-    return 0 if payload["ok"] else 1
+    return 0 if payload.get("ok", False) else 1
 
 def parse_items(items: list[str]) -> tuple[list[str], Path]:
     if items and Path(items[-1]).exists() and len(items) > 1:
@@ -157,46 +189,83 @@ def sync_project(root: Path, install: bool) -> int:
 
 def update_project(root: Path) -> int:
     try:
-        payload = capability_update(root, VERSION)
+        plan = maintenance_plan(root, VERSION)
+        payload = execute_maintenance_plan(root, plan, VERSION) if plan.get("ok") else {
+            "ok": False, "operation": "update", "applied": False,
+            "errors": plan.get("errors", []), "plan": plan,
+        }
     except (ValueError, OSError) as exc:
-        print(json.dumps({"ok":False,"error":str(exc)}, indent=2)); return 2
-    verification = capability_verify(root)
-    payload["verification"] = verification
+        print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
+        return 2
     print(json.dumps(payload, indent=2))
-    return 0 if payload.get("ok", False) and verification.get("ok", False) else 1
+    return 0 if payload.get("ok", False) else 1
 
 def repair_project(root: Path, apply: bool) -> int:
+    if not (root / ".skipo" / "project.json").exists():
+        try:
+            planned = environment_plan(root)
+            if not planned.get("ok", False):
+                payload = {"ok": False, "operation": "repair", "applied": False,
+                           "environment": planned}
+            elif apply:
+                environment_result = environment_repair(root, apply=True)
+                findings = capability_diagnose(root)
+                retired = retire_known_duplicates(root, findings, apply=True)
+                caps = sorted({f["capability"] for f in findings if f.get("classification") in {"adapt", "retire"}})
+                composition = capability_compose(root, caps, apply=True) if caps else {"ok": True, "actions": [], "applied": True}
+                capability_result = {"ok": composition.get("ok", False), "findings": findings,
+                                     "retired": retired, "composition": composition, "applied": True}
+                manifest_path = root / ".skipo" / "project.json"
+                if manifest_path.exists():
+                    manifest_path.unlink()
+                payload = {
+                    "ok": environment_result.get("ok", False) and capability_result.get("ok", False),
+                    "operation": "repair",
+                    "applied": True,
+                    "environment": environment_result,
+                    "capabilities": capability_result,
+                }
+            else:
+                payload = {"ok": True, "operation": "repair", "planned": True,
+                           "environment": planned}
+        except (ValueError, OSError) as exc:
+            print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
+            return 2
+        print(json.dumps(payload, indent=2))
+        return 0 if payload.get("ok", False) else 1
     try:
-        env_plan = environment_plan(root)
-        if not env_plan["ok"]:
-            print(json.dumps({"ok": False, "operation": "repair", "applied": False,
-                              "environment": env_plan,
-                              "error": "Environment contract has unresolved or ambiguous findings; no repair was applied."}, indent=2))
-            return 1
-        env_result = environment_repair(root, apply=apply)
-        if not env_result.get("ok", False):
-            print(json.dumps({"ok": False, "operation": "repair", "environment": env_result}, indent=2))
-            return 1
-        payload = capability_repair(root, apply=apply, framework_version=VERSION)
+        planned = maintenance_plan(root, VERSION)
+        if not planned.get("ok"):
+            payload = {"ok": False, "operation": "repair", "applied": False,
+                       "errors": planned.get("errors", []), "plan": planned}
+        elif apply:
+            payload = execute_maintenance_plan(root, planned, VERSION)
+        else:
+            payload = {"ok": True, "operation": "repair", "planned": True, "plan": planned}
     except (ValueError, OSError) as exc:
-        print(json.dumps({"ok":False,"error":str(exc)}, indent=2)); return 2
-    payload["environment"] = env_result
-    if apply:
-        payload["verification"] = {
-            "capabilities": capability_verify(root),
-            "environment": environment_verify(root),
-        }
-        payload["ok"] = payload["verification"]["capabilities"].get("ok", False) and payload["verification"]["environment"].get("ok", False)
+        print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
+        return 2
     print(json.dumps(payload, indent=2))
     return 0 if payload.get("ok", False) else 1
 
 def verify_project(root: Path) -> int:
-    capabilities = capability_verify(root)
-    environment = environment_verify(root)
-    payload = {"ok": capabilities.get("ok", False) and environment.get("ok", False),
-               "operation": "verify", "capabilities": capabilities, "environment": environment}
+    try:
+        if not (root / ".skipo" / "project.json").exists():
+            environment_result = environment_verify(root)
+            capability_result = capability_verify(root)
+            payload = {
+                "ok": environment_result.get("ok", False) and capability_result.get("ok", False),
+                "operation": "verify",
+                "environment": environment_result,
+                "capabilities": capability_result,
+            }
+        else:
+            payload = maintenance_verify(root, VERSION)
+    except (ValueError, OSError) as exc:
+        print(json.dumps({"ok": False, "operation": "verify", "errors": [str(exc)]}, indent=2))
+        return 2
     print(json.dumps(payload, indent=2))
-    return 0 if payload["ok"] else 1
+    return 0 if payload.get("ok", False) else 1
 
 def test_project(root: Path) -> int:
     if not is_project(root):

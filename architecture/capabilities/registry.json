@@ -563,7 +563,10 @@
     "environment": {
       "node": ">=22",
       "packageManager": "pnpm@10.33.0",
-      "lockfile": "pnpm-lock.yaml"
+      "lockfile": "pnpm-lock.yaml",
+      "forbiddenVariables": [
+        "SKIPO_DISABLE_CANONICAL_STATE_ENFORCEMENT"
+      ]
     },
     "migrations": {
       "registry": "architecture/capabilities/migrations.json",

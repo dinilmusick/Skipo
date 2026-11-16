@@ -423,37 +423,51 @@ def remove_legacy_paths(root: Path, apply: bool) -> list[dict[str, Any]]:
     return actions
 
 def update(root: Path, framework_version: str) -> dict[str, Any]:
+    """Update dependencies and framework state through the canonical migration engines."""
     ensure_project(root)
-    manifest_path = root / ".skipo" / "project.json"
-    manifest = project_manifest(root)
-    previous = manifest.get("skipo_version", "unknown")
-    migration_state = read_json(
-        root / ".skipo" / "migration-state.json",
-        {"schemaVersion": 1, "applied": [], "pending": []},
-    )
-    migration_id = "1.1.0-capability-composition"
-    actions = []
-    if canonical_version(previous) < canonical_version("1.1.0"):
-        legacy_actions = remove_legacy_paths(root, apply=True)
-        actions.extend(legacy_actions)
-        if migration_id not in migration_state.get("applied", []):
-            migration_state.setdefault("applied", []).append(migration_id)
-    manifest.update({
-        "framework": "skipo",
-        "skipo_version": framework_version,
-        "updated_by": "skipo",
-        "migration_policy": "deterministic",
-    })
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    migration_state["pending"] = []
-    write_json(root / ".skipo" / "migration-state.json", migration_state)
+    try:
+        from skipo_dependency_migrations import plan_dependency_migrations, execute_dependency_migrations
+        from skipo_migrations import update_project as update_framework
+    except ImportError as exc:
+        return {"ok": False, "operation": "update", "errors": [f"Migration engine unavailable: {exc}"]}
+
+    dependency_plan = plan_dependency_migrations(root, framework_version)
+    if not dependency_plan.get("ok", False):
+        return {
+            "ok": False,
+            "operation": "update",
+            "dependency_migrations": dependency_plan,
+            "errors": dependency_plan.get("errors", []),
+        }
+
+    dependency_result = execute_dependency_migrations(root, dependency_plan)
+    if not dependency_result.get("ok", False):
+        return {
+            "ok": False,
+            "operation": "update",
+            "dependency_migrations": dependency_result,
+            "errors": dependency_result.get("errors", []),
+        }
+
+    framework_result = update_framework(root, framework_version, apply=True)
+    if not framework_result.get("ok", False):
+        return {
+            "ok": False,
+            "operation": "update",
+            "dependency_migrations": dependency_result,
+            "framework_migration": framework_result,
+            "errors": framework_result.get("errors", []),
+        }
+
     return {
         "ok": True,
         "operation": "update",
-        "from_version": previous,
+        "from_version": framework_result.get("from_version"),
         "to_version": framework_version,
-        "actions": actions,
-        "migration_state": migration_state,
+        "actions": framework_result.get("applied_operations", []),
+        "dependency_migrations": dependency_result,
+        "framework_migration": framework_result,
+        "migration_state": framework_result.get("migration_state", {}),
     }
 
 def repair(root: Path, apply: bool, framework_version: str) -> dict[str, Any]:
