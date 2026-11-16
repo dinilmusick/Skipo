@@ -1,7 +1,6 @@
 import json
 import sys
 from pathlib import Path
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from skipo_capabilities import update as update_capabilities
@@ -9,7 +8,6 @@ from skipo_dependency_migrations import (
     plan_dependency_migrations, execute_dependency_migrations,
     verify_dependency_migrations, resolve_path, order_migrations, safe_path, version,
 )
-
 def project(tmp_path, versions, contracts, previous):
     root = tmp_path
     deps = {name: f"^{ver}" for name, ver in versions.items()}
@@ -23,13 +21,10 @@ def project(tmp_path, versions, contracts, previous):
         (folder / "package.json").write_text(json.dumps({"name": name, "version": ver, "skipo": {"migrationContract": "skipo.migrations.json"}}), encoding="utf-8")
         (folder / "skipo.migrations.json").write_text(json.dumps(contract), encoding="utf-8")
     return root
-
 def contract(package, migrations, compatibility=None):
     return {"schemaVersion": 1, "package": package, "compatibility": compatibility or {}, "migrations": migrations}
-
 def migration(mid, old, new, **extra):
     return {"id": mid, "fromVersion": old, "toVersion": new, **extra}
-
 def test_plan_is_read_only_and_contains_full_ordered_path(tmp_path):
     package = "@ultrst-armada/demo"
     root = project(tmp_path, {package: "2.0.0"}, {package: ("2.0.0", contract(package, [
@@ -40,7 +35,6 @@ def test_plan_is_read_only_and_contains_full_ordered_path(tmp_path):
     assert plan["ok"]
     assert [m["id"] for m in plan["migrations"]] == ["demo-1", "demo-2"]
     assert json.loads((root / ".skipo/dependencies.json").read_text())[package] == "1.0.0"
-
 def test_multiple_dependency_migrations_are_merged_and_ordered(tmp_path):
     a, b = "@ultrst-armada/a", "@ultrst-armada/b"
     root = project(tmp_path, {a: "2.0.0", b: "3.0.0"}, {
@@ -50,7 +44,6 @@ def test_multiple_dependency_migrations_are_merged_and_ordered(tmp_path):
     plan = plan_dependency_migrations(root)
     assert plan["ok"]
     assert [m["id"] for m in plan["migrations"]] == ["b-3", "a-2"]
-
 def test_missing_migration_path_blocks_upgrade(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "3.0.0"}, {name: ("3.0.0", contract(name, [
@@ -59,21 +52,18 @@ def test_missing_migration_path_blocks_upgrade(tmp_path):
     plan = plan_dependency_migrations(root)
     assert not plan["ok"]
     assert "Missing migration path" in plan["errors"][0]
-
 def test_invalid_contract_identity_is_rejected(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract("@wrong/name", [
         migration("m1", "1.0.0", "2.0.0")
     ]))}, {name: "1.0.0"})
     assert not plan_dependency_migrations(root)["ok"]
-
 def test_skipo_compatibility_is_enforced(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
         migration("m1", "1.0.0", "2.0.0")
     ], {"skipo": ">=2.0.0"}))}, {name: "1.0.0"})
     assert not plan_dependency_migrations(root, "1.1.0")["ok"]
-
 def test_transform_repair_and_verification_execute_once(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
@@ -182,3 +172,32 @@ def test_framework_update_does_not_advance_when_migration_path_is_missing(tmp_pa
     result = update_capabilities(root, "1.1.0")
     assert not result["ok"]
     assert json.loads((root / ".skipo/project.json").read_text())["skipo_version"] == "1.0.0"
+
+
+def test_contract_detects_affected_files_and_applies_canonical_replacement(tmp_path):
+    name = "@ultrst-armada/demo"
+    root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
+        migration("demo-1-to-2", "1.0.0", "2.0.0",
+            deprecatedPatterns=[{"text": "OldStorage", "paths": ["src/**/*.ts"]}],
+            canonicalReplacements=[{"find": "OldStorage", "replace": "NewStorage", "paths": ["src/**/*.ts"]}])
+    ]))}, {name: "1.0.0"})
+    source = root / "src/storage.ts"
+    source.parent.mkdir()
+    source.write_text("export const provider = OldStorage;", encoding="utf-8")
+    plan = plan_dependency_migrations(root)
+    assert plan["ok"] and plan["migrations"][0]["affectedState"][0]["path"] == "src/storage.ts"
+    assert execute_dependency_migrations(root, plan)["ok"]
+    assert "NewStorage" in source.read_text()
+
+
+def test_unresolved_deprecated_patterns_block_dependency_upgrade(tmp_path):
+    name = "@ultrst-armada/demo"
+    root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
+        migration("demo-1-to-2", "1.0.0", "2.0.0", deprecatedPatterns=["OldStorage"])
+    ]))}, {name: "1.0.0"})
+    source = root / "src/storage.ts"
+    source.parent.mkdir()
+    source.write_text("export const provider = OldStorage;", encoding="utf-8")
+    plan = plan_dependency_migrations(root)
+    assert not plan["ok"]
+    assert any("without deterministic replacements" in error for error in plan["errors"])
