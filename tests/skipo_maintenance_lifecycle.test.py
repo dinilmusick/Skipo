@@ -7,6 +7,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from skipo_maintenance import build_plan, execute_plan, inspect, verify
 from skipo_state_registry import load_registry
+import skipo_cli as cli
 
 CANONICAL = load_registry()["applicationState"]
 MIGRATION_IDS = ["1.1.0-capability-composition"]
@@ -139,3 +140,10 @@ def test_repeated_update_is_idempotent(tmp_path):
     assert second_plan["actions"] == []
     second = execute_plan(root, second_plan, "1.1.0")
     assert second["ok"], second
+
+
+def test_cli_routes_diagnose_plan_update_and_verify_through_maintenance():
+    assert cli.maintenance_plan is build_plan
+    assert cli.execute_maintenance_plan is execute_plan
+    assert cli.maintenance_verify is verify
+    assert cli.maintenance_inspect is inspect
