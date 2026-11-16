@@ -35,6 +35,7 @@ def test_diagnose_and_repair_only_retire_registry_safe_duplicates():
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         (root / "package.json").write_text(json.dumps({"name":"demo","dependencies":{}}))
+        (root / ".env.example").write_text("SYSTEM_DATABASE_URL=postgres://example\\n")
         safe = root / "src/frontend/components/WorkspaceCreateDialog.tsx"
         safe.parent.mkdir(parents=True)
         safe.write_text("export function WorkspaceCreateDialog(){ return null }")
