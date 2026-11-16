@@ -181,7 +181,7 @@ def repair_project(root: Path, apply: bool) -> int:
     return 0 if verify_payload.get("ok") else 1
 
 def verify_project(root: Path) -> int:
-    payload = maintenance_verify(root, VERSION)
+    payload = capability_verify(root)
     print(json.dumps(payload, indent=2))
     return 0 if payload.get("ok", False) else 1
 
