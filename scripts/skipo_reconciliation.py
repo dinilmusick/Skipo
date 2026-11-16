@@ -72,14 +72,12 @@ def _state_findings(root: Path, registry: dict[str, Any], installed: dict[str, A
         capabilities.ROOT / "architecture" / "capabilities" / "migrations.json", {"migrations": []}
     )
     legacy_tokens = sorted({
-        Path(path).name for migration in migration_data.get("migrations", [])
+        token
+        for migration in migration_data.get("migrations", [])
         for path in migration.get("retirePaths", [])
-        if Path(path).suffix
-    } | {
-        Path(path).name for migration in migration_data.get("migrations", [])
-        for path in migration.get("retirePaths", []) if not Path(path).suffix
+        for token in ({Path(path).name, Path(path).stem} if Path(path).suffix else {Path(path).name})
     })
-    token_pattern = re.compile(r"(?:from|import)\\s*[\\(]?[\\\"']([^\\\"']+)[\\\"']", re.I)
+    token_pattern = re.compile(r"""(?:from|import)\s*['"]([^'"]+)['"]""", re.I)
     for path, source in capabilities.scan_text_files(root):
         for match in token_pattern.finditer(source):
             imported = match.group(1)
