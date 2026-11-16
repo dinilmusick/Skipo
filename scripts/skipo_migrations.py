@@ -333,6 +333,15 @@ def update_project(root: Path, target_version: str, apply: bool = True) -> dict[
         return result
 
     state_path: Path = info["state_path"]
+    raw_state = _read_json(state_path, "migration state")
+    if current == target and not plan["unapplied_migrations"] and raw_state.get("schemaVersion") == STATE_SCHEMA_VERSION:
+        result["from_version"] = ".".join(map(str, current))
+        result["to_version"] = target_version
+        result["migration_state"] = state
+        result["verification"] = verify_migration_state(root)
+        result["ok"] = result["verification"]["ok"]
+        result["already_current"] = True
+        return result
     pending = list(plan["unapplied_migrations"])
     state["pending"] = pending
     atomic_write_json(state_path, state)
