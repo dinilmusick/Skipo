@@ -273,7 +273,10 @@ def verify_canonical_state(root: Path, framework_version: str | None = None):
     checklist_dir = ROOT / "checklists"
     if str(checklist_dir) not in sys.path:
         sys.path.insert(0, str(checklist_dir))
-    for filename, aspect in (("24_capability_architecture.py", "24"), ("26_skipo_runtime_environment_governance.py", "26")):
+    verification_aspects = [("24_capability_architecture.py", "24")]
+    if any(path.is_file() for path in root.glob(".env*")):
+        verification_aspects.append(("26_skipo_runtime_environment_governance.py", "26"))
+    for filename, aspect in verification_aspects:
         module_path = checklist_dir / filename
         try:
             spec_obj = importlib.util.spec_from_file_location("skipo_verify_aspect_" + aspect, module_path)
