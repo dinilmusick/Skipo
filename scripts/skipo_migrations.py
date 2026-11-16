@@ -196,6 +196,9 @@ def _migration_plan(current: tuple[int, int, int], target: tuple[int, int, int],
             )
         if version > target and status == "applied":
             raise MigrationStateError(f"Migration {migration_id} is applied beyond the requested target version.")
+        # An applied migration newer than the manifest version is a recoverable
+        # crash window: the ledger was committed before the manifest version.
+        # update_project will safely finalize the manifest after rechecking state.
         if current < version <= target:
             required.append(migration)
             verification.extend({"migration": migration_id, "requirement": item} for item in migration.get("verification", []))
@@ -343,6 +346,8 @@ def verify_migration_state(root: Path) -> dict[str, Any]:
             status = state["migrations"][migration_id]["status"]
             if migration["_version_key"] <= current and status != "applied":
                 errors.append(f"Migration not applied for installed framework version: {migration_id}")
+            if status == "applied" and migration["_version_key"] > current:
+                errors.append(f"Migration {migration_id} is applied but the framework version was not advanced.")
             if status == "applied":
                 for relative in migration.get("retirePaths", []):
                     if (root / relative).exists() or (root / relative).is_symlink():
