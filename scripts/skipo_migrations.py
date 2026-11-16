@@ -111,6 +111,8 @@ def _normalize_state(raw: dict[str, Any], catalogue: list[dict[str, Any]]) -> di
         raise MigrationStateError("Migration state 'pending' must be a list of migration ids.")
     if len(applied) != len(set(applied)) or len(pending) != len(set(pending)):
         raise MigrationStateError("Migration state contains duplicate migration ids.")
+    if set(applied) & set(pending):
+        raise MigrationStateError("Migration state marks the same migration as both applied and pending.")
     unknown = (set(applied) | set(pending)) - known
     if unknown:
         raise MigrationStateError(f"Migration state references unknown migrations: {', '.join(sorted(unknown))}")
@@ -229,12 +231,29 @@ def plan_upgrade(root: Path, target_version: str) -> dict[str, Any]:
     state, _, manifest, info = _load_target_state(root, catalogue)
     current = info["current"]
     plan = _migration_plan(current, target, state, catalogue)
+    target_applied = [item["id"] for item in catalogue if item["_version_key"] <= target]
+    target_pending = [item["id"] for item in catalogue if item["_version_key"] > target]
     return {
         "ok": True,
         "operation": "update",
         "planned": True,
         "current_version": manifest["skipo_version"],
         "target_version": target_version,
+        "current_state": {
+            "framework_version": manifest["skipo_version"],
+            "applied_migrations": state["applied"],
+            "pending_migrations": state["pending"],
+            "interrupted_migrations": [
+                migration_id for migration_id, record in state["migrations"].items()
+                if record["status"] == "applying"
+            ],
+        },
+        "target_state": {
+            "framework_version": target_version,
+            "applied_migrations": target_applied,
+            "pending_migrations": target_pending,
+            "migration_state_schema": STATE_SCHEMA_VERSION,
+        },
         **plan,
         "migration_state": state,
     }
@@ -278,11 +297,28 @@ def update_project(root: Path, target_version: str, apply: bool = True) -> dict[
     state, manifest_path, manifest, info = _load_target_state(root, catalogue)
     current = info["current"]
     plan = _migration_plan(current, target, state, catalogue)
+    target_applied = [item["id"] for item in catalogue if item["_version_key"] <= target]
+    target_pending = [item["id"] for item in catalogue if item["_version_key"] > target]
     result = {
         "ok": True,
         "operation": "update",
         "current_version": manifest["skipo_version"],
         "target_version": target_version,
+        "current_state": {
+            "framework_version": manifest["skipo_version"],
+            "applied_migrations": state["applied"],
+            "pending_migrations": state["pending"],
+            "interrupted_migrations": [
+                migration_id for migration_id, record in state["migrations"].items()
+                if record["status"] == "applying"
+            ],
+        },
+        "target_state": {
+            "framework_version": target_version,
+            "applied_migrations": target_applied,
+            "pending_migrations": target_pending,
+            "migration_state_schema": STATE_SCHEMA_VERSION,
+        },
         **plan,
         "applied_operations": [],
         "resumed_migrations": [
