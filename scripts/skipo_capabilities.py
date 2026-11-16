@@ -485,4 +485,4 @@ def repair(root: Path, apply: bool, framework_version: str) -> dict[str, Any]:
 def verify(root: Path) -> dict[str, Any]:
     """Read-only canonical-state verification; never initialize or mutate project state."""
     from skipo_verification import verify_canonical_state
-    return verify_canonical_state(root, load_registry()["applicationState"]["framework"].get("version"))
+    return verify_canonical_state(root)
