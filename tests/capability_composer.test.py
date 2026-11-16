@@ -35,7 +35,7 @@ def test_diagnose_and_repair_only_retire_registry_safe_duplicates():
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         (root / "package.json").write_text(json.dumps({"name":"demo","dependencies":{}}))
-        (root / ".env.example").write_text("SYSTEM_DATABASE_URL=postgres://example\\n")
+        (root / ".env.example").write_text("SYSTEM_DATABASE_URL=postgres://example\n")
         safe = root / "src/frontend/components/WorkspaceCreateDialog.tsx"
         safe.parent.mkdir(parents=True)
         safe.write_text("export function WorkspaceCreateDialog(){ return null }")
@@ -45,7 +45,7 @@ def test_diagnose_and_repair_only_retire_registry_safe_duplicates():
         diagnosed = run("diagnose", str(root))
         assert diagnosed.returncode == 0, diagnosed.stdout + diagnosed.stderr
         payload = json.loads(diagnosed.stdout)
-        retire = [f for f in payload["findings"] if f["classification"] == "retire"]
+        retire = [f for f in payload["capabilities"] if f["classification"] == "retire"]
         assert any(f["path"].endswith("WorkspaceCreateDialog.tsx") for f in retire)
         assert not any(f["path"].endswith("home/page.tsx") and f["classification"] == "retire" for f in payload["findings"])
         repaired = run("repair", str(root))
