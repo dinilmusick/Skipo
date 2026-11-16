@@ -173,9 +173,23 @@ def reconcile(root: Path, apply: bool, framework_version: str) -> dict[str, Any]
             "verification": {"ok": None, "planned": True},
         }
 
+    manifest = capabilities.read_json(root / ".skipo/project.json", {})
+    previous_version = manifest.get("skipo_version", "unknown")
+    dependency_paths = dependency_plan.get("paths", {})
+    dependency_work = any(item.get("baseline") or item.get("migrations") for item in dependency_paths.values())
+    legacy_work = any(_path(root, relative).exists() for relative in capabilities.legacy_migration_paths())
+    needs_update = (
+        not (root / ".skipo/project.json").is_file()
+        or capabilities.canonical_version(previous_version) < capabilities.canonical_version(framework_version)
+        or dependency_work or legacy_work
+    )
+
     # Update executes the registered dependency/framework migrations only after
     # every capability, ownership, and retirement precondition has passed.
-    update_result = capabilities.update(root, framework_version)
+    update_result = capabilities.update(root, framework_version) if needs_update else {
+        "ok": True, "operation": "update", "from_version": previous_version,
+        "to_version": framework_version, "actions": [], "noop": True,
+    }
     if not update_result.get("ok"):
         return {
             "ok": False, "operation": "repair", "findings": findings,
@@ -196,8 +210,14 @@ def reconcile(root: Path, apply: bool, framework_version: str) -> dict[str, Any]
             target.unlink()
             retired.append(relative)
 
-    composed = capabilities.compose(root, sorted(capability_ids), apply=True) if capability_ids else {
-        "ok": True, "actions": [], "applied": True
+    compose_needed = any(
+        action.get("action") in {
+            "synchronize-canonical-dependency", "generate-canonical-component",
+            "refresh-owned-canonical-component", "reconcile-canonical-wiring",
+        } for action in actions
+    )
+    composed = capabilities.compose(root, sorted(capability_ids), apply=True) if capability_ids and compose_needed else {
+        "ok": True, "actions": [], "applied": False
     }
     if not composed.get("ok"):
         return {
