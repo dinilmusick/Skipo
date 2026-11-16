@@ -310,6 +310,7 @@ def reconcile(root: Path, apply: bool, framework_version: str) -> dict[str, Any]
     if dependency_owners != original_dependency_owners:
         capabilities.write_json(root / ".skipo" / "dependencies.json", dependency_owners)
     if generated != original_generated or installed != original_installed:
+        state["installed"] = installed
         capabilities.write_generated_entries(state, generated)
         capabilities.write_capability_state(root, state)
 
