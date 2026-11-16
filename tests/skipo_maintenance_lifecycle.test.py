@@ -147,3 +147,16 @@ def test_cli_routes_diagnose_plan_update_and_verify_through_maintenance():
     assert cli.execute_maintenance_plan is execute_plan
     assert cli.maintenance_verify is verify
     assert cli.maintenance_inspect is inspect
+
+
+def test_recorded_migration_with_remaining_legacy_path_is_reconciled(tmp_path):
+    root = make_app(tmp_path, migration_applied=True)
+    legacy = root / "src/module-runtime"
+    legacy.mkdir(parents=True)
+    (legacy / "legacy.ts").write_text("legacy", encoding="utf-8")
+    plan = build_plan(root, "1.1.0", environment_ok(), git_status="")
+    assert plan["ok"]
+    assert any(a["action"] == "migration" for a in plan["actions"])
+    result = execute_plan(root, plan, "1.1.0")
+    assert result["ok"], result
+    assert not legacy.exists()
