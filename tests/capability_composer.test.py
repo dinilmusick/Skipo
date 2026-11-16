@@ -78,6 +78,24 @@ def test_adopt_does_not_overwrite_existing_project_manifest():
         result = run("adopt", str(root))
         assert result.returncode == 0
         assert json.loads((root / ".skipo/project.json").read_text()) == original
+        migration_state = json.loads((root / ".skipo/migration-state.json").read_text())
+        assert migration_state["schemaVersion"] == 2
+        assert migration_state["applied"] == []
+
+
+def test_adopt_initializes_existing_versioned_migration_baseline():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "package.json").write_text(json.dumps({"name":"legacy","dependencies":{}}))
+        (root / ".skipo").mkdir()
+        manifest = {"framework":"skipo","skipo_version":"1.1.0","custom":True}
+        (root / ".skipo/project.json").write_text(json.dumps(manifest))
+        result = run("adopt", str(root))
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert json.loads((root / ".skipo/project.json").read_text()) == manifest
+        state = json.loads((root / ".skipo/migration-state.json").read_text())
+        assert state["applied"] == ["1.1.0-capability-composition"]
+        assert state["schemaVersion"] == 2
 
 def test_add_does_not_overwrite_modified_generated_files_or_partially_apply():
     with tempfile.TemporaryDirectory() as tmp:
