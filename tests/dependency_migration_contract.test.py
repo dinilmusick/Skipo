@@ -90,14 +90,12 @@ def test_transform_repair_and_verification_execute_once(tmp_path):
     assert verify_dependency_migrations(root)["ok"]
     repeated = execute_dependency_migrations(root, plan)
     assert repeated["ok"] and repeated["actions"] == []
-
 def test_baseline_install_does_not_require_historical_contract(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "2.0.0"}, {}, {})
     plan = plan_dependency_migrations(root)
     assert plan["ok"] and name not in plan["paths"]
     assert plan["migrations"] == []
-
 def test_contract_dependency_cycle_is_rejected():
     errors = []
     items = [
@@ -106,7 +104,6 @@ def test_contract_dependency_cycle_is_rejected():
     ]
     assert order_migrations(items, errors) == []
     assert errors
-
 def test_unsupported_operation_fails_closed(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
@@ -115,7 +112,6 @@ def test_unsupported_operation_fails_closed(tmp_path):
     result = execute_dependency_migrations(root, plan_dependency_migrations(root))
     assert not result["ok"]
     assert not (root / ".skipo/migration-state.json").read_text().find("m1") >= 0
-
 def test_contract_path_traversal_is_rejected(tmp_path):
     try:
         safe_path(tmp_path, "../outside.json")
@@ -123,7 +119,6 @@ def test_contract_path_traversal_is_rejected(tmp_path):
         assert "escapes application root" in str(error)
     else:
         raise AssertionError("path traversal must be rejected")
-
 def test_semantic_versions_normalize_missing_patch_component():
     assert version("1.2") == version("1.2.0")
 
