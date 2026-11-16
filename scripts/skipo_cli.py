@@ -130,7 +130,17 @@ def remove_project(items: list[str], target: Path, apply: bool) -> int:
 def adopt_project(root: Path) -> int:
     try:
         payload = capability_adopt(root)
-    except OSError as exc:
+        project_manifest = manifest(root)
+        migration_state_path = root / ".skipo" / "migration-state.json"
+        installed_version = project_manifest.get("skipo_version")
+        if (
+            project_manifest.get("framework") == "skipo"
+            and installed_version not in (None, "", "unknown")
+            and not migration_state_path.exists()
+        ):
+            initialize_migration_state(root, installed_version)
+            payload["migration_state_initialized"] = True
+    except (OSError, ValueError) as exc:
         print(json.dumps({"ok":False,"error":str(exc)}, indent=2)); return 2
     print(json.dumps(payload, indent=2))
     return 0
