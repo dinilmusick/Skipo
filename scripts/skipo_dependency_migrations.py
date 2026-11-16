@@ -258,6 +258,19 @@ def execute_dependency_migrations(root: Path, plan: dict[str, Any]) -> dict[str,
     state_path = root / ".skipo/migration-state.json"
     state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else dict(STATE_DEFAULT)
     applied = set(state.get("applied", []))
+    snapshots: dict[Path, bytes | None] = {}
+    for migration in plan["migrations"]:
+        if migration["id"] in applied:
+            continue
+        for operation in migration.get("transformations", []) + migration.get("repair", []):
+            if operation.get("type") == "replace_text":
+                targets = [p for pattern in operation.get("paths", []) for p in files_for_pattern(root, pattern)]
+            elif operation.get("type") == "set_json":
+                targets = [safe_path(root, operation["path"])]
+            else:
+                targets = []
+            for target in targets:
+                snapshots.setdefault(target, target.read_bytes() if target.is_file() else None)
     for migration in plan["migrations"]:
         if migration["id"] in applied:
             continue
@@ -270,6 +283,14 @@ def execute_dependency_migrations(root: Path, plan: dict[str, Any]) -> dict[str,
         except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
             errors.append(f"{migration['id']}: {exc}")
             break
+    if errors:
+        for path, content in snapshots.items():
+            if content is None:
+                if path.exists(): path.unlink()
+            else:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(content)
+        actions = []
     if not errors:
         state.update({"schemaVersion": max(1, state.get("schemaVersion", 1)), "applied": sorted(applied), "pending": []})
         state_path.parent.mkdir(parents=True, exist_ok=True)
