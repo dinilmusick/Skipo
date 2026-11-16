@@ -33,17 +33,17 @@ def test_plan_is_read_only_and_contains_full_ordered_path(tmp_path):
     ]))}, {package: "1.0.0"})
     plan = plan_dependency_migrations(root)
     assert plan["ok"]
-    assert [m["id"] for m in plan["migrations"]] == ["demo-1", "demo-2"]
+    assert [m["contractId"] for m in plan["migrations"]] == ["demo-1", "demo-2"]
     assert json.loads((root / ".skipo/dependencies.json").read_text())[package] == "1.0.0"
 def test_multiple_dependency_migrations_are_merged_and_ordered(tmp_path):
     a, b = "@ultrst-armada/a", "@ultrst-armada/b"
     root = project(tmp_path, {a: "2.0.0", b: "3.0.0"}, {
-        a: ("2.0.0", contract(a, [migration("a-2", "1.0.0", "2.0.0", dependsOn=["b-3"])])),
+        a: ("2.0.0", contract(a, [migration("a-2", "1.0.0", "2.0.0", dependsOn=["@ultrst-armada/b::b-3"])])),
         b: ("3.0.0", contract(b, [migration("b-3", "2.0.0", "3.0.0")])),
     }, {a: "1.0.0", b: "2.0.0"})
     plan = plan_dependency_migrations(root)
     assert plan["ok"]
-    assert [m["id"] for m in plan["migrations"]] == ["b-3", "a-2"]
+    assert [m["contractId"] for m in plan["migrations"]] == ["b-3", "a-2"]
 def test_missing_migration_path_blocks_upgrade(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "3.0.0"}, {name: ("3.0.0", contract(name, [
@@ -141,7 +141,7 @@ def test_contract_discovery_is_not_limited_to_ultrst_package_names(tmp_path):
     ]))}, {name: "1.0.0"})
     plan = plan_dependency_migrations(root)
     assert plan["ok"]
-    assert [item["id"] for item in plan["migrations"]] == ["vendor-1-to-2"]
+    assert [item["contractId"] for item in plan["migrations"]] == ["vendor-1-to-2"]
 def test_framework_update_executes_dependency_contract_before_advancing_version(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
@@ -152,7 +152,7 @@ def test_framework_update_executes_dependency_contract_before_advancing_version(
     assert result["ok"]
     assert result["dependency_migrations"]["applied"]
     assert json.loads((root / ".skipo/project.json").read_text())["skipo_version"] == "1.1.0"
-    assert "demo-1-to-2" in json.loads((root / ".skipo/migration-state.json").read_text())["applied"]
+    assert f"{name}::demo-1-to-2" in json.loads((root / ".skipo/migration-state.json").read_text())["dependencyApplied"]
 def test_framework_update_does_not_advance_when_migration_path_is_missing(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "3.0.0"}, {name: ("3.0.0", contract(name, [
