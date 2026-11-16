@@ -4,6 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+from skipo_capabilities import update as update_capabilities
 from skipo_dependency_migrations import (
     plan_dependency_migrations, execute_dependency_migrations,
     verify_dependency_migrations, resolve_path, order_migrations, safe_path, version,
@@ -175,3 +176,27 @@ def test_contract_discovery_is_not_limited_to_ultrst_package_names(tmp_path):
     plan = plan_dependency_migrations(root)
     assert plan["ok"]
     assert [item["id"] for item in plan["migrations"]] == ["vendor-1-to-2"]
+
+
+def test_framework_update_executes_dependency_contract_before_advancing_version(tmp_path):
+    name = "@ultrst-armada/demo"
+    root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
+        migration("demo-1-to-2", "1.0.0", "2.0.0")
+    ]))}, {name: "1.0.0"})
+    (root / ".skipo/project.json").write_text(json.dumps({"framework": "skipo", "skipo_version": "1.0.0"}))
+    result = update_capabilities(root, "1.1.0")
+    assert result["ok"]
+    assert result["dependency_migrations"]["applied"]
+    assert json.loads((root / ".skipo/project.json").read_text())["skipo_version"] == "1.1.0"
+    assert "demo-1-to-2" in json.loads((root / ".skipo/migration-state.json").read_text())["applied"]
+
+
+def test_framework_update_does_not_advance_when_migration_path_is_missing(tmp_path):
+    name = "@ultrst-armada/demo"
+    root = project(tmp_path, {name: "3.0.0"}, {name: ("3.0.0", contract(name, [
+        migration("demo-2-to-3", "2.0.0", "3.0.0")
+    ]))}, {name: "1.0.0"})
+    (root / ".skipo/project.json").write_text(json.dumps({"framework": "skipo", "skipo_version": "1.0.0"}))
+    result = update_capabilities(root, "1.1.0")
+    assert not result["ok"]
+    assert json.loads((root / ".skipo/project.json").read_text())["skipo_version"] == "1.0.0"
