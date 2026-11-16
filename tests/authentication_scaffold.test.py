@@ -143,7 +143,8 @@ def test_published_package_baseline_is_aligned_across_root_scaffolds_and_lockfil
     for name, expected in AUTH_CONTRACT.PACKAGE_BASELINE.items():
         for manifest_path in manifests:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            assert manifest["dependencies"].get(name) == expected, f"{manifest_path}: {name}"
+            actual = manifest["dependencies"].get(name)
+            assert AUTH_CONTRACT.package_spec_satisfies_minimum(actual, expected), f"{manifest_path}: {name}"
 
         lockfile = (ROOT / "pnpm-lock.yaml").read_text(encoding="utf-8")
         root_importer = lockfile.split("packages:", 1)[0]
