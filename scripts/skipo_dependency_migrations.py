@@ -7,6 +7,7 @@ from typing import Any
 from skipo_dependency_contracts import (
     version, safe_path, discover_contract, validate_contract,
     resolve_path, order_migrations, files_for_pattern,
+    detect_affected_state, canonical_replacement_operations,
 )
 
 STATE_DEFAULT = {"schemaVersion": 1, "applied": [], "pending": []}
@@ -47,7 +48,14 @@ def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict
             chosen = resolve_path(contract, str(old), current)
             paths[package] = {"from": old, "to": current, "specifier": dependencies[package], "migrations": [m["id"] for m in chosen]}
             for item in chosen:
-                selected.append({"package": package, **item})
+                migration = {"package": package, **item}
+                migration["affectedState"] = detect_affected_state(root, item)
+                migration["transformations"] = list(item.get("transformations", [])) + canonical_replacement_operations(item)
+                handled = {op.get("find") for op in migration["transformations"] + migration.get("repair", []) if op.get("type") == "replace_text"}
+                unresolved = sorted({hit["pattern"] for hit in migration["affectedState"]} - handled)
+                if unresolved:
+                    errors.append(f"{package} {item['id']} has deprecated patterns without deterministic replacements: {', '.join(unresolved)}")
+                selected.append(migration)
         except (ValueError, OSError, json.JSONDecodeError) as exc:
             errors.append(str(exc))
     last_by_package = {}
