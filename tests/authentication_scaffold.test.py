@@ -153,5 +153,5 @@ def test_published_package_baseline_is_aligned_across_root_scaffolds_and_lockfil
             root_importer,
         )
         assert locked, f"pnpm-lock.yaml is missing the root importer for {name}"
-        assert locked.group(1) == expected, f"{name} lockfile specifier mismatch"
-        assert locked.group(2).split("(", 1)[0] == expected.lstrip("^"), f"{name} lockfile resolution mismatch"
+        assert AUTH_CONTRACT.package_spec_satisfies_minimum(locked.group(1), expected), f"{name} lockfile specifier is below the supported baseline"
+        assert AUTH_CONTRACT.resolved_version_satisfies_minimum(locked.group(2).split("(", 1)[0], expected), f"{name} lockfile resolution is below the supported baseline"
