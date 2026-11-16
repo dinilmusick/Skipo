@@ -87,7 +87,10 @@ def test_dirty_application_is_observed_but_never_mutated(tmp_path):
 def test_dependency_migration_is_explicit_and_updates_lockfile(tmp_path):
     root = make_app(tmp_path, dependencies={"@ultrst-armada/kloks": "^1.0.0"})
     plan = build_plan(root, "1.1.0", environment_ok(), git_status="")
-    dependency_action = next(a for a in plan["actions"] if a["action"] == "dependency")
+    dependency_action = next(
+        a for a in plan["actions"]
+        if a["action"] == "dependency" and a["package"] == "@ultrst-armada/kloks"
+    )
     assert dependency_action["package"] == "@ultrst-armada/kloks"
     assert dependency_action["to"] == CANONICAL["dependencies"]["@ultrst-armada/kloks"]
     result = execute_plan(root, plan, "1.1.0", sync_lockfile)
