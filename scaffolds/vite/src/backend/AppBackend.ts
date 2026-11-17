@@ -62,7 +62,9 @@ export const services = {
 };
 
 export const backendFacade = new BackendFacade();
-for (const service of [StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
+// The Kloks 2.x operation facades expose execute() rather than the older
+// KRNL IServiceFacade interface. They remain accessible through services
+// and canonical HTTP routes; do not misregister them as incompatible types.
 export const externalInterfaces = createAppExternalInterfaces(backendFacade);
 
 export const storageProviders = {
