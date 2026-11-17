@@ -11,7 +11,7 @@ def harden(namespace: dict) -> None:
     original_operations = namespace['validate_operations']
 
     def strict_version(value: str) -> tuple[int, int, int]:
-        normalized = exact(str(value).lstrip('^~'))
+        normalized = exact(value)
         return tuple(int(x) for x in normalized.split('.'))
 
     def operation_path(relative: str, pattern: bool = False) -> None:
