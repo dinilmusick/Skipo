@@ -31,14 +31,14 @@ jobs:
       - name: Independently verify all reconciled architectural engines
         run: |
           python -m pytest -q --import-mode=importlib \
-            tests/reconciliation_transaction.test.py \
-            tests/dependency_migration_contract.test.py \
-            tests/dependency_migration_rollback.test.py \
-            tests/dependency_migration_safety.test.py \
+            tests/test_reconciliation_transaction.py \
+            tests/test_dependency_migration_contract.py \
+            tests/test_dependency_migration_rollback.py \
+            tests/test_dependency_migration_safety.py \
             tests/test_skipo_policy_engine.py \
             tests/test_skipo_policy_validation.py \
             tests/test_environment_governance_v2.py \
-            tests/functional_capability_generation.test.py \
+            tests/test_functional_capability_generation.py \
             tests/conformance_test.py
           node --test tests/semantic_architecture_analyzer.test.cjs
       - name: Prove generated canonical capability contracts for both application frameworks
