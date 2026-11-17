@@ -13,7 +13,7 @@ class EnvironmentContractTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
-        (self.root / ".env.example").write_text("SYSTEM_DATABASE_URL=postgres://example\n", encoding="utf-8")
+        (self.root / ".env.example").write_text("SYSTEM_DATABASE_URL=postgres://example\nAPP_URL=https://default.example\n", encoding="utf-8")
 
     def tearDown(self):
         self.temp.cleanup()
@@ -25,7 +25,8 @@ class EnvironmentContractTests(unittest.TestCase):
         return path
 
     def test_canonical_and_declared_platform_variables_are_allowed(self):
-        self.write(".env.local", "SYSTEM_DATABASE_URL=postgres://local\nAPP_URL=https://app.example\nNODE_ENV=development\n")
+        self.write(".env.local", "SYSTEM_DATABASE_URL=postgres://local\nAPP_URL=https://app.example\n")
+        self.write("src/runtime.ts", "const mode = process.env.NODE_ENV;\n")
         result = env.verify(self.root)
         self.assertTrue(result["ok"], result["errors"])
 
@@ -106,8 +107,8 @@ class EnvironmentContractTests(unittest.TestCase):
         self.assertNotIn("LOCAL_PATH", variables)
 
     def test_explicit_product_specific_classification_is_preserved(self):
-        self.assertEqual(env.classify("NODE_ENV"), "explicitly_supported_product_specific")
-        self.assertEqual(env.classify("GITHUB_ACTIONS"), "explicitly_supported_product_specific")
+        self.assertEqual(env.classify("NODE_ENV"), "runtime_platform")
+        self.assertEqual(env.classify("GITHUB_ACTIONS"), "runtime_platform")
         self.assertEqual(env.classify("UNLISTED_PRODUCT_SETTING"), "undeclared_framework_configuration")
 
     def test_repair_is_idempotent(self):

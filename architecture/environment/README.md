@@ -1,34 +1,18 @@
-# Canonical Skipo environment contract
+# Skipo application environment contract v2
 
-The authoritative classification registry is `architecture/environment/contract.json`.
+`contract.json` is the machine-readable authority. The **only application-owned names** are:
 
-## Framework contract
+| Name | Ownership | Required |
+| --- | --- | --- |
+| `SYSTEM_DATABASE_URL` | Primary application DB | Yes |
+| `SYSTEM_DATABASE_URL_2` | DB fallback 1 | No |
+| `SYSTEM_DATABASE_URL_3` | DB fallback 2 | No |
+| `APP_URL` | Application's absolute origin | Yes |
 
-- Required: `SYSTEM_DATABASE_URL`
-- Optional: `SYSTEM_DATABASE_URL_2`, `SYSTEM_DATABASE_URL_3`
-- Application origin: `APP_URL`
+`NODE_ENV`, `PORT`, and a narrow, exact list of host-provided variables are classified as **runtime/platform inputs**. Internal release, CI, inspection and maintenance inputs are classified as **internal tooling**, accepted only in known tooling locations (not in application environment files). Neither category changes the application's four-name contract. These classifications do *not* allow arbitrary `GITHUB_*`, `VERCEL_*`, `CF_*` or `NEXT_PUBLIC_*` variables. An application declaring `GEMINI_API_KEY`, `STORAGE_SECRET_ACCESS_KEY`, `ADMIN_PASSWORD` or another application credential must move that requirement to its canonical authorization/service integration, not add a new exception.
 
-A deprecated name is migrated only when the registry provides a canonical target. The current compatibility mapping is `DEPM_GATEWAY_DOMAIN → APP_URL`.
+The environment engine scans `.env*` files, source references (including JavaScript/TypeScript bracket access, Python environment access and GitHub workflow expressions), shell exports, and `env`/`environment`/`vars` blocks in YAML, JSON and TOML. Documentation is scanned only in fenced examples. Tests' source strings do not represent deployed application configuration, but fixture files do. Generated output, dependencies and caches are excluded.
 
-## Classification
+`diagnose(root)`, `plan(root)`, `repair(root, apply=True)` and `verify(root)` remain the standalone integration API. Output is deterministic JSON-compatible data, without secret values. Planning fails closed for undeclared names, duplicate declarations, unsafe symlinks, unrecognized source contexts and ambiguous alias/target conflicts. `repair` changes only recognized environment declaration keys or static references and preserves the bytes of their values. It verifies after writing and attempts rollback on any failure; repeated repairs are no-ops. `APP_URL` is required, but a legacy `DEPM_GATEWAY_DOMAIN` declaration may satisfy the **plan** preflight if it can safely migrate. `SYSTEM_DATABASE_URL_1` migrates to `SYSTEM_DATABASE_URL` on the same terms.
 
-1. **Canonical** — accepted as declared.
-2. **Known deprecated alias** — planned for deterministic rename to its canonical target.
-3. **Known obsolete framework variable** — must have a safe declared target; otherwise repair is blocked for manual review.
-4. **Undeclared configuration** — blocking violation; repair does not mutate any file while an undeclared name remains.
-5. **Explicitly supported product/tooling configuration** — preserved only when listed in the registry or matched by an explicitly declared platform pattern.
-
-Product-specific additions must include a short ownership rationale in the registry. Do not add broad prefix wildcards for application settings.
-
-## Coverage
-
-The scanner includes environment files, scaffold templates, runtime and source references, build/deployment/CI configuration, generated configuration, tests and concrete fixtures, plus fenced configuration examples in documentation. It excludes dependency trees, caches and compiled build output. Test implementation strings and negative assertions are not treated as live runtime references; concrete configuration fixtures under test directories remain in scope.
-
-## Maintenance commands
-
-- `skipo diagnose` reports environment findings alongside capability findings.
-- `skipo plan` emits deterministic migration actions and fail-closed conflicts.
-- `skipo repair` applies only safe, registry-backed migrations, then verifies.
-- `skipo verify` independently checks the canonical environment invariant.
-
-The full-system validator enforces the same contract as blocking Aspect 26. A repair is not successful unless the post-repair verification passes.
+This standalone contract intentionally does not alter the CLI, other agents' governance engines, or downstream apps. Integration may be performed separately once this independent PR is reviewed.
