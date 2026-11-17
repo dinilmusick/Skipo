@@ -70,7 +70,8 @@
     "SKIPO_REGISTRY_VERSION": "Skipo npm package publication verification input",
     "SKIPO_VERSION": "Skipo release CLI version",
     "SYNC_TOKEN": "Skipo dependency synchronization step secret",
-    "TAG_VERSION": "Skipo release tag version"
+    "TAG_VERSION": "Skipo release tag version",
+    "FRAMEWORK": "Skipo CI generated-app matrix framework selector; never an application configuration variable"
   },
   "restricted_tooling": {
     "ADMIN_EMAIL": [
@@ -103,6 +104,9 @@
     ],
     "SKIPO_REGISTRY_VERSION": [
       ".github/workflows/verify-published-skipo.yml"
+    ],
+    "FRAMEWORK": [
+      ".github/workflows/ci.yml"
     ]
   },
   "tooling_locations": [
