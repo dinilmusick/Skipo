@@ -136,6 +136,10 @@ def harden(namespace: dict) -> None:
             raise ValueError('Migration contract location must be a package-relative file')
         operation_path(relative)
         contract_file = safe_file(root, f'node_modules/{package}/{relative}')
+        package_root = manifest_path.parent.resolve()
+        actual = contract_file.resolve()
+        if actual != package_root and package_root not in actual.parents:
+            raise ValueError(f'Package migration contract escapes installed package: {package}')
         return json.loads(contract_file.read_text(encoding='utf-8')) if contract_file.is_file() else None
 
     def files_for_pattern(root: Path, pattern: str) -> list[Path]:
