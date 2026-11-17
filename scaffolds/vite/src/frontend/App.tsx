@@ -31,7 +31,7 @@ export function App() {
             ecosystemId="ultrst-armada"
             applicationId={getSkipoApplicationId()}
             appName="SKIPO APP"
-            authenticatedContent={(auth) => <AuthenticatedApplication key={auth.user?.id} auth={auth} />}
+            authenticatedContent={(auth) => <AuthenticatedApplication auth={auth} />}
           />
           <div style={{ display: 'flex', justifyContent: 'center', padding: 12 }}>
             <BaseButton type="button" onClick={() => setIsGuest(true)}>Continue as guest</BaseButton>
