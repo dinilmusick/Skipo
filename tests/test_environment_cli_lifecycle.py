@@ -23,12 +23,12 @@ def make_project(root, env_text):
 
 
 def test_cli_diagnose_plan_repair_verify_lifecycle(tmp_path):
-    make_project(tmp_path, "SYSTEM_DATABASE_URL=postgres://example\n")
+    make_project(tmp_path, "SYSTEM_DATABASE_URL=postgres://example\nAPP_URL=https://default.example\n")
     env_file = tmp_path / ".env"
     env_file.write_text("DEPM_GATEWAY_DOMAIN=https://app.example\n")
 
     diagnose = run_cli("diagnose", tmp_path)
-    assert diagnose.returncode == 0, diagnose.stdout + diagnose.stderr
+    assert diagnose.returncode == 1, diagnose.stdout + diagnose.stderr
     assert json.loads(diagnose.stdout)["environment"]["findings"]
 
     plan = run_cli("plan", tmp_path)
