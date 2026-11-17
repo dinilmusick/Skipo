@@ -2,10 +2,9 @@
 
 import dynamic from 'next/dynamic';
 
-// Browser-only auth depends on the runtime application origin.
-const LoginClient = dynamic(() => import('../../src/frontend/pages/auth/LuthAuthPage')
-  .then(mod => mod.LuthAuthPage), { ssr: false });
+// Keep the complete Luth login flow browser-only during static prerender.
+const LoginClient = dynamic(() => import('./LoginClient'), { ssr: false });
 
 export default function LoginPage() {
-  return <LoginClient applicationId="my-app" appName="MY APP" />;
+  return <LoginClient />;
 }
