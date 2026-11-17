@@ -31,10 +31,19 @@ def safe_file(root: Path, relative: str) -> Path:
     if p.is_absolute() or any(x in ('', '.', '..') for x in p.parts):
         raise ValueError(f"Unsafe migration path: {relative}")
     path = root
+    package_mode = p.parts[0] == 'node_modules'
+    module_root = root.resolve() / 'node_modules'
     for part in p.parts:
         path = path / part
         if path.is_symlink():
-            raise ValueError(f"Migration path traverses symlink: {relative}")
+            if not package_mode or (root / 'node_modules').is_symlink():
+                raise ValueError(f"Migration path traverses symlink: {relative}")
+            try:
+                resolved = path.resolve()
+            except (OSError, RuntimeError) as exc:
+                raise ValueError(f"Broken package installation symlink: {relative}") from exc
+            if resolved != module_root and module_root not in resolved.parents:
+                raise ValueError(f"Package installation symlink escapes node_modules: {relative}")
     if path.exists() and not path.is_file():
         raise ValueError(f"Not a regular file: {relative}")
     return path
