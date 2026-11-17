@@ -101,6 +101,8 @@ VALID_KLOKS_SUBPATHS = {
     "orchestrations",
     "contracts",
     "development",
+    "aiko",
+    "fod",
     "ai-provider",
     "ai-inference",
     "ai-models",
@@ -291,7 +293,10 @@ def validate_contract_boundaries(target: Path) -> ChecklistResult:
                 if is_ui:
                     # UI -> backend implementation
                     is_kloks_backend = (
-                        import_src == "@ultrst-armada/kloks/backend" or
+                        import_src in {
+                            "@ultrst-armada/kloks/backend", "@ultrst-armada/kloks/aiko", "@ultrst-armada/kloks/fod",
+                            "@kloks/aiko", "@kloks/fod",
+                        } or
                         (import_src.startswith("@ultrst-armada/kloks/backend/") and import_src != "@ultrst-armada/kloks/backend/client") or
                         import_src == "@kloks/backend" or
                         (import_src.startswith("@kloks/backend/") and import_src != "@kloks/backend/client")
