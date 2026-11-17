@@ -18,10 +18,41 @@ ENGINE = Path(__file__).resolve().parents[1]
 STAGES = ("inspect", "diagnose", "plan", "update", "repair", "sync", "verify")
 
 
+def _framework_root(root: Path) -> bool:
+    """The framework repo must not be evaluated as a generated application."""
+    package = root / "package.json"
+    if root != ENGINE.resolve() or not package.is_file():
+        return False
+    try:
+        return json.loads(package.read_text(encoding="utf-8")).get("name") == "skipo"
+    except (ValueError, OSError):
+        return False
+
+
 def assess(root: Path) -> dict[str, Any]:
     """Fail closed when a required analyzer or its evidence is unavailable."""
     root = Path(root).resolve()
     result: dict[str, Any] = {"lifecycle": list(STAGES), "root": str(root)}
+    if _framework_root(root):
+        # Application-only path and SDK rules do not apply to Skipo's source.
+        # Validate the actual policy file/schema; do not pretend to have
+        # semantically analyzed an application at the framework root.
+        from skipo_policy import validate_policy
+        try:
+            validate_policy(load_policy())
+            result["policy"] = {"state": "compliant", "scope": "framework-policy-schema"}
+        except Exception as exc:
+            result["policy"] = {"state": "blocked", "scope": "framework-policy-schema",
+                                "errors": [str(exc)]}
+        result["semantic"] = {"status": "not-applicable", "scope": "application-only"}
+        try:
+            result["environment"] = diagnose_environment(root)
+        except Exception as exc:
+            result["environment"] = {"ok": False, "errors": [str(exc)]}
+        result["scope"] = "framework"
+        result["blocked"] = result["policy"]["state"] != "compliant"
+        result["compliant"] = (not result["blocked"] and result["environment"].get("ok") is True)
+        return result
     try:
         result["policy"] = evaluate(root, load_policy())
     except Exception as exc:
@@ -65,6 +96,19 @@ def independent_verify(root: Path, version: str) -> dict[str, Any]:
     from skipo_maintenance import verify as verify_maintenance
     from skipo_capabilities import verify as verify_capabilities
     layers = assess(root)
+    if _framework_root(Path(root).resolve()):
+        try:
+            maintenance = verify_maintenance(root, version)
+            environment = verify_environment(root)
+            return {"ok": bool(layers["compliant"] and maintenance.get("ok") and environment.get("ok")),
+                    "architecture": layers, "maintenance": maintenance,
+                    "environment": environment,
+                    "scope": "framework-contract-only",
+                    "unverified_integrations": ["live Luth OAuth", "Google Drive OAuth",
+                                                "Backblaze B2", "persistent database"]}
+        except Exception as exc:
+            return {"ok": False, "architecture": layers,
+                    "errors": ["Framework verification raised: " + str(exc)]}
     try:
         maintenance = verify_maintenance(root, version)
         capabilities = verify_capabilities(root)
