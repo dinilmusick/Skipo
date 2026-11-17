@@ -5,20 +5,23 @@ import { SkipoThemeProvider, BaseButton, type WorkspaceRecord } from '@ultrst-ar
 import { LuthAuthPage, type UseLuthAuthResult } from '@ultrst-armada/floks/auth';
 import MainPage from './pages/main/page.js';
 import WorkspacesPage from './pages/menus/workspaces/page.js';
-import { getSkipoApplicationId } from '../libraries/client/luthAuthClient.js';
+import { UiSessionControls } from './components/UiSessionControls.js';
+import { getSkipoApplicationId, luthFetch } from '../libraries/client/luthAuthClient.js';
 
 function AuthenticatedApplication({ auth }: { auth: UseLuthAuthResult }) {
   const [workspace, setWorkspace] = useState<WorkspaceRecord | null>(null);
-  if (!workspace) {
-    return (
+  return (
+    <>
+      <UiSessionControls request={luthFetch} />
+      {!workspace ? (
       <WorkspacesPage
         currentUser={auth.user ? { id: auth.user.id, email: auth.user.email, name: auth.user.name } : null}
         onSelectWorkspace={setWorkspace}
         onLogout={() => { void auth.signOut(); }}
       />
-    );
-  }
-  return <MainPage activeWorkspace={workspace} onSwitchWorkspace={() => setWorkspace(null)} />;
+      ) : <MainPage activeWorkspace={workspace} onSwitchWorkspace={() => setWorkspace(null)} />}
+    </>
+  );
 }
 
 export function App() {

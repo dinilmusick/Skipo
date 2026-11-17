@@ -1,3 +1,4 @@
+import { handleUiSessionRequest } from '@ultrst-armada/kloks/backend/ui-session';
 import { authenticateLuthRequest } from '../auth/luthSession.js';
 import { fetch as universalFetch } from '../../app.js';
 import {
@@ -38,7 +39,7 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
 
   // Application capability endpoints must not be consumed by generic external interfaces.
   const capabilityRequest = path === '/api/workspaces' || path === '/api/workspace' ||
-    path.startsWith('/api/storage/');
+    path.startsWith('/api/storage/') || path.startsWith('/api/ui-session/');
   if (!capabilityRequest) {
     const sharedResponse = await universalFetch(request, env);
     if (sharedResponse.status !== 404) return sharedResponse;
@@ -48,6 +49,8 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
   if (auth.status) return json({ success: false, error: auth.error || 'Authentication required.' }, auth.status);
   request = auth.request || request;
   const userId = request.headers.get('x-user-id');
+  const uiSession = await handleUiSessionRequest(request, { appId: 'skipo', principalId: userId || '', env });
+  if (uiSession) return uiSession;
   if (!userId) return json({ success: false, error: 'Verified Luth identity required.' }, 401);
 
   try {

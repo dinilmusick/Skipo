@@ -1,3 +1,4 @@
+import { handleUiSessionRequest } from '@ultrst-armada/kloks/backend/ui-session';
 import { authenticateLuthRequest } from '../auth/luthSession.js';
 import { fetch as universalFetch } from '../../app.js';
 import { AppBackend } from '../AppBackend.js';
@@ -33,14 +34,18 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
     return json({ status: 'ok', service: 'skipo-application' });
   }
 
-  const sharedResponse = await universalFetch(request, env);
-  if (sharedResponse.status !== 404) return sharedResponse;
+  if (!path.startsWith('/api/ui-session/')) {
+    const sharedResponse = await universalFetch(request, env);
+    if (sharedResponse.status !== 404) return sharedResponse;
+  }
 
   const auth = await authenticateLuthRequest(request);
   if (auth.status) return json({ error: auth.error || 'Authentication required.' }, auth.status);
   request = auth.request || request;
 
   const userId = request.headers.get('x-user-id');
+  const uiSession = await handleUiSessionRequest(request, { appId: 'skipo', principalId: userId || '', env });
+  if (uiSession) return uiSession;
   const services = AppBackend.services as any;
 
   if (path === '/api/workspaces') {
