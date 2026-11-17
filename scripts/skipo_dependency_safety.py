@@ -539,6 +539,7 @@ def verify_dependency_migrations(root: Path, skipo_version: str = "1.1.0", *, _a
         resolved = tracking.get("_resolved", {})
         if not isinstance(state, dict) or not isinstance(resolved, dict): raise MigrationError("Malformed migration tracking state")
         applied = set(state.get("dependencyApplied", []))
+        grants = _grant(root)
         for name, item in sorted(versions.items()):
             if resolved.get(name) != item["version"] or tracking.get(name) != item["specifier"]:
                 raise MigrationError(f"Unreconciled dependency state: {name}")
@@ -549,6 +550,11 @@ def verify_dependency_migrations(root: Path, skipo_version: str = "1.1.0", *, _a
                     if dep not in versions or not _range(versions[dep]["version"], req):
                         raise MigrationError(f"Incompatible provider dependency: {name}->{dep}")
                 for mig in contract["migrations"]:
+                    if f"{name}::{mig['id']}" in applied:
+                        for op in mig.get("transformations", []) + mig.get("repair", []):
+                            for target in _targets(root, op):
+                                if grants.get(target) != name or target not in mig.get("ownedPaths", []):
+                                    raise MigrationError(f"Lost migration ownership grant: {name} -> {target}")
                     if f"{name}::{mig['id']}" in applied and mig["toVersion"] == item["version"]:
                         memory = {p: (root / p).read_bytes() if (root / p).exists() else None
                                   for op in mig.get("verification", []) for p in _targets(root, op)}
