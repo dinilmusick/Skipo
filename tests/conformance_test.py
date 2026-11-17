@@ -146,7 +146,7 @@ def test_existing_main_clean_cli_fixture(tmp_path):
     before = cert.source_snapshot(app)
     checked = cert._cli_check(ROOT, app, "check")
     verified = cert._cli_check(ROOT, app, "verify")
-    assert checked["status"] == "passed", checked
+    assert checked["status"] == "passed", json.dumps(checked, indent=2, sort_keys=True)
     assert verified["status"] == "passed", verified
     assert cert.source_snapshot(app) == before
 
