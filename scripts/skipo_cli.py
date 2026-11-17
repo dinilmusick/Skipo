@@ -40,6 +40,8 @@ from skipo_environment_contract import (
     verify as environment_verify,
 )
 from skipo_capabilities import retire_known_duplicates
+from skipo_lifecycle import assess as assess_architecture, independent_verify
+from skipo_reconciliation import reconcile as reconcile_transaction
 
 def run(cmd: list[str], cwd: Path) -> int:
     return subprocess.run(cmd, cwd=str(cwd)).returncode
@@ -92,7 +94,7 @@ def inspect_project(root: Path) -> int:
     observed = maintenance_inspect(root) if is_project(root) else {}
     state = observed.get("capability_state", {})
     payload = {"project": str(root), "skipo_project": bool(data), **data,
-               "capabilities": state, "maintenance_observation": observed}
+               "capabilities": state, "maintenance_observation": observed, "architecture": assess_architecture(root)}
     print(json.dumps(payload, indent=2))
     return 0
 
@@ -108,15 +110,18 @@ def check_project(root: Path) -> int:
     except json.JSONDecodeError:
         payload={"overall_passed":result.returncode==0,"stdout":result.stdout,"stderr":result.stderr}
     payload["skipo_cli_version"]=VERSION
+    payload["architecture"]=assess_architecture(root)
+    payload["overall_passed"]=bool(payload.get("overall_passed") and payload["architecture"]["compliant"])
     print(json.dumps(payload, indent=2))
-    return result.returncode
+    return 0 if result.returncode == 0 and payload["overall_passed"] else 1
 
 def diagnose_project(root: Path) -> int:
     if not (root / ".skipo" / "project.json").exists():
         capabilities = capability_diagnose(root)
         environment = environment_diagnose(root)
-        payload = {"ok": environment.get("ok", True), "operation": "diagnose",
-                   "capabilities": capabilities, "environment": environment}
+        architecture = assess_architecture(root)
+        payload = {"ok": environment.get("ok", True) and not architecture["blocked"], "operation": "diagnose",
+                   "capabilities": capabilities, "environment": environment, "architecture": architecture}
         print(json.dumps(payload, indent=2))
         return 0 if payload["ok"] else 1
     try:
@@ -124,7 +129,9 @@ def diagnose_project(root: Path) -> int:
     except (ValueError, OSError) as exc:
         print(json.dumps({"ok": False, "operation": "diagnose", "errors": [str(exc)]}, indent=2))
         return 2
-    payload = {"ok": planned.get("ok", False), "operation": "diagnose",
+    architecture = assess_architecture(root)
+    payload = {"ok": planned.get("ok", False) and not architecture["blocked"], "operation": "diagnose",
+               "architecture": architecture,
                "state": planned.get("state"), "findings": planned.get("findings", []),
                "proposed_actions": planned.get("actions", []),
                "dependency_migrations": planned.get("dependency_migrations", {}),
@@ -136,10 +143,12 @@ def diagnose_project(root: Path) -> int:
 
 def plan_project(root: Path) -> int:
     if not (root / ".skipo" / "project.json").exists():
-        payload = {"ok": True, "operation": "plan",
+        architecture = assess_architecture(root)
+        payload = {"ok": not architecture["blocked"], "operation": "plan",
+                   "architecture": architecture,
                    "capabilities": capability_plan(root),
                    "environment": environment_plan(root)}
-        payload["ok"] = payload["environment"].get("ok", True) and payload["capabilities"].get("ok", True)
+        payload["ok"] = payload["ok"] and payload["environment"].get("ok", True) and payload["capabilities"].get("ok", True)
         print(json.dumps(payload, indent=2))
         return 0 if payload["ok"] else 1
     try:
@@ -147,6 +156,8 @@ def plan_project(root: Path) -> int:
     except (ValueError, OSError) as exc:
         print(json.dumps({"ok": False, "operation": "plan", "errors": [str(exc)]}, indent=2))
         return 2
+    payload["architecture"] = assess_architecture(root)
+    payload["ok"] = bool(payload.get("ok") and not payload["architecture"]["blocked"])
     print(json.dumps(payload, indent=2))
     return 0 if payload.get("ok", False) else 1
 
@@ -249,23 +260,21 @@ def repair_project(root: Path, apply: bool) -> int:
     return 0 if payload.get("ok", False) else 1
 
 def verify_project(root: Path) -> int:
-    try:
-        if not (root / ".skipo" / "project.json").exists():
-            environment_result = environment_verify(root)
-            capability_result = capability_verify(root)
-            payload = {
-                "ok": environment_result.get("ok", False) and capability_result.get("ok", False),
-                "operation": "verify",
-                "environment": environment_result,
-                "capabilities": capability_result,
-            }
-        else:
-            payload = maintenance_verify(root, VERSION)
-    except (ValueError, OSError) as exc:
-        print(json.dumps({"ok": False, "operation": "verify", "errors": [str(exc)]}, indent=2))
-        return 2
+    payload = {"operation": "verify", **independent_verify(root, VERSION)}
     print(json.dumps(payload, indent=2))
-    return 0 if payload.get("ok", False) else 1
+    return 0 if payload.get("ok") else 1
+
+def certify_project(root: Path, require_live: bool = False, output: str | None = None,
+                    commit_sha: str | None = None) -> int:
+    from skipo_conformance import certify, FRAMEWORK_ROOT
+    payload = certify(root, FRAMEWORK_ROOT, require_live=require_live, commit_sha=commit_sha)
+    rendered = json.dumps(payload, indent=2, sort_keys=True) + "\n"
+    if output:
+        path = Path(output)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(rendered, encoding="utf-8")
+    print(rendered, end="")
+    return {"compliant_offline": 0, "noncompliant": 1, "unresolved": 2}[payload["compliance_status"]]
 
 def test_project(root: Path) -> int:
     if not is_project(root):
@@ -294,10 +303,11 @@ def main() -> int:
     p.add_argument("name"); p.add_argument("target",nargs="?",default=None)
     p.add_argument("--framework",choices=["nextjs","vite"],default="vite"); p.add_argument("--force",action="store_true")
 
-    for cmd in ["inspect","check","diagnose","plan","adopt","sync","update","repair","fix","verify","test"]:
+    for cmd in ["inspect","check","diagnose","plan","adopt","sync","update","repair","fix","verify","test","policy","semantic","certify"]:
         q=sub.add_parser(cmd); q.add_argument("target",nargs="?",default=".")
     q=sub.choices["sync"]; q.add_argument("--install",action="store_true")
     q=sub.choices["repair"]; q.add_argument("--plan",action="store_true")
+    q=sub.choices["certify"]; q.add_argument("--require-live",action="store_true"); q.add_argument("--output"); q.add_argument("--commit-sha")
 
     for cmd in ["add","remove"]:
         q=sub.add_parser(cmd)
@@ -323,6 +333,12 @@ def main() -> int:
         return verify_project(Path(a.target).resolve())
     if a.command=="test":
         return test_project(Path(a.target).resolve())
+    if a.command=="certify":
+        return certify_project(Path(a.target).resolve(), a.require_live, a.output, a.commit_sha)
+    if a.command in {"policy", "semantic"}:
+        layer = assess_architecture(Path(a.target).resolve())[a.command]
+        print(json.dumps(layer, indent=2))
+        return 0 if layer.get("state", layer.get("status")) == "compliant" else 1
     if a.command in {"repair", "fix"}:
         return repair_project(Path(a.target).resolve(), apply=not a.plan)
     items, target = parse_items(a.items)
