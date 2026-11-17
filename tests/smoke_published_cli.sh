@@ -6,7 +6,12 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 temp="$(mktemp -d)"
 trap 'rm -rf "$temp"' EXIT
 
-(cd "$root/packages/skipo" && npm pack --pack-destination "$temp" >/dev/null)
+if [[ -n "${SKIPO_REGISTRY_VERSION:-}" ]]; then
+  npm view "@ultrst-armada/skipo@$SKIPO_REGISTRY_VERSION" version
+  npm pack "@ultrst-armada/skipo@$SKIPO_REGISTRY_VERSION" --pack-destination "$temp" >/dev/null
+else
+  (cd "$root/packages/skipo" && npm pack --pack-destination "$temp" >/dev/null)
+fi
 tarball="$(find "$temp" -maxdepth 1 -name '*.tgz' -print -quit)"
 test -n "$tarball"
 
