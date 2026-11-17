@@ -197,3 +197,9 @@ def detect_affected_state(root: Path, migration: dict[str, Any]) -> list[dict[st
                 if count:
                     findings.append({"path": path.relative_to(root).as_posix(), "pattern": spec["text"], "matches": count})
     return sorted(findings, key=lambda item: (item["path"], item["pattern"]))
+
+# Strict public contract/path semantics; legacy helper signatures remain available.
+from skipo_dependency_safety import (  # noqa: E402,F401
+    validate_contract as validate_contract,
+    resolve_path as resolve_path,
+)
