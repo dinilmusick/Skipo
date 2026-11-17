@@ -12,7 +12,9 @@
     "lint": "next lint",
     "clean": "rm -rf .next dist api",
     "validate": "python3 Skipo/checklists/full_system_validator.py .",
-    "validate:strict": "python3 Skipo/checklists/full_system_validator.py . --verbose"
+    "validate:strict": "python3 Skipo/checklists/full_system_validator.py . --verbose",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/canonical-capabilities.test.cjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
