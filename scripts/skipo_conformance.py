@@ -60,13 +60,31 @@ def source_snapshot(root: Path) -> dict[str, str]:
 
 
 def _git_sha(root: Path) -> str | None:
+    """Prove the target belongs to a clean Git checkout before attributing SHA.
+
+    A nested application can inherit the checkout's SHA only when its manifest is
+    tracked. An unrelated/untracked folder under a repository is not eligible.
+    """
     try:
-        completed = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, text=True, timeout=10)
+        root = root.resolve()
+        top = subprocess.run(["git", "-C", str(root), "rev-parse", "--show-toplevel"], capture_output=True, text=True, timeout=10)
+        if top.returncode != 0:
+            return None
+        repository = Path(top.stdout.strip()).resolve()
+        if repository != root and repository not in root.parents:
+            return None
+        relative = root.relative_to(repository)
+        if repository != root:
+            owned = subprocess.run(["git", "-C", str(repository), "ls-files", "--error-unmatch", "--", (relative / "package.json").as_posix()], capture_output=True, timeout=10)
+            if owned.returncode != 0:
+                return None
+        status = subprocess.run(["git", "-C", str(repository), "status", "--porcelain", "--untracked-files=all", "--", relative.as_posix() or "."], capture_output=True, text=True, timeout=10)
+        if status.returncode != 0 or status.stdout.strip():
+            return None
+        completed = subprocess.run(["git", "-C", str(repository), "rev-parse", "HEAD"], capture_output=True, text=True, timeout=10)
         sha = completed.stdout.strip()
-        if not (root / ".git").exists():
-            return None  # Do not attribute an ancestor repository commit to untracked apps.
         return sha if completed.returncode == 0 and re.fullmatch(r"[0-9a-f]{40}", sha) else None
-    except (OSError, subprocess.TimeoutExpired):
+    except (OSError, subprocess.TimeoutExpired, ValueError):
         return None
 
 
