@@ -27,3 +27,23 @@ jobs:
         env:
           SKIPO_REGISTRY_VERSION: 1.1.1
         run: bash tests/smoke_published_cli.sh
+
+  verify-1-2-0:
+    if: >-
+      github.event.issue.user.login == 'dinilmusick' &&
+      github.event.issue.title == '[skipo-verify] 1.2.0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify Skipo 1.2.0 against public npm registry and an isolated legacy application
+        env:
+          SKIPO_REGISTRY_VERSION: 1.2.0
+        run: bash tests/smoke_published_cli.sh
