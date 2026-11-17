@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for pkg in @dinilmusick/gutts@2.2.0 @ultrst-armada/frnlts@0.5.26 @ultrst-armada/kloks@2.2.1 @ultrst-armada/floks@2.0.7; do
+          for pkg in @dinilmusick/gutts@2.2.0 @ultrst-armada/frnlts@0.5.26 @ultrst-armada/kloks@2.2.3 @ultrst-armada/floks@2.0.7; do
             for attempt in $(seq 1 40); do
               rm -f /tmp/provider.json
               if npm view "$pkg" name version dist.tarball dist.integrity dependencies peerDependencies peerDependenciesMeta optionalDependencies engines bin --json > /tmp/provider.json && test -s /tmp/provider.json; then
