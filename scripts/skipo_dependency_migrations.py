@@ -220,6 +220,7 @@ from skipo_dependency_integrity import (
 )
 from skipo_dependency_transaction import (
     execute_verified as _execute_verified,
+    migration_targets,
     recover_dependency_migrations,
 )
 _legacy_dependency_plan = plan_dependency_migrations
@@ -266,6 +267,7 @@ def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0", _inflig
         declared = _declared_dependencies(root)
         requirements = {}
         for migration in plan["migrations"]:
+            migration_targets(root, migration["package"], migration)
             contract = discover_contract(root, migration["package"])
             if contract is None:
                 raise ValueError(f"Missing package-shipped migration contract: {migration['package']}")
@@ -322,6 +324,7 @@ def verify_dependency_migrations(root: Path, skipo_version: str = "1.1.0", _infl
             if len(terminal) > 1:
                 raise ValueError(f"Ambiguous applied terminal migrations for {name}")
             if terminal:
+                migration_targets(root, name, terminal[0])
                 for operation in terminal[0].get("verification", []):
                     verify_operation(root, operation)
                 for spec in deprecated_specs(terminal[0]):

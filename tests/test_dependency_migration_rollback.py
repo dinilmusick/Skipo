@@ -26,6 +26,7 @@ def test_invalid_nested_json_target_fails_preflight_without_mutation(tmp_path):
     (provider / "skipo.migrations.json").write_text(json.dumps({"schemaVersion": 1,
         "package": name, "migrations": [{
             "id": "upgrade", "fromVersion": "1.0.0", "toVersion": "2.0.0",
+            "ownedPaths": ["src/example.ts", "config.json"],
             "transformations": [
                 {"type": "replace_text", "paths": ["src/**/*.ts"],
                  "find": "OldFacade", "replace": "NewFacade"},
@@ -34,6 +35,8 @@ def test_invalid_nested_json_target_fails_preflight_without_mutation(tmp_path):
             ], "verification": []}]}))
     state = tmp_path / ".skipo"
     state.mkdir()
+    (state / "dependency-ownership.json").write_text(json.dumps({
+        "owners": {"src/example.ts": name, "config.json": name}}))
     (state / "dependencies.json").write_text(json.dumps({name: "^1.0.0",
         "_resolved": {name: "1.0.0"}}))
     (state / "migration-state.json").write_text(json.dumps({"schemaVersion": 1,

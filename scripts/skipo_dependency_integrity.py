@@ -7,6 +7,7 @@ from pathlib import Path
 
 NAME = re.compile(r"^(?:@[a-z0-9][\w.-]*/)?[a-z0-9][\w.-]*$")
 VERSION = re.compile(r"^v?(\d+)\.(\d+)(?:\.(\d+))?$")
+OWNERSHIP_FILE = '.skipo/dependency-ownership.json'
 
 def exact(value: str) -> str:
     match = VERSION.fullmatch(str(value))
@@ -90,14 +91,16 @@ def compatible(spec: str, installed: str) -> bool:
     return True
 
 def lock_versions(root: Path, names: dict[str, str]) -> tuple[str, dict[str, str]]:
-    npm, pnpm = safe_file(root, 'package-lock.json'), safe_file(root, 'pnpm-lock.yaml')
-    yarn = safe_file(root, 'yarn.lock')
-    present = [p for p in (npm, pnpm, yarn) if p.is_file()]
+    lockfiles = ('package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml',
+                 'yarn.lock', 'bun.lock', 'bun.lockb')
+    present = [path for name in lockfiles if (path := safe_file(root, name)).is_file()]
     if len(present) != 1:
-        raise ValueError('Expected exactly one supported lockfile (package-lock.json or pnpm-lock.yaml)')
-    if yarn.is_file():
-        raise ValueError('Yarn lockfiles are not yet supported for verified migrations')
-    if npm.is_file():
+        raise ValueError('Expected exactly one supported lockfile for verified migrations')
+    lockfile = present[0]
+    if lockfile.name in ('yarn.lock', 'bun.lock', 'bun.lockb'):
+        raise ValueError(f'Unsupported lockfile for verified migrations: {lockfile.name}')
+    if lockfile.name in ('package-lock.json', 'npm-shrinkwrap.json'):
+        npm = lockfile
         lock = read_json(npm)
         if lock.get('lockfileVersion') not in (2, 3) or not isinstance(lock.get('packages'), dict):
             raise ValueError('Unsupported npm lockfile version or format')
@@ -112,12 +115,12 @@ def lock_versions(root: Path, names: dict[str, str]) -> tuple[str, dict[str, str
             if not value:
                 raise ValueError(f"Missing npm lockfile entry for {name}")
             versions[name] = exact(value)
-        return 'package-lock.json', versions
+        return npm.name, versions
     # Parse only the pnpm importer subset we need with stdlib. Unknown YAML
     # constructs fail closed instead of introducing an undeclared CLI dependency.
     entries, importer, section, provider, in_importers = {}, None, None, None, False
     lock_version = None
-    for line in pnpm.read_text(encoding='utf-8').splitlines():
+    for line in lockfile.read_text(encoding='utf-8').splitlines():
         if not line.strip() or line.lstrip().startswith('#'):
             continue
         if '\t' in line or re.search(r'(?<!\S)[&*][A-Za-z_]', line):
@@ -177,6 +180,8 @@ def inspect_install(root: Path, packages: list[str]) -> dict:
 def input_hashes(root: Path, migrations: list[dict], paths: dict, lock_name: str | None) -> dict[str, str | None]:
     from skipo_dependency_contracts import files_for_pattern
     targets = {'package.json', '.skipo/dependencies.json', '.skipo/migration-state.json'}
+    if migrations:
+        targets.add(OWNERSHIP_FILE)
     if lock_name:
         targets.add(lock_name)
     for name in paths:

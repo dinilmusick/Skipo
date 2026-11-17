@@ -8,7 +8,19 @@ A provider package's package.json declares skipo.migrationContract (relative to 
 
 Permitted transformations: replace_text (paths, find, replace, optional expectedMatches) and set_json (path, key, value, optional expectedOld). Preconditions and postconditions: text_present, text_absent, and json_equals. No shell operations, path traversal, symlinks, or provider rewrites of package manifests, lockfiles, node_modules, .git or .skipo are permitted. Paths/patterns must be package-defined and explicit. Unmatched application-owned files are preserved.
 
-Versions are concrete semantic release numbers (one to three numeric components) without prerelease or wildcards; migration resolution is exact. Missing edges, multiple paths, invalid operations and incompatible provider ranges block; the engine never selects one of multiple valid routes arbitrarily. The installed package name/version must agree with package.json and the **single** npm v2/v3 or pnpm v6/v9 lockfile. Unsupported managers and inconsistent, absent or stale lockfiles stop safely.
+A provider migration must list each possible mutation target as a literal path in its `ownedPaths` array. The application must grant the same paths to that package in `.skipo/dependency-ownership.json`:
+
+```json
+{
+  "owners": {
+    "src/framework/workspaces.ts": "@ultrst-armada/kloks"
+  }
+}
+```
+
+Keep transformation patterns scoped to granted files. An ungranted match blocks the plan. Skipo seals the grant file with the plan and checks ownership again during execution and terminal migration verification. Existing mutation contracts need literal path declarations and corresponding app grants before use.
+
+Versions are concrete semantic release numbers (one to three numeric components) without prerelease or wildcards; migration resolution is exact. Missing edges, multiple paths, invalid operations and incompatible provider ranges block; the engine never selects one of multiple valid routes arbitrarily. The installed package name/version must agree with package.json and the **single** npm v2/v3 lockfile (package-lock.json or npm-shrinkwrap.json) or pnpm v6/v9 lockfile. Unsupported managers and inconsistent, absent or stale lockfiles stop safely.
 
 ## Public callable API
 
@@ -30,6 +42,6 @@ Receipts include actions, changedFiles, verified, errors, rollback, recovery, in
 
 ## Independent tests
 
-    python -m pytest -q tests/dependency_migration_contract.test.py tests/dependency_migration_rollback.test.py tests/dependency_migration_safety.test.py
+    python -m pytest -q tests/test_dependency_migration_contract.py tests/test_dependency_migration_rollback.py tests/test_dependency_migration_safety.py
 
 Failure injection is provided exclusively through the callable execute_dependency_migrations(root, plan, fail_at='after_write:0') interface for tests. No change to Skipo's shared CLI, orchestration, workflows or other agents' owned files is required.

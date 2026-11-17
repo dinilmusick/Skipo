@@ -16,7 +16,8 @@ from skipo_dependency_migrations import (
 NAME = '@ultrst-armada/kloks'
 
 def migration(mid, old, new, **extra):
-    return {'id': mid, 'fromVersion': old, 'toVersion': new, **extra}
+    return {'id': mid, 'fromVersion': old, 'toVersion': new,
+            'ownedPaths': ['src/provider.ts', 'config.json'], **extra}
 
 def fixture(tmp_path, migrations=None, old='1.0.0', target='3.0.0', names=None):
     names = names or {NAME: target}
@@ -27,6 +28,8 @@ def fixture(tmp_path, migrations=None, old='1.0.0', target='3.0.0', names=None):
             f'node_modules/{name}': {'version': version} for name, version in names.items()}}}))
     state = tmp_path / '.skipo'
     state.mkdir()
+    (state / 'dependency-ownership.json').write_text(json.dumps({
+        'owners': {'src/provider.ts': NAME, 'config.json': NAME}}))
     (state / 'dependencies.json').write_text(json.dumps({NAME: '^' + old, '_resolved': {NAME: old}}))
     (state / 'migration-state.json').write_text(json.dumps({'schemaVersion': 1, 'applied': [], 'pending': []}))
     for name, version in names.items():
@@ -295,3 +298,45 @@ def test_offline_changed_scaffold_fails_closed(tmp_path):
     shutil.rmtree(root / 'node_modules')
     result = plan_dependency_migrations(root)
     assert not result['ok']
+
+
+def test_migration_requires_both_provider_and_application_ownership(tmp_path):
+    root = fixture(tmp_path, staged_migrations())
+    grant = root / '.skipo/dependency-ownership.json'
+    valid_grant = grant.read_text()
+    grant.unlink()
+    assert 'application grant' in str(plan_dependency_migrations(root)['errors'])
+    grant.write_text(valid_grant)
+    contract = root / f'node_modules/{NAME}/skipo.migrations.json'
+    valid_contract = contract.read_text()
+    data = json.loads(valid_contract)
+    data['migrations'][0]['ownedPaths'] = []
+    contract.write_text(json.dumps(data))
+    assert 'ownership declaration' in str(plan_dependency_migrations(root)['errors'])
+    contract.write_text(valid_contract)
+    plan = plan_dependency_migrations(root)
+    assert plan['ok'], plan['errors']
+    grant.unlink()
+    assert 'Stale migration plan' in str(execute_dependency_migrations(root, plan)['errors'])
+    assert (root / 'src/provider.ts').read_text() == 'OldProvider'
+    grant.write_text(valid_grant)
+    assert execute_dependency_migrations(root, plan)['ok']
+    grant.unlink()
+    assert 'application grant' in str(verify_dependency_migrations(root)['errors'])
+
+
+def test_mixed_or_unsupported_lockfiles_block_migrations(tmp_path):
+    root = fixture(tmp_path, staged_migrations())
+    (root / 'bun.lock').touch()
+    assert 'exactly one supported lockfile' in str(plan_dependency_migrations(root)['errors'])
+    (root / 'package-lock.json').unlink()
+    assert 'Unsupported lockfile' in str(plan_dependency_migrations(root)['errors'])
+
+
+def test_npm_shrinkwrap_is_a_single_supported_lockfile(tmp_path):
+    root = fixture(tmp_path, staged_migrations())
+    (root / 'package-lock.json').rename(root / 'npm-shrinkwrap.json')
+    plan = plan_dependency_migrations(root)
+    assert plan['ok'], plan['errors']
+    assert plan['integrity']['lockfile'] == 'npm-shrinkwrap.json'
+    assert execute_dependency_migrations(root, plan)['ok']
