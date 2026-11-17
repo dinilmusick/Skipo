@@ -1,0 +1,48 @@
+name: Native UI provider evidence
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/native-ui-release-evidence.yml"
+      - "scaffolds/**/UiSessionControls.tsx"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - name: Wait for exact provider releases and verify metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          for pkg in @ultrst-armada/frnlts@0.5.26 @ultrst-armada/kloks@2.2.1 @ultrst-armada/floks@2.0.7; do
+            for attempt in $(seq 1 40); do
+              if npm view "$pkg" name version dist.tarball dist.integrity dependencies peerDependencies optionalDependencies --json > /tmp/provider.json && test -s /tmp/provider.json; then
+                cat /tmp/provider.json
+                break
+              fi
+              sleep 15
+            done
+            test -s /tmp/provider.json
+          done
+      - name: Regenerate framework lockfile
+        run: |
+          pnpm install --lockfile-only --no-frozen-lockfile
+          gzip -c pnpm-lock.yaml | base64 -w 0
+      - name: Verify published Provider exports
+        run: |
+          pnpm install --frozen-lockfile
+          node --input-type=module <<'NODE'
+          import { startFrnlUiSession } from '@ultrst-armada/frnlts/runtime';
+          import { handleUiSessionRequest } from '@ultrst-armada/kloks/backend';
+          import { getFloksFrnlFrontendApi } from '@ultrst-armada/floks/ui';
+          for (const value of [startFrnlUiSession, handleUiSessionRequest, getFloksFrnlFrontendApi]) {
+            if (typeof value !== 'function') throw new TypeError('Native UI export is missing');
+          }
+          NODE

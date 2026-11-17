@@ -6,8 +6,8 @@
       "kind": "capability",
       "description": "Canonical Luth authentication and Floks auth surface.",
       "dependencies": {
-        "@ultrst-armada/floks": "2.0.6",
-        "@ultrst-armada/kloks": "2.2.0"
+        "@ultrst-armada/floks": "2.0.7",
+        "@ultrst-armada/kloks": "2.2.1"
       },
       "providers": [
         {
@@ -79,8 +79,8 @@
       "kind": "capability",
       "description": "Canonical workspace selection and workspace service.",
       "dependencies": {
-        "@ultrst-armada/floks": "2.0.6",
-        "@ultrst-armada/kloks": "2.2.0"
+        "@ultrst-armada/floks": "2.0.7",
+        "@ultrst-armada/kloks": "2.2.1"
       },
       "providers": [
         {
@@ -147,7 +147,7 @@
       "kind": "service",
       "description": "Canonical workspace storage service.",
       "dependencies": {
-        "@ultrst-armada/kloks": "2.2.0"
+        "@ultrst-armada/kloks": "2.2.1"
       },
       "providers": [
         {
@@ -197,7 +197,7 @@
       "kind": "service",
       "description": "Canonical MIDI service.",
       "dependencies": {
-        "@ultrst-armada/kloks": "2.2.0"
+        "@ultrst-armada/kloks": "2.2.1"
       },
       "providers": [
         {
@@ -252,7 +252,7 @@
       "kind": "ui",
       "description": "Canonical Floks settings primitive.",
       "dependencies": {
-        "@ultrst-armada/floks": "2.0.6"
+        "@ultrst-armada/floks": "2.0.7"
       },
       "providers": [
         {
@@ -310,7 +310,7 @@
       "kind": "ui",
       "description": "Canonical Floks settings/account surface.",
       "dependencies": {
-        "@ultrst-armada/floks": "2.0.6"
+        "@ultrst-armada/floks": "2.0.7"
       },
       "providers": [
         {
@@ -363,7 +363,7 @@
       "kind": "ui",
       "description": "Canonical Floks application navigation primitives.",
       "dependencies": {
-        "@ultrst-armada/floks": "2.0.6"
+        "@ultrst-armada/floks": "2.0.7"
       },
       "providers": [
         {
@@ -423,7 +423,7 @@
       "kind": "ui",
       "description": "Canonical graph/canvas primitives from Floks.",
       "dependencies": {
-        "@ultrst-armada/floks": "2.0.6"
+        "@ultrst-armada/floks": "2.0.7"
       },
       "providers": [
         {
@@ -506,9 +506,9 @@
     "dependencies": {
       "@dinilmusick/gutts": "2.2.0",
       "@ultrst-armada/krnl": "^1.0.27",
-      "@ultrst-armada/frnlts": "0.5.24",
-      "@ultrst-armada/kloks": "2.2.0",
-      "@ultrst-armada/floks": "2.0.6"
+      "@ultrst-armada/frnlts": "0.5.26",
+      "@ultrst-armada/kloks": "2.2.1",
+      "@ultrst-armada/floks": "2.0.7"
     },
     "ownership": {
       "applicationComposition": "skipo",
