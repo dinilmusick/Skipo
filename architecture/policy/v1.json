@@ -1,0 +1,532 @@
+{
+  "schema_version": 1,
+  "policy_id": "ultrst-skipo-app",
+  "policy_version": "1.0.0",
+  "owners": {
+    "application-composition": {
+      "provider": "Skipo",
+      "package": "@ultrst-armada/skipo",
+      "contract": "Application construction, canonical wiring and deterministic repair, never agent execution"
+    },
+    "auth-identity": {
+      "provider": "Luth",
+      "package": "@ultrst-armada/kloks",
+      "contract": "Luth authoritative identity through the Kloks service boundary"
+    },
+    "auth-ui": {
+      "provider": "Floks",
+      "package": "@ultrst-armada/floks",
+      "contract": "Canonical shared login/authentication presentation"
+    },
+    "workspace-ui": {
+      "provider": "Floks",
+      "package": "@ultrst-armada/floks",
+      "contract": "WorkspaceTilesMenu and WorkspaceCreateDialog"
+    },
+    "workspace-storage": {
+      "provider": "Kloks",
+      "package": "@ultrst-armada/kloks",
+      "contract": "Workspace persistence and S3/Drive SDK access"
+    },
+    "frontend-state": {
+      "provider": "FrnlTS",
+      "package": "@ultrst-armada/frnlts",
+      "contract": "Frontend component/runtime contracts"
+    },
+    "backend-service": {
+      "provider": "KrnlTS",
+      "package": "@ultrst-armada/krnl",
+      "contract": "Backend service runtime framework"
+    }
+  },
+  "rules": [
+    {
+      "id": "canonical-floks-dependency",
+      "code": "SKP-POL-OWN-FLOKS",
+      "category": "ownership",
+      "severity": "error",
+      "on_violation": "repairable",
+      "description": "Application declares canonical floks runtime dependency",
+      "check": {
+        "kind": "require_dependency",
+        "package": "@ultrst-armada/floks"
+      },
+      "evidence": {
+        "kind": "package_manifest",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Add published @ultrst-armada/floks as runtime dependency; use its public contracts, not local copies.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Independent package manifest inspection and install/contract test"
+      }
+    },
+    {
+      "id": "canonical-kloks-dependency",
+      "code": "SKP-POL-OWN-KLOKS",
+      "category": "ownership",
+      "severity": "error",
+      "on_violation": "repairable",
+      "description": "Application declares canonical kloks runtime dependency",
+      "check": {
+        "kind": "require_dependency",
+        "package": "@ultrst-armada/kloks"
+      },
+      "evidence": {
+        "kind": "package_manifest",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Add published @ultrst-armada/kloks as runtime dependency; use its public contracts, not local copies.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Independent package manifest inspection and install/contract test"
+      }
+    },
+    {
+      "id": "canonical-frnlts-dependency",
+      "code": "SKP-POL-OWN-FRNLTS",
+      "category": "ownership",
+      "severity": "error",
+      "on_violation": "repairable",
+      "description": "Application declares canonical frnlts runtime dependency",
+      "check": {
+        "kind": "require_dependency",
+        "package": "@ultrst-armada/frnlts"
+      },
+      "evidence": {
+        "kind": "package_manifest",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Add published @ultrst-armada/frnlts as runtime dependency; use its public contracts, not local copies.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Independent package manifest inspection and install/contract test"
+      }
+    },
+    {
+      "id": "canonical-krnl-dependency",
+      "code": "SKP-POL-OWN-KRNL",
+      "category": "ownership",
+      "severity": "error",
+      "on_violation": "repairable",
+      "description": "Application declares canonical krnl runtime dependency",
+      "check": {
+        "kind": "require_dependency",
+        "package": "@ultrst-armada/krnl"
+      },
+      "evidence": {
+        "kind": "package_manifest",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Add published @ultrst-armada/krnl as runtime dependency; use its public contracts, not local copies.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Independent package manifest inspection and install/contract test"
+      }
+    },
+    {
+      "id": "canonical-auth-page",
+      "code": "SKP-POL-STRUCT-AUTH",
+      "category": "structure",
+      "severity": "error",
+      "on_violation": "repairable",
+      "description": "Skipo app contains canonical auth page entrypoint",
+      "check": {
+        "kind": "require_path",
+        "path": "src/frontend/pages/auth/page.tsx"
+      },
+      "evidence": {
+        "kind": "source_snapshot",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Generate canonical auth page with Skipo; preserve thin application orchestration only.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Independent filesystem inventory plus canonical page rendering or build check"
+      }
+    },
+    {
+      "id": "canonical-workspace-page",
+      "code": "SKP-POL-STRUCT-WORKSPACE",
+      "category": "structure",
+      "severity": "error",
+      "on_violation": "repairable",
+      "description": "Skipo app contains canonical workspace page entrypoint",
+      "check": {
+        "kind": "require_path",
+        "path": "src/frontend/pages/menus/workspaces/page.tsx"
+      },
+      "evidence": {
+        "kind": "source_snapshot",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Generate canonical workspace page with Skipo; preserve thin application orchestration only.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Independent filesystem inventory plus canonical page rendering or build check"
+      }
+    },
+    {
+      "id": "canonical-main-page",
+      "code": "SKP-POL-STRUCT-MAIN",
+      "category": "structure",
+      "severity": "error",
+      "on_violation": "repairable",
+      "description": "Skipo app contains canonical main page entrypoint",
+      "check": {
+        "kind": "require_path",
+        "path": "src/frontend/pages/main/page.tsx"
+      },
+      "evidence": {
+        "kind": "source_snapshot",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Generate canonical main page with Skipo; preserve thin application orchestration only.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Independent filesystem inventory plus canonical page rendering or build check"
+      }
+    },
+    {
+      "id": "canonical-settings-page",
+      "code": "SKP-POL-STRUCT-SETTINGS",
+      "category": "structure",
+      "severity": "error",
+      "on_violation": "repairable",
+      "description": "Skipo app contains canonical settings page entrypoint",
+      "check": {
+        "kind": "require_path",
+        "path": "src/frontend/pages/settings/page.tsx"
+      },
+      "evidence": {
+        "kind": "source_snapshot",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Generate canonical settings page with Skipo; preserve thin application orchestration only.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Independent filesystem inventory plus canonical page rendering or build check"
+      }
+    },
+    {
+      "id": "no-legacy-module-runtime",
+      "code": "SKP-POL-INV-NO-MODULE",
+      "category": "invariant",
+      "severity": "error",
+      "on_violation": "repairable",
+      "description": "Legacy module runtime is not a supported app composition boundary",
+      "check": {
+        "kind": "forbid_path",
+        "pattern": "src/module-runtime/**"
+      },
+      "evidence": {
+        "kind": "source_snapshot",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Migrate to Skipo capability composition; remove legacy module-runtime only after verifying consumers.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Fresh repository snapshot, rule rerun and reviewer identity"
+      }
+    },
+    {
+      "id": "no-app-owned-guest-lease",
+      "code": "SKP-POL-INV-GUEST-LEASE",
+      "category": "invariant",
+      "severity": "error",
+      "on_violation": "repairable",
+      "description": "Guest access is reduced in-memory access, not an app-owned lease service",
+      "check": {
+        "kind": "forbid_path",
+        "pattern": "src/backend/guest-lease/**"
+      },
+      "evidence": {
+        "kind": "source_snapshot",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Retire guest lease server endpoints; use the canonical guest entry flow.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Fresh repository snapshot, rule rerun and reviewer identity"
+      }
+    },
+    {
+      "id": "forbid-direct-aws-sdk-import",
+      "code": "SKP-POL-IMP-AWS-SDK",
+      "category": "implementation",
+      "severity": "critical",
+      "on_violation": "blocked",
+      "description": "Provider SDK @aws-sdk/* cannot be imported by an application",
+      "check": {
+        "kind": "forbid_import",
+        "module": "@aws-sdk/*",
+        "paths": [
+          "src/**/*.ts",
+          "src/**/*.tsx",
+          "src/**/*.js",
+          "src/**/*.jsx",
+          "src/**/*.mjs"
+        ]
+      },
+      "evidence": {
+        "kind": "source_import",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Route provider operations through published Kloks storage and account contracts; keep SDK implementation in its canonical owner.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Independent static source scan and adapter integration test"
+      }
+    },
+    {
+      "id": "forbid-direct-googleapis-import",
+      "code": "SKP-POL-IMP-GOOGLEAPIS",
+      "category": "implementation",
+      "severity": "critical",
+      "on_violation": "blocked",
+      "description": "Provider SDK googleapis cannot be imported by an application",
+      "check": {
+        "kind": "forbid_import",
+        "module": "googleapis",
+        "paths": [
+          "src/**/*.ts",
+          "src/**/*.tsx",
+          "src/**/*.js",
+          "src/**/*.jsx",
+          "src/**/*.mjs"
+        ]
+      },
+      "evidence": {
+        "kind": "source_import",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Route provider operations through published Kloks storage and account contracts; keep SDK implementation in its canonical owner.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Independent static source scan and adapter integration test"
+      }
+    },
+    {
+      "id": "forbid-direct-google-sdk-import",
+      "code": "SKP-POL-IMP-GOOGLE-SDK",
+      "category": "implementation",
+      "severity": "critical",
+      "on_violation": "blocked",
+      "description": "Provider SDK @googleapis/* cannot be imported by an application",
+      "check": {
+        "kind": "forbid_import",
+        "module": "@googleapis/*",
+        "paths": [
+          "src/**/*.ts",
+          "src/**/*.tsx",
+          "src/**/*.js",
+          "src/**/*.jsx",
+          "src/**/*.mjs"
+        ]
+      },
+      "evidence": {
+        "kind": "source_import",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Route provider operations through published Kloks storage and account contracts; keep SDK implementation in its canonical owner.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Independent static source scan and adapter integration test"
+      }
+    },
+    {
+      "id": "forbid-direct-aws-dependency",
+      "code": "SKP-POL-DEP-AWS",
+      "category": "implementation",
+      "severity": "critical",
+      "on_violation": "blocked",
+      "description": "Application must not directly depend on @aws-sdk/client-s3",
+      "check": {
+        "kind": "forbid_dependency",
+        "package": "@aws-sdk/client-s3"
+      },
+      "evidence": {
+        "kind": "package_manifest",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Remove direct SDK dependency and invoke canonical Kloks service; verify lockfile after package installation.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Independent package manifest and lockfile scan"
+      }
+    },
+    {
+      "id": "forbid-direct-google-dependency",
+      "code": "SKP-POL-DEP-GOOGLE",
+      "category": "implementation",
+      "severity": "critical",
+      "on_violation": "blocked",
+      "description": "Application must not directly depend on googleapis",
+      "check": {
+        "kind": "forbid_dependency",
+        "package": "googleapis"
+      },
+      "evidence": {
+        "kind": "package_manifest",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Remove direct SDK dependency and invoke canonical Kloks service; verify lockfile after package installation.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Independent package manifest and lockfile scan"
+      }
+    },
+    {
+      "id": "no-local-workspacecreatedialog-component",
+      "code": "SKP-POL-LOCAL-CREATE-DIALOG",
+      "category": "implementation",
+      "severity": "error",
+      "on_violation": "repairable",
+      "description": "WorkspaceCreateDialog must be imported from canonical Floks rather than defined locally",
+      "check": {
+        "kind": "forbid_declaration",
+        "symbol": "WorkspaceCreateDialog",
+        "paths": [
+          "src/frontend/**/*.ts",
+          "src/frontend/**/*.tsx",
+          "src/frontend/**/*.js",
+          "src/frontend/**/*.jsx"
+        ]
+      },
+      "evidence": {
+        "kind": "source_snapshot",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Replace app-owned WorkspaceCreateDialog with published Floks UI and retain only application-specific callback adapters.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Independent symbol scan plus UI import verification"
+      }
+    },
+    {
+      "id": "no-local-workspacetilesmenu-component",
+      "code": "SKP-POL-LOCAL-TILES-MENU",
+      "category": "implementation",
+      "severity": "error",
+      "on_violation": "repairable",
+      "description": "WorkspaceTilesMenu must be imported from canonical Floks rather than defined locally",
+      "check": {
+        "kind": "forbid_declaration",
+        "symbol": "WorkspaceTilesMenu",
+        "paths": [
+          "src/frontend/**/*.ts",
+          "src/frontend/**/*.tsx",
+          "src/frontend/**/*.js",
+          "src/frontend/**/*.jsx"
+        ]
+      },
+      "evidence": {
+        "kind": "source_snapshot",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Replace app-owned WorkspaceTilesMenu with published Floks UI and retain only application-specific callback adapters.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Independent symbol scan plus UI import verification"
+      }
+    },
+    {
+      "id": "no-local-luthauthpage-component",
+      "code": "SKP-POL-LOCAL-AUTH-PAGE",
+      "category": "implementation",
+      "severity": "error",
+      "on_violation": "repairable",
+      "description": "LuthAuthPage must be imported from canonical Floks rather than defined locally",
+      "check": {
+        "kind": "forbid_declaration",
+        "symbol": "LuthAuthPage",
+        "paths": [
+          "src/frontend/**/*.ts",
+          "src/frontend/**/*.tsx",
+          "src/frontend/**/*.js",
+          "src/frontend/**/*.jsx"
+        ]
+      },
+      "evidence": {
+        "kind": "source_snapshot",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Replace app-owned LuthAuthPage with published Floks UI and retain only application-specific callback adapters.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Independent symbol scan plus UI import verification"
+      }
+    },
+    {
+      "id": "generated-auth-provenance",
+      "code": "SKP-POL-GEN-AUTH",
+      "category": "generated",
+      "severity": "error",
+      "on_violation": "ambiguous",
+      "description": "Installed generated auth wiring has verifiable Skipo ownership and digest",
+      "check": {
+        "kind": "generated_asset",
+        "path": "src/libraries/skipo/auth.ts",
+        "manifest": ".skipo/generated-assets.json",
+        "owner": "skipo"
+      },
+      "evidence": {
+        "kind": "generated_manifest",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Do not overwrite unknown user edits. Reconcile provenance with Skipo composer and regenerate after reviewing diff.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Independent recomputation of SHA-256 and manifest ownership review"
+      }
+    },
+    {
+      "id": "reserved-canonical-pages",
+      "code": "SKP-POL-EXT-RESERVED",
+      "category": "extension",
+      "severity": "warning",
+      "on_violation": "repairable",
+      "description": "Canonical auth/workspace page directories cannot host app-owned alternate implementations",
+      "check": {
+        "kind": "extension_boundary",
+        "protected": [
+          "src/frontend/pages/auth/**",
+          "src/frontend/pages/menus/workspaces/**"
+        ],
+        "allowed": [
+          "src/frontend/pages/auth/page.tsx",
+          "src/frontend/pages/menus/workspaces/page.tsx"
+        ]
+      },
+      "evidence": {
+        "kind": "source_snapshot",
+        "description": "Path, source location and observed value or missing expected contract"
+      },
+      "remediation": "Move custom application pages to main/tabs or dedicated app-owned directories; keep canonical entrypoints intact.",
+      "verification": {
+        "method": "fresh_independent_snapshot",
+        "independent": true,
+        "required_evidence": "Independent path ownership inventory and UI build check"
+      }
+    }
+  ]
+}
