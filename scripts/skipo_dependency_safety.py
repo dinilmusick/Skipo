@@ -203,6 +203,17 @@ def _inventory(root: Path) -> tuple[dict[str, dict[str, str]], dict[str, Any]]:
     if any((root / marker).exists() for marker in ("pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb")):
         raise MigrationError("Ambiguous/unsupported package manager lockfile")
     lock_names = [name for name in LOCKS if (root / name).exists()]
+    # No provider resolution exists in a dependency-free legacy application.
+    # Such projects may legitimately have no lockfile or an empty historical stub.
+    if not declared:
+        if len(lock_names) > 1: raise MigrationError("Multiple npm lockfiles")
+        if lock_names:
+            empty_lock = _read_json(root / lock_names[0])
+            if not isinstance(empty_lock, dict): raise MigrationError("Invalid empty dependency lockfile")
+            root_entry = empty_lock.get("packages", {}).get("", {})
+            if any(root_entry.get(section) for section in ("dependencies", "devDependencies", "optionalDependencies")):
+                raise MigrationError("Lockfile declares undeclared dependencies")
+        return {}, manifest
     if len(lock_names) != 1: raise MigrationError("Expected exactly one npm lockfile (package-lock.json or npm-shrinkwrap.json)")
     lock = _read_json(root / lock_names[0])
     if not isinstance(lock, dict) or lock.get("lockfileVersion") not in (2, 3) or not isinstance(lock.get("packages"), dict):
