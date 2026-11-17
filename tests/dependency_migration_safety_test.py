@@ -165,3 +165,13 @@ def test_recovered_preexisting_transaction(tmp_path):
     assert recover_dependency_migrations(tmp_path)["recovered"]
     assert (tmp_path / "src/canonical.ts").read_text() == "legacy_A"
     assert execute_dependency_migrations(tmp_path, plan)["ok"]
+
+
+def test_verifier_detects_revoked_ownership(tmp_path):
+    pkg = fixture(tmp_path)
+    contract(pkg)
+    plan = plan_dependency_migrations(tmp_path)
+    assert execute_dependency_migrations(tmp_path, plan)["ok"]
+    write(tmp_path / ".skipo/dependency-ownership.json", {"owners": {}})
+    check = verify_dependency_migrations(tmp_path)
+    assert not check["ok"] and "Lost migration ownership grant" in str(check["errors"])
