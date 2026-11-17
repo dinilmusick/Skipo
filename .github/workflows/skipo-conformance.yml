@@ -1,0 +1,93 @@
+name: Standalone Skipo application conformance
+on:
+  workflow_dispatch:
+    inputs:
+      application_path:
+        description: 'Path to the application in the checked-out repository (not the framework root)'
+        required: true
+        type: string
+      require_live:
+        description: 'Fail unresolved when live integrations have not been independently tested'
+        required: false
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - scripts/skipo_conformance.py
+      - tests/conformance_*
+      - tests/conformance_fixtures/**
+      - .github/workflows/skipo-conformance.yml
+permissions:
+  contents: read
+jobs:
+  test-certification-engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run conformance tests against the actual main Skipo validators
+        run: |
+          python -m pip install pytest
+          python -m pytest -q tests/conformance_test.py
+  certify-application:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.33.0'
+      - name: Resolve requested application
+        id: target
+        env:
+          INPUT_PATH: ${{ inputs.application_path }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          root = Path.cwd().resolve()
+          target = (root / os.environ['INPUT_PATH']).resolve()
+          if target == root or not target.is_relative_to(root) or not (target / 'package.json').is_file():
+              raise SystemExit('A real in-repository application path is required; framework root or path escape is forbidden')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write(f'path={target}\n')
+          PY
+      - name: Install target dependencies using frozen lockfile
+        id: install
+        continue-on-error: true
+        working-directory: ${{ steps.target.outputs.path }}
+        run: |
+          if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; \
+          elif [ -f package-lock.json ]; then npm ci; \
+          elif [ -f yarn.lock ]; then corepack yarn install --immutable; \
+          else echo 'No supported lockfile'; exit 2; fi
+      - name: Certify without mutating application source
+        env:
+          APP_PATH: ${{ steps.target.outputs.path }}
+          REQUIRE_LIVE: ${{ inputs.require_live }}
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+        run: |
+          set +e
+          ARGS=()
+          if [ "$REQUIRE_LIVE" = 'true' ]; then ARGS+=(--require-live); fi
+          if [ "$INSTALL_OUTCOME" != 'success' ]; then ARGS+=(--dependency-install-failed); fi
+          python scripts/skipo_conformance.py "$APP_PATH" --commit-sha "$GITHUB_SHA" --output "$RUNNER_TEMP/skipo-conformance.json" "${ARGS[@]}"
+          exit $?
+      - name: Publish full machine-readable evidence (even on failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: skipo-conformance-report
+          path: ${{ runner.temp }}/skipo-conformance.json
+          if-no-files-found: warn

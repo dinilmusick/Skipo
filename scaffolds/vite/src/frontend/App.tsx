@@ -1,50 +1,43 @@
 'use client';
 
 import { useState } from 'react';
-import { BaseButton, SkipoThemeProvider } from '@ultrst-armada/floks/ui';
-import { LuthAuthPage } from '@ultrst-armada/floks/auth';
+import { SkipoThemeProvider, BaseButton, type WorkspaceRecord } from '@ultrst-armada/floks/ui';
+import { LuthAuthPage, type UseLuthAuthResult } from '@ultrst-armada/floks/auth';
 import MainPage from './pages/main/page.js';
-import { getSkipoApplicationId, luthAuthClient } from '../libraries/client/luthAuthClient.js';
+import WorkspacesPage from './pages/menus/workspaces/page.js';
+import { getSkipoApplicationId } from '../libraries/client/luthAuthClient.js';
 
-const routes: Record<string, typeof MainPage> = { '/': MainPage, '/home': MainPage };
-
-export function App() {
-  const Page = routes[window.location.pathname] ?? MainPage;
-  const applicationId = getSkipoApplicationId();
-  const [isGuest, setIsGuest] = useState(false);
-
-  if (isGuest) {
+function AuthenticatedApplication({ auth }: { auth: UseLuthAuthResult }) {
+  const [workspace, setWorkspace] = useState<WorkspaceRecord | null>(null);
+  if (!workspace) {
     return (
-      <SkipoThemeProvider defaultTheme="dark">
-        <Page isGuest />
-      </SkipoThemeProvider>
+      <WorkspacesPage
+        currentUser={auth.user ? { id: auth.user.id, email: auth.user.email, name: auth.user.name } : null}
+        onSelectWorkspace={setWorkspace}
+        onLogout={() => { void auth.signOut(); }}
+      />
     );
   }
+  return <MainPage activeWorkspace={workspace} onSwitchWorkspace={() => setWorkspace(null)} />;
+}
 
+export function App() {
+  const [isGuest, setIsGuest] = useState(false);
   return (
     <SkipoThemeProvider defaultTheme="dark">
-      <LuthAuthPage
-        ecosystemId="ultrst-armada"
-        applicationId={applicationId}
-        appName="SKIPO APP"
-        onContinueAsGuest={() => setIsGuest(true)}
-        authenticatedContent={
-          <>
-            <header style={{ display: 'flex', justifyContent: 'flex-end', padding: 12 }}>
-              <BaseButton
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  void luthAuthClient.signOut().then(() => window.location.assign('/login'));
-                }}
-              >
-                Sign out
-              </BaseButton>
-            </header>
-            <Page />
-          </>
-        }
-      />
+      {isGuest ? <MainPage isGuest /> : (
+        <>
+          <LuthAuthPage
+            ecosystemId="ultrst-armada"
+            applicationId={getSkipoApplicationId()}
+            appName="SKIPO APP"
+            authenticatedContent={(auth) => <AuthenticatedApplication auth={auth} />}
+          />
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 12 }}>
+            <BaseButton type="button" onClick={() => setIsGuest(true)}>Continue as guest</BaseButton>
+          </div>
+        </>
+      )}
     </SkipoThemeProvider>
   );
 }

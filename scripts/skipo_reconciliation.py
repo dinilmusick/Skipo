@@ -45,14 +45,26 @@ def reconcile(root: Path, apply: bool, framework_version: str) -> dict[str, Any]
     package = capabilities.package_json(root)
     dependencies = dict(package.get("dependencies", {}))
     dependency_owners = capabilities.read_json(root / ".skipo/dependencies.json", {})
-    dependency_plan = capabilities.plan_dependency_migrations(root, framework_version)
+    from skipo_dependency_migrations import plan_dependency_migrations
+    dependency_plan = plan_dependency_migrations(root, framework_version)
 
     actions: list[dict[str, Any]] = []
     conflicts: list[dict[str, Any]] = []
     capability_ids = set(installed)
+    # Generated canonical pages can reference other capabilities (e.g. the
+    # workspace page imports SettingsPage). A reference is not evidence that
+    # another capability was installed or needs mutation. Only discoveries
+    # outside all canonical generated paths can initiate a new repair.
+    canonical_generated_paths = {
+        entry["path"] for spec in registry.values()
+        for entry in spec.get("generated", [])
+    }
     capability_ids.update(
         item["capability"] for item in findings
-        if item.get("classification") in {"adapt", "retire"} and item.get("capability") in registry
+        if item.get("classification") in {"adapt", "retire"}
+        and item.get("capability") in registry
+        and (item.get("classification") == "retire"
+             or item.get("path") not in canonical_generated_paths)
     )
 
     for item in findings:
@@ -243,3 +255,49 @@ def reconcile(root: Path, apply: bool, framework_version: str) -> dict[str, Any]
         "composition": composed, "dependency_migrations": dependency_plan,
         "verification": verification,
     }
+
+
+# Public transaction entrypoint. The original reconciler is preserved solely
+# as the isolated canonical transformation simulator; it never receives the
+# application's original path after transaction hardening.
+from skipo_repair_txn_engine import transact as _transact_repair
+
+_simulate_canonical_repair = reconcile
+
+
+def _simulate_with_environment(stage: Path, apply: bool, framework_version: str) -> dict[str, Any]:
+    """Apply canonical environment aliases in the throwaway simulation only."""
+    from skipo_environment_contract import repair as repair_environment
+    environment = repair_environment(stage, apply=True)
+    if not environment.get("ok"):
+        return {"ok": False, "environment": environment,
+                "conflicts": environment.get("conflicts") or environment.get("blocked_findings") or
+                             [{"code": "ENVIRONMENT_PREFLIGHT_FAILED"}],
+                "verification": {"ok": False, "errors": ["Environment governance rejected the update"]}}
+    result = _simulate_canonical_repair(stage, apply, framework_version)
+    result["environment"] = environment
+    return result
+
+
+def reconcile(
+    root: Path,
+    apply: bool,
+    framework_version: str,
+    *,
+    expected_plan_id: str | None = None,
+    fault_at: str | None = None,
+    with_environment: bool = False,
+    verify_hook: Any = None,
+) -> dict[str, Any]:
+    """Plan or apply a fully verified repair using a reversible journal.
+
+    Preview with reconcile(root, False, version), then pass its `plan_id` to
+    a later apply as `expected_plan_id`; stale plans fail without mutation.
+    `fault_at` is reserved for deterministic transaction-failure tests.
+    """
+    return _transact_repair(
+        root, apply, framework_version,
+        _simulate_with_environment if with_environment else _simulate_canonical_repair,
+        capabilities, expected_plan_id=expected_plan_id, fault_at=fault_at,
+        verify_hook=verify_hook,
+    )

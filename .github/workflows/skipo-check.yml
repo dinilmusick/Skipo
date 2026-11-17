@@ -20,6 +20,9 @@ on:
           - repair
           - verify
           - test
+          - policy
+          - semantic
+          - certify
   pull_request:
     paths:
       - ".skipo/**"
@@ -43,20 +46,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Setup Node
-        if: github.event.inputs.operation == 'test'
-        uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install dependencies
-        if: github.event.inputs.operation == 'test'
-        run: |
-          if [ -f pnpm-lock.yaml ]; then
-            corepack enable
-            pnpm install --no-frozen-lockfile
-          else
-            npm install
-          fi
+          cache: pnpm
+      - name: Install complete framework toolchain for mandatory semantic checks
+        run: pnpm install --frozen-lockfile
       - name: Run Skipo operation
         env:
           SKIPO_OPERATION: ${{ github.event.inputs.operation || 'verify' }}

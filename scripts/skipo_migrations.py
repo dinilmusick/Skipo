@@ -315,6 +315,18 @@ def initialize_migration_state(root: Path, framework_version: str) -> dict[str, 
     return state
 
 
+def _write_framework_migration_state(path: Path, state: dict[str, Any]) -> None:
+    """Keep the provider migration ledger when framework migrations advance.
+
+    The two migration engines share one durable file but own disjoint keys.
+    A framework update must never discard provider migration evidence.
+    """
+    existing = _read_json(path, "migration state")
+    preserved = {key: value for key, value in existing.items()
+                 if key not in {"schemaVersion", "applied", "pending", "migrations"}}
+    atomic_write_json(path, {**preserved, **state})
+
+
 def update_project(root: Path, target_version: str, apply: bool = True) -> dict[str, Any]:
     target = parse_version(target_version, "target Skipo")
     catalogue = load_catalogue()
@@ -368,7 +380,7 @@ def update_project(root: Path, target_version: str, apply: bool = True) -> dict[
         return result
     pending = list(plan["unapplied_migrations"])
     state["pending"] = pending
-    atomic_write_json(state_path, state)
+    _write_framework_migration_state(state_path, state)
 
     for migration in catalogue:
         migration_id = migration["id"]
@@ -376,24 +388,24 @@ def update_project(root: Path, target_version: str, apply: bool = True) -> dict[
             continue
         record = state["migrations"][migration_id]
         record["status"] = "applying"
-        atomic_write_json(state_path, state)
+        _write_framework_migration_state(state_path, state)
         completed = set(record["completedOperations"])
         for relative in migration.get("retirePaths", []):
             if relative not in completed:
                 _remove_catalogued_path(root, relative)
                 completed.add(relative)
                 record["completedOperations"] = sorted(completed)
-                atomic_write_json(state_path, state)
+                _write_framework_migration_state(state_path, state)
                 result["applied_operations"].append({"migration": migration_id, "operation": "retire-path", "path": relative})
         record["status"] = "applied"
         record["completedOperations"] = sorted(set(migration.get("retirePaths", [])))
         state["applied"] = [item["id"] for item in catalogue if state["migrations"][item["id"]]["status"] == "applied"]
         state["pending"] = [item["id"] for item in catalogue if state["migrations"][item["id"]]["status"] != "applied"]
-        atomic_write_json(state_path, state)
+        _write_framework_migration_state(state_path, state)
 
     state["applied"] = [item["id"] for item in catalogue if state["migrations"][item["id"]]["status"] == "applied"]
     state["pending"] = []
-    atomic_write_json(state_path, state)
+    _write_framework_migration_state(state_path, state)
     manifest.update({
         "framework": "skipo",
         "skipo_version": target_version,

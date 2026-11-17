@@ -9,10 +9,12 @@
     "dev": "next dev",
     "build": "node scripts/skipo-build.mjs",
     "start": "node dist/providers/node/server.js",
-    "lint": "next lint",
+    "lint": "tsc --noEmit",
     "clean": "rm -rf .next dist api",
     "validate": "python3 Skipo/checklists/full_system_validator.py .",
-    "validate:strict": "python3 Skipo/checklists/full_system_validator.py . --verbose"
+    "validate:strict": "python3 Skipo/checklists/full_system_validator.py . --verbose",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/canonical-capabilities.test.cjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -29,14 +31,14 @@
     "d3-force": "^3.0.0",
     "zod": "^3.23.8",
     "zustand": "^5.0.15",
-    "@aws-sdk/client-s3": "^3.1130.0",
-    "@aws-sdk/s3-request-presigner": "^3.1132.0",
     "@ultrst-armada/krnl": "^1.0.25",
-    "@ultrst-armada/kloks": "^2.0.4",
-    "@ultrst-armada/floks": "^2.0.0",
-    "@ultrst-armada/frnlts": "^0.5.23",
+    "@ultrst-armada/kloks": "2.0.5",
+    "@ultrst-armada/floks": "2.0.6",
+    "@ultrst-armada/frnlts": "0.5.23",
     "@dinilmusick/gutts": "^2.1.1",
-    "p-queue": "^10.0.0"
+    "p-queue": "^10.0.0",
+    "cactus-needle": "0.3.0",
+    "@huggingface/transformers": "4.3.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.1.11",

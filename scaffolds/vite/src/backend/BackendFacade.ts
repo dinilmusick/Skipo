@@ -5,17 +5,18 @@
  * Conforms to L7 (App Architecture Spec), L8, and L9 (Lines <= 200).
  */
 
-import type { IServiceFacade, ServiceNamespace } from '@ultrst-armada/krnl';
+import type { ServiceNamespace } from '@ultrst-armada/krnl';
 import { listBackendCapabilities } from './BackendCapabilityCatalog.js';
 import type {
   IBackendFacade,
+  RegisteredServiceFacade,
   CapabilityCategory,
   CapabilityOwnerInfo,
   CrossServiceExecutionOptions,
 } from './BackendFacadeTypes.js';
 
 export class BackendFacade implements IBackendFacade {
-  private readonly services = new Map<string, IServiceFacade>();
+  private readonly services = new Map<string, RegisteredServiceFacade>();
   private readonly capabilityOwners = new Map<string, CapabilityOwnerInfo[]>();
 
   public readonly namespaces: Record<string, ServiceNamespace> = {};
@@ -29,7 +30,7 @@ export class BackendFacade implements IBackendFacade {
     this.orchestrations = this.createCapabilityProxy('orchestrations');
   }
 
-  public registerService(facade: IServiceFacade, alias?: string): this {
+  public registerService(facade: RegisteredServiceFacade, alias?: string): this {
     if (!facade || (typeof facade !== 'object' && typeof facade !== 'function') || !facade.id) {
       throw new Error('[BackendFacade] Invalid service facade provided for registration.');
     }
@@ -38,11 +39,11 @@ export class BackendFacade implements IBackendFacade {
       serviceId: facade.id,
       serviceName: facade.name || facade.id,
       version: facade.version || '1.0.0',
-      libraries: facade.libraries || {},
-      functionalities: facade.functionalities || {},
-      functionalityOrchestrations: af.orchestrations || {},
-      capabilities: facade.capabilities || [],
-      dependencies: facade.dependencies || [],
+      libraries: af.libraries || af.definition?.libraries || {},
+      functionalities: af.functionalities || af.definition?.functionalities || {},
+      functionalityOrchestrations: af.functionalityOrchestrations || af.definition?.functionalityOrchestrations || af.orchestrations || {},
+      capabilities: af.capabilities || af.definition?.capabilities || [],
+      dependencies: af.dependencies || af.definition?.dependencies || [],
     });
 
     this.services.set(ns.serviceId, facade);
@@ -109,7 +110,7 @@ export class BackendFacade implements IBackendFacade {
     options?: CrossServiceExecutionOptions
   ): Promise<TOut> {
     const targetOp = operation || capabilityName;
-    let targetService: IServiceFacade | undefined;
+    let targetService: RegisteredServiceFacade | undefined;
 
     if (options?.serviceId) {
       targetService = this.services.get(options.serviceId);
@@ -137,7 +138,7 @@ export class BackendFacade implements IBackendFacade {
       const res = await af.orchestrate(targetOp, input, options);
       return res.output ?? res.data ?? res;
     }
-    if (typeof targetService.call === 'function') return (await targetService.call<TIn, TOut>(targetOp, input, options)) as TOut;
+    if (typeof af.call === 'function') return (await af.call(targetOp, input, options)) as TOut;
     if (typeof af.execute === 'function') return (await af.execute(targetOp, input, options)) as TOut;
     throw new Error(`[BackendFacade] Service '${targetService.id}' provides neither call() nor execute().`);
   }
@@ -147,7 +148,7 @@ export class BackendFacade implements IBackendFacade {
     return listBackendCapabilities(this.services, this.namespaces);
   }
 
-  public getService(nameOrId: string): IServiceFacade {
+  public getService(nameOrId: string): RegisteredServiceFacade {
     const svc = this.services.get(nameOrId);
     if (!svc) throw new Error(`[BackendFacade] Service '${nameOrId}' not found.`);
     return svc;

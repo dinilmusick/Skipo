@@ -7,7 +7,7 @@
     "skipo": "./bin/skipo.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "files": [
     "bin",
@@ -24,5 +24,8 @@
     "type": "git",
     "url": "git+https://github.com/dinilmusick/Skipo.git"
   },
-  "homepage": "https://github.com/dinilmusick/Skipo"
+  "homepage": "https://github.com/dinilmusick/Skipo",
+  "dependencies": {
+    "typescript": "^5.9.3"
+  }
 }

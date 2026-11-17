@@ -24,7 +24,7 @@ def _version_tuple(value: str) -> tuple[int, int, int]:
     return tuple(int(part) for part in match.groups())
 
 def package_spec_satisfies_minimum(actual: str, minimum: str) -> bool:
-    if not isinstance(actual, str) or not actual.startswith("^") or not isinstance(minimum, str) or not minimum.startswith("^"):
+    if not isinstance(actual, str) or not re.fullmatch(r"\^?\d+\.\d+\.\d+", actual) or not isinstance(minimum, str) or not minimum.startswith("^"):
         return False
     current = _version_tuple(actual)
     floor = _version_tuple(minimum)
@@ -151,6 +151,12 @@ def validate_repository(root: Path) -> list[str]:
     next_login = root / "scaffolds/nextjs/app/login/page.tsx"
     if next_login.is_file():
         source = next_login.read_text(encoding="utf-8")
+        if "LoginClient" in source:
+            delegated = root / "scaffolds/nextjs/app/login/LoginClient.tsx"
+            if not delegated.is_file():
+                errors.append("Next.js browser-only login delegate is missing")
+            else:
+                source += "\n" + delegated.read_text(encoding="utf-8")
         if "LuthAuthPage" not in source or "getSkipoApplicationId" not in source:
             errors.append("Next.js login page must compose the Floks LuthAuthPage with the stable app identity")
 

@@ -1,78 +1,124 @@
 {
-  "schema_version": 1,
-  "contract_version": "1.0.0",
+  "schema_version": 2,
+  "contract_version": "2.0.0",
   "canonical": {
     "required": [
-      "SYSTEM_DATABASE_URL"
+      "SYSTEM_DATABASE_URL",
+      "APP_URL"
     ],
     "optional": [
       "SYSTEM_DATABASE_URL_2",
-      "SYSTEM_DATABASE_URL_3",
-      "APP_URL"
+      "SYSTEM_DATABASE_URL_3"
     ]
   },
   "deprecated_aliases": {
     "DEPM_GATEWAY_DOMAIN": {
       "target": "APP_URL",
-      "reason": "The former Depm gateway origin is now the canonical application origin."
+      "reason": "Legacy DEPM origin; replace only the variable name, never its value."
+    },
+    "SYSTEM_DATABASE_URL_1": {
+      "target": "SYSTEM_DATABASE_URL",
+      "reason": "Legacy primary database name; preserve its connection string."
     }
   },
-  "obsolete_framework_variables": {},
-  "product_specific": {
-    "NODE_ENV": "Node.js runtime mode, owned by the application runtime.",
-    "PORT": "Local Node server binding, owned by the hosting adapter.",
-    "CI": "CI platform execution marker.",
-    "DISABLE_HMR": "Development tooling switch.",
-    "PATH": "Operating-system executable search path, not application configuration.",
-    "HOME": "Operating-system home directory, not application configuration.",
-    "PWD": "Operating-system working directory, not application configuration.",
-    "ADMIN_EMAIL": "Bootstrap administrator email consumed by the optional create-admin maintenance script.",
-    "ADMIN_PASSWORD": "Bootstrap administrator password consumed by the optional create-admin maintenance script.",
-    "API_BASE_URL": "Target origin for Skipo's API smoke-test and production-debug scripts.",
-    "APP_REPOSITORY": "Repository identifier passed to the preview-inspection workflow.",
-    "ECOSYSTEM_SYNC_TOKEN": "GitHub Actions secret used by the Skipo upstream dependency synchronization workflow.",
-    "GEMINI_API_KEY": "Optional application model-provider credential in generated Skipo application scaffolds.",
-    "MANIFEST_PATH": "Manifest path passed to the preview-inspection workflow.",
-    "NODE_PATH": "Temporary Node module-resolution path used by the preview-inspection runner.",
-    "PREVIEW_URL": "Preview origin input/output passed to the preview-inspection workflow.",
-    "PYTHON_BIN": "Optional Python interpreter override for the Skipo checklist runner.",
-    "ROOT_VERSION": "Root package version read by the Skipo CLI publication workflow.",
-    "SKIPO_APP_ROOT": "Application checkout root passed to the preview-inspection inspector.",
-    "SKIPO_INSPECTION_MANIFEST": "Explicit manifest path override for the preview-inspection inspector.",
-    "SKIPO_OPERATION": "Maintenance operation selected by the Skipo check/reusable workflows.",
-    "SKIPO_PREVIEW_URL": "Preview origin override consumed by the preview-inspection inspector.",
-    "SKIPO_PYTHON": "Optional Python interpreter override for the published Skipo CLI.",
-    "SKIPO_VERSION": "Published CLI package version checked by the release workflow.",
-    "STORAGE_ACCESS_KEY_ID": "Optional object-storage provider credential in generated application storage adapters.",
-    "STORAGE_ENDPOINT": "Optional object-storage endpoint in generated application storage adapters.",
-    "STORAGE_REGION": "Optional object-storage region in generated application storage adapters.",
-    "STORAGE_SECRET_ACCESS_KEY": "Optional object-storage provider credential in generated application storage adapters.",
-    "SYNC_TOKEN": "Step-scoped alias for the ECOSYSTEM_SYNC_TOKEN Actions secret.",
-    "TAG_VERSION": "Release tag version parsed by the Skipo CLI publication workflow."
+  "runtime_platform": {
+    "NODE_ENV": "Node.js runtime mode",
+    "PORT": "Hosting adapter's server port",
+    "CI": "CI platform execution marker",
+    "DISABLE_HMR": "Vite local developer server tooling switch",
+    "PATH": "Operating system process path",
+    "HOME": "Operating system home directory",
+    "PWD": "Operating system working directory",
+    "GITHUB_ACTIONS": "GitHub Actions execution marker",
+    "GITHUB_ENV": "GitHub Actions environment file path",
+    "GITHUB_OUTPUT": "GitHub Actions step output path",
+    "GITHUB_PATH": "GitHub Actions path output",
+    "GITHUB_STEP_SUMMARY": "GitHub Actions summary output path",
+    "GITHUB_WORKSPACE": "GitHub Actions checkout directory",
+    "GITHUB_REPOSITORY": "GitHub Actions repository identity",
+    "GITHUB_REF": "GitHub Actions ref",
+    "GITHUB_SHA": "GitHub Actions commit SHA",
+    "GITHUB_RUN_ID": "GitHub Actions run identity",
+    "VERCEL_ENV": "Vercel deployment environment",
+    "VERCEL_URL": "Vercel deployment hostname",
+    "VERCEL_REGION": "Vercel region",
+    "CF_PAGES": "Cloudflare Pages execution indicator",
+    "CF_PAGES_URL": "Cloudflare Pages deployment URL",
+    "CF_PAGES_BRANCH": "Cloudflare Pages branch"
   },
-  "product_specific_patterns": [
-    {
-      "pattern": "^GITHUB_[A-Z0-9_]+$",
-      "reason": "GitHub Actions platform-provided context."
-    },
-    {
-      "pattern": "^VERCEL_[A-Z0-9_]+$",
-      "reason": "Vercel platform-provided context."
-    },
-    {
-      "pattern": "^CF_[A-Z0-9_]+$",
-      "reason": "Cloudflare platform-provided context."
-    }
+  "internal_tooling": {
+    "ADMIN_EMAIL": "Explicit administrator bootstrap command input, never application runtime configuration",
+    "ADMIN_PASSWORD": "Explicit administrator bootstrap command input, never application runtime configuration",
+    "API_BASE_URL": "Skipo API smoke test input",
+    "APP_PATH": "Standalone conformance workflow's validated target path",
+    "APP_REPOSITORY": "Preview inspection workflow input",
+    "ECOSYSTEM_SYNC_TOKEN": "Skipo dependency synchronization workflow secret",
+    "GITHUB_OWNER": "Internal secrets synchronization repository owner input",
+    "INPUT_PATH": "Standalone conformance workflow's selected relative application path",
+    "INSTALL_OUTCOME": "Standalone conformance workflow's frozen install result",
+    "MANIFEST_PATH": "Preview inspection manifest input",
+    "NODE_PATH": "Skipo preview inspector module resolution",
+    "PREVIEW_URL": "Preview inspection workflow input",
+    "PYTHON_BIN": "Skipo checklist runner interpreter selection",
+    "REQUIRE_LIVE": "Standalone conformance workflow's live-verification flag",
+    "ROOT_VERSION": "Skipo release workflow variable",
+    "SKIPO_APP_ROOT": "Skipo preview inspection workspace",
+    "SKIPO_INSPECTION_MANIFEST": "Skipo preview inspector manifest override",
+    "SKIPO_OPERATION": "Skipo maintenance workflow selector",
+    "SKIPO_PREVIEW_URL": "Skipo preview inspector URL override",
+    "SKIPO_PYTHON": "Skipo CLI tooling interpreter override",
+    "SKIPO_REGISTRY_VERSION": "Skipo npm package publication verification input",
+    "SKIPO_VERSION": "Skipo release CLI version",
+    "SYNC_TOKEN": "Skipo dependency synchronization step secret",
+    "TAG_VERSION": "Skipo release tag version",
+    "FRAMEWORK": "Skipo CI generated-app matrix framework selector; never an application configuration variable"
+  },
+  "restricted_tooling": {
+    "ADMIN_EMAIL": [
+      "scripts/create-admin.ts"
+    ],
+    "ADMIN_PASSWORD": [
+      "scripts/create-admin.ts"
+    ],
+    "APP_PATH": [
+      ".github/workflows/skipo-conformance.yml"
+    ],
+    "ECOSYSTEM_SYNC_TOKEN": [
+      ".github/workflows/dependency-sync.yml"
+    ],
+    "GITHUB_OWNER": [
+      "scripts/sync-ecosystem-secrets.mjs"
+    ],
+    "INPUT_PATH": [
+      ".github/workflows/skipo-conformance.yml"
+    ],
+    "INSTALL_OUTCOME": [
+      ".github/workflows/skipo-conformance.yml"
+    ],
+    "REQUIRE_LIVE": [
+      ".github/workflows/skipo-conformance.yml"
+    ],
+    "SKIPO_PYTHON": [
+      "bin/skipo.js",
+      "packages/skipo/bin/skipo.js"
+    ],
+    "SKIPO_REGISTRY_VERSION": [
+      ".github/workflows/verify-published-skipo.yml"
+    ],
+    "FRAMEWORK": [
+      ".github/workflows/ci.yml"
+    ]
+  },
+  "tooling_locations": [
+    "scripts/",
+    "checklists/",
+    "bin/",
+    "packages/skipo/bin/",
+    ".github/",
+    "tests/"
   ],
   "scan": {
     "extensions": [
-      ".env",
-      ".example",
-      ".local",
-      ".development",
-      ".production",
-      ".test",
-      ".staging",
       ".ts",
       ".tsx",
       ".js",

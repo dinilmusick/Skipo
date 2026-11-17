@@ -1,1 +1,2 @@
-export default function ThemesTab(){return <section><h2>Themes</h2><p>Theme and appearance configuration.</p></section>;}
+'use client';
+export { ThemeSettingsSection as default } from '@ultrst-armada/floks/ui';

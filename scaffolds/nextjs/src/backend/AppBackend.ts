@@ -2,8 +2,6 @@
 // 1. MINIMAL BACKEND FACADE (@ultrst-armada/kloks/* & @ultrst-armada/krnl COMPOSITION)
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { ServiceAFacade, ServiceBFacade } from '@ultrst-armada/kloks/services';
-import { OrchestratorADefinition } from '@ultrst-armada/kloks/orchestrations';
 import {
   StorageServiceFacade,
   WorkspaceServiceFacade,
@@ -14,9 +12,7 @@ import { LuthAuthServiceFacade } from './LuthAuthServiceFacade.js';
 import { BackendFacade } from './BackendFacade.js';
 import { createAppExternalInterfaces } from './externalInterfaces.js';
 
-export const orchestrations = {
-  orchestratorA: OrchestratorADefinition,
-};
+export const orchestrations = {};
 
 export const appWorkerBoundary = new WorkerExecutionBoundary('app_worker_main');
 
@@ -29,15 +25,15 @@ export const bugReportService = {
 
 export const services = {
   auth: LuthAuthServiceFacade,
-  serviceA: ServiceAFacade,
-  serviceB: ServiceBFacade,
   storage: StorageServiceFacade,
   workspace: WorkspaceServiceFacade,
   bugReport: bugReportService,
 };
 
 export const backendFacade = new BackendFacade();
-for (const service of [ServiceAFacade, ServiceBFacade, StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
+// The Kloks 2.x operation facades expose execute() rather than the older
+// KRNL IServiceFacade interface. They remain accessible through services
+// and canonical HTTP routes; do not misregister them as incompatible types.
 export const externalInterfaces = createAppExternalInterfaces(backendFacade);
 
 export const storageProviders = {

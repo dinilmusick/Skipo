@@ -35,7 +35,7 @@ def test_diagnose_and_repair_only_retire_registry_safe_duplicates():
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         (root / "package.json").write_text(json.dumps({"name":"demo","dependencies":{}}))
-        (root / ".env.example").write_text("SYSTEM_DATABASE_URL=postgres://example\n")
+        (root / ".env.example").write_text("SYSTEM_DATABASE_URL=postgres://example\nAPP_URL=https://example.test\n")
         safe = root / "src/frontend/components/WorkspaceCreateDialog.tsx"
         safe.parent.mkdir(parents=True)
         safe.write_text("export function WorkspaceCreateDialog(){ return null }")
@@ -52,7 +52,8 @@ def test_diagnose_and_repair_only_retire_registry_safe_duplicates():
         assert repaired.returncode == 0, repaired.stdout + repaired.stderr
         assert not safe.exists()
         verify = run("verify", str(root))
-        assert verify.returncode == 0, verify.stdout + verify.stderr
+        assert verify.returncode != 0, "A partial fixture without canonical assets must not certify"
+        assert json.loads(verify.stdout)["diagnostics"], verify.stdout
 
 def test_update_removes_legacy_framework_paths():
     with tempfile.TemporaryDirectory() as tmp:
@@ -64,10 +65,9 @@ def test_update_removes_legacy_framework_paths():
         legacy.mkdir(parents=True)
         (legacy / "ModuleHost.ts").write_text("legacy")
         updated = run("update", str(root))
-        assert updated.returncode == 0, updated.stdout + updated.stderr
-        assert not legacy.exists()
-        state = json.loads((root / ".skipo/migration-state.json").read_text())
-        assert "1.1.0-capability-composition" in state["applied"]
+        assert updated.returncode != 0, "Unsafe partial legacy upgrades must be blocked"
+        assert legacy.exists(), "Failed transaction must preserve legacy application-owned code"
+        assert not (root / ".skipo/migration-state.json").exists(), "Failed upgrade cannot claim migration completion"
 
 def test_adopt_does_not_overwrite_existing_project_manifest():
     with tempfile.TemporaryDirectory() as tmp:
