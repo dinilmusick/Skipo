@@ -281,7 +281,7 @@ def repair_project(root: Path, apply: bool) -> int:
 def verify_project(root: Path) -> int:
     # Retain the stable canonical-state diagnostic contract: certification and
     # downstream tooling consume status, diagnostics and specific rule codes.
-    legacy = maintenance_verify(root, VERSION) if (root / ".skipo/project.json").exists() else {
+    legacy = maintenance_verify(root, VERSION) if ((root / ".skipo/project.json").exists() or root.resolve() == ROOT.resolve()) else {
         "ok": False, "status": "unresolved", "diagnostics": [{
             "code": "SKIPO_MANIFEST_MISSING", "status": "unresolved",
             "message": "Project has not been adopted by Skipo.",
