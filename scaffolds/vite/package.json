@@ -37,7 +37,8 @@
     "tailwindcss": "^4.1.14",
     "zod": "^3.23.8",
     "zustand": "^5.0.15",
-    "p-queue": "^10.0.0"
+    "p-queue": "^10.0.0",
+    "cactus-needle": "0.3.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
