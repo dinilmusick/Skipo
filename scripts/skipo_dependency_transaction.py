@@ -146,6 +146,11 @@ def execute_verified(root: Path, plan: dict, apply_operation, verify_operation, 
         packages = sorted(set(plan['paths']) | set(plan.get('requiredDependencies', {})))
         if packages and inspect_install(root, packages) != plan['integrity']:
             raise ValueError('Dependency manifest, installed version or lockfile drift')
+        if not plan['paths'] and not plan['migrations']:
+            checked = verify_all(root)
+            return {**plan, 'ok': checked['ok'], 'errors': checked['errors'],
+                    'actions': [], 'applied': checked['ok'], 'verified': checked['ok'],
+                    'idempotent': True, 'recovery': recovery}
         files, actions = _preflight(root, plan, apply_operation, verify_operation)
         if fail_at == 'after_preflight':
             raise ValueError('Injected failure after preflight')
