@@ -88,17 +88,6 @@ def test_negative_scaffold_with_local_credential_storage_is_rejected(tmp_path):
     assert any("credential persistence" in item for item in scan_source_tree(tmp_path))
 
 
-def test_nextjs_scaffold_uses_luth_adapter_and_has_no_local_auth_endpoints():
-    login = (ROOT / "scaffolds/nextjs/app/login/page.tsx").read_text(encoding="utf-8")
-    backend = (ROOT / "scaffolds/nextjs/src/backend/AppBackend.ts").read_text(encoding="utf-8")
-    assert "LoginClient" in login
-    assert "src/frontend/pages/auth/LuthAuthPage" in (ROOT / "scaffolds/nextjs/app/login/LoginClient.tsx").read_text(encoding="utf-8")
-    assert "LuthAuthPage as FloksLuthAuthPage" in (ROOT / "scaffolds/nextjs/src/frontend/pages/auth/LuthAuthPage.tsx").read_text(encoding="utf-8")
-    assert "LuthAuthPage as FloksLuthAuthPage" in (ROOT / "scaffolds/nextjs/src/frontend/pages/auth/LuthAuthPage.tsx").read_text(encoding="utf-8")
-    assert not re.search(r"\bAuthServiceFacade\b", backend)
-    assert not (ROOT / "scaffolds/nextjs/app/api/auth/login/route.ts").exists()
-    assert not (ROOT / "scaffolds/nextjs/app/api/auth/register/route.ts").exists()
-    assert "DEFAULT_LUTH_URL" in (ROOT / "scaffolds/nextjs/src/backend/auth/luthSession.ts").read_text(encoding="utf-8")
 
 
 def test_vite_scaffold_uses_luth_for_backend_identity_and_session_validation():
@@ -110,12 +99,6 @@ def test_vite_scaffold_uses_luth_for_backend_identity_and_session_validation():
     assert "proxyLuthAuthRequest" in guard
 
 
-def test_nextjs_middleware_verifies_luth_and_overwrites_untrusted_identity_headers():
-    middleware = (ROOT / "scaffolds/nextjs/middleware.ts").read_text(encoding="utf-8")
-    assert "getLuthSession" in middleware
-    assert "x-user-id" in middleware
-    assert "x-user-role" in middleware
-    assert "NextResponse.next({ request: { headers: forwarded } })" in middleware
 
 
 def test_negative_scaffold_with_direct_auth_database_reads_is_rejected(tmp_path):
@@ -137,7 +120,6 @@ def test_negative_scaffold_with_local_auth_schema_is_rejected(tmp_path):
 def test_published_package_baseline_is_aligned_across_root_scaffolds_and_lockfile():
     manifests = (
         ROOT / "package.json",
-        ROOT / "scaffolds/nextjs/package.json",
         ROOT / "scaffolds/vite/package.json",
     )
 

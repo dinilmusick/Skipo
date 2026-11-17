@@ -2,7 +2,7 @@
 
 | Environment | Surface | Status | Evidence / limitation |
 |---|---|---|---|
-| Browser | generated Vite/Next.js frontend | Scaffold-dependent | Validate the generated application bundle and browser execution; the Skipo builder itself is not browser code. |
+| Browser | generated Vite frontend | Scaffold-dependent | Validate the generated application bundle and browser execution; the Skipo builder itself is not browser code. |
 | Node.js | Skipo application builder and backend tooling | Intended primary build-time environment | Python helper scripts are also part of the toolchain and must be identified explicitly. |
 | Cloudflare Workers | generated API/runtime target in Wrangler scaffolds | Declared scaffold target; execution unverified | Presence of `wrangler.toml` does not prove the generated Worker bundle has no Node-only imports. |
 | Build-time tooling | Python builder, TypeScript CLI/build scripts | Intended | Keep build-time filesystem/process dependencies out of generated browser and Worker bundles. |
@@ -11,7 +11,7 @@
 ## Boundary rules
 
 - Separate the Skipo builder's Node/Python execution environment from generated application runtime environments.
-- Test generated Vite browser output independently from generated Next.js server/API output.
+- Test the generated Vite browser output and each provider’s Fetch backend artifact.
 - For Cloudflare Worker scaffolds, bundle and execute a representative generated handler in a Workers-compatible runtime. A Wrangler configuration file alone is insufficient evidence.
 - Generated package imports must use supported public package exports; do not depend on repository-internal paths.
 - Do not claim one runtime's compatibility based on another runtime's successful build.

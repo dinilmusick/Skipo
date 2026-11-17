@@ -236,21 +236,9 @@ python3 assistant.py validate . --aspect aspect_11
 
 ## 5. SERVERLESS DEPLOYMENT SIZE LIMITS (Aspect 12)
 
-Every Next.js application must stay inside the serverless budget.
+Generated Skipo provider artifacts must fit the target platform’s bundle limit.
 
-### 5.1 Required `next.config` Setting
-
-```js
-// next.config.mjs
-const nextConfig = {
-  output: 'standalone',    // ← REQUIRED — enables serverless-compatible build
-};
-export default nextConfig;
-```
-
-**HARD RULE**: `output: 'standalone'` must be present. Missing it is a blocking validator error.
-
-### 5.2 Bundle Size Limits
+### 5.1 Bundle Size Limits
 
 | Tier | Max Bundle Size |
 |:-----|:----------------|
@@ -260,10 +248,10 @@ export default nextConfig;
 **Detection** — measure current bundle:
 ```bash
 pnpm build
-du -sh .next/standalone/
+du -sh dist/providers/* api/
 ```
 
-### 5.3 Media in API Routes — BANNED
+### 5.2 Media in API Routes — BANNED
 
 API routes (`/api/**`) must NEVER serve, proxy, or buffer media files (images, video, audio). All media must be served via direct CDN/presigned URLs from the storage layer.
 
@@ -274,7 +262,7 @@ grep -rn "readFileSync\|createReadStream\|Buffer.from\|pipe(" src/app/api/ src/p
 
 Any hit that involves a media buffer is a violation.
 
-### 5.4 devDependencies Isolation
+### 5.3 devDependencies Isolation
 
 Build tooling (`typescript`, `@types/*`, `eslint`, `vitest`, `tsup`) must be in `devDependencies`, never in `dependencies`. Bundling dev tools into the serverless function bloats the bundle.
 

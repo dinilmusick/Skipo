@@ -19,7 +19,7 @@ BANNED_GUEST_ENDPOINTS = ("/api/guest/lease", "/api/auth/guest/session", "/api/a
 
 
 def source_files(root: Path):
-    for base in (root / "src", root / "app", root / "scaffolds" / "nextjs", root / "scaffolds" / "vite"):
+    for base in (root / "src", root / "app", root / "scaffolds" / "vite"):
         if not base.exists():
             continue
         yield from (p for p in base.rglob("*") if p.is_file() and p.suffix.lower() in SOURCE_SUFFIXES)
@@ -40,25 +40,18 @@ def validate_guest_contract(root: Path) -> list[str]:
             errors.append(f"separate guest subsystem directory is forbidden: {banned_dir}")
 
     # Check scaffolds for separate guest directories
-    for scaffold in ("scaffolds/nextjs", "scaffolds/vite"):
+    for scaffold in ("scaffolds/vite",):
         scaffold_guest = root / scaffold / "src/backend/guest"
         if scaffold_guest.is_dir():
             errors.append(f"scaffold separate guest backend directory is forbidden: {scaffold_guest.relative_to(root)}")
 
     # 2. Check login/auth gates expose guest via onContinueAsGuest only (no separate UI components)
     for relative in (
-        "scaffolds/nextjs/app/login/page.tsx",
         "scaffolds/vite/src/frontend/components/gates/LoginGate.tsx",
     ):
         path = root / relative
         if path.is_file():
             source = path.read_text(encoding="utf-8", errors="replace")
-            if relative.endswith("nextjs/app/login/page.tsx") and "LoginClient" in source:
-                client = root / "scaffolds/nextjs/app/login/LoginClient.tsx"
-                if not client.is_file():
-                    errors.append("Next.js delegated login client is missing")
-                else:
-                    source += "\n" + client.read_text(encoding="utf-8", errors="replace")
             if "onContinueAsGuest" not in source:
                 errors.append(f"{relative} does not wire onContinueAsGuest")
             if "GuestAccessGate" in source:

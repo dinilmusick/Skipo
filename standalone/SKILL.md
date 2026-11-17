@@ -1,6 +1,6 @@
 ---
 name: skipo-standalone-app-architecture
-description: Architectural standard for building standalone applications (Next.js, React SPA, Electron) using @skipo/* modular packages with base classes, container inheritance, theme packs, and zero KrnlTS dependencies.
+description: Architectural standard for building standalone applications (Vite React SPA, Electron) using @skipo/* modular packages with base classes, container inheritance, theme packs, and zero KrnlTS dependencies.
 ---
 
 # SKIPO STANDALONE ARCHITECTURE (DENSE)

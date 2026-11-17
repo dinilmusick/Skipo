@@ -7,7 +7,7 @@ export function getSkipoApplicationId(): string {
   return SKIPO_APPLICATION_ID;
 }
 
-// A browser Luth client must never be constructed during Next.js prerender.
+// Construct the browser Luth client only in a browser runtime.
 // The server-side fetch adapter verifies requests independently.
 export const luthAuthClient = typeof window !== 'undefined'
   ? new LuthAuthClient({

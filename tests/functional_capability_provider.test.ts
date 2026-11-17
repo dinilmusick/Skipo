@@ -7,8 +7,7 @@ import {
   buildWorkspaceCreateInput, createKloksWorkspaceStorageService, LuthAuthPage, WorkspaceTilesMenu,
 } from '@ultrst-armada/floks/ui';
 import { workspaceCapabilities } from '../backend/ecosystem/workspaceCapabilities_Impure.js';
-import * as next from '../scaffolds/nextjs/src/backend/storage/canonicalCapabilityRoutes.js';
-import * as vite from '../scaffolds/vite/src/backend/storage/canonicalCapabilityRoutes.js';
+import * as adapter from '../scaffolds/vite/src/backend/storage/canonicalCapabilityRoutes.js';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -57,38 +56,36 @@ describe('functional canonical providers from the actually installed packages', 
   });
 });
 
-for (const [name, adapter] of [['Next.js', next], ['Vite', vite]] as const) {
-  describe(`${name} Kloks HTTP adapter contracts`, () => {
-    it('routes workspace retrieval and creation to actual facade operations', async () => {
-      const execute = vi.spyOn(WorkspaceServiceFacade, 'execute').mockResolvedValue({ success: true, workspaces: [] } as never);
-      await adapter.listWorkspaces('luth-principal', { WORKSPACE_APP_ID: 'forged-workspace-namespace' });
-      expect(execute).toHaveBeenCalledWith('listWorkspaces', { userId: 'luth-principal', env: { WORKSPACE_APP_ID: 'my-app' } });
-      await adapter.createWorkspace('luth-principal', { name: 'Created', storageProvider: 'local_fs' });
-      expect(execute).toHaveBeenLastCalledWith('createWorkspace', {
-        userId: 'luth-principal', workspace: { name: 'Created', storageProvider: 'local_fs' }, env: { WORKSPACE_APP_ID: 'my-app' },
-      });
-    });
-
-    it('keeps browser credentials scoped to the verified principal', async () => {
-      const execute = vi.spyOn(StorageServiceFacade, 'execute').mockResolvedValue({ success: true } as never);
-      await adapter.invokeStorage('verified-luth-id', 'getConnections', {
-        userId: 'forged-client-id', env: { SYSTEM_DATABASE_URL: 'forged' },
-      }, { SYSTEM_DATABASE_URL: 'server-owned' });
-      expect(execute).toHaveBeenCalledWith('getConnections', {
-        userId: 'verified-luth-id', env: { SYSTEM_DATABASE_URL: 'server-owned', WORKSPACE_APP_ID: 'my-app' },
-      });
-    });
-
-    it('fails closed for secret-revealing, unsupported or unauthenticated operations', async () => {
-      const execute = vi.spyOn(StorageServiceFacade, 'execute');
-      await expect(adapter.invokeStorage('luth-principal', 'getConnectionsWithSecrets', {})).rejects.toThrow();
-      await expect(adapter.invokeStorage('luth-principal', 'persistGoogleDriveTokens', {})).rejects.toThrow();
-      await expect(adapter.invokeStorage('', 'getConnections', {})).rejects.toThrow();
-      await expect(adapter.createWorkspace('luth-principal', { id: 'empty' })).rejects.toThrow();
-      expect(execute).not.toHaveBeenCalled();
+describe('Vite Kloks HTTP adapter contracts', () => {
+  it('routes workspace retrieval and creation to actual facade operations', async () => {
+    const execute = vi.spyOn(WorkspaceServiceFacade, 'execute').mockResolvedValue({ success: true, workspaces: [] } as never);
+    await adapter.listWorkspaces('luth-principal', { WORKSPACE_APP_ID: 'forged-workspace-namespace' });
+    expect(execute).toHaveBeenCalledWith('listWorkspaces', { userId: 'luth-principal', env: { WORKSPACE_APP_ID: 'my-app' } });
+    await adapter.createWorkspace('luth-principal', { name: 'Created', storageProvider: 'local_fs' });
+    expect(execute).toHaveBeenLastCalledWith('createWorkspace', {
+      userId: 'luth-principal', workspace: { name: 'Created', storageProvider: 'local_fs' }, env: { WORKSPACE_APP_ID: 'my-app' },
     });
   });
-}
+
+  it('keeps browser credentials scoped to the verified principal', async () => {
+    const execute = vi.spyOn(StorageServiceFacade, 'execute').mockResolvedValue({ success: true } as never);
+    await adapter.invokeStorage('verified-luth-id', 'getConnections', {
+      userId: 'forged-client-id', env: { SYSTEM_DATABASE_URL: 'forged' },
+    }, { SYSTEM_DATABASE_URL: 'server-owned' });
+    expect(execute).toHaveBeenCalledWith('getConnections', {
+      userId: 'verified-luth-id', env: { SYSTEM_DATABASE_URL: 'server-owned', WORKSPACE_APP_ID: 'my-app' },
+    });
+  });
+
+  it('fails closed for secret-revealing, unsupported or unauthenticated operations', async () => {
+    const execute = vi.spyOn(StorageServiceFacade, 'execute');
+    await expect(adapter.invokeStorage('luth-principal', 'getConnectionsWithSecrets', {})).rejects.toThrow();
+    await expect(adapter.invokeStorage('luth-principal', 'persistGoogleDriveTokens', {})).rejects.toThrow();
+    await expect(adapter.invokeStorage('', 'getConnections', {})).rejects.toThrow();
+    await expect(adapter.createWorkspace('luth-principal', { id: 'empty' })).rejects.toThrow();
+    expect(execute).not.toHaveBeenCalled();
+  });
+});
 
 
 describe('generation exercised by the published Skipo CLI entrypoint', () => {

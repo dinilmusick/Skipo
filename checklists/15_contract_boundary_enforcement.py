@@ -209,7 +209,6 @@ def validate_contract_boundaries(target: Path) -> ChecklistResult:
             "/components/" in rel_posix or
             "/canvas-ui/" in rel_posix or
             "/ui/" in rel_posix or
-            "scaffolds/nextjs/app/" in rel_posix or
             "scaffolds/vite/app/" in rel_posix or
             (fpath.suffix in {".tsx", ".jsx"} and not any(k in rel_posix for k in ["backend/", "worker/", "api/", "server/"]))
         )

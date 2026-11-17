@@ -1,15 +1,14 @@
 # SKIPO App Scaffolds
 
-SKIPO maintains one scaffold per frontend framework. Workspace strategy is selected through the application's KLOKS backend composition and is not represented by separate scaffold variants.
+SKIPO generates Vite + React applications. Workspace strategy is selected through the application's KLOKS backend composition and is not represented by separate scaffold variants.
 
-## Canonical Scaffolds
+## Canonical Scaffold
 
-- `scaffolds/nextjs/` — Next.js application scaffold
 - `scaffolds/vite/` — Vite + React application scaffold
 
 ## Workspace Strategy
 
-Both scaffolds support either KLOKS workspace implementation:
+The Vite scaffold supports either KLOKS workspace implementation:
 
 ```
 Application Backend Facade
@@ -40,8 +39,6 @@ Used by applications such as QWNSR.
 
 Do NOT create:
 
-- `nextjs-direct-vault`
-- `nextjs-working-workspace`
 - `vite-direct-vault`
 - `vite-working-workspace`
 
@@ -68,7 +65,7 @@ Frontend generated code must not import backend services, database adapters, ser
 
 ## Validation
 
-Every canonical scaffold must pass:
+The canonical scaffold must pass:
 
 1. typecheck
 2. build
@@ -82,6 +79,6 @@ Law L9 remains applicable to generated source files.
 
 ## Default storage providers
 
-Both canonical scaffolds (Next.js and Vite) include the Kloks Google Drive workspace adapter by default. The backend exposes `AppBackend.storageProviders.googleDrive.create(connection, oauthConfig)`. The returned handle contains the Kloks `GoogleDriveStorageService` adapter and the connection updated with any refreshed access-token metadata.
+The Vite scaffold includes the Kloks Google Drive workspace adapter by default. The backend exposes `AppBackend.storageProviders.googleDrive.create(connection, oauthConfig)`. The returned handle contains the Kloks `GoogleDriveStorageService` adapter and the connection updated with any refreshed access-token metadata.
 
 The adapter is server-only. The OAuth client secret must come from deployment secrets or another server-owned credential store and must never be exposed to browser code. User authorization and storage-connection ownership remain with SRKL; adding the provider to a scaffold does not silently connect or grant access to a user's Drive. Other providers continue through the canonical Kloks storage service and workspace adapter.
