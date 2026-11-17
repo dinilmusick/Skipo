@@ -206,3 +206,12 @@ def verify_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> di
         except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
             errors.append(f"{package}: {exc}")
     return {"ok": not errors, "errors": errors, "paths": plan["paths"]}
+
+# Standalone fail-closed runtime shared with the final reconciliation integrator.
+# Keep legacy helper functions above for backwards-compatible imports.
+from skipo_dependency_safety import (  # noqa: E402,F401
+    plan_dependency_migrations as plan_dependency_migrations,
+    execute_dependency_migrations as execute_dependency_migrations,
+    verify_dependency_migrations as verify_dependency_migrations,
+    recover_dependency_migrations as recover_dependency_migrations,
+)
