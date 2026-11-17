@@ -55,10 +55,30 @@ def declared_dependencies(root: Path) -> dict[str, str]:
     return result
 
 def compatible(spec: str, installed: str) -> bool:
-    from skipo_dependency_contracts import satisfies
     if not re.fullmatch(r"(?:\^|~|>=|<=|>|<)?v?\d+\.\d+(?:\.\d+)?(?:\s*,\s*(?:>=|<=|>|<)v?\d+\.\d+(?:\.\d+)?)*", spec):
         raise ValueError(f"Unsupported or ambiguous package specifier {spec!r}")
-    return satisfies(installed, spec)
+    actual = tuple(map(int, exact(installed).split('.')))
+    for clause in spec.split(','):
+        clause = clause.strip()
+        match = re.fullmatch(r'(>=|<=|>|<|\^|~)?(v?\d+\.\d+(?:\.\d+)?)', clause)
+        if not match:
+            raise ValueError(f"Invalid dependency requirement: {clause}")
+        op, raw = match.groups()
+        expected = tuple(map(int, exact(raw).split('.')))
+        if op == '^':
+            major, minor, patch = expected
+            upper = ((major + 1, 0, 0) if major else
+                     (0, minor + 1, 0) if minor else (0, 0, patch + 1))
+            valid = expected <= actual < upper
+        elif op == '~':
+            valid = expected <= actual < (expected[0], expected[1] + 1, 0)
+        else:
+            valid = {'>=': actual >= expected, '<=': actual <= expected,
+                     '>': actual > expected, '<': actual < expected,
+                     None: actual == expected}[op]
+        if not valid:
+            return False
+    return True
 
 def lock_versions(root: Path, names: dict[str, str]) -> tuple[str, dict[str, str]]:
     npm, pnpm = safe_file(root, 'package-lock.json'), safe_file(root, 'pnpm-lock.yaml')
@@ -91,7 +111,7 @@ def lock_versions(root: Path, names: dict[str, str]) -> tuple[str, dict[str, str
     for line in pnpm.read_text(encoding='utf-8').splitlines():
         if not line.strip() or line.lstrip().startswith('#'):
             continue
-        if '\t' in line or '&' in line or '*' in line:
+        if '\t' in line or re.search(r'(?<!\S)[&*][A-Za-z_]', line):
             raise ValueError('Unsupported pnpm YAML feature; lockfile requires normalized importer entries')
         match = re.fullmatch(r'( *)([^:]+):(?:[ ]*(.*))?', line)
         if not match:
