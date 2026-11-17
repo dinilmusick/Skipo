@@ -24,7 +24,7 @@ def _version_tuple(value: str) -> tuple[int, int, int]:
     return tuple(int(part) for part in match.groups())
 
 def package_spec_satisfies_minimum(actual: str, minimum: str) -> bool:
-    if not isinstance(actual, str) or not actual.startswith("^") or not isinstance(minimum, str) or not minimum.startswith("^"):
+    if not isinstance(actual, str) or not re.fullmatch(r"\^?\d+\.\d+\.\d+", actual) or not isinstance(minimum, str) or not minimum.startswith("^"):
         return False
     current = _version_tuple(actual)
     floor = _version_tuple(minimum)
