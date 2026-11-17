@@ -53,6 +53,12 @@ def validate_guest_contract(root: Path) -> list[str]:
         path = root / relative
         if path.is_file():
             source = path.read_text(encoding="utf-8", errors="replace")
+            if relative.endswith("nextjs/app/login/page.tsx") and "LoginClient" in source:
+                client = root / "scaffolds/nextjs/app/login/LoginClient.tsx"
+                if not client.is_file():
+                    errors.append("Next.js delegated login client is missing")
+                else:
+                    source += "\n" + client.read_text(encoding="utf-8", errors="replace")
             if "onContinueAsGuest" not in source:
                 errors.append(f"{relative} does not wire onContinueAsGuest")
             if "GuestAccessGate" in source:
