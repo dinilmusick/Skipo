@@ -33,8 +33,8 @@ def test_workspace_creation_dialog_is_owned_by_floks_for_all_skipo_scaffolds():
     assert "WorkspaceTilesMenu" in generator
     assert "WorkspaceGate.tsx" in generator
     assert "onManageStorage" in generator
-    assert '"@ultrst-armada/floks": "^2.0.0"' in generator
-    assert re.fullmatch(r"\^2\.\d+\.\d+", root_package["dependencies"]["@ultrst-armada/floks"])
+    assert '"@ultrst-armada/floks": "2.0.6"' in generator
+    assert re.fullmatch(r"\^?2\.\d+\.\d+", root_package["dependencies"]["@ultrst-armada/floks"])
 
 
 def test_google_drive_uses_kloks_adapter_in_every_canonical_scaffold():
