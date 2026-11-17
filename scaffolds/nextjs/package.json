@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "node scripts/skipo-build.mjs",
     "start": "node dist/providers/node/server.js",
-    "lint": "next lint",
+    "lint": "tsc --noEmit",
     "clean": "rm -rf .next dist api",
     "validate": "python3 Skipo/checklists/full_system_validator.py .",
     "validate:strict": "python3 Skipo/checklists/full_system_validator.py . --verbose",
