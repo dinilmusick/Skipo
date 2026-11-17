@@ -51,9 +51,20 @@ def reconcile(root: Path, apply: bool, framework_version: str) -> dict[str, Any]
     actions: list[dict[str, Any]] = []
     conflicts: list[dict[str, Any]] = []
     capability_ids = set(installed)
+    # Generated canonical pages can reference other capabilities (e.g. the
+    # workspace page imports SettingsPage). A reference is not evidence that
+    # another capability was installed or needs mutation. Only discoveries
+    # outside all canonical generated paths can initiate a new repair.
+    canonical_generated_paths = {
+        entry["path"] for spec in registry.values()
+        for entry in spec.get("generated", [])
+    }
     capability_ids.update(
         item["capability"] for item in findings
-        if item.get("classification") in {"adapt", "retire"} and item.get("capability") in registry
+        if item.get("classification") in {"adapt", "retire"}
+        and item.get("capability") in registry
+        and (item.get("classification") == "retire"
+             or item.get("path") not in canonical_generated_paths)
     )
 
     for item in findings:
