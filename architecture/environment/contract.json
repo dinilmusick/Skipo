@@ -19,6 +19,7 @@
     "NODE_ENV": "Node.js runtime mode",
     "PORT": "Hosting adapter's server port",
     "CI": "CI platform execution marker",
+    "DISABLE_HMR": "Vite local developer server tooling switch",
     "PATH": "Operating system process path",
     "HOME": "Operating system home directory",
     "PWD": "Operating system working directory",
@@ -44,7 +45,6 @@
     "ADMIN_PASSWORD": "Explicit administrator bootstrap command input, never application runtime configuration",
     "API_BASE_URL": "Skipo API smoke test input",
     "APP_REPOSITORY": "Preview inspection workflow input",
-    "DISABLE_HMR": "Skipo development inspector switch",
     "ECOSYSTEM_SYNC_TOKEN": "Skipo dependency synchronization workflow secret",
     "MANIFEST_PATH": "Preview inspection manifest input",
     "NODE_PATH": "Skipo preview inspector module resolution",
@@ -57,10 +57,12 @@
     "SKIPO_PREVIEW_URL": "Skipo preview inspector URL override",
     "SKIPO_PYTHON": "Skipo CLI tooling interpreter override",
     "SKIPO_VERSION": "Skipo release CLI version",
+    "SKIPO_REGISTRY_VERSION": "Skipo npm package publication verification input",
+    "GITHUB_OWNER": "Internal secrets synchronization repository owner input",
     "SYNC_TOKEN": "Skipo dependency synchronization step secret",
     "TAG_VERSION": "Skipo release tag version"
   },
-  "tooling_locations": ["scripts/", "checklists/", "bin/", ".github/", "tests/"],
+  "tooling_locations": ["scripts/", "checklists/", "bin/", "packages/skipo/bin/", ".github/", "tests/"],
   "scan": {
     "extensions": [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".sh", ".bash", ".zsh", ".toml", ".json", ".jsonc", ".yaml", ".yml", ".ini", ".cfg", ".properties", ".md", ".mdx", ".txt"],
     "ignored_directories": [".git", "node_modules", ".venv", "venv", "__pycache__", "dist", "build", ".next", ".turbo", "coverage", ".cache", ".pytest_cache"]

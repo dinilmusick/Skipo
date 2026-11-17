@@ -172,3 +172,11 @@ def test_reference_like_text_in_literal_and_inline_comment_is_preserved(tmp_path
     assert env.repair(root)["ok"]
     assert path.read_text() == ('const s = "process.env.DEPM_GATEWAY_DOMAIN";\n'
                                 'const x = process.env.APP_URL; // process.env.DEPM_GATEWAY_DOMAIN\n')
+
+
+def test_python_generator_literal_is_not_application_runtime(tmp_path):
+    root = project(tmp_path)
+    put(root, "generators/storage.py", 'template = f"""const c = process.env.STORAGE_ACCESS_KEY_ID;"""\n')
+    assert env.verify(root)["ok"]
+    put(root, "src/generated.ts", 'const c = process.env.STORAGE_ACCESS_KEY_ID;\n')
+    assert ("STORAGE_ACCESS_KEY_ID", "undeclared_framework_configuration") in names(root)

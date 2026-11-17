@@ -180,7 +180,11 @@ def _candidate_names(path: Path, source: str):
         if match:
             yield match.group(2), line_no, "declaration", match.group(4).strip()
         if not is_test_source and (not is_doc or fenced):
-            for pattern in REFS:
+            # Python generators contain literal TS code; `process.env` inside
+            # a generated template is not a Python runtime environment read.
+            # Scan the generated output itself when validating an application.
+            patterns = REFS[2:] if suffix == ".py" else REFS
+            for pattern in patterns:
                 for ref in pattern.finditer(line):
                     if _code_at(line, ref.start()):
                         yield ref.group(1), line_no, "reference", None
@@ -260,7 +264,8 @@ def _replace_recognized(source: str, path: Path, mapping: dict[str, str]) -> str
             if not match or match.group(2) not in declarations:
                 raise ValueError(f"Unsafe or unsupported environment declaration at {path}:{line_no}")
             line = line[:match.start(2)] + mapping[match.group(2)] + line[match.end(2):]
-        for pattern in REFS:
+        patterns = REFS[2:] if path.suffix.lower() == ".py" else REFS
+        for pattern in patterns:
             line = pattern.sub(lambda m: m.group(0)[:m.start(1)-m.start(0)] + mapping.get(m.group(1), m.group(1)) + m.group(0)[m.end(1)-m.start(0):]
                                if (m.group(1), "reference") in active and _code_at(line, m.start()) else m.group(0), line)
         result.append(line)
