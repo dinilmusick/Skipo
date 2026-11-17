@@ -38,3 +38,15 @@ An empty legacy project can acquire metadata without becoming a compliant applic
 ## Merge conditions
 
 Do not merge this draft until all required checks are green, clean-room CLI and app tests pass, all unresolved violations are addressed and evidence is attached. Do not close #126–#132 before that merge. Do not publish a package or change downstream apps as part of this PR.
+
+## Independent evidence checkpoints (not final certification)
+
+- Integrated adversarial Python suite: **129 passed** (GitHub Actions run 44071444527).
+- Semantic AST suite: **6 passed** in the same run.
+- Root Python suite: **98 passed**, Vitest **158 passed** (run 44072413321); later tests added client-only auth delegation coverage.
+- Generated Vite install/typecheck/test/build: **passed** (run 44072929740).
+- Generated Next.js install/typecheck/test/build: **passed** (run 44072929740); browser-only Luth hydration avoids SSR origin failures.
+- Packed npm CLI smoke and the root validation suite: **passed** (run 44072769768); incomplete legacy applications are explicitly rejected rather than certified.
+- The provider lockfile was regenerated from exact pinned Kloks 2.0.5, Floks 2.0.6 and FrnlTS 0.5.23 artifacts. The temporary lockfile workflow was removed.
+
+These checkpoints are commit-scoped. The latest reconciliation commit still requires its own complete green run. Live OAuth, database and storage integrations are not certified by the above results.
