@@ -5,10 +5,16 @@
  */
 
 import type {
-  IServiceFacade,
   ServiceNamespace,
   OperationContext,
 } from '@ultrst-armada/krnl';
+
+/** Shared structural contract of current Kloks facades and legacy Krnl facades. */
+export interface RegisteredServiceFacade {
+  readonly id: string;
+  readonly name: string;
+  readonly version: string;
+}
 
 export type CapabilityCategory = 'libraries' | 'functionalities' | 'orchestrations';
 
@@ -32,7 +38,7 @@ export interface IBackendFacade {
   readonly functionalities: Record<string, unknown>;
   readonly orchestrations: Record<string, unknown>;
 
-  registerService(facade: IServiceFacade, alias?: string): this;
+  registerService(facade: RegisteredServiceFacade, alias?: string): this;
   listCapabilities(): readonly import('./BackendCapabilityCatalog.js').BackendCapabilityDescriptor[];
   getLibrary<TLib = unknown>(name: string, serviceNamespace?: string): TLib;
   getFunctionality<TFunc = unknown>(name: string, serviceNamespace?: string): TFunc;
@@ -43,7 +49,7 @@ export interface IBackendFacade {
     input?: TIn,
     options?: CrossServiceExecutionOptions
   ): Promise<TOut>;
-  getService(nameOrId: string): IServiceFacade;
+  getService(nameOrId: string): RegisteredServiceFacade;
   hasCapability(name: string, category?: CapabilityCategory): boolean;
   listServices(): string[];
 }
