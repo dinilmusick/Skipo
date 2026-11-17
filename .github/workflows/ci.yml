@@ -43,8 +43,12 @@ jobs:
           node --test tests/semantic_architecture_analyzer.test.cjs
       - name: Prove generated canonical capability contracts for both application frameworks
         run: |
-          node --test scaffolds/vite/tests/canonical-capabilities.test.cjs
-          node --test scaffolds/nextjs/tests/canonical-capabilities.test.cjs
+          for framework in vite nextjs; do
+            app="$(mktemp -d)"
+            python3 scripts/skipo_cli.py create CanonicalFixture "$app" --framework "$framework"
+            (cd "$app" && node --test tests/canonical-capabilities.test.cjs)
+            rm -rf "$app"
+          done
       - run: pnpm test
       - run: pnpm run capability:architecture
       - run: pnpm typecheck
