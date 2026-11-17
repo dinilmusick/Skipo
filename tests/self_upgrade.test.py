@@ -244,3 +244,37 @@ def test_implicit_upgrade_rejects_non_skipo_without_writes(tmp_path):
     with pytest.raises(migrations.MigrationStateError, match="not an adopted Skipo project"):
         migrations.update_project(root, "1.1.0")
     assert not (root / ".skipo").exists()
+
+
+def test_legacy_app_full_maintenance_update_and_repeat_are_clean(tmp_path):
+    import skipo_maintenance as maintenance
+
+    root = tmp_path / "legacy-srkl"
+    root.mkdir()
+    (root / "package.json").write_text(json.dumps({
+        "name": "srkl-engine", "version": "0.1.0",
+        "skipo": {"deploy": "fullstack"}, "dependencies": {},
+    }))
+    # The real apps use npm lockfiles; a deterministic stub suffices because
+    # this test isolates Skipo's own state reconciliation from npm resolution.
+    (root / "package-lock.json").write_text("{}")
+    (root / ".env.example").write_text("SYSTEM_DATABASE_URL=postgres://example\n")
+    environment = {"node": "v22.16.0", "npm": "10.5.0", "pnpm": None, "yarn": None}
+    first_plan = maintenance.build_plan(root, "1.1.0", environment=environment, git_status="")
+    assert first_plan["ok"], first_plan["errors"]
+    assert not (root / ".skipo/project.json").exists()
+    first = maintenance.execute_plan(
+        root, first_plan, "1.1.0",
+        lockfile_sync=lambda _root, _pkg: {"ok": True},
+    )
+    assert first["ok"], first["errors"]
+    assert maintenance.verify(root, "1.1.0")["ok"]
+    second_plan = maintenance.build_plan(root, "1.1.0", environment=environment, git_status="")
+    assert second_plan["ok"], second_plan["errors"]
+    assert second_plan["pending_migrations"] == []
+    assert not any(action["action"] == "framework" for action in second_plan["actions"])
+    second = maintenance.execute_plan(
+        root, second_plan, "1.1.0",
+        lockfile_sync=lambda _root, _pkg: {"ok": True},
+    )
+    assert second["ok"], second["errors"]
