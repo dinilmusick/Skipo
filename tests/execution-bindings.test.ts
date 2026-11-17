@@ -83,3 +83,20 @@ describe.each([
     expect(execute).toHaveBeenCalledTimes(1);
   });
 });
+
+it('invalidates remote provenance if a registered facade is replaced', async () => {
+  const operation = (doubled: number) => new ServiceFacade({
+    id: 'math.test', name: 'Math',
+    functionalities: { double: { inputSchema, outputSchema, execute: async () => ({ doubled }) } },
+  });
+  const backend = new BackendFacade().registerService(operation(2));
+  const app = createAppExternalInterfaces(backend, ['math.test/functionalities/double']);
+  const principal = { userId: 'verified', sessionId: 'session' };
+  const context = { principal, transport: 'workflow' as const, requestId: 'remote' };
+  const [remote] = app.registry.listRemote(principal);
+  await expect(app.registry.invokeRemote(remote.id, { value: 1 }, context)).resolves.toEqual({ doubled: 2 });
+  backend.registerService(operation(3));
+  expect(app.registry.listRemote(principal)).toEqual([]);
+  await expect(app.registry.invokeRemote(remote.id, { value: 1 }, context)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  await expect(app.registry.invoke(remote.id, { value: 1 }, context)).resolves.toEqual({ doubled: 3 });
+});
