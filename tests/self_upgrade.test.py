@@ -258,7 +258,7 @@ def test_legacy_app_full_maintenance_update_and_repeat_are_clean(tmp_path):
     # The real apps use npm lockfiles; a deterministic stub suffices because
     # this test isolates Skipo's own state reconciliation from npm resolution.
     (root / "package-lock.json").write_text("{}")
-    (root / ".env.example").write_text("SYSTEM_DATABASE_URL=postgres://example\n")
+    (root / ".env.example").write_text("SYSTEM_DATABASE_URL=postgres://example\nAPP_URL=https://example.test\n")
     environment = {"node": "v22.16.0", "npm": "10.5.0", "pnpm": None, "yarn": None}
     first_plan = maintenance.build_plan(root, "1.1.0", environment=environment, git_status="")
     assert first_plan["ok"], first_plan["errors"]
