@@ -64,7 +64,7 @@ it("bridges external calls through the canonical BackendFacade executor", async 
   const executeCapability = vi.fn(async () => ({ doubled: 10 }));
   const executor = createBackendCapabilityExecutor({ executeCapability });
   await executor.execute("math", "double", { value: 5 }, { principal: { userId: "u1" }, transport: "mcp", requestId: "req-1" });
-  expect(executeCapability).toHaveBeenCalledWith("math", "double", { value: 5 }, {
+  expect(executeCapability).toHaveBeenCalledWith("double", "double", { value: 5 }, {
     serviceId: "math",
     correlationId: "req-1",
     metadata: { externalInterface: true, transport: "mcp", principal: { kind: "authenticated", userId: "u1", roles: [], sessionId: undefined } },

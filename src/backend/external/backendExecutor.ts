@@ -12,7 +12,7 @@ export function createBackendCapabilityExecutor(backend: IBackendFacade): Capabi
             sessionId: context.principal.sessionId,
           }
         : null;
-      return backend.executeCapability(serviceId, operationId, input, {
+      return backend.executeCapability(operationId, operationId, input, {
         serviceId,
         correlationId: context.requestId,
         metadata: {

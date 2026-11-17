@@ -3,12 +3,13 @@ export type JsonSchema = {
   properties?: Record<string, JsonSchema>; required?: string[]; additionalProperties?: boolean;
   items?: JsonSchema; enum?: unknown[]; minimum?: number; maximum?: number; minLength?: number; maxLength?: number;
 };
-export type ExternalTransport = "http" | "mcp";
+export type ExternalTransport = "http" | "mcp" | "workflow" | "agent";
 export type CapabilityAccess = "public" | "authenticated" | "roles";
 export interface ExternalPrincipal { readonly userId: string; readonly roles?: readonly string[]; readonly sessionId?: string; }
 export interface ExternalCapabilityContext { readonly principal: ExternalPrincipal | null; readonly transport: ExternalTransport; readonly requestId: string; }
 export interface ApplicationCapability {
   readonly id: string; readonly description: string; readonly inputSchema: JsonSchema; readonly outputSchema: JsonSchema;
+  readonly name?: string; readonly serviceName?: string;
   readonly invocation: { readonly serviceId: string; readonly operationId: string };
   readonly access?: CapabilityAccess; readonly requiredRoles?: readonly string[]; readonly discoverable?: boolean;
 }
