@@ -314,6 +314,39 @@ def transact(root: Path, apply: bool, version: str, simulate: Callable[..., dict
         if "package.json" not in before:
             raise UnsafeRepair("Target has no package.json")
         _json(root, "package.json")
+        # Validate *all* catalogue-controlled paths before running even the
+        # sandboxed legacy engine: an unchecked ../ path could escape its copy.
+        registry = capabilities.load_registry()["capabilities"]
+        managed: set[str] = set()
+        for capability, spec in registry.items():
+            for entry in spec.get("generated", []):
+                relative = entry["path"]
+                if relative in managed:
+                    raise UnsafeRepair(f"Ambiguous generated ownership: {relative}")
+                managed.add(relative)
+                parts = relative_path(relative)
+                if any(part in IGNORED for part in parts):
+                    raise UnsafeRepair(f"Forbidden generated directory: {relative}")
+                checked(root, relative)
+            for relative in spec.get("safeRetire", []):
+                parts = relative_path(relative)
+                if any(part in IGNORED for part in parts):
+                    raise UnsafeRepair(f"Forbidden retirement directory: {relative}")
+                checked(root, relative)
+        for relative in capabilities.legacy_migration_paths():
+            parts = relative_path(relative)
+            if any(part in IGNORED for part in parts):
+                raise UnsafeRepair(f"Forbidden legacy migration directory: {relative}")
+            checked(root, relative)
+        # A dependency migration can rewrite application source. Without a
+        # complete canonical ownership proof such a migration is unsupported,
+        # and must not execute even in the transaction sandbox.
+        from skipo_dependency_migrations import plan_dependency_migrations
+        migrations = plan_dependency_migrations(root, version)
+        if not migrations.get("ok", False):
+            raise UnsafeRepair("Dependency migration preflight: " + "; ".join(migrations.get("errors", [])))
+        if migrations.get("migrations"):
+            raise UnsafeRepair("Application-source dependency migrations require explicit ownership review")
         work = Path(tempfile.mkdtemp(prefix=".skipo-repair-journal-", dir=root.parent))
         stage = work / "sandbox"
         _copy_project(root, stage)
