@@ -212,7 +212,7 @@ def _coverage_gaps(app: Path) -> list[dict[str, Any]]:
     return checks
 
 
-def certify(app: Path, framework_root: Path = FRAMEWORK_ROOT, require_live: bool = False, commit_sha: str | None = None, timeout: int = 600) -> dict[str, Any]:
+def certify(app: Path, framework_root: Path = FRAMEWORK_ROOT, require_live: bool = False, commit_sha: str | None = None, timeout: int = 600, dependency_install_failed: bool = False) -> dict[str, Any]:
     app, framework_root = app.resolve(), framework_root.resolve()
     before = source_snapshot(app) if app.is_dir() else {}
     framework_pkg = _json(framework_root / "package.json") or {}
@@ -220,6 +220,10 @@ def certify(app: Path, framework_root: Path = FRAMEWORK_ROOT, require_live: bool
     application_sha = _git_sha(app) if app.is_dir() else None
     framework_sha = commit_sha or _git_sha(framework_root)
     checks = []
+    # CI must still write a report if frozen dependency installation fails;
+    # installation failure is never evidence of a successful certification.
+    if dependency_install_failed:
+        checks.append(_check("dependency_installation", "unresolved", "SKIPO_DEPENDENCY_INSTALL_FAILED", "Frozen dependency installation failed; package evidence is incomplete"))
     if not app.is_dir() or pkg is None:
         checks.append(_check("preflight", "failed", "SKIPO_APP_INVALID", "Application directory and valid package.json are required"))
     elif (app / "skipo.harness.json").exists():
@@ -281,9 +285,10 @@ def main() -> int:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--commit-sha", type=str)
     parser.add_argument("--require-live", action="store_true")
+    parser.add_argument("--dependency-install-failed", action="store_true", help="Include CI frozen-install failure in certification evidence")
     parser.add_argument("--timeout", type=int, default=600)
     args = parser.parse_args()
-    report = certify(args.application, FRAMEWORK_ROOT, args.require_live, args.commit_sha, args.timeout)
+    report = certify(args.application, FRAMEWORK_ROOT, args.require_live, args.commit_sha, args.timeout, args.dependency_install_failed)
     document = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
