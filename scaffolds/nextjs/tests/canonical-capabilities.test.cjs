@@ -23,11 +23,17 @@ test('storage backend delegates to canonical Kloks operations', () => {
   assert.doesNotMatch(adapter, /from ['"](?:@aws-sdk|googleapis|@google-cloud)/);
 });
 
-test('application has real settings, auth and workspace presentation', () => {
+test('application has real settings and workspace presentation', () => {
   for (const file of [
-    'src/frontend/pages/auth/page.tsx',
     'src/frontend/pages/settings/page.tsx',
     'src/frontend/pages/menus/workspaces/page.tsx',
     'src/frontend/pages/settings/tabs/accounts/page.tsx',
   ]) assert.ok(fs.statSync(path.join(root, file)).isFile(), file);
+});
+
+test('canonical auth page is generated from the capability registry', () => {
+  const registry = JSON.parse(fs.readFileSync(path.resolve(root, '../../architecture/capabilities/registry.json'), 'utf8'));
+  const auth = registry.capabilities.auth.generated.find(item => item.path === 'src/frontend/pages/auth/page.tsx');
+  assert.ok(auth, 'canonical auth page must be declared for generation');
+  assert.match(auth.content, /LuthAuthPage/);
 });
