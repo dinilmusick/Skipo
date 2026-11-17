@@ -142,7 +142,7 @@ def execute_verified(root: Path, plan: dict, apply_operation, verify_operation, 
         if current != plan['inputHashes']:
             raise ValueError('Stale migration plan; input files changed since planning')
         from skipo_dependency_integrity import inspect_install
-        packages = sorted(plan['paths'])
+        packages = sorted(set(plan['paths']) | set(plan.get('requiredDependencies', {})))
         if packages and inspect_install(root, packages) != plan['integrity']:
             raise ValueError('Dependency manifest, installed version or lockfile drift')
         files, actions = _preflight(root, plan, apply_operation, verify_operation)
