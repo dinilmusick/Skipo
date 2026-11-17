@@ -210,6 +210,7 @@ def verify_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> di
 
 # Stable standalone API for the final reconciler. All migration mutations now
 # pass through an independently preflighted, journaled transaction.
+from skipo_dependency_contracts import deprecated_specs
 from skipo_dependency_integrity import (
     declared_dependencies as _declared_dependencies,
     inspect_install as _inspect_install,
