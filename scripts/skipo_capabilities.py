@@ -130,22 +130,23 @@ def diagnose(root: Path) -> list[dict[str, Any]]:
             provider_symbols = [p["symbol"] for p in spec.get("providers", []) if p.get("symbol")]
             local_implementation = any(
                 re.search(
-                    rf"\\b(?:function|class|const|let|var)\\s+{re.escape(symbol)}\\b",
+                    r"\b(?:function|class|const|let|var)\s+" + re.escape(symbol) + r"\b",
                     text,
                 ) or re.search(
-                    rf"\\bimport\\s+(?:\\{{[^}}]*\\b{re.escape(symbol)}\\b[^}}]*\\}}|{re.escape(symbol)})\\s+from\\s*['\\\"](?:\\.{1,2}/|@/)",
+                    r"\bimport\s+.*\b" + re.escape(symbol)
+                    + r"\b.*\bfrom\s*['\"](?:\.\.?/|@/)",
                     text,
                 )
                 for symbol in provider_symbols
             )
-            # Identifiable implementation evidence, unlike passing through a
-            # createWorkspace callback or mentioning a symbol in documentation.
+            # Callback references and imported canonical symbols are not local
+            # implementations. Preserve suspicious declarations as blocking.
             dangerous_implementation = any(
                 re.search(pattern, text, re.I)
                 for pattern in (
-                    r"\\b(?:PBKDF2|bcrypt|passwordHash|localAuthProvider)\\b",
-                    r"\\bnew\\s+S3Client\\s*\\(",
-                    r"\\b(?:new|class|function)\\s+GoogleDrive\\b",
+                    r"\b(?:PBKDF2|bcrypt|passwordHash|localAuthProvider)\b",
+                    r"\bnew\s+S3Client\s*\(",
+                    r"\b(?:new|class|function)\s+GoogleDrive\b",
                 )
             )
             if explicit_safe:
