@@ -115,6 +115,42 @@ def test_failed_dependency_install_still_produces_unresolved_report(tmp_path, mo
     assert result["source_sha256"]
 
 
+def test_nested_tracked_app_commit_sha_is_not_misattributed(tmp_path):
+    if shutil.which("git") is None:
+        pytest.skip("Git unavailable")
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    app = app_fixture(repository)
+    subprocess.run(["git", "init", "-q", str(repository)], check=True)
+    subprocess.run(["git", "-C", str(repository), "add", "application"], check=True)
+    subprocess.run(["git", "-C", str(repository), "-c", "user.name=Conformance", "-c", "user.email=cert@example.test", "commit", "-qm", "baseline"], check=True)
+    committed = cert._git_sha(app)
+    assert committed is not None and len(committed) == 40
+    (app / "src/frontend/index.ts").write_text("export const a = 2;\n")
+    assert cert._git_sha(app) is None, "Dirty application cannot be attributed to an unchanged commit"
+
+
+def test_existing_main_clean_cli_fixture(tmp_path):
+    """Real main validators must accept an intentionally minimal clean app."""
+    if not (ROOT / "scripts/skipo_cli.py").is_file():
+        pytest.skip("A full Skipo checkout is required")
+    app = app_fixture(tmp_path)
+    (app / ".env.example").write_text("SYSTEM_DATABASE_URL=postgresql://localhost/sample\nAPP_URL=http://localhost:3000\n")
+    state = app / ".skipo"
+    state.mkdir()
+    version = json.loads((ROOT / "package.json").read_text())["version"]
+    (state / "project.json").write_text(json.dumps({"framework":"skipo", "skipo_version":version}))
+    (state / "capabilities.json").write_text(json.dumps({"schemaVersion":1,"installed":{},"generated":[]}))
+    (state / "dependencies.json").write_text("{}")
+    (state / "migration-state.json").write_text(json.dumps({"schemaVersion":1,"applied":["1.1.0-capability-composition"],"pending":[]}))
+    before = cert.source_snapshot(app)
+    checked = cert._cli_check(ROOT, app, "check")
+    verified = cert._cli_check(ROOT, app, "verify")
+    assert checked["status"] == "passed", checked
+    assert verified["status"] == "passed", verified
+    assert cert.source_snapshot(app) == before
+
+
 def test_no_commit_or_lockfile_is_unresolved(tmp_path, monkeypatch):
     successful_cli(monkeypatch)
     app = app_fixture(tmp_path)
