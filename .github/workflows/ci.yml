@@ -50,3 +50,41 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm build
       - run: pnpm validate
+
+  generated-applications:
+    name: Generated ${{ matrix.framework }} install / test / build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        framework: [nextjs, vite]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate a clean application from real Skipo CLI
+        env:
+          FRAMEWORK: ${{ matrix.framework }}
+        run: python3 scripts/skipo_cli.py create ReconciliationFixture "$RUNNER_TEMP/skipo-application" --framework "$FRAMEWORK"
+      - name: Install exact published Kloks and Floks artifacts
+        working-directory: ${{ runner.temp }}/skipo-application
+        run: pnpm install --no-frozen-lockfile
+      - name: Typecheck generated app
+        working-directory: ${{ runner.temp }}/skipo-application
+        run: pnpm run typecheck
+      - name: Lint generated app
+        working-directory: ${{ runner.temp }}/skipo-application
+        run: pnpm run lint
+      - name: Exercise functional provider and workspace contracts
+        working-directory: ${{ runner.temp }}/skipo-application
+        run: pnpm run test
+      - name: Produce real application build
+        working-directory: ${{ runner.temp }}/skipo-application
+        run: pnpm run build
