@@ -85,3 +85,24 @@ def independent_verify(root: Path, version: str) -> dict[str, Any]:
         "unverified_integrations": ["live Luth OAuth", "Google Drive OAuth",
                                      "Backblaze B2", "persistent database"],
     }
+
+
+def transaction_verify(root: Path, version: str) -> dict[str, Any]:
+    """A repair must pass fresh independent checks before its journal is discarded.
+
+    Full application certification (lockfile, build, live integrations) is a
+    separate mandatory promotion gate, never inferred from a repair receipt.
+    """
+    from skipo_capabilities import verify as verify_capabilities
+    layers = assess(root)
+    try:
+        capabilities = verify_capabilities(root)
+        environment = verify_environment(root)
+        dependency = verify_dependency_migrations(root, version)
+    except Exception as exc:
+        return {"ok": False, "architecture": layers, "errors": [str(exc)]}
+    return {"ok": bool(layers["compliant"] and capabilities.get("ok") and
+                       environment.get("ok") and dependency.get("ok")),
+            "architecture": layers, "capabilities": capabilities,
+            "environment": environment, "dependency_migrations": dependency,
+            "live_integrations": "unverified"}
