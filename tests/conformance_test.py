@@ -105,6 +105,16 @@ def test_adversarial_injection_must_not_certify(tmp_path, monkeypatch, case):
     assert case["expected_code"] in codes(result)
 
 
+def test_failed_dependency_install_still_produces_unresolved_report(tmp_path, monkeypatch):
+    successful_cli(monkeypatch)
+    app = app_fixture(tmp_path)
+    result = cert.certify(app, ROOT, commit_sha=SHA, dependency_install_failed=True)
+    assert result["compliance_status"] == "unresolved"
+    assert "SKIPO_DEPENDENCY_INSTALL_FAILED" in codes(result)
+    assert result["live_end_to_end_certified"] is False
+    assert result["source_sha256"]
+
+
 def test_no_commit_or_lockfile_is_unresolved(tmp_path, monkeypatch):
     successful_cli(monkeypatch)
     app = app_fixture(tmp_path)
