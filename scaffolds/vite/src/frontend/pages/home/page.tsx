@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import type { WorkspaceRecord } from '@ultrst-armada/floks/ui';
+import type { WorkspaceRecord } from '../../components/components.js';
 import MainPage from '../main/page.js';
 
 /**
