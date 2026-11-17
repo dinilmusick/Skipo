@@ -1,4 +1,4 @@
-import { handleUiSessionRequest } from '@ultrst-armada/kloks/backend';
+import { handleUiSessionRequest } from '@ultrst-armada/kloks/backend/ui-session';
 import { authenticateLuthRequest } from '../auth/luthSession.js';
 import { fetch as universalFetch } from '../../app.js';
 import { AppBackend } from '../AppBackend.js';
