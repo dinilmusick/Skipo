@@ -7,16 +7,20 @@ export function getSkipoApplicationId(): string {
   return SKIPO_APPLICATION_ID;
 }
 
-export const luthAuthClient = new LuthAuthClient({
-  ecosystemId: SKIPO_ECOSYSTEM_ID,
-  applicationId: getSkipoApplicationId(),
-  autoRegister: true,
-});
+// A browser Luth client must never be constructed during Next.js prerender.
+// The server-side fetch adapter verifies requests independently.
+export const luthAuthClient = typeof window !== 'undefined'
+  ? new LuthAuthClient({
+      ecosystemId: SKIPO_ECOSYSTEM_ID,
+      applicationId: getSkipoApplicationId(),
+      autoRegister: true,
+    })
+  : null;
 
 /** All same-origin application API requests carry the active Luth session. */
 export async function luthFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
-  new Headers(luthAuthClient.getAuthHeaders()).forEach((value, key) => headers.set(key, value));
+  new Headers((luthAuthClient ?? (() => { throw new Error('Browser Luth session unavailable'); })()).getAuthHeaders()).forEach((value, key) => headers.set(key, value));
   return fetch(input, {
     ...init,
     headers,
