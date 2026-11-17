@@ -1,4 +1,11 @@
 import { ApplicationCapability, CapabilityExecutor, ExternalCapabilityContext, ExternalInterfaceError, ExternalPrincipal, JsonSchema } from "./contract.js";
+// Capability contracts are data shared by discovery, authorization and execution.
+function freezeContract(value: unknown): void {
+  if (!value || typeof value !== "object" || Object.isFrozen(value)) return;
+  Object.freeze(value);
+  for (const nested of Object.values(value)) freezeContract(nested);
+}
+
 export function validateCapabilityValue(schema: JsonSchema, value: unknown, path = "$"): string[] {
   const errors: string[] = [];
   if (schema.enum && !schema.enum.some(item => JSON.stringify(item) === JSON.stringify(value))) return [path + " must match an allowed value"];
@@ -42,7 +49,9 @@ export class CapabilityRegistry {
     if (!/^[a-zA-Z0-9][a-zA-Z0-9._:-]{1,127}$/.test(capability.id)) throw new ExternalInterfaceError("INVALID_REQUEST", "Capability ID is invalid.", 400);
     if (!capability.description.trim() || !capability.invocation.serviceId || !capability.invocation.operationId) throw new ExternalInterfaceError("INVALID_REQUEST", "Capability description and invocation mapping are required.", 400);
     if (this.capabilities.has(capability.id)) throw new ExternalInterfaceError("INVALID_REQUEST", "Capability ID is already registered.", 409);
-    this.capabilities.set(capability.id, Object.freeze({ ...capability, invocation: Object.freeze({ ...capability.invocation }) }));
+    const snapshot = structuredClone(capability);
+    freezeContract(snapshot);
+    this.capabilities.set(snapshot.id, snapshot);
     return this;
   }
   list(principal: ExternalPrincipal | null): ApplicationCapability[] {
