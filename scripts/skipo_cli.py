@@ -86,6 +86,15 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
         encoding="utf-8",
     )
     capability_adopt(target)
+    # The scaffold contains an auth entrypoint, but the registry-owned
+    # canonical auth page must also be generated and tracked in the ledger.
+    # Do not claim a valid app if this generation conflicts or fails.
+    canonical_auth = capability_compose(target, ["auth"], apply=True)
+    if not canonical_auth.get("ok"):
+        print(json.dumps({"ok": False, "operation": "create",
+                          "error": "Canonical auth generation failed",
+                          "capability": canonical_auth}, indent=2))
+        return 1
     print(json.dumps({"ok":True,"operation":"create","name":name,"framework":framework,"target":str(target),"skipo_version":VERSION}))
     return 0
 
