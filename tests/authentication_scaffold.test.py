@@ -91,7 +91,8 @@ def test_negative_scaffold_with_local_credential_storage_is_rejected(tmp_path):
 def test_nextjs_scaffold_uses_luth_adapter_and_has_no_local_auth_endpoints():
     login = (ROOT / "scaffolds/nextjs/app/login/page.tsx").read_text(encoding="utf-8")
     backend = (ROOT / "scaffolds/nextjs/src/backend/AppBackend.ts").read_text(encoding="utf-8")
-    assert "src/frontend/pages/auth/LuthAuthPage" in login
+    assert "LoginClient" in login
+    assert "src/frontend/pages/auth/LuthAuthPage" in (ROOT / "scaffolds/nextjs/app/login/LoginClient.tsx").read_text(encoding="utf-8")
     assert "LuthAuthPage as FloksLuthAuthPage" in (ROOT / "scaffolds/nextjs/src/frontend/pages/auth/LuthAuthPage.tsx").read_text(encoding="utf-8")
     assert "LuthAuthPage as FloksLuthAuthPage" in (ROOT / "scaffolds/nextjs/src/frontend/pages/auth/LuthAuthPage.tsx").read_text(encoding="utf-8")
     assert not re.search(r"\bAuthServiceFacade\b", backend)
