@@ -25,7 +25,7 @@ jobs:
       - name: Run all reconciliation and adversarial suites
         run: |
           python -m pip install pytest
-          python -m pytest -q tests/test_skipo_policy_engine.py tests/test_skipo_policy_validation.py tests/test_environment_contract.py tests/test_environment_cli_lifecycle.py tests/test_environment_governance_v2.py tests/reconciliation_transaction.test.py tests/dependency_migration_contract.test.py tests/dependency_migration_rollback.test.py tests/dependency_migration_safety.test.py tests/conformance_test.py tests/functional_capability_generation.test.py
+          python -m pytest -q tests/test_skipo_policy_engine.py tests/test_skipo_policy_validation.py tests/test_environment_contract.py tests/test_environment_cli_lifecycle.py tests/test_environment_governance_v2.py tests/test_reconciliation_transaction.py tests/test_dependency_migration_contract.py tests/test_dependency_migration_rollback.py tests/test_dependency_migration_safety.py tests/conformance_test.py tests/test_functional_capability_generation.py
           node --test tests/semantic_architecture_analyzer.test.cjs
           node --test tests/functional_capability_provider.test.ts tests/functional_capability_routes.test.ts tests/functional_capability_typecheck.test.ts
       - name: Framework full tests and package build
