@@ -276,3 +276,22 @@ def test_sealed_plan_rejects_compatibility_requirement_tamper(tmp_path):
     assert not result['ok']
     assert 'altered after preflight' in str(result['errors'])
     assert (root / 'src/provider.ts').read_text() == 'OldProvider'
+
+
+def test_offline_unchanged_scaffold_requires_no_dependency_upgrade(tmp_path):
+    root = fixture(tmp_path, staged_migrations())
+    import shutil
+    shutil.rmtree(root / 'node_modules')
+    (root / '.skipo/dependencies.json').write_text(json.dumps({NAME: '^3.0.0'}))
+    plan = plan_dependency_migrations(root)
+    assert plan['ok'] and plan['offlineUnchanged'] and plan['migrations'] == []
+    assert execute_dependency_migrations(root, plan)['idempotent']
+    assert not (root / '.skipo/dependency-migration-journal.json').exists()
+
+
+def test_offline_changed_scaffold_fails_closed(tmp_path):
+    root = fixture(tmp_path, staged_migrations())
+    import shutil
+    shutil.rmtree(root / 'node_modules')
+    result = plan_dependency_migrations(root)
+    assert not result['ok']
