@@ -20,7 +20,8 @@ export const luthAuthClient = typeof window !== 'undefined'
 /** All same-origin application API requests carry the active Luth session. */
 export async function luthFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
-  new Headers((luthAuthClient ?? (() => { throw new Error('Browser Luth session unavailable'); })()).getAuthHeaders()).forEach((value, key) => headers.set(key, value));
+  if (!luthAuthClient) throw new Error('Browser Luth session unavailable');
+  new Headers(luthAuthClient.getAuthHeaders()).forEach((value, key) => headers.set(key, value));
   return fetch(input, {
     ...init,
     headers,
