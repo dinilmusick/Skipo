@@ -136,7 +136,8 @@ def execute_verified(root: Path, plan: dict, apply_operation, verify_operation, 
                     'actions': [], 'idempotent': True, 'recovery': recovery}
         if not isinstance(plan.get('inputHashes'), dict) or not isinstance(plan.get('planId'), str):
             raise ValueError('Unsealed plan: rerun plan_dependency_migrations before execution')
-        if plan_id(plan['paths'], plan['migrations'], plan['inputHashes']) != plan['planId']:
+        if plan_id(plan['paths'], plan['migrations'], plan['inputHashes'],
+                   {key: plan[key] for key in ('skipoVersion', 'integrity', 'requiredDependencies')}) != plan['planId']:
             raise ValueError('Migration plan contents altered after preflight')
         current = input_hashes(root, plan['migrations'], plan['paths'], plan.get('integrity', {}).get('lockfile'))
         if current != plan['inputHashes']:
