@@ -30,7 +30,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1130.0",
     "@aws-sdk/s3-request-presigner": "^3.1132.0",
-    "@dinilmusick/gutts": "2.2.0",
+    "@dinilmusick/gutts": "2.2.2",
     "@neondatabase/serverless": "^1.1.0",
     "@ultrst-armada/floks": "2.0.6",
     "@ultrst-armada/frnlts": "0.5.24",
