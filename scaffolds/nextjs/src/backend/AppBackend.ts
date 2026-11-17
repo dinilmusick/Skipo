@@ -2,8 +2,6 @@
 // 1. MINIMAL BACKEND FACADE (@ultrst-armada/kloks/* & @ultrst-armada/krnl COMPOSITION)
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { ServiceAFacade, ServiceBFacade } from '@ultrst-armada/kloks/services';
-import { OrchestratorADefinition } from '@ultrst-armada/kloks/orchestrations';
 import {
   StorageServiceFacade,
   WorkspaceServiceFacade,
@@ -14,9 +12,7 @@ import { LuthAuthServiceFacade } from './LuthAuthServiceFacade.js';
 import { BackendFacade } from './BackendFacade.js';
 import { createAppExternalInterfaces } from './externalInterfaces.js';
 
-export const orchestrations = {
-  orchestratorA: OrchestratorADefinition,
-};
+export const orchestrations = {};
 
 export const appWorkerBoundary = new WorkerExecutionBoundary('app_worker_main');
 
@@ -29,8 +25,6 @@ export const bugReportService = {
 
 export const services = {
   auth: LuthAuthServiceFacade,
-  serviceA: ServiceAFacade,
-  serviceB: ServiceBFacade,
   storage: StorageServiceFacade,
   workspace: WorkspaceServiceFacade,
   bugReport: bugReportService,
