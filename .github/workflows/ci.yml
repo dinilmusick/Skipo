@@ -91,4 +91,6 @@ jobs:
         run: pnpm run test
       - name: Produce real application build
         working-directory: ${{ runner.temp }}/skipo-application
+        env:
+          APP_URL: https://skipo-ci.example.test
         run: pnpm run build
