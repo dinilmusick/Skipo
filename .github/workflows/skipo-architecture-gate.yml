@@ -31,7 +31,7 @@ jobs:
       - name: Framework full tests and package build
         run: |
           pnpm test
-          pnpm run build --if-present
+          pnpm run build
       - name: Clean-room packed CLI verification
         run: bash tests/smoke_published_cli.sh
       - name: Retain evidence
