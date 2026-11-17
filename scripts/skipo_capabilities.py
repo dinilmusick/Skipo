@@ -69,14 +69,14 @@ def ensure_state(root: Path) -> None:
             write_json(path, value)
 
 def capability_state(root: Path) -> dict[str, Any]:
-    ensure_state(root)
+    # Inspection, planning and independent certification must never initialize
+    # a missing state directory or override file as a side effect.
     return read_json(root / ".skipo" / "capabilities.json", {"schemaVersion": 1, "installed": {}, "generated": []})
 
 def write_capability_state(root: Path, state: dict[str, Any]) -> None:
     write_json(root / ".skipo" / "capabilities.json", state)
 
 def dependency_state(root: Path) -> dict[str, Any]:
-    ensure_state(root)
     return read_json(root / ".skipo" / "dependencies.json", {})
 
 def project_name(root: Path) -> str:
@@ -220,7 +220,6 @@ def resolve_capabilities(items: list[str]) -> list[tuple[str, dict[str, Any]]]:
     return list(unique.items())
 
 def compose(root: Path, items: list[str], apply: bool = True) -> dict[str, Any]:
-    ensure_project(root)
     resolved = resolve_capabilities(items)
     pkg_path = root / "package.json"
     pkg = package_json(root)
@@ -288,6 +287,7 @@ def compose(root: Path, items: list[str], apply: bool = True) -> dict[str, Any]:
         }
 
     if apply and not conflicts:
+        ensure_project(root)
         pkg["dependencies"] = deps
         for path, desired in pending_writes.items():
             path.parent.mkdir(parents=True, exist_ok=True)
