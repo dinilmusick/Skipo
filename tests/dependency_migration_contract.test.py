@@ -12,6 +12,9 @@ def project(tmp_path, versions, contracts, previous):
     root = tmp_path
     deps = {name: f"^{ver}" for name, ver in versions.items()}
     (root / "package.json").write_text(json.dumps({"dependencies": deps}), encoding="utf-8")
+    (root / "package-lock.json").write_text(json.dumps({"lockfileVersion": 3, "packages": {
+        "": {"dependencies": deps}, **{f"node_modules/{name}": {"version": ver} for name, ver in versions.items()}
+    }}), encoding="utf-8")
     (root / ".skipo").mkdir()
     (root / ".skipo/dependencies.json").write_text(json.dumps(previous), encoding="utf-8")
     (root / ".skipo/migration-state.json").write_text(json.dumps({"schemaVersion": 1, "applied": [], "pending": []}), encoding="utf-8")

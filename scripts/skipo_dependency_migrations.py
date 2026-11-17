@@ -206,3 +206,138 @@ def verify_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> di
         except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
             errors.append(f"{package}: {exc}")
     return {"ok": not errors, "errors": errors, "paths": plan["paths"]}
+
+
+# Stable standalone API for the final reconciler. All migration mutations now
+# pass through an independently preflighted, journaled transaction.
+from skipo_dependency_contracts import deprecated_specs
+from skipo_dependency_integrity import (
+    declared_dependencies as _declared_dependencies,
+    inspect_install as _inspect_install,
+    input_hashes as _input_hashes,
+    plan_id as _dependency_plan_id,
+    compatible as _dependency_compatible,
+)
+from skipo_dependency_transaction import (
+    execute_verified as _execute_verified,
+    recover_dependency_migrations,
+)
+_legacy_dependency_plan = plan_dependency_migrations
+_legacy_dependency_verify = verify_dependency_migrations
+
+
+def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0", _inflight: bool = False) -> dict[str, Any]:
+    """Read-only, fail-closed plan with exact package/lockfile and input evidence."""
+    root = Path(root).resolve()
+    try:
+        # Uninstalled scaffolds are valid only when dependency specifiers
+        # have not changed. Never infer an upgraded package version offline.
+        if not (root / "node_modules").exists():
+            declared = _declared_dependencies(root)
+            state_file = root / ".skipo/dependencies.json"
+            previous = json.loads(state_file.read_text(encoding="utf-8")) if state_file.is_file() else {}
+            if not isinstance(previous, dict):
+                raise ValueError("Invalid dependency baseline state")
+            stable = True
+            for name, spec in declared.items():
+                old = previous.get("_resolved", {}).get(name) or previous.get(name)
+                if isinstance(old, dict):
+                    old = old.get("version") or old.get("specifier")
+                if old not in (None, spec):
+                    stable = False
+                    break
+            if stable:
+                seal = {"skipoVersion": skipo_version, "integrity": {}, "requiredDependencies": {}}
+                hashes = _input_hashes(root, [], {}, None)
+                return {"ok": True, "operation": "dependency-migration-plan", "paths": {},
+                        "migrations": [], "errors": [], "applied": False, "offlineUnchanged": True,
+                        **seal, "inputHashes": hashes,
+                        "planId": _dependency_plan_id({}, [], hashes, seal)}
+        plan = _legacy_dependency_plan(root, skipo_version)
+    except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        return {"ok": False, "operation": "dependency-migration-plan",
+                "paths": {}, "migrations": [], "errors": [str(exc)], "applied": False}
+    errors = list(plan.get("errors", []))
+    try:
+        if not _inflight and (root / ".skipo/dependency-migration-journal.json").exists():
+            raise ValueError("Pending migration journal: call recover_dependency_migrations before replanning")
+        packages = sorted(plan["paths"])
+        integrity = _inspect_install(root, packages) if packages else {}
+        declared = _declared_dependencies(root)
+        requirements = {}
+        for migration in plan["migrations"]:
+            contract = discover_contract(root, migration["package"])
+            if contract is None:
+                raise ValueError(f"Missing package-shipped migration contract: {migration['package']}")
+            items = [contract.get("compatibility", {}).get("dependencies", {}),
+                     migration.get("requiresDependencies", {})]
+            for item in items:
+                for name, spec in sorted(item.items()):
+                    if name not in declared:
+                        raise ValueError(f"Required migration dependency not declared: {name}")
+                    if name in requirements and requirements[name] != spec:
+                        # Different ranges may be compatible, but require unique,
+                        # explicit provider requirements for deterministic upgrades.
+                        raise ValueError(f"Conflicting dependency constraints for {name}")
+                    requirements[name] = spec
+        if requirements:
+            resolved = _inspect_install(root, sorted(set(packages) | set(requirements)))
+            for name, requirement in sorted(requirements.items()):
+                if not _dependency_compatible(requirement, resolved["verifiedVersions"][name]):
+                    raise ValueError(f"Dependency {name} violates required range {requirement}")
+            integrity = resolved
+        hashes = _input_hashes(root, plan["migrations"], plan["paths"],
+                               integrity.get("lockfile"))
+        seal = {"skipoVersion": skipo_version, "integrity": integrity,
+                "requiredDependencies": requirements}
+        plan.update(**seal, inputHashes=hashes,
+                    planId=_dependency_plan_id(plan["paths"], plan["migrations"], hashes, seal))
+    except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        errors.append(str(exc))
+    plan["errors"] = sorted(set(errors))
+    plan["ok"] = not plan["errors"]
+    return plan
+
+
+def verify_dependency_migrations(root: Path, skipo_version: str = "1.1.0", _inflight: bool = False) -> dict[str, Any]:
+    """Verify terminal contract invariants, applied ledger and exact package state."""
+    root = Path(root).resolve()
+    plan = plan_dependency_migrations(root, skipo_version, _inflight=_inflight)
+    errors = list(plan.get("errors", []))
+    if plan.get("migrations"):
+        errors.append("Unapplied dependency migrations: " +
+                      ", ".join(item["id"] for item in plan["migrations"]))
+    try:
+        state_path = root / ".skipo/migration-state.json"
+        state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else {}
+        applied = set(state.get("dependencyApplied", []))
+        for name, entry in sorted(plan.get("paths", {}).items()):
+            contract = discover_contract(root, name)
+            if not contract:
+                continue
+            validate_contract(contract, name, skipo_version)
+            terminal = [m for m in contract["migrations"]
+                        if f"{name}::{m['id']}" in applied
+                        and version(m["toVersion"]) == version(entry["to"])]
+            if len(terminal) > 1:
+                raise ValueError(f"Ambiguous applied terminal migrations for {name}")
+            if terminal:
+                for operation in terminal[0].get("verification", []):
+                    verify_operation(root, operation)
+                for spec in deprecated_specs(terminal[0]):
+                    for pattern in spec["paths"]:
+                        for path in files_for_pattern(root, pattern):
+                            if spec["text"] in path.read_text(encoding="utf-8"):
+                                raise ValueError(f"Deprecated pattern remains: {path.relative_to(root)}")
+    except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        errors.append(str(exc))
+    return {"ok": not errors, "errors": sorted(set(errors)),
+            "paths": plan.get("paths", {}), "integrity": plan.get("integrity", {})}
+
+def execute_dependency_migrations(root: Path, plan: dict[str, Any],
+                                  fail_at: str | None = None) -> dict[str, Any]:
+    """Apply only sealed plans; optionally inject deterministic test failures."""
+    return _execute_verified(Path(root), plan, apply_operation, verify_operation,
+                             lambda path: verify_dependency_migrations(path,
+                                       skipo_version=plan.get("skipoVersion", "1.1.0"),
+                                       _inflight=True), fail_at)
