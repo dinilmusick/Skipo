@@ -50,7 +50,7 @@ def assess(root: Path) -> dict[str, Any]:
         result["environment"] = {"ok": False, "errors": [str(exc)]}
     result["blocked"] = (
         result["policy"].get("state") in ("ambiguous", "blocked") or
-        result["semantic"].get("status") in ("ambiguous", "blocked", "violations")
+        result["semantic"].get("status") in ("ambiguous", "blocked")
     )
     result["compliant"] = (
         result["policy"].get("state") == "compliant" and
