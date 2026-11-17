@@ -150,6 +150,7 @@ def harden(namespace: dict) -> None:
                 found.append(checked)
         return found
 
-    namespace.update(version=strict_version, validate_operations=validate_operations,
+    namespace.update(version=strict_version, satisfies=lambda actual, requirement: compatible(requirement, actual),
+                     validate_operations=validate_operations,
                      validate_contract=validate_contract, resolve_path=resolve_path,
                      discover_contract=discover_contract, files_for_pattern=files_for_pattern)
