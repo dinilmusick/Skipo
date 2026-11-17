@@ -4,7 +4,21 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 temp="$(mktemp -d)"
-trap 'rm -rf "$temp"' EXIT
+cleanup() {
+  code=$?
+  if [ "$code" -ne 0 ]; then
+    echo "Packed Skipo CLI smoke failed with exit code $code; command receipts:" >&2
+    for receipt in plan first verify second verify-again policy semantic conformance; do
+      if [ -f "$temp/$receipt.json" ]; then
+        echo "---- $receipt.json ----" >&2
+        cat "$temp/$receipt.json" >&2
+      fi
+    done
+  fi
+  rm -rf "$temp"
+  exit "$code"
+}
+trap cleanup EXIT
 
 if [[ -n "${SKIPO_REGISTRY_VERSION:-}" ]]; then
   # npm may acknowledge a publish before the version is available through the
