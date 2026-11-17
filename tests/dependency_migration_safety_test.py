@@ -175,3 +175,11 @@ def test_verifier_detects_revoked_ownership(tmp_path):
     write(tmp_path / ".skipo/dependency-ownership.json", {"owners": {}})
     check = verify_dependency_migrations(tmp_path)
     assert not check["ok"] and "Lost migration ownership grant" in str(check["errors"])
+
+
+def test_mixed_lockfile_managers_rejected(tmp_path):
+    pkg = fixture(tmp_path)
+    contract(pkg)
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: 9")
+    plan = plan_dependency_migrations(tmp_path)
+    assert not plan["ok"] and "package manager lockfile" in str(plan["errors"])
