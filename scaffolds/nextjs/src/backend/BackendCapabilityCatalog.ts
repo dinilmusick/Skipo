@@ -1,4 +1,5 @@
-import type { IServiceFacade, ServiceNamespace } from '@ultrst-armada/krnl';
+import type { ServiceNamespace } from '@ultrst-armada/krnl';
+import type { RegisteredServiceFacade } from './BackendFacadeTypes.js';
 export interface BackendCapabilityDescriptor {
   readonly id: string; readonly name: string; readonly serviceId: string;
   readonly serviceName: string; readonly serviceVersion: string;
@@ -23,10 +24,10 @@ function cloneFrozenSchema(value: unknown): unknown {
 }
 
 export function listBackendCapabilities(
-  services: ReadonlyMap<string, IServiceFacade>,
+  services: ReadonlyMap<string, RegisteredServiceFacade>,
   namespaces: Readonly<Record<string, ServiceNamespace>>
 ): readonly BackendCapabilityDescriptor[] {
-  const unique = new Map<string, IServiceFacade>();
+  const unique = new Map<string, RegisteredServiceFacade>();
   for (const facade of services.values()) unique.set(facade.id, facade);
   const descriptors: BackendCapabilityDescriptor[] = [];
   for (const [serviceId] of unique) {
