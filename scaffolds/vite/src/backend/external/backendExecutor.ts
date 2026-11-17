@@ -4,7 +4,7 @@ import type { IBackendFacade } from '../BackendFacadeTypes.js';
 export function createBackendCapabilityExecutor(backend: IBackendFacade): CapabilityExecutor {
   return {
     execute(serviceId, operationId, input, context: ExternalCapabilityContext) {
-      return backend.executeCapability(serviceId, operationId, input, {
+      return backend.executeCapability(operationId, operationId, input, {
         serviceId,
         correlationId: context.requestId,
         metadata: {

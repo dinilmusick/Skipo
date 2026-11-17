@@ -5,9 +5,10 @@ function validate(schema: JsonSchema, value: unknown, path = "$"): string[] {
   if (schema.type === "object") {
     if (!value || typeof value !== "object" || Array.isArray(value)) return [path + " must be an object"];
     const object = value as Record<string, unknown>;
-    for (const key of schema.required ?? []) if (!(key in object)) errors.push(path + "." + key + " is required");
+    for (const key of schema.required ?? []) if (!Object.hasOwn(object, key)) errors.push(path + "." + key + " is required");
     for (const [key, item] of Object.entries(object)) {
-      const child = schema.properties?.[key];
+      const properties = schema.properties;
+      const child = properties && Object.hasOwn(properties, key) ? properties[key] : undefined;
       if (child) errors.push(...validate(child, item, path + "." + key));
       else if (schema.additionalProperties === false) errors.push(path + "." + key + " is not allowed");
     }
