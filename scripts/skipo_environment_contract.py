@@ -77,6 +77,14 @@ def load_contract() -> dict[str, Any]:
     for category in ("runtime_platform", "internal_tooling"):
         if any(not isinstance(reason, str) or not reason.strip() for reason in data[category].values()):
             raise ValueError(f"Missing ownership rationale in {category}")
+    restrictions = data.get("restricted_tooling", {})
+    if not isinstance(restrictions, dict) or any(
+        name not in data["internal_tooling"] or not isinstance(paths, list) or not paths
+        or any(not isinstance(item, str) or not item or item.startswith("/") or ".." in item
+               for item in paths)
+        for name, paths in restrictions.items()
+    ):
+        raise ValueError("Invalid narrowly scoped tooling exception")
     locations = data.get("tooling_locations", [])
     if not isinstance(locations, list) or any(not isinstance(loc, str) or not loc.endswith("/") or ".." in loc for loc in locations):
         raise ValueError("Invalid tooling location registry")
@@ -102,8 +110,12 @@ def _classification(name: str, rel: str, occurrence: str, contract: dict[str, An
     # Platform process state and internal tooling inputs cannot be added here.
     if occurrence == "declaration" and ENV_FILE.fullmatch(Path(rel).name) and category in {"runtime_platform", "internal_tooling"}:
         return "undeclared_framework_configuration"
-    if category == "internal_tooling" and not any(rel.startswith(loc) for loc in contract["tooling_locations"]):
-        return "undeclared_framework_configuration"
+    if category == "internal_tooling":
+        restricted = contract.get("restricted_tooling", {}).get(name)
+        if restricted is not None and rel not in restricted:
+            return "undeclared_framework_configuration"
+        if not any(rel.startswith(loc) for loc in contract["tooling_locations"]):
+            return "undeclared_framework_configuration"
     return category
 
 
@@ -172,6 +184,11 @@ def _candidate_names(path: Path, source: str):
                 start = re.search(r'''["'](?:env|environment|vars)["']\s*:\s*\{''', line)
                 if start:
                     json_depth = line.count("{") - line.count("}")
+                    # Compact one-line JSON environment objects are declarations too.
+                    # Only the environment object body is searched, never unrelated metadata.
+                    body = line[start.end():].split("}", 1)[0]
+                    for item in re.finditer(r'''["\']([A-Z][A-Z0-9_]*)["\']\s*:\s*([^,}]+)''', body):
+                        yield item.group(1), line_no, "declaration", item.group(2).strip()
             else:
                 match = KEY_ASSIGN.match(line)
                 json_depth += line.count("{") - line.count("}")
@@ -262,8 +279,18 @@ def _replace_recognized(source: str, path: Path, mapping: dict[str, str]) -> str
                 SHELL_ASSIGN if path.suffix.lower() in SHELL else KEY_ASSIGN)
             match = pattern.match(line)
             if not match or match.group(2) not in declarations:
-                raise ValueError(f"Unsafe or unsupported environment declaration at {path}:{line_no}")
-            line = line[:match.start(2)] + mapping[match.group(2)] + line[match.end(2):]
+                if path.suffix.lower() not in {".json", ".jsonc"}:
+                    raise ValueError(f"Unsafe or unsupported environment declaration at {path}:{line_no}")
+                for alias in sorted(declarations):
+                    pattern_inline = re.compile(
+                        r'''(["\'](?:env|environment|vars)["\']\s*:\s*\{[^}]*?["\'])'''
+                        + re.escape(alias) + r'''(["\']\s*:)'''
+                    )
+                    if not pattern_inline.search(line):
+                        raise ValueError(f"Unsafe inline JSON environment declaration at {path}:{line_no}")
+                    line = pattern_inline.sub(lambda item: item.group(1) + mapping[alias] + item.group(2), line, count=1)
+            else:
+                line = line[:match.start(2)] + mapping[match.group(2)] + line[match.end(2):]
         patterns = REFS[2:] if path.suffix.lower() == ".py" else REFS
         for pattern in patterns:
             line = pattern.sub(lambda m: m.group(0)[:m.start(1)-m.start(0)] + mapping.get(m.group(1), m.group(1)) + m.group(0)[m.end(1)-m.start(0):]

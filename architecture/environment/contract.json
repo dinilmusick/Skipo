@@ -62,6 +62,14 @@
     "SYNC_TOKEN": "Skipo dependency synchronization step secret",
     "TAG_VERSION": "Skipo release tag version"
   },
+  "restricted_tooling": {
+    "ADMIN_EMAIL": ["scripts/create-admin.ts"],
+    "ADMIN_PASSWORD": ["scripts/create-admin.ts"],
+    "GITHUB_OWNER": ["scripts/sync-ecosystem-secrets.mjs"],
+    "ECOSYSTEM_SYNC_TOKEN": [".github/workflows/dependency-sync.yml"],
+    "SKIPO_REGISTRY_VERSION": [".github/workflows/verify-published-skipo.yml"],
+    "SKIPO_PYTHON": ["bin/skipo.js", "packages/skipo/bin/skipo.js"]
+  },
   "tooling_locations": ["scripts/", "checklists/", "bin/", "packages/skipo/bin/", ".github/", "tests/"],
   "scan": {
     "extensions": [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".sh", ".bash", ".zsh", ".toml", ".json", ".jsonc", ".yaml", ".yml", ".ini", ".cfg", ".properties", ".md", ".mdx", ".txt"],
