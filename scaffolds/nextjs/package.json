@@ -37,7 +37,8 @@
     "@ultrst-armada/frnlts": "0.5.23",
     "@dinilmusick/gutts": "^2.1.1",
     "p-queue": "^10.0.0",
-    "cactus-needle": "0.3.0"
+    "cactus-needle": "0.3.0",
+    "@huggingface/transformers": "4.3.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.1.11",
