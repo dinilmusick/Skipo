@@ -265,9 +265,10 @@ def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0", _inflig
             integrity = resolved
         hashes = _input_hashes(root, plan["migrations"], plan["paths"],
                                integrity.get("lockfile"))
-        plan.update(integrity=integrity, inputHashes=hashes,
-                    planId=_dependency_plan_id(plan["paths"], plan["migrations"], hashes),
-                    requiredDependencies=requirements)
+        seal = {"skipoVersion": skipo_version, "integrity": integrity,
+                "requiredDependencies": requirements}
+        plan.update(**seal, inputHashes=hashes,
+                    planId=_dependency_plan_id(plan["paths"], plan["migrations"], hashes, seal))
     except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
         errors.append(str(exc))
     plan["errors"] = sorted(set(errors))
@@ -314,4 +315,6 @@ def execute_dependency_migrations(root: Path, plan: dict[str, Any],
                                   fail_at: str | None = None) -> dict[str, Any]:
     """Apply only sealed plans; optionally inject deterministic test failures."""
     return _execute_verified(Path(root), plan, apply_operation, verify_operation,
-                             lambda path: verify_dependency_migrations(path, _inflight=True), fail_at)
+                             lambda path: verify_dependency_migrations(path,
+                                       skipo_version=plan.get("skipoVersion", "1.1.0"),
+                                       _inflight=True), fail_at)
