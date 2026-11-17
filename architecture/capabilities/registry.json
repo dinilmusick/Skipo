@@ -504,7 +504,7 @@
       "lifecycle": "canonical"
     },
     "dependencies": {
-      "@dinilmusick/gutts": "2.2.0",
+      "@dinilmusick/gutts": "2.2.2",
       "@ultrst-armada/krnl": "^1.0.27",
       "@ultrst-armada/frnlts": "0.5.26",
       "@ultrst-armada/kloks": "2.2.3",

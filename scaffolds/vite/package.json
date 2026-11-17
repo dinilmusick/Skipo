@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "packageManager": "pnpm@10.33.0",
   "skipo": {
     "deploy": "fullstack"
   },
@@ -19,7 +20,7 @@
     "test": "node --test tests/canonical-capabilities.test.cjs"
   },
   "dependencies": {
-    "@dinilmusick/gutts": "2.2.0",
+    "@dinilmusick/gutts": "2.2.2",
     "@neondatabase/serverless": "^1.1.0",
     "@tailwindcss/vite": "^4.1.14",
     "@ultrst-armada/floks": "2.0.7",
