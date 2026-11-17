@@ -169,9 +169,33 @@ def _normalize_state(raw: dict[str, Any], catalogue: list[dict[str, Any]]) -> di
 def _manifest(root: Path) -> tuple[Path, dict[str, Any]]:
     path = root / ".skipo" / "project.json"
     data = _read_json(path, "Skipo project manifest")
-    if not data or data.get("framework") != "skipo":
-        raise MigrationStateError("Target is not an adopted Skipo project with a valid project manifest.")
-    return path, data
+    framework = data.get("framework")
+    if framework not in (None, "skipo"):
+        raise MigrationStateError("Target project declares a different framework.")
+
+    # Earlier Skipo apps kept deployment metadata here, or used only the
+    # package.json "skipo" marker. Plan from a virtual baseline; do not
+    # rewrite project metadata just to inspect or plan an upgrade.
+    package = _read_json(root / "package.json", "package.json")
+    legacy = data.get("kind") == "skipo-application" or isinstance(package.get("skipo"), dict)
+    version = data.get("skipo_version")
+    if framework == "skipo" and isinstance(version, str) and version != "unknown":
+        return path, data
+    if not legacy and framework != "skipo":
+        raise MigrationStateError(
+            "Target is not an adopted Skipo project (missing framework metadata or package.json skipo marker)."
+        )
+    if not package:
+        raise MigrationStateError("A valid package.json is required to upgrade a legacy Skipo project.")
+    # Never stamp historic migrations as complete: start at 0.0.0 so
+    # declared migrations execute and are independently checked.
+    return path, {
+        **data,
+        "framework": "skipo",
+        "scaffold": data.get("scaffold") or "adopted",
+        "skipo_version": "0.0.0",
+        "generated_by": data.get("generated_by") or "skipo",
+    }
 
 
 def _load_target_state(root: Path, catalogue: list[dict[str, Any]]) -> tuple[dict[str, Any], Path, dict[str, Any], dict[str, Any]]:

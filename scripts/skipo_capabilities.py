@@ -127,15 +127,39 @@ def diagnose(root: Path) -> list[dict[str, Any]]:
                 continue
 
             canonical = any(canonical_import_present(text, p["package"]) for p in spec.get("providers", []))
+            provider_symbols = [p["symbol"] for p in spec.get("providers", []) if p.get("symbol")]
+            local_implementation = any(
+                re.search(
+                    r"\b(?:function|class|const|let|var)\s+" + re.escape(symbol) + r"\b",
+                    text,
+                ) or re.search(
+                    r"\bimport\s+.*\b" + re.escape(symbol)
+                    + r"\b.*\bfrom\s*['\"](?:\.\.?/|@/)",
+                    text,
+                )
+                for symbol in provider_symbols
+            )
+            # Callback references and imported canonical symbols are not local
+            # implementations. Preserve suspicious declarations as blocking.
+            dangerous_implementation = any(
+                re.search(pattern, text, re.I)
+                for pattern in (
+                    r"\b(?:PBKDF2|bcrypt|passwordHash|localAuthProvider)\b",
+                    r"\bnew\s+S3Client\s*\(",
+                    r"\b(?:new|class|function)\s+GoogleDrive\b",
+                )
+            )
             if explicit_safe:
                 classification = "retire"
             elif canonical:
                 classification = "adapt"
-            else:
-                # A pattern match alone is not proof of a duplicate implementation.
-                # Report it as keep so repair never deletes application code merely
-                # because it references a canonical symbol.
+            elif local_implementation or dangerous_implementation:
                 classification = "keep"
+            else:
+                # A mere symbol mention or callback is not evidence of a
+                # parallel provider. Report it in diagnostics without blocking
+                # a valid application from upgrading.
+                classification = "reference"
 
             findings.append({
                 "capability": cap_id,
@@ -143,6 +167,7 @@ def diagnose(root: Path) -> list[dict[str, Any]]:
                 "path": rel,
                 "patterns": matched,
                 "canonical_import_present": canonical,
+                "implementation_evidence": bool(local_implementation or dangerous_implementation),
                 "safe_retire": explicit_safe,
             })
 

@@ -97,3 +97,34 @@ def test_add_does_not_overwrite_modified_generated_files_or_partially_apply():
         verified = run("verify", str(root))
         assert verified.returncode != 0
         assert "Generated capability file has drifted" in verified.stdout
+
+
+def test_architecture_diagnosis_distinguishes_callbacks_from_local_implementations(tmp_path):
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from skipo_capabilities import diagnose
+
+    app = tmp_path / "src/frontend/pages/main/page.tsx"
+    app.parent.mkdir(parents=True)
+    app.write_text(
+        "const createWorkspace = async (input) => await apiClient.createWorkspace(input);\\n"
+        "export function MainPage() { return null; }\\n"
+    )
+    findings = [f for f in diagnose(tmp_path) if f["path"] == "src/frontend/pages/main/page.tsx"]
+    assert findings
+    assert all(f["classification"] == "reference" for f in findings)
+
+    duplicate = tmp_path / "src/frontend/own/WorkspaceMenu.tsx"
+    duplicate.parent.mkdir(parents=True)
+    duplicate.write_text("export function WorkspaceTilesMenu() { return null; }")
+    findings = [f for f in diagnose(tmp_path) if f["path"] == "src/frontend/own/WorkspaceMenu.tsx"]
+    assert any(f["classification"] == "keep" and f["implementation_evidence"] for f in findings)
+
+    imported = tmp_path / "src/frontend/pages/legacy/page.tsx"
+    imported.parent.mkdir(parents=True)
+    imported.write_text("import { WorkspaceTilesMenu } from '../own/WorkspaceMenu';")
+    findings = [f for f in diagnose(tmp_path) if f["path"] == "src/frontend/pages/legacy/page.tsx"]
+    assert any(f["classification"] == "keep" for f in findings)
+
+    imported.write_text("import { WorkspaceTilesMenu } from '@ultrst-armada/floks/ui';")
+    findings = [f for f in diagnose(tmp_path) if f["path"] == "src/frontend/pages/legacy/page.tsx"]
+    assert any(f["classification"] == "adapt" for f in findings)
