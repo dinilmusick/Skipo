@@ -39,6 +39,8 @@ def relative_path(relative: str) -> tuple[str, ...]:
     if not isinstance(relative, str) or not relative or "\\" in relative or "\x00" in relative:
         raise UnsafeRepair(f"Unsafe path: {relative!r}")
     parsed = PurePosixPath(relative)
+    if ":" in parsed.parts[0]:
+        raise UnsafeRepair(f"Drive-prefixed path: {relative!r}")
     if parsed.is_absolute() or any(x in (".", "..", "") for x in relative.split("/")):
         raise UnsafeRepair(f"Unsafe path: {relative!r}")
     if relative != parsed.as_posix():
@@ -219,12 +221,13 @@ def _assert_original(root: Path, path: str, expected: dict[str, Any] | None) -> 
 
 
 def _install(root: Path, work: Path, change: dict[str, Any], after: dict[str, Any],
-             created_dirs: list[Path]) -> None:
+             created_dirs: list[Path], touched: list[dict[str, Any]]) -> None:
     path = change["path"]
     dest = checked(root, path)
     _assert_original(root, path, change["before"])
     if change["after"] is None:
         dest.unlink()
+        touched.append(change)
     else:
         missing: list[Path] = []
         parent = dest.parent
@@ -241,17 +244,27 @@ def _install(root: Path, work: Path, change: dict[str, Any], after: dict[str, An
             raise UnsafeRepair(f"Staged bytes changed: {path}")
         os.chmod(candidate, after[path]["mode"])
         os.replace(candidate, dest)
+        touched.append(change)
     _fsync_directory(dest.parent)
 
 
-def _restore(root: Path, work: Path, changes: list[dict[str, Any]],
+def _restore(root: Path, work: Path, touched: list[dict[str, Any]],
              before: dict[str, Any], created_dirs: list[Path]) -> dict[str, Any]:
     errors: list[str] = []
-    for change in reversed(changes):
+    for change in reversed(touched):
         path = change["path"]
         try:
             dest = checked(root, path)
             prior = change["before"]
+            if dest.exists():
+                current = {"sha256": digest(dest.read_bytes()), "size": dest.stat().st_size,
+                           "mode": stat.S_IMODE(dest.stat().st_mode)}
+            else:
+                current = None
+            if current == prior:
+                continue  # another restoration already completed
+            if current != change["after"]:
+                raise UnsafeRepair(f"Concurrent modification; refusing to overwrite {path}")
             if prior is None:
                 if dest.is_file():
                     dest.unlink()
@@ -306,6 +319,7 @@ def transact(root: Path, apply: bool, version: str, simulate: Callable[..., dict
     journal_created = False
     committed = False
     created_dirs: list[Path] = []
+    touched: list[dict[str, Any]] = []
     changes: list[dict[str, Any]] = []
     before: dict[str, Any] = {}
     stage: Path | None = None
@@ -410,7 +424,7 @@ def transact(root: Path, apply: bool, version: str, simulate: Callable[..., dict
         for index, change in enumerate(changes):
             if fault_at == f"before_write:{index}":
                 raise RuntimeError(f"Injected failure: before_write:{index}")
-            _install(root, work, change, after, created_dirs)
+            _install(root, work, change, after, created_dirs, touched)
             committed = True
             if fault_at == f"after_write:{index}":
                 raise RuntimeError(f"Injected failure: after_write:{index}")
@@ -430,7 +444,7 @@ def transact(root: Path, apply: bool, version: str, simulate: Callable[..., dict
     except Exception as exc:
         receipt["conflicts"].append({"code": "REPAIR_TRANSACTION_FAILED", "message": f"{type(exc).__name__}: {exc}"})
         if journal_created and work is not None:
-            receipt["rollback"] = _restore(root, work, changes, before, created_dirs)
+            receipt["rollback"] = _restore(root, work, touched, before, created_dirs)
         if receipt["rollback"]["status"] == "failed":
             receipt["journal"] = str(work)
             receipt["conflicts"].append({"code": "ROLLBACK_INCOMPLETE", "message": "Retained journal for manual restoration"})
