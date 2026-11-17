@@ -279,9 +279,55 @@ def repair_project(root: Path, apply: bool) -> int:
     return 0 if payload.get("ok", False) else 1
 
 def verify_project(root: Path) -> int:
-    payload = {"operation": "verify", **independent_verify(root, VERSION)}
+    # Retain the stable canonical-state diagnostic contract: certification and
+    # downstream tooling consume status, diagnostics and specific rule codes.
+    legacy = maintenance_verify(root, VERSION) if (root / ".skipo/project.json").exists() else {
+        "ok": False, "status": "unresolved", "diagnostics": [{
+            "code": "SKIPO_MANIFEST_MISSING", "status": "unresolved",
+            "message": "Project has not been adopted by Skipo.",
+            "path": ".skipo/project.json",
+        }],
+    }
+    independent = independent_verify(root, VERSION)
+    diagnostics = list(legacy.get("diagnostics", []))
+    architecture = independent.get("architecture", {})
+    for finding in architecture.get("policy", {}).get("diagnostics", []):
+        if finding.get("state") != "compliant":
+            diagnostics.append({
+                "code": finding.get("code", "SKP-POL-UNKNOWN"),
+                "status": "unsafe/ambiguous" if finding.get("state") in ("ambiguous", "blocked") else "repairable",
+                "message": finding.get("message", "Architectural constraint violation"),
+                "path": finding.get("path"),
+            })
+    for finding in architecture.get("semantic", {}).get("findings", []):
+        diagnostics.append({
+            "code": finding.get("code", "SKP-SEM-UNKNOWN"),
+            "status": "unsafe/ambiguous" if finding.get("certainty") == "ambiguous" else "unresolved",
+            "message": finding.get("message", "Semantic boundary violation"),
+            "path": finding.get("file"),
+        })
+    for finding in architecture.get("environment", {}).get("findings", []):
+        diagnostics.append({
+            "code": "SKIPO_CONSTRAINT_ENV-001",
+            "status": "unresolved",
+            "message": str(finding.get("classification", "environment")) + ": " + str(finding.get("variable", "")),
+            "path": finding.get("path"),
+        })
+    for error in independent.get("dependency_migrations", {}).get("errors", []):
+        diagnostics.append({"code": "SKIPO_DEPENDENCY_MIGRATION_INCOMPLETE",
+                            "status": "unresolved", "message": error})
+    if architecture.get("semantic", {}).get("status") == "blocked" and not architecture.get("semantic", {}).get("findings"):
+        diagnostics.append({"code": "SKP-SEM-EXECUTION-FAILED", "status": "invalid",
+                            "message": "Semantic analysis did not provide findings"})
+    ok = bool(legacy.get("ok") and independent.get("ok"))
+    payload = {"operation": "verify", "ok": ok,
+               "status": legacy.get("status", "clean") if ok else (
+                   legacy.get("status") if not legacy.get("ok") else "unresolved"),
+               "diagnostics": diagnostics, "diagnostic_count": len(diagnostics),
+               "errors": [str(d.get("message")) for d in diagnostics],
+               "architecture": architecture, "independent": independent}
     print(json.dumps(payload, indent=2))
-    return 0 if payload.get("ok") else 1
+    return 0 if ok else 1
 
 def certify_project(root: Path, require_live: bool = False, output: str | None = None,
                     commit_sha: str | None = None) -> int:
