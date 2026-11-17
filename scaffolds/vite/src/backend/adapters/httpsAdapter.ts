@@ -1,7 +1,7 @@
 import { authenticateLuthRequest } from '../auth/luthSession.js';
 import { fetch as universalFetch } from '../../app.js';
 import {
-  listWorkspaces, createWorkspace, invokeStorage,
+  listWorkspaces, createWorkspace, invokeStorage, completeGoogleDriveOAuth,
 } from '../storage/canonicalCapabilityRoutes.js';
 
 export interface Env {
@@ -17,6 +17,13 @@ const cors = {
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), {
   status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...cors },
 });
+
+function oauthNonceCookie(nonce: string, origin: string, clear = false): string {
+  return 'skipo_google_drive_nonce=' + (clear ? '' : encodeURIComponent(nonce))
+    + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + (clear ? 0 : 600)
+    + (origin.startsWith('https:') ? '; Secure' : '');
+}
+
 
 export async function fetchHandler(request: Request, env: Env = {}): Promise<Response> {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
@@ -60,6 +67,20 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
       return json(await invokeStorage(userId, input.provider === 'google_drive' ? 'testGoogleDriveConnection' : 'testBackblazeCredentials', input, env));
     }
 
+    if (path === '/api/storage/google-drive/callback' && request.method === 'GET') {
+      const nonceCookie = request.headers.get('cookie')?.match(/(?:^|;\\s*)skipo_google_drive_nonce=([^;]*)/)?.[1] || '';
+      const value = await completeGoogleDriveOAuth(
+        userId, url.searchParams.get('state') || '', decodeURIComponent(nonceCookie),
+        url.searchParams.get('code') || '', url.origin, env,
+      );
+      const destination = new URL(value.returnTo);
+      destination.searchParams.set('googleDriveConnected', '1');
+      destination.searchParams.set('googleDriveConnectionId', value.connectionId);
+      return new Response(null, { status: 303, headers: {
+        location: destination.toString(), 'set-cookie': oauthNonceCookie('', url.origin, true), ...cors,
+      } });
+    }
+
     if (path === '/api/storage/invoke' && request.method === 'POST') {
       const body = await request.json() as { operation?: string; input?: Record<string, unknown> };
       if (body.operation === 'createGoogleDriveAuthorizationRequest') {
@@ -70,7 +91,17 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
           return json({ success: false, error: 'OAuth callback origin mismatch.' }, 400);
         }
       }
-      return json(await invokeStorage(userId, body.operation || '', body.input, env));
+      const result = await invokeStorage(userId, body.operation || '', body.input, env);
+      if (body.operation === 'createGoogleDriveAuthorizationRequest') {
+        const value = result as { authorizationUrl?: string; nonce?: string; expiresAt?: string };
+        if (typeof value?.authorizationUrl !== 'string' || !/^[A-Za-z0-9_-]{20,}$/.test(value.nonce || '')) {
+          throw new Error('Kloks did not provide a valid OAuth authorization and nonce.');
+        }
+        const response = json({ authorizationUrl: value.authorizationUrl, expiresAt: value.expiresAt });
+        response.headers.set('set-cookie', oauthNonceCookie(value.nonce!, url.origin));
+        return response;
+      }
+      return json(result);
     }
   } catch (cause) {
     return json({ success: false, error: cause instanceof Error ? cause.message : 'Canonical service failed.' }, 400);

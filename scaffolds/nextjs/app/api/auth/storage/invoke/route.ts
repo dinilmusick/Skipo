@@ -17,6 +17,18 @@ export async function POST(req: NextRequest) {
       }
     }
     const result = await invokeStorage(session.user.id, body?.operation, body?.input, process.env);
+    if (body?.operation === 'createGoogleDriveAuthorizationRequest') {
+      const value = result as { authorizationUrl?: string; nonce?: string; expiresAt?: string };
+      if (typeof value?.authorizationUrl !== 'string' || !/^[A-Za-z0-9_-]{20,}$/.test(value.nonce || '')) {
+        throw new Error('Kloks did not provide a valid OAuth authorization and nonce.');
+      }
+      const response = NextResponse.json({ authorizationUrl: value.authorizationUrl, expiresAt: value.expiresAt });
+      response.cookies.set('skipo_google_drive_nonce', value.nonce!, {
+        httpOnly: true, sameSite: 'lax', secure: new URL(req.url).protocol === 'https:',
+        path: '/', maxAge: 600,
+      });
+      return response;
+    }
     return NextResponse.json(result);
   } catch (cause) {
     return NextResponse.json({ success: false, error: cause instanceof Error ? cause.message : 'Storage operation failed.' }, { status: 400 });

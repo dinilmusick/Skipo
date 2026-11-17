@@ -48,3 +48,27 @@ export async function invokeStorage(
   const { userId: _ignoredUser, env: _ignoredEnv, ...safeInput } = input as Record<string, unknown>;
   return StorageServiceFacade.execute(operation, { ...safeInput, userId, env });
 }
+
+/** OAuth callback is server-only: Kloks validates signed state and exchanges the code. */
+export async function completeGoogleDriveOAuth(
+  userId: string, state: string, nonceCookie: string, code: string,
+  callbackOrigin: string, env?: Record<string, unknown>,
+): Promise<{ connectionId: string; returnTo: string }> {
+  if (!userId || !state || !nonceCookie || !code) throw new Error('Incomplete Google Drive OAuth callback.');
+  const verified = await StorageServiceFacade.execute('verifyGoogleDriveAuthorizationState', {
+    state, nonceCookie, callbackOrigin, env,
+  }) as { userId?: string; returnTo?: string };
+  if (verified?.userId !== userId || typeof verified.returnTo !== 'string') {
+    throw new Error('OAuth session identity does not match the signed authorization state.');
+  }
+  const returnTo = new URL(verified.returnTo);
+  if (returnTo.origin !== new URL(callbackOrigin).origin) {
+    throw new Error('OAuth return origin must match the authenticated application.');
+  }
+  const result = await StorageServiceFacade.execute('completeGoogleDriveAuthorization', {
+    userId, code, env,
+  }) as { id?: string; connection?: { id?: string } };
+  const connectionId = result?.connection?.id || result?.id;
+  if (!connectionId) throw new Error('Kloks did not confirm a Google Drive connection.');
+  return { connectionId, returnTo: returnTo.toString() };
+}
