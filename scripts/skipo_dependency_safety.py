@@ -200,10 +200,12 @@ def _inventory(root: Path) -> tuple[dict[str, dict[str, str]], dict[str, Any]]:
         for name, spec in entries.items():
             if name in declared and declared[name] != spec: raise MigrationError(f"Conflicting manifest declaration: {name}")
             declared[name] = spec
+    if any((root / marker).exists() for marker in ("pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb")):
+        raise MigrationError("Ambiguous/unsupported package manager lockfile")
     lock_names = [name for name in LOCKS if (root / name).exists()]
     if len(lock_names) != 1: raise MigrationError("Expected exactly one npm lockfile (package-lock.json or npm-shrinkwrap.json)")
     lock = _read_json(root / lock_names[0])
-    if not isinstance(lock, dict) or not isinstance(lock.get("packages"), dict):
+    if not isinstance(lock, dict) or lock.get("lockfileVersion") not in (2, 3) or not isinstance(lock.get("packages"), dict):
         raise MigrationError("Unsupported lockfile: requires npm lockfileVersion 2/3")
     root_lock = lock["packages"].get("", {})
     versions: dict[str, dict[str, str]] = {}
