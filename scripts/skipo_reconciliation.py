@@ -254,6 +254,20 @@ from skipo_repair_txn_engine import transact as _transact_repair
 _simulate_canonical_repair = reconcile
 
 
+def _simulate_with_environment(stage: Path, apply: bool, framework_version: str) -> dict[str, Any]:
+    """Apply canonical environment aliases in the throwaway simulation only."""
+    from skipo_environment_contract import repair as repair_environment
+    environment = repair_environment(stage, apply=True)
+    if not environment.get("ok"):
+        return {"ok": False, "environment": environment,
+                "conflicts": environment.get("conflicts") or environment.get("blocked_findings") or
+                             [{"code": "ENVIRONMENT_PREFLIGHT_FAILED"}],
+                "verification": {"ok": False, "errors": ["Environment governance rejected the update"]}}
+    result = _simulate_canonical_repair(stage, apply, framework_version)
+    result["environment"] = environment
+    return result
+
+
 def reconcile(
     root: Path,
     apply: bool,
@@ -261,6 +275,8 @@ def reconcile(
     *,
     expected_plan_id: str | None = None,
     fault_at: str | None = None,
+    with_environment: bool = False,
+    verify_hook: Any = None,
 ) -> dict[str, Any]:
     """Plan or apply a fully verified repair using a reversible journal.
 
@@ -269,6 +285,8 @@ def reconcile(
     `fault_at` is reserved for deterministic transaction-failure tests.
     """
     return _transact_repair(
-        root, apply, framework_version, _simulate_canonical_repair,
+        root, apply, framework_version,
+        _simulate_with_environment if with_environment else _simulate_canonical_repair,
         capabilities, expected_plan_id=expected_plan_id, fault_at=fault_at,
+        verify_hook=verify_hook,
     )
