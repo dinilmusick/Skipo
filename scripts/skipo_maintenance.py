@@ -14,7 +14,7 @@ from typing import Any, Callable
 
 from skipo_state_registry import load_registry
 from skipo_capabilities import (
-    capability_state, generated_entries, sha256_text, compose, diagnose as diagnose_capabilities,
+    capability_state, ensure_state, generated_entries, sha256_text, compose, diagnose as diagnose_capabilities,
 )
 
 from skipo_dependency_migrations import plan_dependency_migrations, execute_dependency_migrations
@@ -357,6 +357,7 @@ def execute_plan(root: Path, plan: dict[str, Any], framework_version: str,
         _write_json(migration_state_path, migration_state)
 
     if any(action["action"] == "initialize-capability-state" for action in actions):
+        ensure_state(root)
         capability_state(root)
     installed = sorted(read_json(root / ".skipo" / "capabilities.json", {}).get("installed", {}))
     if installed:
