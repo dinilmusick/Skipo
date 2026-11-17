@@ -199,6 +199,7 @@ def input_hashes(root: Path, migrations: list[dict], paths: dict, lock_name: str
     return {name: digest(safe_file(root, name).read_bytes() if safe_file(root, name).is_file() else None)
             for name in sorted(targets)}
 
-def plan_id(paths: dict, migrations: list[dict], hashes: dict) -> str:
-    data = json.dumps({'paths': paths, 'migrations': migrations, 'inputs': hashes}, sort_keys=True, separators=(',', ':'))
+def plan_id(paths: dict, migrations: list[dict], hashes: dict, context: dict | None = None) -> str:
+    data = json.dumps({'paths': paths, 'migrations': migrations, 'inputs': hashes,
+                       'context': context or {}}, sort_keys=True, separators=(',', ':'))
     return digest(data.encode())
