@@ -225,7 +225,7 @@ _legacy_dependency_plan = plan_dependency_migrations
 _legacy_dependency_verify = verify_dependency_migrations
 
 
-def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict[str, Any]:
+def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0", _inflight: bool = False) -> dict[str, Any]:
     """Read-only, fail-closed plan with exact package/lockfile and input evidence."""
     root = Path(root).resolve()
     try:
@@ -235,7 +235,7 @@ def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict
                 "paths": {}, "migrations": [], "errors": [str(exc)], "applied": False}
     errors = list(plan.get("errors", []))
     try:
-        if (root / ".skipo/dependency-migration-journal.json").exists():
+        if not _inflight and (root / ".skipo/dependency-migration-journal.json").exists():
             raise ValueError("Pending migration journal: call recover_dependency_migrations before replanning")
         packages = sorted(plan["paths"])
         integrity = _inspect_install(root, packages) if packages else {}
@@ -274,10 +274,10 @@ def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict
     return plan
 
 
-def verify_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict[str, Any]:
+def verify_dependency_migrations(root: Path, skipo_version: str = "1.1.0", _inflight: bool = False) -> dict[str, Any]:
     """Verify terminal contract invariants, applied ledger and exact package state."""
     root = Path(root).resolve()
-    plan = plan_dependency_migrations(root, skipo_version)
+    plan = plan_dependency_migrations(root, skipo_version, _inflight=_inflight)
     errors = list(plan.get("errors", []))
     if plan.get("migrations"):
         errors.append("Unapplied dependency migrations: " +
@@ -313,4 +313,4 @@ def execute_dependency_migrations(root: Path, plan: dict[str, Any],
                                   fail_at: str | None = None) -> dict[str, Any]:
     """Apply only sealed plans; optionally inject deterministic test failures."""
     return _execute_verified(Path(root), plan, apply_operation, verify_operation,
-                             lambda path: verify_dependency_migrations(path), fail_at)
+                             lambda path: verify_dependency_migrations(path, _inflight=True), fail_at)
