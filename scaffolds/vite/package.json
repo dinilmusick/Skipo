@@ -23,7 +23,7 @@
     "@neondatabase/serverless": "^1.1.0",
     "@tailwindcss/vite": "^4.1.14",
     "@ultrst-armada/floks": "2.0.6",
-    "@ultrst-armada/frnlts": "^0.5.23",
+    "@ultrst-armada/frnlts": "0.5.23",
     "@ultrst-armada/kloks": "2.0.5",
     "@ultrst-armada/krnl": "^1.0.25",
     "@vitejs/plugin-react": "^5.0.4",
