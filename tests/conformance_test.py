@@ -109,6 +109,7 @@ def test_no_commit_or_lockfile_is_unresolved(tmp_path, monkeypatch):
     successful_cli(monkeypatch)
     app = app_fixture(tmp_path)
     (app / "package-lock.json").unlink()
+    monkeypatch.setattr(cert, "_git_sha", lambda root: None)
     report = cert.certify(app, ROOT)
     assert "SKIPO_LOCKFILE_AMBIGUOUS" in codes(report)
     assert "SKIPO_COMMIT_UNKNOWN" in codes(report)
@@ -160,3 +161,43 @@ def test_actual_main_cli_detects_checksum_and_migration_violations(tmp_path):
     check = subprocess.run([sys.executable, str(cli), "verify", str(app)], capture_output=True, text=True)
     payload = json.loads(check.stdout)
     assert "SKIPO_MIGRATION_UNKNOWN" in {item["code"] for item in payload["diagnostics"]}
+
+
+@pytest.mark.parametrize("case", CASES, ids=["main_" + c["name"] for c in CASES])
+def test_actual_main_adversarial_surface_evidence(tmp_path, case):
+    """Real main CLI verification, distinct from synthetic orchestration tests."""
+    cli = ROOT / "scripts/skipo_cli.py"
+    if not cli.is_file():
+        pytest.skip("Full Skipo main checkout unavailable; test runs in GitHub Actions")
+    app = tmp_path / "actual-main-app"
+    created = subprocess.run([sys.executable, str(cli), "create", "ConformanceFixture", str(app), "--framework", "vite"], capture_output=True, text=True)
+    assert created.returncode == 0, created.stderr + created.stdout
+    target = app / case["path"]
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if case["name"] == "modified_generated_file":
+        target.write_text("export const source = 1;\n")
+        data_path = app / ".skipo/capabilities.json"
+        data = json.loads(data_path.read_text())
+        data.setdefault("generated", []).append({"owner": "skipo", "path": case["path"], "checksum": hashlib.sha256(target.read_bytes()).hexdigest()})
+        data_path.write_text(json.dumps(data))
+    target.write_text(case["content"])
+    if case["name"] in {"duplicated_auth", "local_workspace_ui", "forbidden_import"}:
+        gaps = cert._coverage_gaps(app)
+        assert "SKIPO_CANONICAL_OWNERSHIP_AMBIGUOUS" in {g["code"] for g in gaps}
+        if case["name"] == "forbidden_import":
+            full = cert._cli_check(ROOT, app, "check")
+            assert full["status"] in {"failed", "unresolved"}, full
+    elif case["name"] in {"modified_generated_file", "missing_migration"}:
+        verified = cert._cli_check(ROOT, app, "verify")
+        assert verified["status"] == "failed", verified
+        assert case["expected_code"] in {d["code"] for d in verified.get("diagnostics", [])}
+    elif case["name"] == "illegal_environment":
+        verified = cert._cli_check(ROOT, app, "verify")
+        full = cert._cli_check(ROOT, app, "check")
+        assert verified["status"] != "passed" or full["status"] != "passed"
+        assert ("SKIPO_FORBIDDEN_ENVIRONMENT_VARIABLE" in {d["code"] for d in verified.get("diagnostics", [])}
+                or any(a.get("aspect_id") == "aspect_26" for a in full.get("failing_aspects", [])))
+    elif case["name"] == "incomplete_integration":
+        report = cert.certify(app, ROOT, require_live=True, commit_sha=SHA)
+        assert "SKIPO_LIVE_INTEGRATIONS_UNVERIFIED" in codes(report)
+        assert report["live_end_to_end_certified"] is False
