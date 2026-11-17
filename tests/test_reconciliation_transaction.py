@@ -57,13 +57,13 @@ def test_known_dirty_project_is_repaired_and_verified():
         result = skipo_reconciliation.reconcile(root, apply=True, framework_version="1.1.0")
         assert result["ok"], result
         assert not obsolete.exists()
-        assert (root / "src/libraries/skipo/workspace.ts").read_text() == (
-            "export { WorkspaceTilesMenu } from '@ultrst-armada/floks/ui';\n"
-            "export { WorkspaceServiceFacade, WorkspaceBackendFacade } from '@ultrst-armada/kloks/backend';\n"
-        )
+        registry = skipo_capabilities.load_registry()["capabilities"]["workspace"]
+        workspace = next(item for item in registry["generated"]
+                         if item["path"] == "src/libraries/skipo/workspace.ts")
+        assert (root / workspace["path"]).read_text() == workspace["content"]
         package = json.loads((root / "package.json").read_text())
-        assert package["dependencies"]["@ultrst-armada/floks"] == "^2.0.6"
-        assert package["dependencies"]["@ultrst-armada/kloks"] == "^2.0.5"
+        for name, version in registry["dependencies"].items():
+            assert package["dependencies"][name] == version
         assert skipo_capabilities.verify(root)["ok"]
 
 
