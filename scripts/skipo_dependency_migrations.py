@@ -206,3 +206,90 @@ def verify_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> di
         except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
             errors.append(f"{package}: {exc}")
     return {"ok": not errors, "errors": errors, "paths": plan["paths"]}
+
+
+# Stable standalone API for the final reconciler. All migration mutations now
+# pass through an independently preflighted, journaled transaction.
+from skipo_dependency_integrity import (
+    declared_dependencies as _declared_dependencies,
+    inspect_install as _inspect_install,
+    input_hashes as _input_hashes,
+    plan_id as _dependency_plan_id,
+    compatible as _dependency_compatible,
+)
+from skipo_dependency_transaction import (
+    execute_verified as _execute_verified,
+    recover_dependency_migrations,
+)
+_legacy_dependency_plan = plan_dependency_migrations
+_legacy_dependency_verify = verify_dependency_migrations
+
+
+def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict[str, Any]:
+    """Read-only, fail-closed plan with exact package/lockfile and input evidence."""
+    root = Path(root).resolve()
+    try:
+        plan = _legacy_dependency_plan(root, skipo_version)
+    except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        return {"ok": False, "operation": "dependency-migration-plan",
+                "paths": {}, "migrations": [], "errors": [str(exc)], "applied": False}
+    errors = list(plan.get("errors", []))
+    try:
+        if (root / ".skipo/dependency-migration-journal.json").exists():
+            raise ValueError("Pending migration journal: call recover_dependency_migrations before replanning")
+        packages = sorted(plan["paths"])
+        integrity = _inspect_install(root, packages) if packages else {}
+        declared = _declared_dependencies(root)
+        requirements = {}
+        for migration in plan["migrations"]:
+            contract = discover_contract(root, migration["package"])
+            if contract is None:
+                raise ValueError(f"Missing package-shipped migration contract: {migration['package']}")
+            items = [contract.get("compatibility", {}).get("dependencies", {}),
+                     migration.get("requiresDependencies", {})]
+            for item in items:
+                for name, spec in sorted(item.items()):
+                    if name not in declared:
+                        raise ValueError(f"Required migration dependency not declared: {name}")
+                    if name in requirements and requirements[name] != spec:
+                        # Different ranges may be compatible, but require unique,
+                        # explicit provider requirements for deterministic upgrades.
+                        raise ValueError(f"Conflicting dependency constraints for {name}")
+                    requirements[name] = spec
+        if requirements:
+            resolved = _inspect_install(root, sorted(set(packages) | set(requirements)))
+            for name, requirement in sorted(requirements.items()):
+                if not _dependency_compatible(requirement, resolved["verifiedVersions"][name]):
+                    raise ValueError(f"Dependency {name} violates required range {requirement}")
+            integrity = resolved
+        hashes = _input_hashes(root, plan["migrations"], plan["paths"],
+                               integrity.get("lockfile"))
+        plan.update(integrity=integrity, inputHashes=hashes,
+                    planId=_dependency_plan_id(plan["paths"], plan["migrations"], hashes),
+                    requiredDependencies=requirements)
+    except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        errors.append(str(exc))
+    plan["errors"] = sorted(set(errors))
+    plan["ok"] = not plan["errors"]
+    return plan
+
+
+def verify_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict[str, Any]:
+    """Independently verify postconditions and reconcile all three package states."""
+    plan = plan_dependency_migrations(root, skipo_version)
+    errors = list(plan.get("errors", []))
+    if plan.get("migrations"):
+        errors.append("Unapplied dependency migrations: " +
+                      ", ".join(item["id"] for item in plan["migrations"]))
+    if not errors:
+        original = _legacy_dependency_verify(root, skipo_version)
+        errors.extend(original.get("errors", []))
+    return {"ok": not errors, "errors": sorted(set(errors)),
+            "paths": plan.get("paths", {}), "integrity": plan.get("integrity", {})}
+
+
+def execute_dependency_migrations(root: Path, plan: dict[str, Any],
+                                  fail_at: str | None = None) -> dict[str, Any]:
+    """Apply only sealed plans; optionally inject deterministic test failures."""
+    return _execute_verified(Path(root), plan, apply_operation, verify_operation,
+                             lambda path: verify_dependency_migrations(path), fail_at)
