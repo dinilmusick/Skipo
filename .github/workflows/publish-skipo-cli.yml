@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "skipo-v*"
+  issues:
+    types: [opened]
 
 permissions:
   contents: read
@@ -11,9 +13,19 @@ permissions:
 
 jobs:
   publish:
+    # Issue trigger is intentionally exact and owner-only; no arbitrary ref,
+    # package name, command or version comes from an issue body.
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'issues' &&
+       github.event.issue.user.login == 'dinilmusick' &&
+       github.event.issue.title == '[skipo-publish] 1.2.0')
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v6
         with:
@@ -21,13 +33,28 @@ jobs:
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
 
-      - name: Verify release versions
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify exact checked-out release commit and matching package versions
+        id: release
+        shell: bash
+        env:
+          ISSUE_COMMIT_SHA: ${{ github.event.issue.body }}
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#skipo-v}"
+          if [[ "$GITHUB_EVENT_NAME" == "issues" ]]; then
+            TAG_VERSION="1.2.0"
+            [[ "$ISSUE_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "Issue body must contain only the main commit SHA"; exit 1; }
+            test "$ISSUE_COMMIT_SHA" = "$(git rev-parse HEAD)"
+          else
+            TAG_VERSION="${GITHUB_REF_NAME#skipo-v}"
+          fi
           SKIPO_VERSION="$(node -p "require('./packages/skipo/package.json').version")"
           ROOT_VERSION="$(node -p "require('./package.json').version")"
           test "$TAG_VERSION" = "$SKIPO_VERSION"
           test "$TAG_VERSION" = "$ROOT_VERSION"
+          echo "version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Pack Skipo
         working-directory: packages/skipo
@@ -37,3 +64,7 @@ jobs:
         working-directory: packages/skipo
         run: npm publish --access public
 
+      - name: Independently verify the actual public npm consumer artifact
+        env:
+          SKIPO_REGISTRY_VERSION: ${{ steps.release.outputs.version }}
+        run: bash tests/smoke_published_cli.sh

@@ -71,7 +71,8 @@
     "SKIPO_VERSION": "Skipo release CLI version",
     "SYNC_TOKEN": "Skipo dependency synchronization step secret",
     "TAG_VERSION": "Skipo release tag version",
-    "FRAMEWORK": "Skipo CI generated-app matrix framework selector; never an application configuration variable"
+    "FRAMEWORK": "Skipo CI generated-app matrix framework selector; never an application configuration variable",
+    "ISSUE_COMMIT_SHA": "Owner-issued, exact checked-out commit pin for Skipo trusted npm publication; never app configuration"
   },
   "restricted_tooling": {
     "ADMIN_EMAIL": [
@@ -103,10 +104,14 @@
       "packages/skipo/bin/skipo.js"
     ],
     "SKIPO_REGISTRY_VERSION": [
-      ".github/workflows/verify-published-skipo.yml"
+      ".github/workflows/verify-published-skipo.yml",
+      ".github/workflows/publish-skipo-cli.yml"
     ],
     "FRAMEWORK": [
       ".github/workflows/ci.yml"
+    ],
+    "ISSUE_COMMIT_SHA": [
+      ".github/workflows/publish-skipo-cli.yml"
     ]
   },
   "tooling_locations": [
