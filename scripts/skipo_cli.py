@@ -40,7 +40,7 @@ from skipo_environment_contract import (
     verify as environment_verify,
 )
 from skipo_capabilities import retire_known_duplicates
-from skipo_lifecycle import assess as assess_architecture, independent_verify
+from skipo_lifecycle import assess as assess_architecture, independent_verify, transaction_verify
 from skipo_reconciliation import reconcile as reconcile_transaction
 
 def run(cmd: list[str], cwd: Path) -> int:
@@ -199,14 +199,31 @@ def sync_project(root: Path, install: bool) -> int:
     return 0 if payload.get("ok", False) else 1
 
 def update_project(root: Path) -> int:
+    architecture = assess_architecture(root)
+    if architecture["blocked"]:
+        print(json.dumps({"ok": False, "operation": "update", "applied": False,
+                          "error": "Architectural preflight blocked mutation",
+                          "architecture": architecture}, indent=2))
+        return 2
     try:
-        plan = maintenance_plan(root, VERSION)
-        payload = execute_maintenance_plan(root, plan, VERSION) if plan.get("ok") else {
-            "ok": False, "operation": "update", "applied": False,
-            "errors": plan.get("errors", []), "plan": plan,
-        }
+        if (root / ".skipo" / "project.json").exists():
+            payload = reconcile_transaction(
+                root, True, VERSION, with_environment=True,
+                verify_hook=lambda target: transaction_verify(target, VERSION),
+            )
+            payload["operation"] = "update"
+            payload["next_stage"] = "sync" if payload.get("ok") else "diagnose"
+        else:
+            # One-time legacy adoption retains its explicit manifest/provenance
+            # contract. All established projects use the sealed transaction.
+            plan = maintenance_plan(root, VERSION)
+            payload = execute_maintenance_plan(root, plan, VERSION) if plan.get("ok") else {
+                "ok": False, "operation": "update", "applied": False,
+                "errors": plan.get("errors", []), "plan": plan,
+            }
+            payload["legacy_adoption"] = True
     except (ValueError, OSError) as exc:
-        print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
+        print(json.dumps({"ok": False, "operation": "update", "errors": [str(exc)]}, indent=2))
         return 2
     print(json.dumps(payload, indent=2))
     return 0 if payload.get("ok", False) else 1
@@ -245,14 +262,16 @@ def repair_project(root: Path, apply: bool) -> int:
         print(json.dumps(payload, indent=2))
         return 0 if payload.get("ok", False) else 1
     try:
-        planned = maintenance_plan(root, VERSION)
-        if not planned.get("ok"):
+        architecture = assess_architecture(root)
+        if architecture["blocked"]:
             payload = {"ok": False, "operation": "repair", "applied": False,
-                       "errors": planned.get("errors", []), "plan": planned}
-        elif apply:
-            payload = execute_maintenance_plan(root, planned, VERSION)
+                       "errors": ["Architectural preflight blocked mutation"],
+                       "architecture": architecture}
         else:
-            payload = {"ok": True, "operation": "repair", "planned": True, "plan": planned}
+            payload = reconcile_transaction(
+                root, apply, VERSION, with_environment=True,
+                verify_hook=lambda target: transaction_verify(target, VERSION),
+            )
     except (ValueError, OSError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
         return 2
