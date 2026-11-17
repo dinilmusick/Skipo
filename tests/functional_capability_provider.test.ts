@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { execFileSync } from 'node:child_process';
 import {
   StorageServiceFacade, WorkspaceServiceFacade,
 } from '@ultrst-armada/kloks/backend/krnl-services';
@@ -74,3 +75,13 @@ for (const [name, adapter] of [['Next.js', next], ['Vite', vite]] as const) {
     });
   });
 }
+
+
+describe('generation exercised by the published Skipo CLI entrypoint', () => {
+  it('generates a workspace capability without placeholder data in an independent app', () => {
+    execFileSync('python3', ['-m', 'pytest', '-q', '--import-mode=importlib', 'tests/functional_capability_generation.test.py'], {
+      cwd: process.cwd(),
+      stdio: 'pipe',
+    });
+  });
+});

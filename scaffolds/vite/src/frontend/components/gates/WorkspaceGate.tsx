@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   WorkspaceTilesMenu,
+  BaseButton,
   createKloksWorkspaceStorageService,
   type WorkspaceCreateInput,
   type WorkspaceRecord,
@@ -20,6 +21,7 @@ export interface WorkspaceGateProps {
   onCreateWorkspace?: (input: WorkspaceCreateInput) => Promise<void> | void;
   onDeleteWorkspace?: (id: string) => Promise<void> | void;
   onLogout?: () => void;
+  onManageStorage?: () => void;
   appName?: string;
 }
 
@@ -41,10 +43,14 @@ function workspaceRecord(value: unknown): WorkspaceRecord {
   return { ...record, title: record.title || record.name || record.id };
 }
 
+function StorageSettingsAction({ onManageStorage }: { onManageStorage: () => void }) {
+  return <BaseButton type="button" onClick={onManageStorage}>Manage storage</BaseButton>;
+}
+
 /** Stateful application gate. Data always comes from verified Luth + Kloks routes. */
 export function WorkspaceGate({
   workspaces, userId, currentUser, storageOptions, activeWorkspaceId,
-  onSelectWorkspace, onCreateWorkspace, onDeleteWorkspace, onLogout, appName = 'SKIPO APP',
+  onSelectWorkspace, onCreateWorkspace, onDeleteWorkspace, onLogout, onManageStorage, appName = 'SKIPO APP',
 }: WorkspaceGateProps) {
   const [records, setRecords] = useState<WorkspaceRecord[]>([]);
   const [connections, setConnections] = useState<WorkspaceStorageOption[]>([]);
@@ -84,7 +90,9 @@ export function WorkspaceGate({
   }), []);
 
   return (
-    <WorkspaceTilesMenu
+    <div>
+      {onManageStorage && <StorageSettingsAction onManageStorage={onManageStorage} />}
+      <WorkspaceTilesMenu
       workspaces={workspaces ?? records}
       userId={userId || currentUser?.id}
       currentUser={currentUser ? { ...currentUser, email: currentUser.email || '' } : null}
@@ -107,7 +115,8 @@ export function WorkspaceGate({
       appName={appName}
       loading={loading}
       error={error}
-    />
+      />
+    </div>
   );
 }
 

@@ -17,14 +17,14 @@
         },
         {
           "package": "@ultrst-armada/kloks",
-          "surface": "backend",
+          "surface": "backend/krnl-services",
           "symbol": "AuthServiceFacade"
         }
       ],
       "generated": [
         {
           "path": "src/libraries/skipo/auth.ts",
-          "content": "export { LuthAuthPage } from '@ultrst-armada/floks/auth';\nexport { AuthServiceFacade } from '@ultrst-armada/kloks/backend';\n"
+          "content": "export { LuthAuthPage } from '@ultrst-armada/floks/auth';\nexport { AuthServiceFacade } from '@ultrst-armada/kloks/backend/krnl-services';\n"
         },
         {
           "path": "src/frontend/pages/auth/page.tsx",
@@ -90,23 +90,18 @@
         },
         {
           "package": "@ultrst-armada/kloks",
-          "surface": "backend",
+          "surface": "backend/krnl-services",
           "symbol": "WorkspaceServiceFacade"
-        },
-        {
-          "package": "@ultrst-armada/kloks",
-          "surface": "backend",
-          "symbol": "WorkspaceBackendFacade"
         }
       ],
       "generated": [
         {
           "path": "src/libraries/skipo/workspace.ts",
-          "content": "export { WorkspaceTilesMenu } from '@ultrst-armada/floks/ui';\nexport { WorkspaceServiceFacade, WorkspaceBackendFacade } from '@ultrst-armada/kloks/backend';\n"
+          "content": "export { WorkspaceTilesMenu } from '@ultrst-armada/floks/ui';\nexport { WorkspaceServiceFacade } from '@ultrst-armada/kloks/backend/krnl-services';\n"
         },
         {
           "path": "src/frontend/pages/menus/workspaces/page.tsx",
-          "content": "'use client';\n\nimport { useState } from 'react';\nimport type { WorkspaceRecord } from '@ultrst-armada/floks/ui';\nimport { WorkspaceGate } from '../../../components/gates/WorkspaceGate.js';\nimport MainPage from '../../main/page.js';\n\nexport interface WorkspacesPageProps {\n  currentUser?: { id: string; email?: string; name?: string } | null;\n  onSelectWorkspace?: (workspace: WorkspaceRecord) => void;\n  onLogout?: () => void;\n}\n\n/** Compose the canonical Floks menu with Kloks data. Consumer content remains app-owned. */\nexport default function WorkspacesPage({ currentUser, onSelectWorkspace, onLogout }: WorkspacesPageProps) {\n  const [selected, setSelected] = useState<WorkspaceRecord | null>(null);\n  if (selected && !onSelectWorkspace) {\n    return <MainPage activeWorkspace={selected} onSwitchWorkspace={() => setSelected(null)} />;\n  }\n  return (\n    <WorkspaceGate\n      currentUser={currentUser}\n      onSelectWorkspace={(workspace) => {\n        setSelected(workspace);\n        onSelectWorkspace?.(workspace);\n      }}\n      onLogout={onLogout}\n    />\n  );\n}\n"
+          "content": "'use client';\n\nimport { useState } from 'react';\nimport { BaseButton, type WorkspaceRecord } from '@ultrst-armada/floks/ui';\nimport { WorkspaceGate } from '../../../components/gates/WorkspaceGate.js';\nimport MainPage from '../../main/page.js';\nimport SettingsPage from '../../settings/page.js';\n\nexport interface WorkspacesPageProps {\n  currentUser?: { id: string; email?: string; name?: string } | null;\n  onSelectWorkspace?: (workspace: WorkspaceRecord) => void;\n  onLogout?: () => void;\n}\n\n/** Compose the canonical Floks menu with Kloks data. Consumer content remains app-owned. */\nexport default function WorkspacesPage({ currentUser, onSelectWorkspace, onLogout }: WorkspacesPageProps) {\n  const [selected, setSelected] = useState<WorkspaceRecord | null>(null);\n  const [settingsOpen, setSettingsOpen] = useState(false);\n  if (settingsOpen) return <section><BaseButton onClick={() => setSettingsOpen(false)}>Back to workspaces</BaseButton><SettingsPage /></section>;\n  if (selected && !onSelectWorkspace) {\n    return <MainPage activeWorkspace={selected} onSwitchWorkspace={() => setSelected(null)} />;\n  }\n  return (\n    <WorkspaceGate\n      currentUser={currentUser}\n      onSelectWorkspace={(workspace) => {\n        setSelected(workspace);\n        onSelectWorkspace?.(workspace);\n      }}\n      onLogout={onLogout}\n      onManageStorage={() => setSettingsOpen(true)}\n    />\n  );\n}\n"
         }
       ],
       "safeRetire": [
@@ -157,14 +152,14 @@
       "providers": [
         {
           "package": "@ultrst-armada/kloks",
-          "surface": "backend",
+          "surface": "backend/krnl-services",
           "symbol": "StorageServiceFacade"
         }
       ],
       "generated": [
         {
           "path": "src/libraries/skipo/services/storage.ts",
-          "content": "export { StorageServiceFacade } from '@ultrst-armada/kloks/backend';\n"
+          "content": "export { StorageServiceFacade } from '@ultrst-armada/kloks/backend/krnl-services';\n"
         }
       ],
       "duplicatePatterns": [
