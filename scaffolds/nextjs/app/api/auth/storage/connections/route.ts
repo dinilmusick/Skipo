@@ -1,23 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { appBackend } from '@/src/backend/AppBackend';
+import { getLuthSession } from '@/src/backend/auth/luthSession';
+import { invokeStorage } from '@/src/backend/storage/canonicalCapabilityRoutes';
 
 export async function GET(req: NextRequest) {
+  const session = await getLuthSession(req);
+  if (!session) return NextResponse.json({ success: false, error: 'Verified Luth session required.' }, { status: 401 });
   try {
-    const userId = req.headers.get('x-user-id') || undefined;
-    const result = await appBackend.services.storage.getStorageConnections(userId);
-    return NextResponse.json(result);
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    const connections = await invokeStorage(session.user.id, 'getConnections', {}, process.env);
+    return NextResponse.json({ success: true, connections });
+  } catch (cause) {
+    return NextResponse.json({ success: false, error: cause instanceof Error ? cause.message : 'Storage connection retrieval failed.' }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
+  const session = await getLuthSession(req);
+  if (!session) return NextResponse.json({ success: false, error: 'Verified Luth session required.' }, { status: 401 });
   try {
-    const userId = req.headers.get('x-user-id') || 'default';
-    const body = await req.json();
-    const result = await appBackend.services.storage.saveStorageConnection(userId, body);
-    return NextResponse.json(result);
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    const input = await req.json();
+    if (input?.provider !== 'backblaze_b2') {
+      return NextResponse.json({ success: false, error: 'Only canonical Backblaze connection creation is supported here.' }, { status: 422 });
+    }
+    const result = await invokeStorage(session.user.id, 'createBackblazeConnection', input, process.env);
+    return NextResponse.json(result, { status: 201 });
+  } catch (cause) {
+    return NextResponse.json({ success: false, error: cause instanceof Error ? cause.message : 'Storage connection creation failed.' }, { status: 400 });
   }
 }

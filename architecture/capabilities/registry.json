@@ -28,7 +28,7 @@
         },
         {
           "path": "src/frontend/pages/auth/page.tsx",
-          "content": "import { LuthAuthPage } from '@ultrst-armada/floks/auth';\n\nexport default function AuthPage() {\n  return <LuthAuthPage ecosystemId=\"ultrst-armada\" applicationId=\"skipo-app\" appName=\"SKIPO APP\" />;\n}\n"
+          "content": "'use client';\n\nimport { LuthAuthPage } from '@ultrst-armada/floks/auth';\nimport { getSkipoApplicationId } from '../../../libraries/client/luthAuthClient.js';\n\nexport default function AuthPage() {\n  return (\n    <LuthAuthPage\n      ecosystemId=\"ultrst-armada\"\n      applicationId={getSkipoApplicationId()}\n      appName=\"SKIPO APP\"\n      onAuthenticated={() => window.location.assign('/')}\n    />\n  );\n}\n"
         }
       ],
       "safeRetire": [
@@ -106,7 +106,7 @@
         },
         {
           "path": "src/frontend/pages/menus/workspaces/page.tsx",
-          "content": "import { WorkspaceTilesMenu } from '@ultrst-armada/floks/ui';\nimport type { WorkspaceRecord } from '@ultrst-armada/floks/ui';\n\nexport default function WorkspacesPage() {\n  return <WorkspaceTilesMenu workspaces={[] as WorkspaceRecord[]} activeWorkspaceId={null} />;\n}\n"
+          "content": "'use client';\n\nimport { useState } from 'react';\nimport type { WorkspaceRecord } from '@ultrst-armada/floks/ui';\nimport { WorkspaceGate } from '../../../components/gates/WorkspaceGate.js';\nimport MainPage from '../../main/page.js';\n\nexport interface WorkspacesPageProps {\n  currentUser?: { id: string; email?: string; name?: string } | null;\n  onSelectWorkspace?: (workspace: WorkspaceRecord) => void;\n  onLogout?: () => void;\n}\n\n/** Compose the canonical Floks menu with Kloks data. Consumer content remains app-owned. */\nexport default function WorkspacesPage({ currentUser, onSelectWorkspace, onLogout }: WorkspacesPageProps) {\n  const [selected, setSelected] = useState<WorkspaceRecord | null>(null);\n  if (selected && !onSelectWorkspace) {\n    return <MainPage activeWorkspace={selected} onSwitchWorkspace={() => setSelected(null)} />;\n  }\n  return (\n    <WorkspaceGate\n      currentUser={currentUser}\n      onSelectWorkspace={(workspace) => {\n        setSelected(workspace);\n        onSelectWorkspace?.(workspace);\n      }}\n      onLogout={onLogout}\n    />\n  );\n}\n"
         }
       ],
       "safeRetire": [
@@ -264,6 +264,11 @@
           "package": "@ultrst-armada/floks",
           "surface": "ui",
           "symbol": "SettingsTab"
+        },
+        {
+          "package": "@ultrst-armada/floks",
+          "surface": "ui",
+          "symbol": "ThemeSettingsSection"
         }
       ],
       "generated": [
@@ -273,7 +278,11 @@
         },
         {
           "path": "src/frontend/pages/settings/page.tsx",
-          "content": "import { SettingsTab } from '@ultrst-armada/floks/ui';\n\nexport default function SettingsPage() {\n  return <SettingsTab />;\n}\n"
+          "content": "'use client';\n\nimport { ThemeSettingsSection } from '@ultrst-armada/floks/ui';\nimport AccountsTab from './tabs/accounts/page.js';\n\nexport default function SettingsPage({ activeWorkspaceName }: { activeWorkspaceName?: string }) {\n  return (\n    <section aria-label=\"Application settings\">\n      <h1>Settings</h1>\n      {activeWorkspaceName && <p>Workspace: {activeWorkspaceName}</p>}\n      <ThemeSettingsSection />\n      <AccountsTab />\n    </section>\n  );\n}\n"
+        },
+        {
+          "path": "src/frontend/pages/settings/tabs/accounts/page.tsx",
+          "content": "'use client';\n\nimport { useCallback, useEffect, useState } from 'react';\nimport { BaseButton, BaseCard } from '@ultrst-armada/floks/ui';\nimport { luthFetch } from '../../../../../libraries/client/luthAuthClient.js';\n\ninterface Connection {\n  id: string;\n  provider: string;\n  label?: string;\n  name?: string;\n  enabled?: boolean;\n}\n\nexport default function AccountsTab() {\n  const [connections, setConnections] = useState<Connection[]>([]);\n  const [loading, setLoading] = useState(true);\n  const [error, setError] = useState<string | null>(null);\n\n  const reload = useCallback(async () => {\n    setLoading(true);\n    setError(null);\n    try {\n      const response = await luthFetch('/api/auth/storage/connections');\n      const payload = await response.json();\n      if (!response.ok || payload?.success === false) throw new Error(payload?.error || 'Could not read storage connections.');\n      const records = Array.isArray(payload) ? payload : payload?.connections;\n      if (!Array.isArray(records)) throw new Error('Kloks returned an invalid storage connection list.');\n      setConnections(records.filter((v: any) => v && typeof v.id === 'string' && typeof v.provider === 'string'));\n    } catch (cause) {\n      setError(cause instanceof Error ? cause.message : 'Storage connection retrieval failed.');\n    } finally {\n      setLoading(false);\n    }\n  }, []);\n\n  useEffect(() => { void reload(); }, [reload]);\n\n  return (\n    <BaseCard>\n      <h2>Storage accounts</h2>\n      <p>Connections are provided by Kloks. New connections can be authorized from the workspace creation dialog.</p>\n      <BaseButton type=\"button\" onClick={() => { void reload(); }} disabled={loading}>Refresh connections</BaseButton>\n      {loading && <p role=\"status\">Loading connections…</p>}\n      {error && <p role=\"alert\">{error}</p>}\n      {!loading && !error && connections.length === 0 && <p>No storage connections configured.</p>}\n      <ul>{connections.map((connection) => (\n        <li key={connection.id}>{connection.label || connection.name || connection.id} — {connection.provider}{connection.enabled === false ? ' (disabled)' : ''}</li>\n      ))}</ul>\n    </BaseCard>\n  );\n}\n"
         }
       ],
       "duplicatePatterns": [
@@ -323,6 +332,10 @@
         {
           "path": "src/libraries/skipo/ui/accounts.ts",
           "content": "export { SettingsTab } from '@ultrst-armada/floks/ui';\n"
+        },
+        {
+          "path": "src/frontend/pages/settings/tabs/accounts/page.tsx",
+          "content": "'use client';\n\nimport { useCallback, useEffect, useState } from 'react';\nimport { BaseButton, BaseCard } from '@ultrst-armada/floks/ui';\nimport { luthFetch } from '../../../../../libraries/client/luthAuthClient.js';\n\ninterface Connection {\n  id: string;\n  provider: string;\n  label?: string;\n  name?: string;\n  enabled?: boolean;\n}\n\nexport default function AccountsTab() {\n  const [connections, setConnections] = useState<Connection[]>([]);\n  const [loading, setLoading] = useState(true);\n  const [error, setError] = useState<string | null>(null);\n\n  const reload = useCallback(async () => {\n    setLoading(true);\n    setError(null);\n    try {\n      const response = await luthFetch('/api/auth/storage/connections');\n      const payload = await response.json();\n      if (!response.ok || payload?.success === false) throw new Error(payload?.error || 'Could not read storage connections.');\n      const records = Array.isArray(payload) ? payload : payload?.connections;\n      if (!Array.isArray(records)) throw new Error('Kloks returned an invalid storage connection list.');\n      setConnections(records.filter((v: any) => v && typeof v.id === 'string' && typeof v.provider === 'string'));\n    } catch (cause) {\n      setError(cause instanceof Error ? cause.message : 'Storage connection retrieval failed.');\n    } finally {\n      setLoading(false);\n    }\n  }, []);\n\n  useEffect(() => { void reload(); }, [reload]);\n\n  return (\n    <BaseCard>\n      <h2>Storage accounts</h2>\n      <p>Connections are provided by Kloks. New connections can be authorized from the workspace creation dialog.</p>\n      <BaseButton type=\"button\" onClick={() => { void reload(); }} disabled={loading}>Refresh connections</BaseButton>\n      {loading && <p role=\"status\">Loading connections…</p>}\n      {error && <p role=\"alert\">{error}</p>}\n      {!loading && !error && connections.length === 0 && <p>No storage connections configured.</p>}\n      <ul>{connections.map((connection) => (\n        <li key={connection.id}>{connection.label || connection.name || connection.id} — {connection.provider}{connection.enabled === false ? ' (disabled)' : ''}</li>\n      ))}</ul>\n    </BaseCard>\n  );\n}\n"
         }
       ],
       "duplicatePatterns": [

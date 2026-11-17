@@ -1,17 +1,29 @@
-import React, { useState } from 'react';
-import { ModuleUIHost } from '../../components/module-ui/ModuleUIHost.js';
+'use client';
 
-export function MainPage({ children, isGuest }: { children?: React.ReactNode; isGuest?: boolean }) {
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  return (
-    <div data-skipo-main-page="true" style={{ minHeight: '100vh' }}>
-      <header style={{ display: 'flex', justifyContent: 'flex-end', padding: 12 }}>
-        <button type="button" onClick={() => setSettingsOpen(value => !value)}>Settings</button>
-      </header>
-      <main>{settingsOpen ? <div>Settings</div> : children}</main>
-          <ModuleUIHost />
-</div>
-  );
+import React, { useState } from 'react';
+import { BaseButton, type WorkspaceRecord } from '@ultrst-armada/floks/ui';
+import SettingsPage from '../settings/page.js';
+
+export interface MainPageProps {
+  children?: React.ReactNode;
+  isGuest?: boolean;
+  activeWorkspace?: WorkspaceRecord | null;
+  onSwitchWorkspace?: () => void;
 }
 
-export default MainPage;
+/** Application-owned page content is supplied through children; no fake workspace is created. */
+export default function MainPage({ children, isGuest, activeWorkspace, onSwitchWorkspace }: MainPageProps) {
+  const [showSettings, setShowSettings] = useState(false);
+  return (
+    <div data-skipo-main-page="true" style={{ minHeight: '100vh' }}>
+      <header style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', padding: 12 }}>
+        {activeWorkspace && <span>{activeWorkspace.title}</span>}
+        {onSwitchWorkspace && <BaseButton type="button" onClick={onSwitchWorkspace}>Switch workspace</BaseButton>}
+        <BaseButton type="button" onClick={() => setShowSettings((value) => !value)}>
+          {showSettings ? 'Back to workspace' : 'Settings'}
+        </BaseButton>
+      </header>
+      <main>{showSettings ? <SettingsPage activeWorkspaceName={activeWorkspace?.title || (isGuest ? 'Guest' : undefined)} /> : children}</main>
+    </div>
+  );
+}
