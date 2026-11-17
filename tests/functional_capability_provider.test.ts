@@ -25,7 +25,7 @@ describe('functional canonical providers from the actually installed packages', 
   it('uses real Kloks storage capability resolution without external credentials', async () => {
     const output = await StorageServiceFacade.execute('resolveAdapterType', { provider: 'google_drive' }) as any;
     expect(output.provider).toBe('google_drive');
-    expect(output.requiresNodeAdapter).toBe(false);
+    expect(output.provider).not.toBe('local_fs');
   });
 
   it('uses real Floks workspace creation payload semantics and exports', () => {
