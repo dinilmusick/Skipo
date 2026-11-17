@@ -21,13 +21,19 @@ def harden(namespace: dict) -> None:
         if path.is_absolute() or '..' in path.parts or not path.parts:
             raise ValueError(f"Unsafe migration operation path: {relative}")
         if path.parts[0] in ('.git', '.skipo', 'node_modules') or relative in (
-            'package.json', 'package-lock.json', 'pnpm-lock.yaml', 'yarn.lock'):
+            'package.json', 'package-lock.json', 'npm-shrinkwrap.json',
+            'pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb'):
             raise ValueError(f"Provider migrations cannot own protected path: {relative}")
         if not pattern and any('*' in p or '?' in p or '[' in p for p in path.parts):
             raise ValueError(f"Glob forbidden in exact migration path: {relative}")
 
     def validate_operations(migration: dict) -> None:
         original_operations(migration)
+        owned_paths = migration.get('ownedPaths', [])
+        if not isinstance(owned_paths, list):
+            raise ValueError(f"Invalid ownedPaths in {migration['id']}")
+        for path in owned_paths:
+            operation_path(path)
         for group in ('preconditions', 'transformations', 'repair', 'verification'):
             operations = migration.get(group, [])
             if not isinstance(operations, list):

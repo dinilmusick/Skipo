@@ -72,6 +72,7 @@ def test_transform_repair_and_verification_execute_once(tmp_path):
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
         migration("demo-2", "1.0.0", "2.0.0",
+            ownedPaths=["src/feature.ts", "config.json"],
             transformations=[{"type": "replace_text", "paths": ["src/**/*.ts"], "find": "OldFacade", "replace": "NewFacade"}],
             repair=[{"type": "set_json", "path": "config.json", "key": "provider.mode", "value": "canonical", "expectedOld": "legacy"}],
             deprecatedPatterns=["OldFacade"], canonicalReplacements=["NewFacade"],
@@ -83,6 +84,8 @@ def test_transform_repair_and_verification_execute_once(tmp_path):
     source.parent.mkdir()
     source.write_text("import { OldFacade } from 'provider';", encoding="utf-8")
     (root / "config.json").write_text(json.dumps({"provider": {"mode": "legacy"}}), encoding="utf-8")
+    (root / ".skipo/dependency-ownership.json").write_text(json.dumps({
+        "owners": {"src/feature.ts": name, "config.json": name}}))
     plan = plan_dependency_migrations(root)
     result = execute_dependency_migrations(root, plan)
     assert result["ok"]
@@ -170,14 +173,18 @@ def test_contract_detects_affected_files_and_applies_canonical_replacement(tmp_p
     name = "@ultrst-armada/demo"
     root = project(tmp_path, {name: "2.0.0"}, {name: ("2.0.0", contract(name, [
         migration("demo-1-to-2", "1.0.0", "2.0.0",
+            ownedPaths=["src/storage.ts"],
             deprecatedPatterns=[{"text": "OldStorage", "paths": ["src/**/*.ts"]}],
             canonicalReplacements=[{"find": "OldStorage", "replace": "NewStorage", "paths": ["src/**/*.ts"]}])
     ]))}, {name: "1.0.0"})
     source = root / "src/storage.ts"
     source.parent.mkdir()
     source.write_text("export const provider = OldStorage;", encoding="utf-8")
+    (root / ".skipo/dependency-ownership.json").write_text(json.dumps({
+        "owners": {"src/storage.ts": name}}))
     plan = plan_dependency_migrations(root)
-    assert plan["ok"] and plan["migrations"][0]["affectedState"][0]["path"] == "src/storage.ts"
+    assert plan["ok"], plan["errors"]
+    assert plan["migrations"][0]["affectedState"][0]["path"] == "src/storage.ts"
     assert execute_dependency_migrations(root, plan)["ok"]
     assert "NewStorage" in source.read_text()
 

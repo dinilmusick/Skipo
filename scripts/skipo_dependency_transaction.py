@@ -5,7 +5,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from skipo_dependency_integrity import digest, input_hashes, plan_id, safe_file
+from skipo_dependency_integrity import OWNERSHIP_FILE, digest, input_hashes, plan_id, read_json, safe_file
 
 JOURNAL = '.skipo/dependency-migration-journal.json'
 
@@ -62,6 +62,31 @@ def recover_dependency_migrations(root: Path) -> dict:
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
         return {'ok': False, 'recovered': False, 'conflicts': [str(exc)]}
 
+def migration_targets(root: Path, package: str, migration: dict) -> set[str]:
+    from skipo_dependency_contracts import canonical_replacement_operations, files_for_pattern
+
+    operations = (migration.get('transformations', []) + migration.get('repair', []) +
+                  canonical_replacement_operations(migration))
+    targets = set()
+    for operation in operations:
+        if 'path' in operation:
+            targets.add(operation['path'])
+        for pattern in operation.get('paths', []):
+            targets.update(path.relative_to(root).as_posix() for path in files_for_pattern(root, pattern))
+    if not targets:
+        return targets
+    grant_file = safe_file(root, OWNERSHIP_FILE)
+    grants = read_json(grant_file).get('owners') if grant_file.is_file() else {}
+    if not isinstance(grants, dict):
+        raise ValueError(f"Expected an owners object in {OWNERSHIP_FILE}")
+    owned = set(migration.get('ownedPaths', []))
+    for relative in sorted(targets):
+        safe_file(root, relative)
+        if relative not in owned or grants.get(relative) != package:
+            raise ValueError(f"Missing provider ownership declaration or application grant: {package} -> {relative}")
+    return targets
+
+
 def _preflight(root: Path, plan: dict, apply_operation, verify_operation) -> tuple[dict, list[dict]]:
     """Materialize only explicit input paths into a scratch root, never app-owned unknowns."""
     with tempfile.TemporaryDirectory(prefix='skipo-migration-') as dirname:
@@ -73,7 +98,9 @@ def _preflight(root: Path, plan: dict, apply_operation, verify_operation) -> tup
                 copy.parent.mkdir(parents=True, exist_ok=True)
                 copy.write_bytes(original.read_bytes())
         actions = []
+        writable = {'.skipo/dependencies.json', '.skipo/migration-state.json'}
         for migration in plan['migrations']:
+            writable.update(migration_targets(root, migration['package'], migration))
             for operation in migration.get('preconditions', []):
                 verify_operation(stage, operation)
             for operation in migration.get('transformations', []) + migration.get('repair', []):
@@ -81,15 +108,6 @@ def _preflight(root: Path, plan: dict, apply_operation, verify_operation) -> tup
             for operation in migration.get('verification', []):
                 verify_operation(stage, operation)
         files = {}
-        writable = set()
-        from skipo_dependency_contracts import files_for_pattern
-        for migration in plan['migrations']:
-            for operation in migration.get('transformations', []) + migration.get('repair', []):
-                if 'path' in operation:
-                    writable.add(operation['path'])
-                for pattern in operation.get('paths', []):
-                    writable.update(p.relative_to(root).as_posix() for p in files_for_pattern(root, pattern))
-        writable.update(('.skipo/dependencies.json', '.skipo/migration-state.json'))
         for relative in sorted(writable):
             target = safe_file(root, relative)
             staged = safe_file(stage, relative)
