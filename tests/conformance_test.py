@@ -130,8 +130,8 @@ def test_nested_tracked_app_commit_sha_is_not_misattributed(tmp_path):
     assert cert._git_sha(app) is None, "Dirty application cannot be attributed to an unchanged commit"
 
 
-def test_existing_main_clean_cli_fixture(tmp_path):
-    """Real main validators must accept an intentionally minimal clean app."""
+def test_existing_main_minimal_verification_does_not_imply_full_conformance(tmp_path):
+    """Main verification and full conformance are distinct evidence surfaces."""
     if not (ROOT / "scripts/skipo_cli.py").is_file():
         pytest.skip("A full Skipo checkout is required")
     app = app_fixture(tmp_path)
@@ -146,8 +146,9 @@ def test_existing_main_clean_cli_fixture(tmp_path):
     before = cert.source_snapshot(app)
     checked = cert._cli_check(ROOT, app, "check")
     verified = cert._cli_check(ROOT, app, "verify")
-    assert checked["status"] == "passed", json.dumps(checked, indent=2, sort_keys=True)
-    assert verified["status"] == "passed", verified
+    assert checked["status"] == "failed", checked  # Minimal app lacks canonical build/docs/adapters.
+    assert any(a.get("error_count", 0) > 0 for a in checked["failing_aspects"])
+    assert verified["status"] == "passed", verified  # Its canonical state is internally clean.
     assert cert.source_snapshot(app) == before
 
 
