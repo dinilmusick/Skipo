@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {"name": "duplicated_auth", "path": "src/frontend/components/DuplicateAuthPage.tsx", "content": "export function DuplicateAuthPage() { return null; }", "expected_code": "SKIPO_CANONICAL_OWNERSHIP_AMBIGUOUS", "expected_status": "unresolved"},
+    {"name": "local_workspace_ui", "path": "src/frontend/components/LocalWorkspaceMenu.tsx", "content": "export const LocalWorkspaceMenu = () => null;", "expected_code": "SKIPO_CANONICAL_OWNERSHIP_AMBIGUOUS", "expected_status": "unresolved"},
+    {"name": "forbidden_import", "path": "src/frontend/forbidden.ts", "content": "import { S3Client } from '@aws-sdk/client-s3'; export const client = S3Client;", "expected_code": "SKIPO_CANONICAL_OWNERSHIP_AMBIGUOUS", "expected_status": "unresolved"},
+    {"name": "modified_generated_file", "path": "src/frontend/generated.ts", "content": "export const changed = true;", "expected_code": "SKIPO_CHECKSUM_MISMATCH", "expected_status": "failed"},
+    {"name": "illegal_environment", "path": ".env", "content": "DEPM_GATEWAY_DOMAIN=https://legacy.example\nFORBIDDEN_CUSTOM_TOKEN=bad\n", "expected_code": "SKIPO_FORBIDDEN_ENVIRONMENT_VARIABLE", "expected_status": "failed"},
+    {"name": "missing_migration", "path": ".skipo/migration-state.json", "content": "{\"applied\": [], \"pending\": [\"nonexistent-migration-2026\"]}", "expected_code": "SKIPO_MIGRATION_UNKNOWN", "expected_status": "failed"},
+    {"name": "incomplete_integration", "path": "src/backend/integration.ts", "content": "export const integration = 'not-connected';", "expected_code": "SKIPO_LIVE_INTEGRATIONS_UNVERIFIED", "expected_status": "unresolved", "require_live": true}
+  ]
+}
