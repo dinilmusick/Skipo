@@ -84,25 +84,49 @@ def lock_versions(root: Path, names: dict[str, str]) -> tuple[str, dict[str, str
                 raise ValueError(f"Missing npm lockfile entry for {name}")
             versions[name] = exact(value)
         return 'package-lock.json', versions
-    try:
-        import yaml
-    except ImportError as exc:
-        raise ValueError('pnpm verification requires PyYAML; no unchecked fallback allowed') from exc
-    lock = yaml.safe_load(pnpm.read_text(encoding='utf-8'))
-    if not isinstance(lock, dict) or not str(lock.get('lockfileVersion', '')).startswith(('6.', '9.')):
+    # Parse only the pnpm importer subset we need with stdlib. Unknown YAML
+    # constructs fail closed instead of introducing an undeclared CLI dependency.
+    entries, importer, section, provider, in_importers = {}, None, None, None, False
+    lock_version = None
+    for line in pnpm.read_text(encoding='utf-8').splitlines():
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+        if '\t' in line or '&' in line or '*' in line:
+            raise ValueError('Unsupported pnpm YAML feature; lockfile requires normalized importer entries')
+        match = re.fullmatch(r'( *)([^:]+):(?:[ ]*(.*))?', line)
+        if not match:
+            if in_importers and line.startswith(' '):
+                raise ValueError('Unsupported pnpm importer YAML syntax')
+            continue
+        depth, raw_key, value = len(match.group(1)), match.group(2), match.group(3)
+        key = raw_key.strip().strip('"').strip("'")
+        value = (value or '').strip().strip('"').strip("'")
+        if depth == 0:
+            in_importers = key == 'importers'
+            if key == 'lockfileVersion':
+                lock_version = value
+        elif in_importers and depth == 2:
+            importer, section, provider = key, None, None
+        elif in_importers and importer == '.' and depth == 4:
+            section, provider = key, None
+        elif in_importers and importer == '.' and depth == 6 and section in (
+                'dependencies', 'devDependencies', 'optionalDependencies'):
+            provider = key
+            if provider in entries:
+                raise ValueError(f'Duplicate pnpm importer declaration: {provider}')
+            entries[provider] = {}
+        elif in_importers and importer == '.' and depth == 8 and provider in entries:
+            if key in entries[provider]:
+                raise ValueError(f'Duplicate pnpm importer property: {provider}.{key}')
+            entries[provider][key] = value
+    if not lock_version or not lock_version.startswith(('6.', '9.')):
         raise ValueError('Unsupported pnpm lockfile format')
-    importer = lock.get('importers', {}).get('.', {})
     versions = {}
     for name, spec in names.items():
-        sections = [importer.get(k, {}) for k in ('dependencies', 'devDependencies', 'optionalDependencies')]
-        matches = [section[name] for section in sections if isinstance(section, dict) and name in section]
-        if not matches or any(x != matches[0] for x in matches):
-            raise ValueError(f"Missing or conflicting pnpm importer entry for {name}")
-        entry = matches[0]
+        entry = entries.get(name)
         if not isinstance(entry, dict) or entry.get('specifier') != spec:
-            raise ValueError(f"pnpm importer specifier differs for {name}")
-        resolved = str(entry.get('version', '')).split('(')[0]
-        versions[name] = exact(resolved)
+            raise ValueError(f'Missing or inconsistent pnpm importer entry for {name}')
+        versions[name] = exact(entry.get('version', '').split('(')[0])
     return 'pnpm-lock.yaml', versions
 
 def inspect_install(root: Path, packages: list[str]) -> dict:
