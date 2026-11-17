@@ -155,3 +155,28 @@ it("rejects remote discovery and invocation of local or forged workflow registra
   await expect(registry.invokeRemote(operation.id, { value: 1 }, context)).resolves.toEqual({ doubled: 2 });
   await expect(registry.invoke(forged.id, { value: 1 }, context)).resolves.toEqual({ doubled: 2 });
 });
+
+it("retains the registered role and schema for static remote operations", async () => {
+  const roles = ["admin"];
+  const schema = structuredClone(inputSchema);
+  const execute = vi.fn(async () => ({ doubled: 4 }));
+  const registry = new CapabilityRegistry({ execute }, [{
+    id: "math.admin", description: "Double a number.", inputSchema: schema, outputSchema,
+    invocation: { serviceId: "math", operationId: "double" }, access: "roles", requiredRoles: roles,
+  }]);
+  const reader = { userId: "r", roles: ["reader"] };
+  const admin = { userId: "a", roles: ["admin"] };
+  roles.push("reader");
+  schema.required.length = 0;
+  expect(registry.listRemote(reader)).toEqual([]);
+  const [descriptor] = registry.listRemote(admin);
+  expect(Object.isFrozen(descriptor.requiredRoles)).toBe(true);
+  expect(Object.isFrozen(descriptor.inputSchema.required)).toBe(true);
+  await expect(registry.invokeRemote(descriptor.id, { value: 2 }, {
+    principal: reader, requestId: "denied", transport: "workflow",
+  })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(registry.invokeRemote(descriptor.id, {}, {
+    principal: admin, requestId: "invalid", transport: "workflow",
+  })).rejects.toMatchObject({ code: "INVALID_INPUT" });
+  expect(execute).not.toHaveBeenCalled();
+});
