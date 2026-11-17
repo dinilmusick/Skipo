@@ -36,8 +36,13 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
   }
   if (path === '/api/health' || path === '/health') return json({ status: 'ok', service: 'skipo-application' });
 
-  const sharedResponse = await universalFetch(request, env);
-  if (sharedResponse.status !== 404) return sharedResponse;
+  // Application capability endpoints must not be consumed by generic external interfaces.
+  const capabilityRequest = path === '/api/workspaces' || path === '/api/workspace' ||
+    path.startsWith('/api/storage/');
+  if (!capabilityRequest) {
+    const sharedResponse = await universalFetch(request, env);
+    if (sharedResponse.status !== 404) return sharedResponse;
+  }
 
   const auth = await authenticateLuthRequest(request);
   if (auth.status) return json({ success: false, error: auth.error || 'Authentication required.' }, auth.status);
