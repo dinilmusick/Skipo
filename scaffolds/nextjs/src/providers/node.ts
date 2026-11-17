@@ -1,3 +1,4 @@
+import { ecosystem } from '../backend/ecosystem/AppEcosystem_Impure.js';
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { resolve, extname, sep } from "node:path";
@@ -58,4 +59,7 @@ const server = createServer(async (incoming, outgoing) => {
     outgoing.end(error instanceof Error ? error.message : "Internal Server Error");
   }
 });
-server.listen(port, () => console.log(`Skipo Fetch app listening on ${port}`));
+server.listen(port, () => {
+  void ecosystem.start(process.env);
+  console.log(`Skipo Fetch app listening on ${port}`);
+});

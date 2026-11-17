@@ -1,3 +1,4 @@
+import { ecosystem } from './ecosystem/AppEcosystem_Impure.js';
 // ══════════════════════════════════════════════════════════════════════════════
 // 1. MINIMAL BACKEND FACADE (@ultrst-armada/kloks/* & @ultrst-armada/krnl COMPOSITION)
 // ══════════════════════════════════════════════════════════════════════════════
@@ -42,6 +43,7 @@ export const storageProviders = {
 
 export const AppBackend = {
   services,
+  ecosystem,
   storageProviders,
   orchestrations,
   worker: appWorkerBoundary,

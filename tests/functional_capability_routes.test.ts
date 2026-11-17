@@ -43,7 +43,7 @@ describe('actual Vite Fetch ingress to canonical Kloks', () => {
     expect(get.status).toBe(200);
     expect((await get.json()).workspaces[0].name).toBe('Real workspace');
     expect(execute).toHaveBeenNthCalledWith(1, 'listWorkspaces', {
-      userId: 'verified-luth-user', env: { APP_URL: 'http://localhost:3000' },
+      userId: 'verified-luth-user', env: { APP_URL: 'http://localhost:3000', WORKSPACE_APP_ID: 'my-app' },
     });
 
     const post = await fetchHandler(new Request('http://localhost:3000/api/auth/workspaces', {
@@ -56,7 +56,7 @@ describe('actual Vite Fetch ingress to canonical Kloks', () => {
     expect(execute).toHaveBeenNthCalledWith(2, 'createWorkspace', {
       userId: 'verified-luth-user',
       workspace: { name: 'Created', storageProvider: 'local_fs' },
-      env: {},
+      env: { WORKSPACE_APP_ID: 'my-app' },
     });
   });
 
@@ -78,7 +78,7 @@ describe('actual Vite Fetch ingress to canonical Kloks', () => {
       body: JSON.stringify({ operation: 'getConnections', input: { userId: 'attacker' } }),
     }));
     expect(connections.status).toBe(200);
-    expect(execute).toHaveBeenCalledWith('getConnections', { userId: 'verified-luth-user', env: {} });
+    expect(execute).toHaveBeenCalledWith('getConnections', { userId: 'verified-luth-user', env: { WORKSPACE_APP_ID: 'my-app' } });
   });
 });
 

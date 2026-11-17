@@ -13,3 +13,6 @@ command = "npm run build"
 
 [vars]
 APP_URL = "http://localhost:3000"
+
+[triggers]
+crons = ["*/5 * * * *"]

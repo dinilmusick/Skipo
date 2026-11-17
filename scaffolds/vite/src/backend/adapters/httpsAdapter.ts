@@ -1,3 +1,4 @@
+import { ecosystem } from '../ecosystem/AppEcosystem_Impure.js';
 import { handleUiSessionRequest } from '@ultrst-armada/kloks/backend/ui-session';
 import { authenticateLuthRequest } from '../auth/luthSession.js';
 import { fetch as universalFetch } from '../../app.js';
@@ -27,6 +28,9 @@ function oauthNonceCookie(nonce: string, origin: string, clear = false): string 
 
 
 export async function fetchHandler(request: Request, env: Env = {}): Promise<Response> {
+  await ecosystem.observe(env);
+  const invocation = await ecosystem.handle(request, env);
+  if (invocation) return invocation;
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   const url = new URL(request.url);
   const path = url.pathname.replace(/^\/api\/auth(?=\/)/, '/api');

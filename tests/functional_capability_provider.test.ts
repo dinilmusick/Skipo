@@ -6,6 +6,7 @@ import {
 import {
   buildWorkspaceCreateInput, createKloksWorkspaceStorageService, LuthAuthPage, WorkspaceTilesMenu,
 } from '@ultrst-armada/floks/ui';
+import { workspaceCapabilities } from '../backend/ecosystem/workspaceCapabilities_Impure.js';
 import * as next from '../scaffolds/nextjs/src/backend/storage/canonicalCapabilityRoutes.js';
 import * as vite from '../scaffolds/vite/src/backend/storage/canonicalCapabilityRoutes.js';
 
@@ -28,6 +29,19 @@ describe('functional canonical providers from the actually installed packages', 
     expect(output.provider).not.toBe('local_fs');
   });
 
+  it('exposes workspace summaries within the receiving application namespace', async () => {
+    const execute = vi.spyOn(WorkspaceServiceFacade, 'execute').mockResolvedValue({
+      workspaces: [{ id: 'ws-1', name: 'Workspace', secret: 'excluded' }],
+    } as never);
+    const result = await workspaceCapabilities('aiko').listWorkspaces({ userId: 'forged' }, {
+      userId: 'verified-user', env: { WORKSPACE_APP_ID: 'other-app' },
+    });
+    expect(execute).toHaveBeenCalledWith('listWorkspaces', {
+      userId: 'verified-user', env: { WORKSPACE_APP_ID: 'aiko' },
+    });
+    expect(result).toEqual([{ id: 'ws-1', name: 'Workspace' }]);
+  });
+
   it('uses real Floks workspace creation payload semantics and exports', () => {
     expect(typeof LuthAuthPage).toBe('function');
     expect(typeof WorkspaceTilesMenu).toBe('function');
@@ -47,11 +61,11 @@ for (const [name, adapter] of [['Next.js', next], ['Vite', vite]] as const) {
   describe(`${name} Kloks HTTP adapter contracts`, () => {
     it('routes workspace retrieval and creation to actual facade operations', async () => {
       const execute = vi.spyOn(WorkspaceServiceFacade, 'execute').mockResolvedValue({ success: true, workspaces: [] } as never);
-      await adapter.listWorkspaces('luth-principal');
-      expect(execute).toHaveBeenCalledWith('listWorkspaces', { userId: 'luth-principal', env: undefined });
+      await adapter.listWorkspaces('luth-principal', { WORKSPACE_APP_ID: 'forged-workspace-namespace' });
+      expect(execute).toHaveBeenCalledWith('listWorkspaces', { userId: 'luth-principal', env: { WORKSPACE_APP_ID: 'my-app' } });
       await adapter.createWorkspace('luth-principal', { name: 'Created', storageProvider: 'local_fs' });
       expect(execute).toHaveBeenLastCalledWith('createWorkspace', {
-        userId: 'luth-principal', workspace: { name: 'Created', storageProvider: 'local_fs' }, env: undefined,
+        userId: 'luth-principal', workspace: { name: 'Created', storageProvider: 'local_fs' }, env: { WORKSPACE_APP_ID: 'my-app' },
       });
     });
 
@@ -61,7 +75,7 @@ for (const [name, adapter] of [['Next.js', next], ['Vite', vite]] as const) {
         userId: 'forged-client-id', env: { SYSTEM_DATABASE_URL: 'forged' },
       }, { SYSTEM_DATABASE_URL: 'server-owned' });
       expect(execute).toHaveBeenCalledWith('getConnections', {
-        userId: 'verified-luth-id', env: { SYSTEM_DATABASE_URL: 'server-owned' },
+        userId: 'verified-luth-id', env: { SYSTEM_DATABASE_URL: 'server-owned', WORKSPACE_APP_ID: 'my-app' },
       });
     });
 
