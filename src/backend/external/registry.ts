@@ -1,5 +1,5 @@
 import { ApplicationCapability, CapabilityExecutor, ExternalCapabilityContext, ExternalInterfaceError, ExternalPrincipal, JsonSchema } from "./contract.js";
-function validate(schema: JsonSchema, value: unknown, path = "$"): string[] {
+export function validateCapabilityValue(schema: JsonSchema, value: unknown, path = "$"): string[] {
   const errors: string[] = [];
   if (schema.enum && !schema.enum.some(item => JSON.stringify(item) === JSON.stringify(value))) return [path + " must match an allowed value"];
   if (schema.type === "object") {
@@ -9,12 +9,12 @@ function validate(schema: JsonSchema, value: unknown, path = "$"): string[] {
     for (const [key, item] of Object.entries(object)) {
       const properties = schema.properties;
       const child = properties && Object.hasOwn(properties, key) ? properties[key] : undefined;
-      if (child) errors.push(...validate(child, item, path + "." + key));
+      if (child) errors.push(...validateCapabilityValue(child, item, path + "." + key));
       else if (schema.additionalProperties === false) errors.push(path + "." + key + " is not allowed");
     }
   } else if (schema.type === "array") {
     if (!Array.isArray(value)) return [path + " must be an array"];
-    if (schema.items) value.forEach((item, index) => errors.push(...validate(schema.items!, item, path + "[" + index + "]")));
+    if (schema.items) value.forEach((item, index) => errors.push(...validateCapabilityValue(schema.items!, item, path + "[" + index + "]")));
   } else if (schema.type === "string") {
     if (typeof value !== "string") errors.push(path + " must be a string");
     else { if (schema.minLength !== undefined && value.length < schema.minLength) errors.push(path + " is too short"); if (schema.maxLength !== undefined && value.length > schema.maxLength) errors.push(path + " is too long"); }
@@ -27,7 +27,17 @@ function validate(schema: JsonSchema, value: unknown, path = "$"): string[] {
 }
 export class CapabilityRegistry {
   private readonly capabilities = new Map<string, ApplicationCapability>();
-  constructor(private readonly executor: CapabilityExecutor) {}
+  private readonly staticFacadeIds = new Set<string>();
+  constructor(
+    private readonly executor: CapabilityExecutor,
+    staticFacadeCapabilities: readonly ApplicationCapability[] = [],
+    private readonly staticBindingIsCurrent: (capability: ApplicationCapability) => boolean = () => true,
+  ) {
+    for (const capability of staticFacadeCapabilities) {
+      this.register(capability);
+      this.staticFacadeIds.add(capability.id);
+    }
+  }
   register(capability: ApplicationCapability): this {
     if (!/^[a-zA-Z0-9][a-zA-Z0-9._:-]{1,127}$/.test(capability.id)) throw new ExternalInterfaceError("INVALID_REQUEST", "Capability ID is invalid.", 400);
     if (!capability.description.trim() || !capability.invocation.serviceId || !capability.invocation.operationId) throw new ExternalInterfaceError("INVALID_REQUEST", "Capability description and invocation mapping are required.", 400);
@@ -37,6 +47,18 @@ export class CapabilityRegistry {
   }
   list(principal: ExternalPrincipal | null): ApplicationCapability[] {
     return [...this.capabilities.values()].filter(cap => cap.discoverable !== false && this.isAuthorized(cap, principal));
+  }
+  listRemote(principal: ExternalPrincipal | null): ApplicationCapability[] {
+    if (!principal?.userId) return [];
+    return this.list(principal).filter(capability => this.staticFacadeIds.has(capability.id) && this.staticBindingIsCurrent(capability));
+  }
+  async invokeRemote(id: string, input: unknown, context: ExternalCapabilityContext): Promise<unknown> {
+    if (!context.principal?.userId) throw new ExternalInterfaceError("UNAUTHENTICATED", "Authentication is required.", 401);
+    const capability = this.capabilities.get(id);
+    if (!capability || !this.staticFacadeIds.has(id) || !this.staticBindingIsCurrent(capability)) {
+      throw new ExternalInterfaceError("NOT_FOUND", "Capability not found.", 404);
+    }
+    return this.invoke(id, input, context);
   }
   get(id: string): ApplicationCapability | undefined { return this.capabilities.get(id); }
   isAuthorized(capability: ApplicationCapability, principal: ExternalPrincipal | null): boolean {
@@ -50,10 +72,10 @@ export class CapabilityRegistry {
     const capability = this.capabilities.get(id);
     if (!capability || capability.discoverable === false) throw new ExternalInterfaceError("NOT_FOUND", "Capability not found.", 404);
     if (!this.isAuthorized(capability, context.principal)) throw new ExternalInterfaceError(context.principal ? "FORBIDDEN" : "UNAUTHENTICATED", context.principal ? "Capability access is forbidden." : "Authentication is required.", context.principal ? 403 : 401);
-    const inputErrors = validate(capability.inputSchema, input);
+    const inputErrors = validateCapabilityValue(capability.inputSchema, input);
     if (inputErrors.length) throw new ExternalInterfaceError("INVALID_INPUT", inputErrors.join("; "), 400);
     const output = await this.executor.execute(capability.invocation.serviceId, capability.invocation.operationId, input, context);
-    if (validate(capability.outputSchema, output).length) throw new ExternalInterfaceError("INVALID_OUTPUT", "Backend returned a value that violates the declared output schema.", 500, false);
+    if (validateCapabilityValue(capability.outputSchema, output).length) throw new ExternalInterfaceError("INVALID_OUTPUT", "Backend returned a value that violates the declared output schema.", 500, false);
     return output;
   }
 }

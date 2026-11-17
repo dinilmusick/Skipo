@@ -129,3 +129,29 @@ it("applies the same authenticated capability boundary to HTTP and MCP", async (
   expect((await mcpCall!.json()).result.isError).toBe(true);
   expect(s.execute).not.toHaveBeenCalled();
 });
+
+it("rejects remote discovery and invocation of local or forged workflow registrations", async () => {
+  const execute = vi.fn(async () => ({ doubled: 2 }));
+  const operation = {
+    id: "math.double", description: "Double a number.", inputSchema, outputSchema,
+    invocation: { serviceId: "math", operationId: "double" },
+    access: "roles" as const, requiredRoles: ["member"],
+  };
+  const registry = new CapabilityRegistry({ execute }, [operation]);
+  const forged = { ...operation, id: "saved.workflow", origin: "static-backend-facade" };
+  registry.register(forged);
+  const principal = { userId: "u1", roles: ["member"] };
+  expect(registry.list(principal).map(item => item.id)).toEqual(["math.double", "saved.workflow"]);
+  expect(registry.listRemote(principal).map(item => item.id)).toEqual(["math.double"]);
+  expect(registry.listRemote(null)).toEqual([]);
+  for (const transport of ["http", "mcp", "workflow", "agent"] as const) {
+    await expect(registry.invokeRemote(forged.id, { value: 1 }, { transport, principal, requestId: "remote" }))
+      .rejects.toMatchObject({ code: "NOT_FOUND" });
+  }
+  const context = { transport: "http" as const, principal, requestId: "request" };
+  await expect(registry.invokeRemote(operation.id, { value: 1 }, { ...context, principal: { userId: "u1" } }))
+    .rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(execute).not.toHaveBeenCalled();
+  await expect(registry.invokeRemote(operation.id, { value: 1 }, context)).resolves.toEqual({ doubled: 2 });
+  await expect(registry.invoke(forged.id, { value: 1 }, context)).resolves.toEqual({ doubled: 2 });
+});
