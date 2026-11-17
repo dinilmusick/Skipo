@@ -1,8 +1,7 @@
 import { getLuthSession } from '../auth/luthSession.js';
 import { createEcosystemRuntime } from './generated/ecosystemRuntime_Impure.js';
 import { workspaceCapabilities, workspaceServiceCapabilities } from './generated/workspaceCapabilities_Impure.js';
-
-const appId = 'my-app';
+import { appId } from './appIdentity_Pure.js';
 
 export const ecosystem = createEcosystemRuntime({
   appId,

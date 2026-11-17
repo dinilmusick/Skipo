@@ -1,4 +1,5 @@
 import { StorageServiceFacade, WorkspaceServiceFacade } from '@ultrst-armada/kloks/backend/krnl-services';
+import { workspaceEnvironment } from '../ecosystem/appIdentity_Pure.js';
 
 /** Thin application adapters: Kloks is the only implementation of workspace/storage operations. */
 export const BROWSER_STORAGE_OPERATIONS = Object.freeze([
@@ -20,7 +21,7 @@ export const BROWSER_STORAGE_OPERATIONS = Object.freeze([
 
 export async function listWorkspaces(userId: string, env?: Record<string, unknown>) {
   if (!userId) throw new Error('Verified Luth identity required.');
-  return WorkspaceServiceFacade.execute('listWorkspaces', { userId, env });
+  return WorkspaceServiceFacade.execute('listWorkspaces', { userId, env: workspaceEnvironment(env) });
 }
 
 export async function createWorkspace(userId: string, workspace: unknown, env?: Record<string, unknown>) {
@@ -32,7 +33,7 @@ export async function createWorkspace(userId: string, workspace: unknown, env?: 
   }
   // Never persist a client-supplied owner or application environment alongside a workspace.
   const { userId: _ignoredUser, ownerUserId: _ignoredOwner, env: _ignoredEnv, ...safeWorkspace } = workspace as Record<string, unknown>;
-  return WorkspaceServiceFacade.execute('createWorkspace', { userId, workspace: safeWorkspace, env });
+  return WorkspaceServiceFacade.execute('createWorkspace', { userId, workspace: safeWorkspace, env: workspaceEnvironment(env) });
 }
 
 export async function invokeStorage(
@@ -50,7 +51,7 @@ export async function invokeStorage(
   }
   // Discard any untrusted userId/env override before delegating to canonical Kloks.
   const { userId: _ignoredUser, env: _ignoredEnv, ...safeInput } = input as Record<string, unknown>;
-  return StorageServiceFacade.execute(operation, { ...safeInput, userId, env });
+  return StorageServiceFacade.execute(operation, { ...safeInput, userId, env: workspaceEnvironment(env) });
 }
 
 /** OAuth callback is server-only: Kloks validates signed state and exchanges the code. */
