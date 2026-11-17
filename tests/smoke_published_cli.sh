@@ -93,8 +93,9 @@ if "$cli" verify "$temp/legacy-app" > "$temp/verify-again.json"; then
   echo "Incomplete legacy app passed repeat verification" >&2; exit 1
 fi
 
-python3 - "$temp" <<'PY'
+python3 - "$temp" "$root/packages/skipo/package.json" <<'PY'
 import json
+import os
 import pathlib
 import sys
 
@@ -114,7 +115,8 @@ assert read("conformance.json")["compliance_status"] != "compliant_offline"
 assert read("policy.json")["state"] != "compliant"
 assert read("second.json")["ok"] is False, "Noncompliant update cannot claim success"
 assert project["framework"] == "skipo"
-assert project["skipo_version"] == "1.1.1"
+expected_version = os.environ.get("SKIPO_REGISTRY_VERSION") or json.loads(pathlib.Path(sys.argv[2]).read_text())["version"]
+assert project["skipo_version"] == expected_version, f"Expected Skipo {expected_version}, got {project['skipo_version']}"
 assert project["scaffold"] == "adopted"
 print("Packed Skipo CLI: all governance entrypoints reachable; incomplete legacy app correctly blocked")
 PY
