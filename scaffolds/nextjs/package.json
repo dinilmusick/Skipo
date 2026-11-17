@@ -36,7 +36,8 @@
     "@ultrst-armada/floks": "2.0.6",
     "@ultrst-armada/frnlts": "0.5.23",
     "@dinilmusick/gutts": "^2.1.1",
-    "p-queue": "^10.0.0"
+    "p-queue": "^10.0.0",
+    "cactus-needle": "0.3.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.1.11",
