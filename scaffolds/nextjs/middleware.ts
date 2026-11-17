@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getLuthSession } from './src/backend/auth/luthSession';
 
-const PUBLIC_PATHS = new Set(['/api/health', '/api/public/routes']);
+const PUBLIC_PATHS = new Set(['/api/health', '/api/ecosystem/invoke', '/api/public/routes']);
 
 function isLuthAuthEndpoint(pathname: string): boolean {
   if (pathname === '/api/auth' || pathname.startsWith('/api/auth/')) {

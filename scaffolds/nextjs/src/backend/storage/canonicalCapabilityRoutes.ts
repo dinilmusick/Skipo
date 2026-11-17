@@ -12,6 +12,10 @@ export const BROWSER_STORAGE_OPERATIONS = Object.freeze([
   'getGoogleDriveAccountIdentity',
   'selectGoogleDriveRootFolder',
   'testGoogleDriveConnection',
+  'listWorkspaceStorageFiles',
+  'readWorkspaceStorageFile',
+  'writeWorkspaceStorageFile',
+  'deleteWorkspaceStorageFile',
 ] as const);
 
 export async function listWorkspaces(userId: string, env?: Record<string, unknown>) {

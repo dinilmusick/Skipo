@@ -2,6 +2,7 @@
  * Node-only local development server. Route behavior remains in the Web-standard Fetch app.
  */
 import 'dotenv/config';
+import { ecosystem } from './src/backend/ecosystem/AppEcosystem_Impure.js';
 import http from 'node:http';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -86,7 +87,10 @@ async function startServer() {
     }
   });
 
-  server.listen(PORT, '0.0.0.0', () => console.log(`[Skipo] Local server listening on ${PORT}`));
+  server.listen(PORT, '0.0.0.0', () => {
+    void ecosystem.start(process.env);
+    console.log(`[Skipo] Local server listening on ${PORT}`);
+  });
 }
 
 startServer().catch((error) => {
