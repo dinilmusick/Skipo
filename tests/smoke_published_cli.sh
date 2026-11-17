@@ -72,9 +72,26 @@ cli="$temp/consumer/node_modules/.bin/skipo"
 "$cli" plan "$temp/legacy-app" > "$temp/plan.json"
 test ! -e "$temp/legacy-app/.skipo/project.json"
 "$cli" update "$temp/legacy-app" > "$temp/first.json"
-"$cli" verify "$temp/legacy-app" > "$temp/verify.json"
-"$cli" update "$temp/legacy-app" > "$temp/second.json"
-"$cli" verify "$temp/legacy-app" > "$temp/verify-again.json"
+# An empty legacy application must not be certified merely because metadata
+# migration succeeded. Exercise every new distributed entrypoint and preserve
+# its independent failure evidence.
+if "$cli" verify "$temp/legacy-app" > "$temp/verify.json"; then
+  echo "Incomplete legacy app was falsely certified" >&2; exit 1
+fi
+if "$cli" policy "$temp/legacy-app" > "$temp/policy.json"; then
+  echo "Incomplete legacy app passed architectural policy" >&2; exit 1
+fi
+"$cli" semantic "$temp/legacy-app" > "$temp/semantic.json"
+if "$cli" certify "$temp/legacy-app" > "$temp/conformance.json"; then
+  echo "Incomplete legacy app passed certification" >&2; exit 1
+fi
+# An update must not silently turn a noncompliant legacy app into success.
+if "$cli" update "$temp/legacy-app" > "$temp/second.json"; then
+  echo "Incomplete legacy update was incorrectly reported as compliant" >&2; exit 1
+fi
+if "$cli" verify "$temp/legacy-app" > "$temp/verify-again.json"; then
+  echo "Incomplete legacy app passed repeat verification" >&2; exit 1
+fi
 
 python3 - "$temp" <<'PY'
 import json
@@ -90,12 +107,14 @@ second = read("second.json")
 project = read("legacy-app/.skipo/project.json")
 assert plan["ok"], plan.get("errors")
 assert first["ok"], first.get("errors")
-assert read("verify.json")["ok"], read("verify.json").get("errors")
-assert second["ok"], second.get("errors")
-assert read("verify-again.json")["ok"], read("verify-again.json").get("errors")
-assert second["actions"] == [], second["actions"]
+assert not read("verify.json")["ok"], "Partial legacy app must fail certification"
+assert not read("verify-again.json")["ok"], "Repeat verification must remain fail-closed"
+assert read("verify.json")["diagnostics"], "Failure must retain actionable diagnostics"
+assert read("conformance.json")["compliance_status"] != "compliant_offline"
+assert read("policy.json")["state"] != "compliant"
+assert read("second.json")["ok"] is False, "Noncompliant update cannot claim success"
 assert project["framework"] == "skipo"
 assert project["skipo_version"] == "1.1.1"
 assert project["scaffold"] == "adopted"
-print("Packed Skipo CLI: legacy upgrade, verification, and idempotency passed")
+print("Packed Skipo CLI: all governance entrypoints reachable; incomplete legacy app correctly blocked")
 PY
