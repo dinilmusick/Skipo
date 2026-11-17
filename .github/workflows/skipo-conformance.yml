@@ -64,6 +64,8 @@ jobs:
               output.write(f'path={target}\n')
           PY
       - name: Install target dependencies using frozen lockfile
+        id: install
+        continue-on-error: true
         working-directory: ${{ steps.target.outputs.path }}
         run: |
           if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; \
@@ -74,10 +76,12 @@ jobs:
         env:
           APP_PATH: ${{ steps.target.outputs.path }}
           REQUIRE_LIVE: ${{ inputs.require_live }}
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
         run: |
           set +e
           ARGS=()
           if [ "$REQUIRE_LIVE" = 'true' ]; then ARGS+=(--require-live); fi
+          if [ "$INSTALL_OUTCOME" != 'success' ]; then ARGS+=(--dependency-install-failed); fi
           python scripts/skipo_conformance.py "$APP_PATH" --commit-sha "$GITHUB_SHA" --output "$RUNNER_TEMP/skipo-conformance.json" "${ARGS[@]}"
           exit $?
       - name: Publish full machine-readable evidence (even on failure)
