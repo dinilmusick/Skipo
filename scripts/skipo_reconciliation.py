@@ -45,7 +45,8 @@ def reconcile(root: Path, apply: bool, framework_version: str) -> dict[str, Any]
     package = capabilities.package_json(root)
     dependencies = dict(package.get("dependencies", {}))
     dependency_owners = capabilities.read_json(root / ".skipo/dependencies.json", {})
-    dependency_plan = capabilities.plan_dependency_migrations(root, framework_version)
+    from skipo_dependency_migrations import plan_dependency_migrations
+    dependency_plan = plan_dependency_migrations(root, framework_version)
 
     actions: list[dict[str, Any]] = []
     conflicts: list[dict[str, Any]] = []
@@ -243,3 +244,31 @@ def reconcile(root: Path, apply: bool, framework_version: str) -> dict[str, Any]
         "composition": composed, "dependency_migrations": dependency_plan,
         "verification": verification,
     }
+
+
+# Public transaction entrypoint. The original reconciler is preserved solely
+# as the isolated canonical transformation simulator; it never receives the
+# application's original path after transaction hardening.
+from skipo_repair_txn_engine import transact as _transact_repair
+
+_simulate_canonical_repair = reconcile
+
+
+def reconcile(
+    root: Path,
+    apply: bool,
+    framework_version: str,
+    *,
+    expected_plan_id: str | None = None,
+    fault_at: str | None = None,
+) -> dict[str, Any]:
+    """Plan or apply a fully verified repair using a reversible journal.
+
+    Preview with reconcile(root, False, version), then pass its `plan_id` to
+    a later apply as `expected_plan_id`; stale plans fail without mutation.
+    `fault_at` is reserved for deterministic transaction-failure tests.
+    """
+    return _transact_repair(
+        root, apply, framework_version, _simulate_canonical_repair,
+        capabilities, expected_plan_id=expected_plan_id, fault_at=fault_at,
+    )
