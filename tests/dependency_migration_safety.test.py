@@ -156,3 +156,61 @@ def test_symlinked_provider_source_blocks_before_mutation(tmp_path):
     result = plan_dependency_migrations(root)
     assert not result['ok'] and 'symlink' in str(result['errors'])
     assert outside.read_text() == 'OldProvider'
+
+
+def test_pnpm_importer_lockfile_verifies_installed_package(tmp_path):
+    root = fixture(tmp_path, [migration('to-3', '1.0.0', '3.0.0')])
+    (root / 'package-lock.json').unlink()
+    (root / 'pnpm-lock.yaml').write_text("""lockfileVersion: '9.0'
+importers:
+  .:
+    dependencies:
+      '@ultrst-armada/kloks':
+        specifier: ^3.0.0
+        version: 3.0.0
+packages:
+  '@ultrst-armada/kloks@3.0.0':
+    resolution:
+      integrity: sha512-abc
+snapshots:
+  '@ultrst-armada/kloks@3.0.0': {}
+""")
+    assert plan_dependency_migrations(root)['ok']
+    (root / 'pnpm-lock.yaml').write_text((root / 'pnpm-lock.yaml').read_text().replace('version: 3.0.0', 'version: 2.0.0'))
+    assert not plan_dependency_migrations(root)['ok']
+
+
+def test_precise_caret_semver_compatibility():
+    from skipo_dependency_contracts import satisfies
+    assert satisfies('0.0.1', '^0.0.1')
+    assert not satisfies('0.0.2', '^0.0.1')
+    assert satisfies('2.9.0', '^2.1.0')
+    assert not satisfies('3.0.0', '^2.1.0')
+
+
+def test_json_repair_and_explicit_preconditions(tmp_path):
+    root = fixture(tmp_path, [migration('to-3', '1.0.0', '3.0.0',
+        preconditions=[{'type': 'text_present', 'paths': ['src/provider.ts'], 'text': 'OldProvider'}],
+        transformations=[{'type': 'set_json', 'path': 'config.json', 'key': 'provider.mode',
+                          'value': 'canonical', 'expectedOld': 'legacy'}],
+        verification=[{'type': 'json_equals', 'path': 'config.json', 'key': 'provider.mode',
+                       'value': 'canonical'}])])
+    config = root / 'config.json'
+    config.write_text(json.dumps({'provider': {'mode': 'legacy'}}))
+    plan = plan_dependency_migrations(root)
+    assert plan['ok'], plan['errors']
+    assert execute_dependency_migrations(root, plan)['ok']
+    assert json.loads(config.read_text())['provider']['mode'] == 'canonical'
+    assert verify_dependency_migrations(root)['ok']
+
+
+def test_unmet_precondition_leaves_app_unchanged(tmp_path):
+    root = fixture(tmp_path, [migration('to-3', '1.0.0', '3.0.0',
+        preconditions=[{'type': 'text_present', 'paths': ['src/provider.ts'], 'text': 'NeverPresent'}],
+        transformations=[{'type': 'replace_text', 'paths': ['src/provider.ts'],
+                          'find': 'OldProvider', 'replace': 'NewProvider'}])])
+    plan = plan_dependency_migrations(root)
+    assert plan['ok']
+    result = execute_dependency_migrations(root, plan)
+    assert not result['ok'] and 'Required canonical pattern missing' in str(result['errors'])
+    assert (root / 'src/provider.ts').read_text() == 'OldProvider'
