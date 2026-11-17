@@ -275,18 +275,39 @@ def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict
 
 
 def verify_dependency_migrations(root: Path, skipo_version: str = "1.1.0") -> dict[str, Any]:
-    """Independently verify postconditions and reconcile all three package states."""
+    """Verify terminal contract invariants, applied ledger and exact package state."""
+    root = Path(root).resolve()
     plan = plan_dependency_migrations(root, skipo_version)
     errors = list(plan.get("errors", []))
     if plan.get("migrations"):
         errors.append("Unapplied dependency migrations: " +
                       ", ".join(item["id"] for item in plan["migrations"]))
-    if not errors:
-        original = _legacy_dependency_verify(root, skipo_version)
-        errors.extend(original.get("errors", []))
+    try:
+        state_path = root / ".skipo/migration-state.json"
+        state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else {}
+        applied = set(state.get("dependencyApplied", []))
+        for name, entry in sorted(plan.get("paths", {}).items()):
+            contract = discover_contract(root, name)
+            if not contract:
+                continue
+            validate_contract(contract, name, skipo_version)
+            terminal = [m for m in contract["migrations"]
+                        if f"{name}::{m['id']}" in applied
+                        and version(m["toVersion"]) == version(entry["to"])]
+            if len(terminal) > 1:
+                raise ValueError(f"Ambiguous applied terminal migrations for {name}")
+            if terminal:
+                for operation in terminal[0].get("verification", []):
+                    verify_operation(root, operation)
+                for spec in deprecated_specs(terminal[0]):
+                    for pattern in spec["paths"]:
+                        for path in files_for_pattern(root, pattern):
+                            if spec["text"] in path.read_text(encoding="utf-8"):
+                                raise ValueError(f"Deprecated pattern remains: {path.relative_to(root)}")
+    except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        errors.append(str(exc))
     return {"ok": not errors, "errors": sorted(set(errors)),
             "paths": plan.get("paths", {}), "integrity": plan.get("integrity", {})}
-
 
 def execute_dependency_migrations(root: Path, plan: dict[str, Any],
                                   fail_at: str | None = None) -> dict[str, Any]:
