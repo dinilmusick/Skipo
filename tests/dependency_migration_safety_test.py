@@ -149,7 +149,7 @@ def test_invalid_script_and_traversal_rejected(tmp_path):
         validate_contract(obj, PACKAGE)
 
 def test_unstable_or_unknown_versions_not_inferred():
-    for v in ("latest", "1.2", "v1.2.3", ">=1.2.3", "1.2.3.4"):
+    for v in ("latest", "1.2", "v1.2.3", ">=1.2.3", "1.2.3.4", "1.2.3-beta.1"):
         with pytest.raises(MigrationError): exact_version(v)
 
 def test_recovered_preexisting_transaction(tmp_path):
