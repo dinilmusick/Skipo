@@ -7,6 +7,7 @@ An offline pass never attests live OAuth, database, or storage functionality.
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import os
@@ -20,7 +21,6 @@ from typing import Any
 
 FRAMEWORK_ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_SCRIPTS = ("typecheck", "lint", "test", "build")
-REQUIRED_ASPECTS = frozenset(f"aspect_{i:02}" for i in range(1, 27))
 UNVERIFIED_LIVE = (
     "live_google_oauth", "live_database_read_write",
     "live_google_drive_operations", "live_backblaze_b2_operations",
@@ -102,6 +102,32 @@ def _check(check_id: str, status: str, code: str, message: str, **extra: Any) ->
     return {"id": check_id, "status": status, "code": code, "message": message, **extra}
 
 
+def _expected_aspect_count(framework_root: Path) -> int | None:
+    """Derive the expected full checklist size from the installed main source.
+
+    Aspect result IDs are NOT canonical numeric labels: the current validators
+    return values like aspect_01_structure_governance and "26". Never invent
+    synthetic identifiers as a prerequisite to certification.
+    """
+    path = framework_root / "checklists" / "full_system_validator.py"
+    try:
+        source = ast.parse(path.read_text(encoding="utf-8"))
+        for node in source.body:
+            if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.List):
+                continue
+            if not any(isinstance(target, ast.Name) and target.id == "ASPECT_RUNNERS" for target in node.targets):
+                continue
+            identifiers = []
+            for entry in node.value.elts:
+                if not isinstance(entry, ast.Tuple) or not entry.elts:
+                    return None
+                identifiers.append(ast.literal_eval(entry.elts[0]))
+            return len(identifiers) if len(identifiers) >= 1 and len(identifiers) == len(set(identifiers)) and all(isinstance(v, str) for v in identifiers) else None
+    except (OSError, UnicodeError, SyntaxError, ValueError, TypeError):
+        pass
+    return None
+
+
 def _cli_check(framework_root: Path, app: Path, command: str) -> dict[str, Any]:
     script = framework_root / "scripts" / "skipo_cli.py"
     if not script.is_file():
@@ -118,11 +144,14 @@ def _cli_check(framework_root: Path, app: Path, command: str) -> dict[str, Any]:
         return _check("skipo_" + command, "unresolved", "SKIPO_INVALID_EVIDENCE", "CLI evidence is not an object", exit_code=code)
     if command == "check":
         aspects = payload.get("aspects")
-        identifiers = {a.get("aspect_id") for a in aspects if isinstance(a, dict)} if isinstance(aspects, list) else set()
-        if payload.get("profile") != "application" or not REQUIRED_ASPECTS.issubset(identifiers) or len(aspects or []) != len(identifiers):
-            return _check("skipo_check", "unresolved", "SKIPO_VALIDATION_SURFACE_INCOMPLETE", "Application profile must return every existing aspect exactly once", exit_code=code, profile=payload.get("profile"), missing_aspects=sorted(REQUIRED_ASPECTS - identifiers), observed_aspects=sorted(str(x) for x in identifiers), stderr_excerpt=stderr[-2000:], validator_error_excerpt=str(payload.get("stderr", ""))[-2000:])
-        if any(a.get("passed") is not True or not isinstance(a.get("violations"), list) or not isinstance(a.get("error_count"), int) for a in aspects):
-            return _check("skipo_check", "unresolved", "SKIPO_VALIDATION_EVIDENCE_INCOMPLETE", "One or more aspect results are malformed or did not assert a pass", exit_code=code)
+        expected_count = _expected_aspect_count(framework_root)
+        identifiers = {a.get("aspect_id") for a in aspects if isinstance(a, dict) and isinstance(a.get("aspect_id"), str)} if isinstance(aspects, list) else set()
+        if (payload.get("profile") != "application" or expected_count is None
+                or not isinstance(aspects, list) or len(aspects) != expected_count
+                or len(identifiers) != expected_count):
+            return _check("skipo_check", "unresolved", "SKIPO_VALIDATION_SURFACE_INCOMPLETE", "Application profile must report every checklist runner from installed main exactly once", exit_code=code, profile=payload.get("profile"), expected_aspect_count=expected_count, observed_aspects=sorted(identifiers), stderr_excerpt=stderr[-2000:], validator_error_excerpt=str(payload.get("stderr", ""))[-2000:])
+        if any(not isinstance(a.get("passed"), bool) or not isinstance(a.get("violations"), list) or not isinstance(a.get("error_count"), int) for a in aspects):
+            return _check("skipo_check", "unresolved", "SKIPO_VALIDATION_EVIDENCE_INCOMPLETE", "One or more aspect results are malformed", exit_code=code)
         passed = code == 0 and payload.get("overall_passed") is True and payload.get("total_errors") == 0 and all(a["passed"] for a in aspects)
         return _check("skipo_check", "passed" if passed else "failed", "SKIPO_CHECK_PASSED" if passed else "SKIPO_CHECK_FAILED", "Existing full-system validator", exit_code=code, total_errors=payload.get("total_errors"), total_warnings=payload.get("total_warnings"), failing_aspects=[a for a in aspects if a.get("error_count", 0) > 0])
     diagnostics = payload.get("diagnostics")
