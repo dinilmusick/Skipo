@@ -2,8 +2,14 @@
   "schema_version": 2,
   "contract_version": "2.0.0",
   "canonical": {
-    "required": ["SYSTEM_DATABASE_URL", "APP_URL"],
-    "optional": ["SYSTEM_DATABASE_URL_2", "SYSTEM_DATABASE_URL_3"]
+    "required": [
+      "SYSTEM_DATABASE_URL",
+      "APP_URL"
+    ],
+    "optional": [
+      "SYSTEM_DATABASE_URL_2",
+      "SYSTEM_DATABASE_URL_3"
+    ]
   },
   "deprecated_aliases": {
     "DEPM_GATEWAY_DOMAIN": {
@@ -44,35 +50,106 @@
     "ADMIN_EMAIL": "Explicit administrator bootstrap command input, never application runtime configuration",
     "ADMIN_PASSWORD": "Explicit administrator bootstrap command input, never application runtime configuration",
     "API_BASE_URL": "Skipo API smoke test input",
+    "APP_PATH": "Standalone conformance workflow's validated target path",
     "APP_REPOSITORY": "Preview inspection workflow input",
     "ECOSYSTEM_SYNC_TOKEN": "Skipo dependency synchronization workflow secret",
+    "GITHUB_OWNER": "Internal secrets synchronization repository owner input",
+    "INPUT_PATH": "Standalone conformance workflow's selected relative application path",
+    "INSTALL_OUTCOME": "Standalone conformance workflow's frozen install result",
     "MANIFEST_PATH": "Preview inspection manifest input",
     "NODE_PATH": "Skipo preview inspector module resolution",
     "PREVIEW_URL": "Preview inspection workflow input",
     "PYTHON_BIN": "Skipo checklist runner interpreter selection",
+    "REQUIRE_LIVE": "Standalone conformance workflow's live-verification flag",
     "ROOT_VERSION": "Skipo release workflow variable",
     "SKIPO_APP_ROOT": "Skipo preview inspection workspace",
     "SKIPO_INSPECTION_MANIFEST": "Skipo preview inspector manifest override",
     "SKIPO_OPERATION": "Skipo maintenance workflow selector",
     "SKIPO_PREVIEW_URL": "Skipo preview inspector URL override",
     "SKIPO_PYTHON": "Skipo CLI tooling interpreter override",
-    "SKIPO_VERSION": "Skipo release CLI version",
     "SKIPO_REGISTRY_VERSION": "Skipo npm package publication verification input",
-    "GITHUB_OWNER": "Internal secrets synchronization repository owner input",
+    "SKIPO_VERSION": "Skipo release CLI version",
     "SYNC_TOKEN": "Skipo dependency synchronization step secret",
     "TAG_VERSION": "Skipo release tag version"
   },
   "restricted_tooling": {
-    "ADMIN_EMAIL": ["scripts/create-admin.ts"],
-    "ADMIN_PASSWORD": ["scripts/create-admin.ts"],
-    "GITHUB_OWNER": ["scripts/sync-ecosystem-secrets.mjs"],
-    "ECOSYSTEM_SYNC_TOKEN": [".github/workflows/dependency-sync.yml"],
-    "SKIPO_REGISTRY_VERSION": [".github/workflows/verify-published-skipo.yml"],
-    "SKIPO_PYTHON": ["bin/skipo.js", "packages/skipo/bin/skipo.js"]
+    "ADMIN_EMAIL": [
+      "scripts/create-admin.ts"
+    ],
+    "ADMIN_PASSWORD": [
+      "scripts/create-admin.ts"
+    ],
+    "APP_PATH": [
+      ".github/workflows/skipo-conformance.yml"
+    ],
+    "ECOSYSTEM_SYNC_TOKEN": [
+      ".github/workflows/dependency-sync.yml"
+    ],
+    "GITHUB_OWNER": [
+      "scripts/sync-ecosystem-secrets.mjs"
+    ],
+    "INPUT_PATH": [
+      ".github/workflows/skipo-conformance.yml"
+    ],
+    "INSTALL_OUTCOME": [
+      ".github/workflows/skipo-conformance.yml"
+    ],
+    "REQUIRE_LIVE": [
+      ".github/workflows/skipo-conformance.yml"
+    ],
+    "SKIPO_PYTHON": [
+      "bin/skipo.js",
+      "packages/skipo/bin/skipo.js"
+    ],
+    "SKIPO_REGISTRY_VERSION": [
+      ".github/workflows/verify-published-skipo.yml"
+    ]
   },
-  "tooling_locations": ["scripts/", "checklists/", "bin/", "packages/skipo/bin/", ".github/", "tests/"],
+  "tooling_locations": [
+    "scripts/",
+    "checklists/",
+    "bin/",
+    "packages/skipo/bin/",
+    ".github/",
+    "tests/"
+  ],
   "scan": {
-    "extensions": [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".sh", ".bash", ".zsh", ".toml", ".json", ".jsonc", ".yaml", ".yml", ".ini", ".cfg", ".properties", ".md", ".mdx", ".txt"],
-    "ignored_directories": [".git", "node_modules", ".venv", "venv", "__pycache__", "dist", "build", ".next", ".turbo", "coverage", ".cache", ".pytest_cache"]
+    "extensions": [
+      ".ts",
+      ".tsx",
+      ".js",
+      ".jsx",
+      ".mjs",
+      ".cjs",
+      ".py",
+      ".sh",
+      ".bash",
+      ".zsh",
+      ".toml",
+      ".json",
+      ".jsonc",
+      ".yaml",
+      ".yml",
+      ".ini",
+      ".cfg",
+      ".properties",
+      ".md",
+      ".mdx",
+      ".txt"
+    ],
+    "ignored_directories": [
+      ".git",
+      "node_modules",
+      ".venv",
+      "venv",
+      "__pycache__",
+      "dist",
+      "build",
+      ".next",
+      ".turbo",
+      "coverage",
+      ".cache",
+      ".pytest_cache"
+    ]
   }
 }
