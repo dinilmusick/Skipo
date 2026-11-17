@@ -195,7 +195,12 @@ def test_actual_main_adversarial_surface_evidence(tmp_path, case):
         verified = cert._cli_check(ROOT, app, "verify")
         full = cert._cli_check(ROOT, app, "check")
         assert verified["status"] != "passed" or full["status"] != "passed"
-        assert ("SKIPO_FORBIDDEN_ENVIRONMENT_VARIABLE" in {d["code"] for d in verified.get("diagnostics", [])}
+        # The current main verifier surfaces unknown variables through existing
+        # environment governance as SKIPO_CONSTRAINT_ENV-001. Some forbidden
+        # framework-owned names also emit SKIPO_FORBIDDEN_ENVIRONMENT_VARIABLE.
+        # Both are explicit evidence; never invent a diagnostic code.
+        assert ({"SKIPO_FORBIDDEN_ENVIRONMENT_VARIABLE", "SKIPO_CONSTRAINT_ENV-001"}
+                & {d["code"] for d in verified.get("diagnostics", [])}
                 or any(a.get("aspect_id") == "aspect_26" for a in full.get("failing_aspects", [])))
     elif case["name"] == "incomplete_integration":
         report = cert.certify(app, ROOT, require_live=True, commit_sha=SHA)
