@@ -85,7 +85,7 @@ $$\text{TurnDone} \implies \text{exitCode}(\texttt{code-purity-audit.py}) = 0$$
 
 $$\forall f \in \text{CodeFiles}: \text{Dir}(f) \neq \text{Root} \wedge \text{Plane}(f) \in \{\text{frontend}, \text{backend}, \text{libraries}, \text{packages}, \text{scripts}\}$$
 
-- **Zero Root Code Files ($L_{16}$)**: Never place `.ts`, `.tsx`, `.js`, or `.jsx` files directly in repository root (only framework configs like `next.config.js`, `vite.config.ts` allowed).
+- **Zero Root Code Files ($L_{16}$)**: Never place `.ts`, `.tsx`, `.js`, or `.jsx` files directly in repository root (only framework configs like `vite.config.ts` allowed).
 - **Authorized Code Enclaves**: Code files must reside within explicit plane subdirectories:
   - `src/frontend/` or `components/` for UI components and views
   - `src/backend/` or `backend/` for services, routes, and drivers

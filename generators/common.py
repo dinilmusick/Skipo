@@ -168,7 +168,7 @@ def parse_generator_args(description: str) -> Dict[str, Any]:
     parser.add_argument("--dry-run", action="store_true", help="Preview generated files without writing to disk")
     parser.add_argument("--force", "-f", action="store_true", help="Overwrite existing files if they exist")
     parser.add_argument("--json", action="store_true", help="Output machine-readable JSON summary")
-    parser.add_argument("--env", type=str, default="standard", choices=["standard", "nextjs", "vite", "electron", "monorepo"], help="Target development environment")
+    parser.add_argument("--env", type=str, default="standard", choices=["standard", "vite", "electron", "monorepo"], help="Target development environment")
     
     args, unknown = parser.parse_known_args()
 

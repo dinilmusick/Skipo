@@ -17,16 +17,16 @@ def test_workspace_storage_declares_canonical_providers():
     assert "provider-specific SDKs and credentials" in workspace
 
 def test_workspace_creation_dialog_is_owned_by_floks_for_all_skipo_scaffolds():
-    for scaffold_name in ("nextjs", "vite"):
-        root = ROOT / "scaffolds" / scaffold_name
-        gate = (root / "src/frontend/components/gates/WorkspaceGate.tsx").read_text()
-        package = __import__("json").loads((root / "package.json").read_text())
+    scaffold_name = "vite"
+    root = ROOT / "scaffolds" / scaffold_name
+    gate = (root / "src/frontend/components/gates/WorkspaceGate.tsx").read_text()
+    package = __import__("json").loads((root / "package.json").read_text())
 
-        assert "@ultrst-armada/floks/ui" in gate
-        assert "WorkspaceTilesMenu" in gate
-        assert "storageOptions" in gate
-        assert "onManageStorage={onManageStorage}" in gate
-        assert re.fullmatch(r"\^?2\.\d+\.\d+", package["dependencies"]["@ultrst-armada/floks"])
+    assert "@ultrst-armada/floks/ui" in gate
+    assert "WorkspaceTilesMenu" in gate
+    assert "storageOptions" in gate
+    assert "onManageStorage={onManageStorage}" in gate
+    assert re.fullmatch(r"\^?2\.\d+\.\d+", package["dependencies"]["@ultrst-armada/floks"])
 
     generator = (ROOT / "scripts/scaffold_app_structure.py").read_text()
     root_package = __import__("json").loads((ROOT / "package.json").read_text())
@@ -38,21 +38,21 @@ def test_workspace_creation_dialog_is_owned_by_floks_for_all_skipo_scaffolds():
 
 
 def test_google_drive_uses_kloks_adapter_in_every_canonical_scaffold():
-    for scaffold_name in ("nextjs", "vite"):
-        root = ROOT / "scaffolds" / scaffold_name
-        backend = (root / "src/backend/AppBackend.ts").read_text()
-        adapter = (root / "src/backend/storage/googleDriveWorkspaceStorage.ts").read_text()
-        storage_types = (root / "src/libraries/types/storage.ts").read_text()
-        env_example = (root / ".env.example").read_text()
+    scaffold_name = "vite"
+    root = ROOT / "scaffolds" / scaffold_name
+    backend = (root / "src/backend/AppBackend.ts").read_text()
+    adapter = (root / "src/backend/storage/googleDriveWorkspaceStorage.ts").read_text()
+    storage_types = (root / "src/libraries/types/storage.ts").read_text()
+    env_example = (root / ".env.example").read_text()
 
-        assert "storageProviders" in backend
-        assert "googleDrive: { create: createGoogleDriveWorkspaceStorage }" in backend
-        assert "GoogleDriveWorkspaceService" in adapter
-        assert "exchangeGoogleDriveAuthorizationCode" in adapter
-        assert "googleAccessTokenExpiresAt" in storage_types
-        assert "GOOGLE_DRIVE_CLIENT_SECRET" not in backend
-        assert "process.env" not in adapter
-        assert "GoogleDriveEnvironment" in adapter
+    assert "storageProviders" in backend
+    assert "googleDrive: { create: createGoogleDriveWorkspaceStorage }" in backend
+    assert "GoogleDriveWorkspaceService" in adapter
+    assert "exchangeGoogleDriveAuthorizationCode" in adapter
+    assert "googleAccessTokenExpiresAt" in storage_types
+    assert "GOOGLE_DRIVE_CLIENT_SECRET" not in backend
+    assert "process.env" not in adapter
+    assert "GoogleDriveEnvironment" in adapter
 
     generator = (ROOT / "scripts/scaffold_app_structure.py").read_text()
     assert "createGoogleDriveWorkspaceStorage" in generator

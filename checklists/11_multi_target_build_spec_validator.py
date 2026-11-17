@@ -380,7 +380,7 @@ def validate_multi_target_build_spec(root_dir: Path) -> ChecklistResult:
                 severity="warning",
                 message="scripts/skipo-build.cjs should compile both frontend (vite build or next build) and universal backend adapter (universalEntry.ts or httpsAdapter.ts) in a single pass (Law L22).",
                 file_path="scripts/skipo-build.cjs",
-                suggestion="Ensure skipo-build.cjs builds frontend (Vite or Next.js) and bundles universalEntry.ts for multi-cloud deployments."
+                suggestion="Ensure skipo-build.cjs builds Vite frontend and bundles universalEntry.ts for multi-cloud deployments."
             ))
 
     # 7. tsconfig.api.json

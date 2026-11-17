@@ -34,7 +34,7 @@ The Node adapter owns Node HTTP, filesystem asset serving, and process startup. 
 
 ## Dependency and scaffold policy
 
-- Vite and Next.js templates share the same Fetch application contract and provider outputs.
+- The Vite template uses the shared Fetch application contract and provider outputs.
 - The generated pnpm manifest explicitly approves the esbuild build step.
 - Ecosystem package baselines are pinned to currently published compatible versions in the manifest and lockfile.
 - Generic applications do not import Kloks browser audio/MIDI runtimes.

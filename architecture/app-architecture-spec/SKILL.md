@@ -130,7 +130,7 @@ The Vite browser entry contract is deliberately distinct from the universal back
 
 For universal deployment to Google AI Studio, Project IDX, and Vercel:
 - In **Vite** apps: `index.html` **MUST** remain directly in the project root and load the canonical browser bootstrap at `/src/frontend/main.tsx`. The bootstrap itself lives inside the frontend plane; do not create or require a parallel `src/main.tsx` entrypoint.
-- In **Next.js** apps: `package.json` and `next.config.ts` **MUST** remain directly in the project root.
+- Keep `package.json` and `vite.config.ts` in the project root.
 
 ---
 

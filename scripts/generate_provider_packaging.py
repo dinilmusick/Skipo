@@ -222,7 +222,7 @@ server.listen(port, () => console.log(`Skipo Fetch app listening on ${port}`));
 
 BUILD_SCRIPT = r'''#!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { mkdirSync, existsSync, cpSync, readdirSync, copyFileSync } from "node:fs";
+import { mkdirSync, existsSync, copyFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = process.cwd();
@@ -234,27 +234,7 @@ function run(bin, args) {
 function has(name) { return existsSync(resolve(root, name)); }
 
 console.log("[skipo] Building the single Fetch application and provider packages");
-if (has("next.config.js") || has("next.config.mjs") || has("next.config.ts")) {
-  run("npx", ["next", "build"]);
-  mkdirSync(resolve(root, "dist/client/_next"), { recursive: true });
-  if (has(".next/static")) cpSync(resolve(root, ".next/static"), resolve(root, "dist/client/_next/static"), { recursive: true });
-  if (has("public")) cpSync(resolve(root, "public"), resolve(root, "dist/client"), { recursive: true });
-  const appOutput = resolve(root, ".next/server/app");
-  if (existsSync(appOutput)) {
-    function copyHtmlPages(source, destination) {
-      for (const entry of readdirSync(source, { withFileTypes: true })) {
-        const from = resolve(source, entry.name);
-        const to = resolve(destination, entry.name);
-        if (entry.isDirectory()) copyHtmlPages(from, to);
-        else if (entry.isFile() && entry.name.endsWith(".html")) {
-          mkdirSync(resolve(to, ".."), { recursive: true });
-          copyFileSync(from, to);
-        }
-      }
-    }
-    copyHtmlPages(appOutput, resolve(root, "dist/client"));
-  }
-} else if (has("vite.config.ts") || has("vite.config.js") || has("index.html")) {
+if (has("vite.config.ts") || has("vite.config.js") || has("index.html")) {
   run("npx", ["vite", "build", "--outDir", "dist/client"]);
 }
 for (const path of [
@@ -346,9 +326,7 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
     built_dependencies = set(pnpm_config.get("onlyBuiltDependencies", []))
     built_dependencies.update({"@dinilmusick/gutts", "esbuild"})
     pnpm_config["onlyBuiltDependencies"] = sorted(built_dependencies)
-    if "vite" not in package.get("dependencies", {}) and "vite" not in dev and not any(
-        (target / name).exists() for name in ("next.config.js", "next.config.mjs", "next.config.ts")
-    ):
+    if "vite" not in package.get("dependencies", {}) and "vite" not in dev:
         dev["vite"] = "^6.2.3"
     package_path.write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
 

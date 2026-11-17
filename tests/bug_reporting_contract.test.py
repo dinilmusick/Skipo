@@ -38,19 +38,17 @@ class BugReportingContractTests(unittest.TestCase):
             import shutil
             shutil.rmtree(root, ignore_errors=True)
 
-    def test_scaffolds_vite_and_nextjs_contracts(self):
+    def test_vite_scaffold_contracts(self):
         vite_chat = (ROOT / "scaffolds/vite/src/frontend/components/aiko/AikoDirectChat.tsx").read_text(encoding="utf-8")
-        next_chat = (ROOT / "scaffolds/nextjs/src/frontend/components/aiko/AikoDirectChat.tsx").read_text(encoding="utf-8")
         vite_backend = (ROOT / "scaffolds/vite/src/backend/AppBackend.ts").read_text(encoding="utf-8")
-        next_backend = (ROOT / "scaffolds/nextjs/src/backend/AppBackend.ts").read_text(encoding="utf-8")
 
-        for c in (vite_chat, next_chat):
+        for c in (vite_chat,):
             self.assertIn("Report bug", c)
             self.assertIn("reportBug", c)
             self.assertIn("correlationId", c)
             self.assertLessEqual(len(c.splitlines()), 200)
 
-        for b in (vite_backend, next_backend):
+        for b in (vite_backend,):
             self.assertIn("bugReportService", b)
             self.assertIn("reporterId: authId", b)
             self.assertLessEqual(len(b.splitlines()), 200)

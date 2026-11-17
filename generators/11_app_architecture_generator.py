@@ -345,27 +345,7 @@ jobs:
         description="CI validation workflow"
     ))
 
-    # 7. Next.js Standalone Tracing & Tree-Shaking Configuration
-    next_cfg = """/** @type {import('next').NextConfig} */
-const nextConfig = {
-  output: 'standalone',
-  swcMinify: true,
-  reactStrictMode: true,
-  compress: true,
-  outputFileTracingExcludes: {
-    '*': ['@swc/core', 'esbuild', 'terser', 'uglify-js', 'typescript'],
-  },
-};
-
-module.exports = nextConfig;
-"""
-    files.append(GeneratedFile(
-        relative_path="next.config.js",
-        content=next_cfg,
-        description="Next.js standalone config with bundle tracing exclusions"
-    ))
-
-    # 8. Clean 3-Tier System Environment Template
+    # 7. Clean 3-Tier System Environment Template
     env_tpl = """# SYSTEM DATABASE INFRASTRUCTURE (Strict 3-Tier Postgres Architecture)
 # Admin credentials and bucket secrets reside in ultrst_credentials table in the database.
 APP_URL="http://localhost:3000"

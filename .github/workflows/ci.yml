@@ -41,14 +41,12 @@ jobs:
             tests/test_functional_capability_generation.py \
             tests/conformance_test.py
           node --test tests/semantic_architecture_analyzer.test.cjs
-      - name: Prove generated canonical capability contracts for both application frameworks
+      - name: Prove generated Vite capability contracts
         run: |
-          for framework in vite nextjs; do
-            app="$(mktemp -d)"
-            python3 scripts/skipo_cli.py create CanonicalFixture "$app" --framework "$framework"
-            (cd "$app" && node --test tests/canonical-capabilities.test.cjs)
-            rm -rf "$app"
-          done
+          app="$(mktemp -d)"
+          python3 scripts/skipo_cli.py create CanonicalFixture "$app"
+          (cd "$app" && node --test tests/canonical-capabilities.test.cjs)
+          rm -rf "$app"
       - run: pnpm test
       - run: pnpm run capability:architecture
       - run: pnpm typecheck
@@ -56,12 +54,8 @@ jobs:
       - run: pnpm validate
 
   generated-applications:
-    name: Generated ${{ matrix.framework }} install / test / build
+    name: Generated Vite install / test / build
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        framework: [nextjs, vite]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -74,12 +68,10 @@ jobs:
         with:
           python-version: '3.12'
       - name: Generate a clean application from real Skipo CLI
-        env:
-          FRAMEWORK: ${{ matrix.framework }}
-        run: python3 scripts/skipo_cli.py create ReconciliationFixture "$RUNNER_TEMP/skipo-application" --framework "$FRAMEWORK"
+        run: python3 scripts/skipo_cli.py create ReconciliationFixture "$RUNNER_TEMP/skipo-application"
       - name: Install exact published Kloks and Floks artifacts
         working-directory: ${{ runner.temp }}/skipo-application
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: Typecheck generated app
         working-directory: ${{ runner.temp }}/skipo-application
         run: pnpm run typecheck

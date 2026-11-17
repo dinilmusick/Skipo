@@ -60,7 +60,7 @@ The current published Kloks backend entrypoints re-export `krnl-services`, and t
 
 ## Package contract
 
-The root package, Next.js scaffold and Vite scaffold must use compatible published npm dependencies for `@dinilmusick/gutts`, `@ultrst-armada/kloks`, and `@ultrst-armada/floks`. Repository CI must install these packages from npm and resolve the exact public subpath exports used by generated source. Package availability and export resolution are executable checks, not documentation assumptions.
+The root package and Vite scaffold must use compatible published npm dependencies for `@dinilmusick/gutts`, `@ultrst-armada/kloks`, and `@ultrst-armada/floks`. Repository CI must install these packages from npm and resolve the exact public subpath exports used by generated source. Package availability and export resolution are executable checks, not documentation assumptions.
 
 ## Enforcement and completion gate
 
@@ -74,6 +74,6 @@ A generated application is compliant only when:
 4. It contains no app-local password, credential, identity, token or session authority.
 5. It does not import the legacy Kloks `AuthServiceFacade`.
 6. Its package exports resolve from the published npm packages.
-7. Scaffold-generation tests, negative architecture tests, Next.js and Vite builds, typecheck and CI pass.
+7. Scaffold-generation tests, negative architecture tests, Vite builds, typecheck and CI pass.
 
 Runtime verification in a disposable environment should exercise email registration/login, Google OAuth callback, session hydration after refresh, logout/revocation, expired and invalid sessions, application-origin registration, protected backend authorization, and incremental Google Drive authorization. A successful compile is not proof of authentication consolidation.

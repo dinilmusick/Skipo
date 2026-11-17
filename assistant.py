@@ -8,7 +8,7 @@ Single central command interface for AI coding agents to:
 - Generate complete directory trees and multi-file code suites (generators/)
 - Restructure, format, and auto-remediate existing codebases (mutators/)
 - Validate compliance against the 10 Architectural Pillars (checklists/)
-- Adapt commands to diverse development environments (Next.js, Vite, Electron, Monorepos)
+- Adapt commands to diverse development environments (Vite, Electron, Monorepos)
 - Provide structured post-execution guidance and direct agents to specific Skipo skills
 """
 
@@ -78,10 +78,7 @@ def detect_environment(root: Path) -> Dict[str, Any]:
     elif (root / "yarn.lock").exists():
         pkg_mgr = "yarn"
 
-    if (root / "next.config.js").exists() or (root / "next.config.mjs").exists() or (root / ".next").exists():
-        env = "nextjs"
-        framework = "Next.js App Router"
-    elif (root / "vite.config.ts").exists() or (root / "vite.config.js").exists():
+    if (root / "vite.config.ts").exists() or (root / "vite.config.js").exists():
         env = "vite"
         framework = "Vite React SPA"
     elif (root / "electron.vite.config.ts").exists():
@@ -479,7 +476,7 @@ def main():
     gen_p.add_argument("--json", action="store_true", help="Output JSON summary")
     gen_p.add_argument("--params", "-p", type=str, default="", help="Custom JSON parameters")
     gen_p.add_argument("--config", "-c", type=str, default="", help="JSON configuration file")
-    gen_p.add_argument("--env", type=str, default="standard", help="Target environment (nextjs, vite, electron, monorepo)")
+    gen_p.add_argument("--env", choices=["standard", "vite", "electron", "monorepo"], default="standard", help="Target environment")
 
     # mutate
     mut_p = subparsers.add_parser("mutate", help="Restructure and auto-remediate existing codebases")

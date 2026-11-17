@@ -375,7 +375,7 @@ def main() -> int:
     sub=parser.add_subparsers(dest="command",required=True)
     p=sub.add_parser("create")
     p.add_argument("name"); p.add_argument("target",nargs="?",default=None)
-    p.add_argument("--framework",choices=["nextjs","vite"],default="vite"); p.add_argument("--force",action="store_true")
+    p.add_argument("--framework",choices=["vite"],default="vite"); p.add_argument("--force",action="store_true")
 
     for cmd in ["inspect","check","diagnose","plan","adopt","sync","update","repair","fix","verify","test","policy","semantic","certify"]:
         q=sub.add_parser(cmd); q.add_argument("target",nargs="?",default=".")

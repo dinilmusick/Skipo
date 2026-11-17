@@ -100,7 +100,7 @@ python3 code-purity-audit.py <target_dir>
 
 **ALLOWED ROOT FILES** (the only files permitted at root):
 - Configuration: `package.json`, `tsconfig*.json`, `turbo.json`, `pnpm-workspace.yaml`, `.gitignore`, `.env*`
-- Infrastructure entry points: `next.config.*`, `vite.config.*`, `tailwind.config.*`
+- Infrastructure entry points: `vite.config.*`, `tailwind.config.*`
 - Python tooling: `assistant.py`, `code-purity-audit.py`
 - Markdown: `README.md`, `AGENTS.md`, `SKILL.md`
 
