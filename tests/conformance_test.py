@@ -148,7 +148,8 @@ def test_existing_main_minimal_verification_does_not_imply_full_conformance(tmp_
     verified = cert._cli_check(ROOT, app, "verify")
     assert checked["status"] == "failed", checked  # Minimal app lacks canonical build/docs/adapters.
     assert any(a.get("error_count", 0) > 0 for a in checked["failing_aspects"])
-    assert verified["status"] == "passed", verified  # Its canonical state is internally clean.
+    assert verified["status"] == "failed", verified  # Isolated canonical state is insufficient under integrated governance.
+    assert verified.get("diagnostics"), "An uncertified partial application must supply actionable evidence."
     assert cert.source_snapshot(app) == before
 
 
