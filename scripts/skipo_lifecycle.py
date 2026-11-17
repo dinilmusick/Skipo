@@ -60,23 +60,6 @@ def assess(root: Path) -> dict[str, Any]:
     return result
 
 
-def transaction_verify(root: Path, version: str) -> dict[str, Any]:
-    """Transaction-safe postcondition: canonical ownership and environment.
-
-    Full certification remains a separate read-only gate; it may require
-    installed packages and network integrations unavailable during repair.
-    """
-    from skipo_capabilities import verify as verify_capabilities
-    from skipo_environment_contract import verify as verify_environment
-    try:
-        capability = verify_capabilities(root)
-        environment = verify_environment(root)
-        return {"ok": bool(capability.get("ok") and environment.get("ok")),
-                "capabilities": capability, "environment": environment}
-    except Exception as exc:
-        return {"ok": False, "errors": [str(exc)]}
-
-
 def independent_verify(root: Path, version: str) -> dict[str, Any]:
     """Recompute every outcome from disk; no caller-provided success assertions."""
     from skipo_maintenance import verify as verify_maintenance
