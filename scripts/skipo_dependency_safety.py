@@ -15,7 +15,7 @@ from collections import defaultdict
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:[-+][0-9A-Za-z.-]+)?$")
+VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 PACKAGE_RE = re.compile(r"^(?:@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$")
 MUTATORS = {"replace_text": {"find", "replace", "paths"}, "set_json": {"path", "key", "value"}}
 ASSERTIONS = {"text_absent": {"text", "paths"}, "text_present": {"text", "paths"}, "json_equals": {"path", "key", "value"}}
@@ -211,8 +211,9 @@ def _inventory(root: Path) -> tuple[dict[str, dict[str, str]], dict[str, Any]]:
         if not PACKAGE_RE.fullmatch(name): raise MigrationError(f"Invalid package name: {name}")
         if not isinstance(spec, str): raise MigrationError(f"Invalid dependency specifier: {name}")
         entry = lock["packages"].get(f"node_modules/{name}")
-        dep = root_lock.get("dependencies", {}) | root_lock.get("devDependencies", {}) | root_lock.get("optionalDependencies", {})
-        if dep.get(name) != spec or not isinstance(entry, dict):
+        occurrences = [root_lock.get(section, {}).get(name) for section in
+                       ("dependencies", "devDependencies", "optionalDependencies") if name in root_lock.get(section, {})]
+        if not occurrences or any(value != spec for value in occurrences) or not isinstance(entry, dict):
             raise MigrationError(f"Manifest/lockfile mismatch: {name}")
         v = entry.get("version")
         exact_version(v)
@@ -367,6 +368,10 @@ def _plans(root: Path, skipo_version: str) -> dict[str, Any]:
             old = old_data.get(name)
             if isinstance(old, dict): old = old.get("version")
         contract = _contract(root, name, skipo_version)
+        if contract:
+            for dep, requirement in contract.get("compatibility", {}).get("dependencies", {}).items():
+                if dep not in versions or not _range(versions[dep]["version"], requirement):
+                    raise MigrationError(f"Incompatible provider dependency: {name} requires {dep} {requirement}")
         if old is None:
             paths[name] = {"from": None, "to": current, "specifier": installed["specifier"], "migrations": [], "baseline": True}
             continue
@@ -377,10 +382,6 @@ def _plans(root: Path, skipo_version: str) -> dict[str, Any]:
         if contract is None: raise MigrationError(f"Missing package-shipped migration contract: {name} {old}->{current}")
         chain = resolve_path(contract, old, current)
         paths[name] = {"from": old, "to": current, "specifier": installed["specifier"], "migrations": [m["id"] for m in chain]}
-        compat = contract.get("compatibility", {}).get("dependencies", {})
-        for requirement_name, requirement in compat.items():
-            if requirement_name not in versions or not _range(versions[requirement_name]["version"], requirement):
-                raise MigrationError(f"Incompatible provider dependency: {name} requires {requirement_name} {requirement}")
         prev = None
         for mig in chain:
             for required_name, requirement in mig.get("requiresPackages", {}).items():
