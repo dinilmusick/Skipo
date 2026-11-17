@@ -18,7 +18,7 @@ ENV_ASSIGN = re.compile(r"^(\s*(?:export\s+)?)([A-Z][A-Z0-9_]*)(\s*=)(.*)$")
 SHELL_ASSIGN = re.compile(r"^(\s*(?:export|env)\s+)([A-Z][A-Z0-9_]*)(\s*=)(.*)$")
 KEY_ASSIGN = re.compile(r'''^(\s*["']?)([A-Z][A-Z0-9_]*)(["']?\s*[:=])(.*)$''')
 REFS = (
-    re.compile(r"\b(?:process\.env|import\.meta\.env)(?:\?\.)?\.([A-Z][A-Z0-9_]*)\b"),
+    re.compile(r"\b(?:process\.env|import\.meta\.env)(?:\?\.|\.)([A-Z][A-Z0-9_]*)\b"),
     re.compile(r'''\b(?:process\.env|import\.meta\.env)(?:\?\.)?\[\s*['"]([A-Z][A-Z0-9_]*)['"]\s*\]'''),
     re.compile(r'''\bos\.environ(?:\.get)?\(\s*['"]([A-Z][A-Z0-9_]*)['"]'''),
     re.compile(r'''\bos\.environ\s*\[\s*['"]([A-Z][A-Z0-9_]*)['"]\s*\]'''),

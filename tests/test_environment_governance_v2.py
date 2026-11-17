@@ -180,3 +180,32 @@ def test_python_generator_literal_is_not_application_runtime(tmp_path):
     assert env.verify(root)["ok"]
     put(root, "src/generated.ts", 'const c = process.env.STORAGE_ACCESS_KEY_ID;\n')
     assert ("STORAGE_ACCESS_KEY_ID", "undeclared_framework_configuration") in names(root)
+
+
+def test_optional_chaining_reference_is_scanned_and_migrated(tmp_path):
+    root = project(tmp_path)
+    p = put(root, "src/env.ts", "const u = process.env?.DEPM_GATEWAY_DOMAIN;\n")
+    assert env.repair(root)["ok"]
+    assert "process.env?.APP_URL" in p.read_text()
+
+
+def test_atomic_rollback_after_injected_second_write_failure(tmp_path, monkeypatch):
+    root = project(tmp_path)
+    first = put(root, ".env.local", "DEPM_GATEWAY_DOMAIN=https://old.test\n")
+    second = put(root, "src/index.ts", "const u = process.env.DEPM_GATEWAY_DOMAIN;\n")
+    old_first, old_second = first.read_bytes(), second.read_bytes()
+    original_write = env._write_atomic
+    calls = {"n": 0}
+
+    def flaky(path, data):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise OSError("injected write failure")
+        return original_write(path, data)
+
+    monkeypatch.setattr(env, "_write_atomic", flaky)
+    result = env.repair(root)
+    assert not result["ok"]
+    assert result["rollback"]["ok"]
+    assert first.read_bytes() == old_first
+    assert second.read_bytes() == old_second
