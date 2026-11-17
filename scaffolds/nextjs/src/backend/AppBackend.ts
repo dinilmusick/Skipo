@@ -37,7 +37,7 @@ export const services = {
 };
 
 export const backendFacade = new BackendFacade();
-for (const service of [ServiceAFacade, ServiceBFacade, StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
+for (const service of [StorageServiceFacade, WorkspaceServiceFacade]) backendFacade.registerService(service);
 export const externalInterfaces = createAppExternalInterfaces(backendFacade);
 
 export const storageProviders = {

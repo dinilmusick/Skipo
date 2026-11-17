@@ -1,5 +1,14 @@
 import type { IServiceFacade, ServiceNamespace } from '@ultrst-armada/krnl';
-import type { BackendCapabilityDescriptor } from './ModuleBackendAdapterTypes.js';
+export interface BackendCapabilityDescriptor {
+  readonly id: string; readonly name: string; readonly serviceId: string;
+  readonly serviceName: string; readonly serviceVersion: string;
+  readonly category: 'functionalities' | 'orchestrations';
+  readonly description: string; readonly inputSchema?: Readonly<Record<string, unknown>>;
+  readonly outputSchema?: Readonly<Record<string, unknown>>;
+  readonly invocation: Readonly<{kind: 'functionality' | 'orchestration'; operation: string}>;
+  readonly capabilities: readonly string[]; readonly protocols: readonly unknown[];
+}
+
 
 function cloneFrozenSchema(value: unknown): unknown {
   if (Array.isArray(value)) return Object.freeze(value.map(cloneFrozenSchema));

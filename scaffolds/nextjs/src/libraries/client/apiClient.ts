@@ -3,18 +3,10 @@
 // Encapsulates all network communication to preserve component purity
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { useInspectionStore } from '../../frontend-state/inspectionStore';
 import { luthAuthClient, luthFetch } from './luthAuthClient';
 
 async function wrappedFetch(url: string, init?: RequestInit): Promise<Response> {
-  const store = useInspectionStore.getState();
-  store.incrementApiCount();
-  try {
-    const res = await luthFetch(url, init);
-    return res;
-  } finally {
-    store.decrementApiCount();
-  }
+  return luthFetch(url, init);
 }
 
 export const apiClient = {
