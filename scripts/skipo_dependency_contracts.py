@@ -197,3 +197,9 @@ def detect_affected_state(root: Path, migration: dict[str, Any]) -> list[dict[st
                 if count:
                     findings.append({"path": path.relative_to(root).as_posix(), "pattern": spec["text"], "matches": count})
     return sorted(findings, key=lambda item: (item["path"], item["pattern"]))
+
+
+# Strict migration semantics are kept in an independent helper for reuse by
+# the final reconciler; published contract entry points remain stable.
+from skipo_dependency_hardening import harden as _harden_dependency_contracts
+_harden_dependency_contracts(globals())
