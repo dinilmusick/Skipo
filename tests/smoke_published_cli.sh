@@ -20,7 +20,16 @@ if [[ -n "${SKIPO_REGISTRY_VERSION:-}" ]]; then
   done
   test "$available" -eq 1 || { echo "Published package remains unavailable from public npm registry." >&2; exit 1; }
   npm view "@ultrst-armada/skipo@$SKIPO_REGISTRY_VERSION" version --prefer-online --registry=https://registry.npmjs.org/
-  npm pack "@ultrst-armada/skipo@$SKIPO_REGISTRY_VERSION" --pack-destination "$temp" >/dev/null
+  packed=0
+  for attempt in $(seq 1 20); do
+    if npm pack "@ultrst-armada/skipo@$SKIPO_REGISTRY_VERSION" --pack-destination "$temp" --prefer-online --registry=https://registry.npmjs.org/ >/dev/null 2>&1; then
+      packed=1
+      break
+    fi
+    echo "Public npm tarball is not available yet (attempt $attempt/20)."
+    sleep 10
+  done
+  test "$packed" -eq 1 || { echo "Published package version resolves but its tarball cannot be downloaded." >&2; exit 1; }
 else
   (cd "$root/packages/skipo" && npm pack --pack-destination "$temp" >/dev/null)
 fi
