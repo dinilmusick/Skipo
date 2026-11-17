@@ -22,7 +22,8 @@ def test_generic_scaffold_does_not_contain_separate_guest_subsystem(tmp_path):
 def test_next_and_vite_scaffolds_expose_guest_entry_without_separate_ui_assets():
     next_login = (ROOT / "scaffolds/nextjs/app/login/page.tsx").read_text(encoding="utf-8")
     vite_gate = (ROOT / "scaffolds/vite/src/frontend/components/gates/LoginGate.tsx").read_text(encoding="utf-8")
-    assert "onContinueAsGuest" in next_login
+    assert "LoginClient" in next_login
+    assert "onContinueAsGuest" in (ROOT / "scaffolds/nextjs/app/login/LoginClient.tsx").read_text(encoding="utf-8")
     assert "onContinueAsGuest" in vite_gate
     assert "GuestAccessGate" not in next_login
     assert "GuestAccessGate" not in vite_gate
