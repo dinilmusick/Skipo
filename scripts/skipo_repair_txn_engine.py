@@ -157,10 +157,29 @@ def _ownership(root: Path, stage: Path, changes: list[dict[str, Any]], original:
         prior = before_dep_state.get(dep)
         if old_deps.get(dep) is not None and prior not in (old_deps.get(dep), new_deps.get(dep)):
             raise UnsafeRepair(f"Unowned dependency range: {dep}")
+    # Only precisely reproduced environment alias migrations can cross the
+    # transaction boundary; arbitrary application configuration is never owned.
+    from skipo_environment_contract import _replace_recognized
+    env_by_path: dict[str, dict[str, str]] = {}
+    for action in simulated.get("environment", {}).get("actions", []):
+        if action.get("action") != "rename-variable":
+            raise UnsafeRepair("Unsupported environment repair operation")
+        rel = action["path"]
+        relative_path(rel)
+        env_by_path.setdefault(rel, {})[action["from"]] = action["to"]
     for change in changes:
         path = change["path"]
         previous = original.get(path)
         target = simulated.get("_after", {}).get(path)
+        if path in env_by_path:
+            if previous is None or target is None:
+                raise UnsafeRepair(f"Environment repair cannot create/delete: {path}")
+            source = checked(root, path).read_text(encoding="utf-8")
+            expected = _replace_recognized(source, checked(root, path), env_by_path[path]).encode("utf-8")
+            if target["sha256"] != digest(expected):
+                raise UnsafeRepair(f"Environment update differs from canonical alias rewrite: {path}")
+            change["owner"] = "skipo:environment-alias"
+            continue
         if path in STATE_FILES:
             change["owner"] = "skipo-state" if path != "package.json" else "skipo-canonical-dependency"
             if path == "package.json" and not changed_deps:
@@ -302,7 +321,8 @@ def _restore(root: Path, work: Path, touched: list[dict[str, Any]],
 
 def transact(root: Path, apply: bool, version: str, simulate: Callable[..., dict[str, Any]],
              capabilities: Any, *, expected_plan_id: str | None = None,
-             fault_at: str | None = None) -> dict[str, Any]:
+             fault_at: str | None = None,
+             verify_hook: Callable[[Path], dict[str, Any]] | None = None) -> dict[str, Any]:
     """Preflight -> simulate -> validate -> journal -> commit -> verify/rollback.
 
     `simulate` is the pre-existing reconciler, NEVER called on the real root.
@@ -396,7 +416,7 @@ def transact(root: Path, apply: bool, version: str, simulate: Callable[..., dict
             receipt.update({"ok": True, "verification": {"ok": None, "planned": True}})
             return receipt
         if not changes:
-            receipt.update({"ok": True, "noop": True, "verification": capabilities.verify(root)})
+            receipt.update({"ok": True, "noop": True, "verification": (verify_hook(root) if verify_hook else capabilities.verify(root))})
             receipt["ok"] = bool(receipt["verification"].get("ok"))
             return receipt
         if inventory(root) != before:
@@ -433,7 +453,7 @@ def transact(root: Path, apply: bool, version: str, simulate: Callable[..., dict
         actual = inventory(root)
         if actual != after:
             raise UnsafeRepair("Post-commit inventory differs from staged expected state")
-        verification = capabilities.verify(root)  # independent, released/main verifier
+        verification = verify_hook(root) if verify_hook else capabilities.verify(root)  # independent snapshot
         receipt["verification"] = verification
         if not verification.get("ok"):
             raise UnsafeRepair("Independent capability verification failed")
