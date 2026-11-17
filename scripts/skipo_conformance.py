@@ -120,7 +120,7 @@ def _cli_check(framework_root: Path, app: Path, command: str) -> dict[str, Any]:
         aspects = payload.get("aspects")
         identifiers = {a.get("aspect_id") for a in aspects if isinstance(a, dict)} if isinstance(aspects, list) else set()
         if payload.get("profile") != "application" or not REQUIRED_ASPECTS.issubset(identifiers) or len(aspects or []) != len(identifiers):
-            return _check("skipo_check", "unresolved", "SKIPO_VALIDATION_SURFACE_INCOMPLETE", "Application profile must return every existing aspect exactly once", exit_code=code, profile=payload.get("profile"), missing_aspects=sorted(REQUIRED_ASPECTS - identifiers), observed_aspects=sorted(str(x) for x in identifiers))
+            return _check("skipo_check", "unresolved", "SKIPO_VALIDATION_SURFACE_INCOMPLETE", "Application profile must return every existing aspect exactly once", exit_code=code, profile=payload.get("profile"), missing_aspects=sorted(REQUIRED_ASPECTS - identifiers), observed_aspects=sorted(str(x) for x in identifiers), stderr_excerpt=stderr[-2000:], validator_error_excerpt=str(payload.get("stderr", ""))[-2000:])
         if any(a.get("passed") is not True or not isinstance(a.get("violations"), list) or not isinstance(a.get("error_count"), int) for a in aspects):
             return _check("skipo_check", "unresolved", "SKIPO_VALIDATION_EVIDENCE_INCOMPLETE", "One or more aspect results are malformed or did not assert a pass", exit_code=code)
         passed = code == 0 and payload.get("overall_passed") is True and payload.get("total_errors") == 0 and all(a["passed"] for a in aspects)
