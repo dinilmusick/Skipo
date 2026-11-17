@@ -1,18 +1,11 @@
 'use client';
 
-import React from 'react';
-import { useRouter } from 'next/navigation';
-import { LuthAuthPage } from '../../src/frontend/pages/auth/LuthAuthPage';
-import { getSkipoApplicationId } from '../../src/libraries/client/luthAuthClient';
+import dynamic from 'next/dynamic';
+
+// Browser-only auth depends on the runtime application origin.
+const LoginClient = dynamic(() => import('../../src/frontend/pages/auth/LuthAuthPage')
+  .then(mod => mod.LuthAuthPage), { ssr: false });
 
 export default function LoginPage() {
-  const router = useRouter();
-  return (
-    <LuthAuthPage
-      applicationId={getSkipoApplicationId()}
-      appName="MY APP"
-      onAuthenticated={() => router.push('/')}
-      onContinueAsGuest={() => router.push('/')}
-    />
-  );
+  return <LoginClient applicationId="my-app" appName="MY APP" />;
 }
