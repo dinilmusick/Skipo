@@ -195,3 +195,52 @@ def test_committed_migration_with_old_manifest_is_recovered(tmp_path, monkeypatc
     assert resumed["ok"] is True
     assert json.loads(manifest_path.read_text())["skipo_version"] == "1.2.0"
     assert migrations.verify_migration_state(root)["ok"] is True
+
+def test_legacy_manifest_is_upgraded_without_manual_initialization(tmp_path):
+    root = tmp_path / "legacy-aiko"
+    (root / ".skipo").mkdir(parents=True)
+    original = {
+        "kind": "skipo-application",
+        "schemaVersion": 1,
+        "deploymentTargets": {"api": {"platform": "cloudflare-workers"}},
+        "requiredEnvironment": {"serverOnly": ["SKIPO_DATABASE_URL"]},
+    }
+    (root / ".skipo/project.json").write_text(json.dumps(original))
+    (root / "package.json").write_text(json.dumps({"name": "aiko", "skipo": {"deploy": "fullstack"}}))
+    before = (root / ".skipo/project.json").read_bytes()
+    planned = migrations.plan_upgrade(root, "1.1.0")
+    assert planned["ok"] is True
+    assert (root / ".skipo/project.json").read_bytes() == before
+    assert not (root / ".skipo/migration-state.json").exists()
+
+    upgraded = migrations.update_project(root, "1.1.0")
+    assert upgraded["ok"] is True
+    saved = json.loads((root / ".skipo/project.json").read_text())
+    assert all(saved[key] == value for key, value in original.items())
+    assert saved["framework"] == "skipo"
+    assert saved["skipo_version"] == "1.1.0"
+    assert migrations.verify_migration_state(root)["ok"] is True
+    second = migrations.update_project(root, "1.1.0")
+    assert second["already_current"] is True
+    assert second["applied_operations"] == []
+
+
+def test_marker_only_legacy_app_is_upgradeable(tmp_path):
+    root = tmp_path / "legacy-kone"
+    root.mkdir()
+    (root / "package.json").write_text(json.dumps({"name": "kone", "skipo": {"deploy": "fullstack"}}))
+    result = migrations.update_project(root, "1.1.0")
+    assert result["ok"] is True
+    manifest = json.loads((root / ".skipo/project.json").read_text())
+    assert manifest["scaffold"] == "adopted"
+    assert manifest["skipo_version"] == "1.1.0"
+    assert migrations.verify_migration_state(root)["ok"] is True
+
+
+def test_implicit_upgrade_rejects_non_skipo_without_writes(tmp_path):
+    root = tmp_path / "unrelated"
+    root.mkdir()
+    (root / "package.json").write_text(json.dumps({"name": "not-skipo"}))
+    with pytest.raises(migrations.MigrationStateError, match="not an adopted Skipo project"):
+        migrations.update_project(root, "1.1.0")
+    assert not (root / ".skipo").exists()
