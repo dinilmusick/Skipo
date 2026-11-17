@@ -214,3 +214,29 @@ def test_unmet_precondition_leaves_app_unchanged(tmp_path):
     result = execute_dependency_migrations(root, plan)
     assert not result['ok'] and 'Required canonical pattern missing' in str(result['errors'])
     assert (root / 'src/provider.ts').read_text() == 'OldProvider'
+
+
+def test_pnpm_installation_symlink_is_allowed_inside_package_tree(tmp_path):
+    import shutil
+    root = fixture(tmp_path, staged_migrations())
+    folder = root / 'node_modules' / NAME
+    installed = root / 'node_modules/.pnpm/kloks@3.0.0/node_modules' / NAME
+    installed.parent.mkdir(parents=True)
+    shutil.move(str(folder), str(installed))
+    folder.symlink_to(installed, target_is_directory=True)
+    plan = plan_dependency_migrations(root)
+    assert plan['ok'], plan['errors']
+    assert execute_dependency_migrations(root, plan)['ok']
+    assert verify_dependency_migrations(root)['ok']
+
+
+def test_package_contract_symlink_to_other_provider_is_rejected(tmp_path):
+    root = fixture(tmp_path, staged_migrations())
+    file = root / 'node_modules' / NAME / 'skipo.migrations.json'
+    other = root / 'node_modules' / 'other-package'
+    other.mkdir()
+    (other / 'skipo.migrations.json').write_bytes(file.read_bytes())
+    file.unlink()
+    file.symlink_to(other / 'skipo.migrations.json')
+    plan = plan_dependency_migrations(root)
+    assert not plan['ok'] and 'escapes installed package' in str(plan['errors'])
