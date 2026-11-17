@@ -86,18 +86,35 @@ def test_dirty_application_is_observed_but_never_mutated(tmp_path):
     assert (root / "package.json").read_text() == before
 
 
-def test_dependency_migration_is_explicit_and_updates_lockfile(tmp_path):
-    root = make_app(tmp_path, dependencies={"@ultrst-armada/kloks": "^1.0.0"})
+def test_canonical_dependency_update_reaches_npm_manifest_and_lockfile(tmp_path):
+    package_name = "@ultrst-armada/kloks"
+    previous = "^2.0.3"
+    dependencies = {**CANONICAL["dependencies"], package_name: previous}
+    root = make_app(tmp_path, dependencies=dependencies, lockfile=False)
+    manifest_path = root / "package.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["packageManager"] = "npm@10.9.0"
+    manifest_path.write_text(json.dumps(manifest))
+    state_path = root / ".skipo/dependencies.json"
+    state_path.write_text(json.dumps(dependencies))
+    lockfile = root / "package-lock.json"
+    lockfile.write_text(json.dumps({"name": manifest["name"], "lockfileVersion": 3}))
+
     plan = build_plan(root, "1.1.0", environment_ok(), git_status="")
-    dependency_action = next(
-        a for a in plan["actions"]
-        if a["action"] == "dependency" and a["package"] == "@ultrst-armada/kloks"
-    )
-    assert dependency_action["package"] == "@ultrst-armada/kloks"
-    assert dependency_action["to"] == CANONICAL["dependencies"]["@ultrst-armada/kloks"]
-    result = execute_plan(root, plan, "1.1.0", sync_lockfile)
+    assert plan["ok"], plan["errors"]
+    assert any(a.get("lockfile") == lockfile.name for a in plan["actions"])
+
+    def sync_npm_lockfile(app_root, package):
+        assert package["packageManager"] == manifest["packageManager"]
+        assert json.loads(manifest_path.read_text())["dependencies"] == CANONICAL["dependencies"]
+        (app_root / lockfile.name).write_text(json.dumps(package["dependencies"]))
+        return {"ok": True}
+
+    result = execute_plan(root, plan, "1.1.0", sync_npm_lockfile)
     assert result["ok"], result
-    assert (root / "pnpm-lock.yaml").is_file()
+    assert json.loads(lockfile.read_text()) == CANONICAL["dependencies"]
+    assert json.loads(state_path.read_text()) == CANONICAL["dependencies"]
+    assert build_plan(root, "1.1.0", environment_ok(), git_status="")["actions"] == []
 
 
 def test_environment_violation_blocks_mutation(tmp_path):
