@@ -230,6 +230,29 @@ def plan_dependency_migrations(root: Path, skipo_version: str = "1.1.0", _inflig
     """Read-only, fail-closed plan with exact package/lockfile and input evidence."""
     root = Path(root).resolve()
     try:
+        # Uninstalled scaffolds are valid only when dependency specifiers
+        # have not changed. Never infer an upgraded package version offline.
+        if not (root / "node_modules").exists():
+            declared = _declared_dependencies(root)
+            state_file = root / ".skipo/dependencies.json"
+            previous = json.loads(state_file.read_text(encoding="utf-8")) if state_file.is_file() else {}
+            if not isinstance(previous, dict):
+                raise ValueError("Invalid dependency baseline state")
+            stable = True
+            for name, spec in declared.items():
+                old = previous.get("_resolved", {}).get(name) or previous.get(name)
+                if isinstance(old, dict):
+                    old = old.get("version") or old.get("specifier")
+                if old not in (None, spec):
+                    stable = False
+                    break
+            if stable:
+                seal = {"skipoVersion": skipo_version, "integrity": {}, "requiredDependencies": {}}
+                hashes = _input_hashes(root, [], {}, None)
+                return {"ok": True, "operation": "dependency-migration-plan", "paths": {},
+                        "migrations": [], "errors": [], "applied": False, "offlineUnchanged": True,
+                        **seal, "inputHashes": hashes,
+                        "planId": _dependency_plan_id({}, [], hashes, seal)}
         plan = _legacy_dependency_plan(root, skipo_version)
     except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
         return {"ok": False, "operation": "dependency-migration-plan",
