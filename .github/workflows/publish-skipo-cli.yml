@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - "skipo-v*"
-  issues:
-    types: [opened]
 
 permissions:
   contents: read
@@ -13,11 +11,6 @@ permissions:
 
 jobs:
   publish:
-    if: >-
-      github.event_name == 'push' ||
-      (github.event_name == 'issues' &&
-       github.event.issue.user.login == 'dinilmusick' &&
-       github.event.issue.title == '[skipo-release] 1.1.1')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -30,11 +23,7 @@ jobs:
 
       - name: Verify release versions
         run: |
-          if [ "${GITHUB_EVENT_NAME}" = "issues" ]; then
-            TAG_VERSION="1.1.1"
-          else
-            TAG_VERSION="${GITHUB_REF_NAME#skipo-v}"
-          fi
+          TAG_VERSION="${GITHUB_REF_NAME#skipo-v}"
           SKIPO_VERSION="$(node -p "require('./packages/skipo/package.json').version")"
           ROOT_VERSION="$(node -p "require('./package.json').version")"
           test "$TAG_VERSION" = "$SKIPO_VERSION"
