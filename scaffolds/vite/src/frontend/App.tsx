@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { SkipoThemeProvider, type WorkspaceRecord } from '@ultrst-armada/floks/ui';
+import { SkipoThemeProvider, BaseButton, type WorkspaceRecord } from '@ultrst-armada/floks/ui';
 import { LuthAuthPage, type UseLuthAuthResult } from '@ultrst-armada/floks/auth';
 import MainPage from './pages/main/page.js';
 import WorkspacesPage from './pages/menus/workspaces/page.js';
@@ -26,13 +26,17 @@ export function App() {
   return (
     <SkipoThemeProvider defaultTheme="dark">
       {isGuest ? <MainPage isGuest /> : (
-        <LuthAuthPage
-          ecosystemId="ultrst-armada"
-          applicationId={getSkipoApplicationId()}
-          appName="SKIPO APP"
-          onContinueAsGuest={() => setIsGuest(true)}
-          authenticatedContent={(auth) => <AuthenticatedApplication key={auth.user?.id} auth={auth} />}
-        />
+        <>
+          <LuthAuthPage
+            ecosystemId="ultrst-armada"
+            applicationId={getSkipoApplicationId()}
+            appName="SKIPO APP"
+            authenticatedContent={(auth) => <AuthenticatedApplication key={auth.user?.id} auth={auth} />}
+          />
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 12 }}>
+            <BaseButton type="button" onClick={() => setIsGuest(true)}>Continue as guest</BaseButton>
+          </div>
+        </>
       )}
     </SkipoThemeProvider>
   );
