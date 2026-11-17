@@ -183,3 +183,12 @@ def test_mixed_lockfile_managers_rejected(tmp_path):
     (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: 9")
     plan = plan_dependency_migrations(tmp_path)
     assert not plan["ok"] and "package manager lockfile" in str(plan["errors"])
+
+
+def test_dependency_free_legacy_application_still_supported(tmp_path):
+    write(tmp_path / "package.json", {"name": "demo", "dependencies": {}})
+    (tmp_path / "package-lock.json").write_text("{}")
+    planned = plan_dependency_migrations(tmp_path)
+    assert planned["ok"] and not planned["migrations"]
+    assert execute_dependency_migrations(tmp_path, planned)["ok"]
+    assert verify_dependency_migrations(tmp_path)["ok"]
