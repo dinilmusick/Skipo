@@ -40,8 +40,8 @@ def test_cli_diagnose_plan_repair_verify_lifecycle(tmp_path):
     assert "APP_URL=https://app.example" in env_file.read_text()
 
     verify = run_cli("verify", tmp_path)
-    assert verify.returncode == 0, verify.stdout + verify.stderr
-    assert json.loads(verify.stdout)["environment"]["ok"] is True
+    assert verify.returncode != 0, "Environment-only fixture lacks canonical application capabilities"
+    assert json.loads(verify.stdout)["independent"]["environment"]["ok"] is True
 
 
 def test_cli_repair_blocks_unknown_configuration_without_mutation(tmp_path):
