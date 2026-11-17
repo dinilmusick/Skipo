@@ -130,7 +130,12 @@ def build_plan(root: Path, framework_version: str,
     canonical = load_registry()["applicationState"]
     state = inspect(root, environment=environment, git_status=git_status)
     actions: list[dict[str, Any]] = []
-    errors = list(_environment_errors(state, canonical))
+    contract = canonical
+    if state["lockfile"] == "package-lock.json":
+        contract = {**canonical, "environment": {
+            **canonical["environment"], "packageManager": "npm", "lockfile": "package-lock.json",
+        }}
+    errors = list(_environment_errors(state, contract))
     if state["package_error"]:
         errors.append(state["package_error"])
     if not state["package"]:
@@ -142,8 +147,11 @@ def build_plan(root: Path, framework_version: str,
         actions.append({"phase": "update", "action": "framework", "from": previous_framework, "to": framework_version})
 
     package = state["package"]
-    required_manager = canonical.get("environment", {}).get("packageManager")
-    if required_manager and package.get("packageManager") != required_manager:
+    required_manager = contract.get("environment", {}).get("packageManager")
+    declared_manager = package.get("packageManager")
+    if required_manager == "npm" and declared_manager and not declared_manager.startswith("npm@"):
+        errors.append("package-lock.json conflicts with the declared package manager.")
+    if required_manager and required_manager != "npm" and declared_manager != required_manager:
         actions.append({"phase": "update", "action": "package-manager",
                         "from": package.get("packageManager"), "to": required_manager})
     current_dependencies = dict(package.get("dependencies", {}))
@@ -202,7 +210,7 @@ def build_plan(root: Path, framework_version: str,
     if not environment_plan.get("ok", False):
         errors.extend(environment_plan.get("errors", []))
 
-    expected_lockfile = canonical.get("environment", {}).get("lockfile", "package-lock.json")
+    expected_lockfile = contract.get("environment", {}).get("lockfile", "package-lock.json")
     present_lockfiles = [name for name in ("pnpm-lock.yaml", "yarn.lock", "package-lock.json") if (root / name).exists()]
     unexpected_lockfiles = sorted(name for name in present_lockfiles if name != expected_lockfile)
     if unexpected_lockfiles:
@@ -308,7 +316,7 @@ def execute_plan(root: Path, plan: dict[str, Any], framework_version: str,
 
     for action in actions:
         if action["action"] == "dependency":
-            continue
+            package.setdefault("dependencies", {})[action["package"]] = action["to"]
         elif action["action"] == "framework":
             project.update({"framework": "skipo", "skipo_version": framework_version,
                             "updated_by": "skipo", "migration_policy": "deterministic-idempotent"})
@@ -365,11 +373,16 @@ def execute_plan(root: Path, plan: dict[str, Any], framework_version: str,
         _write_json(dependency_state_path, dependency_state)
 
     sync_result = {"ok": True, "skipped": True}
-    if any(action["action"] == "reconcile-lockfile" for action in actions):
+    lockfile_action = next((action for action in actions if action["action"] == "reconcile-lockfile"), None)
+    if lockfile_action:
         sync_result = (lockfile_sync or _run_lockfile_sync)(root, package)
         if not sync_result.get("ok"):
             return {"ok": False, "operation": "update", "applied": True,
                     "errors": ["Lockfile reconciliation failed."], "sync": sync_result, "actions": actions}
+        if not (root / lockfile_action["lockfile"]).is_file():
+            return {"ok": False, "operation": "update", "applied": True,
+                    "errors": [f"Canonical lockfile missing: {lockfile_action['lockfile']}."],
+                    "sync": sync_result, "actions": actions}
 
     environment_plan = plan.get("environment", {})
     environment_result = {"ok": True, "skipped": True}
