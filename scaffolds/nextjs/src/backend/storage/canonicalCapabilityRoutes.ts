@@ -26,8 +26,9 @@ export async function createWorkspace(userId: string, workspace: unknown, env?: 
       !(workspace as { name: string }).name.trim()) {
     throw new Error('Workspace name is required.');
   }
-  // The provider receives the verified principal, never a body-supplied owner.
-  return WorkspaceServiceFacade.execute('createWorkspace', { userId, workspace, env });
+  // Never persist a client-supplied owner or application environment alongside a workspace.
+  const { userId: _ignoredUser, ownerUserId: _ignoredOwner, env: _ignoredEnv, ...safeWorkspace } = workspace as Record<string, unknown>;
+  return WorkspaceServiceFacade.execute('createWorkspace', { userId, workspace: safeWorkspace, env });
 }
 
 export async function invokeStorage(
