@@ -73,7 +73,7 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
     }
 
     if (path === '/api/storage/google-drive/callback' && request.method === 'GET') {
-      const nonceCookie = request.headers.get('cookie')?.match(/(?:^|;\\s*)skipo_google_drive_nonce=([^;]*)/)?.[1] || '';
+      const nonceCookie = request.headers.get('cookie')?.match(/(?:^|;\s*)skipo_google_drive_nonce=([^;]*)/)?.[1] || '';
       const value = await completeGoogleDriveOAuth(
         userId, url.searchParams.get('state') || '', decodeURIComponent(nonceCookie),
         url.searchParams.get('code') || '', url.origin, env,
