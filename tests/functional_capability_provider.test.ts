@@ -79,7 +79,7 @@ for (const [name, adapter] of [['Next.js', next], ['Vite', vite]] as const) {
 
 describe('generation exercised by the published Skipo CLI entrypoint', () => {
   it('generates a workspace capability without placeholder data in an independent app', () => {
-    execFileSync('python3', ['-m', 'pytest', '-q', '--import-mode=importlib', 'tests/functional_capability_generation.test.py'], {
+    execFileSync('python3', ['-m', 'pytest', '-q', '--import-mode=importlib', 'tests/test_functional_capability_generation.py'], {
       cwd: process.cwd(),
       stdio: 'pipe',
     });
