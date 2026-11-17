@@ -240,3 +240,39 @@ def test_package_contract_symlink_to_other_provider_is_rejected(tmp_path):
     file.symlink_to(other / 'skipo.migrations.json')
     plan = plan_dependency_migrations(root)
     assert not plan['ok'] and 'escapes installed package' in str(plan['errors'])
+
+
+def test_compatible_cross_provider_upgrade_applies(tmp_path):
+    other = '@ultrst-armada/frnlts'
+    root = fixture(tmp_path, [migration('to-3', '1.0.0', '3.0.0',
+                     requiresDependencies={other: '^2.0.0'},
+                     transformations=[{'type': 'replace_text', 'paths': ['src/provider.ts'],
+                                       'find': 'OldProvider', 'replace': 'NewProvider'}],
+                     verification=[{'type': 'text_present', 'paths': ['src/provider.ts'], 'text': 'NewProvider'}])],
+                   names={NAME: '3.0.0', other: '2.1.0'})
+    plan = plan_dependency_migrations(root)
+    assert plan['ok'], plan['errors']
+    assert plan['integrity']['verifiedVersions'][other] == '2.1.0'
+    result = execute_dependency_migrations(root, plan)
+    assert result['ok'], result['errors']
+    assert verify_dependency_migrations(root)['ok']
+
+
+def test_ambiguous_unresolved_historical_version_is_rejected(tmp_path):
+    root = fixture(tmp_path, staged_migrations())
+    state = root / '.skipo/dependencies.json'
+    state.write_text(json.dumps({NAME: '^1.0.0'}))
+    plan = plan_dependency_migrations(root)
+    assert not plan['ok']
+    assert 'Invalid exact dependency version' in str(plan['errors'])
+
+
+def test_sealed_plan_rejects_compatibility_requirement_tamper(tmp_path):
+    root = fixture(tmp_path, staged_migrations())
+    plan = plan_dependency_migrations(root)
+    assert plan['ok']
+    plan['requiredDependencies']['@ultrst-armada/nonexistent'] = '^5.0.0'
+    result = execute_dependency_migrations(root, plan)
+    assert not result['ok']
+    assert 'altered after preflight' in str(result['errors'])
+    assert (root / 'src/provider.ts').read_text() == 'OldProvider'
