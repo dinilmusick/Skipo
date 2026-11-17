@@ -23,6 +23,7 @@
   },
   "runtime_platform": {
     "NODE_ENV": "Node.js runtime mode",
+    "NEXT_RUNTIME": "Next.js instrumentation runtime discriminator supplied by Next.js",
     "PORT": "Hosting adapter's server port",
     "CI": "CI platform execution marker",
     "DISABLE_HMR": "Vite local developer server tooling switch",
