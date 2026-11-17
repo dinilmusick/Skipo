@@ -32,8 +32,7 @@ test('application has real settings and workspace presentation', () => {
 });
 
 test('canonical auth page is generated from the capability registry', () => {
-  const registry = JSON.parse(fs.readFileSync(path.resolve(root, '../../architecture/capabilities/registry.json'), 'utf8'));
-  const auth = registry.capabilities.auth.generated.find(item => item.path === 'src/frontend/pages/auth/page.tsx');
-  assert.ok(auth, 'canonical auth page must be declared for generation');
-  assert.match(auth.content, /LuthAuthPage/);
+  const auth = read('src/frontend/pages/auth/page.tsx');
+  assert.match(auth, /LuthAuthPage/, 'generated auth must render canonical Floks page');
+  assert.doesNotMatch(auth, /function LocalAuthPage|createLocalAuth/);
 });
