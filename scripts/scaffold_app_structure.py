@@ -70,7 +70,7 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
                 "@aws-sdk/s3-request-presigner": "^3.1132.0",
                 "@dinilmusick/gutts": "^2.1.1",
                 "@neondatabase/serverless": "^1.1.0",
-                "@ultrst-armada/floks": "^2.0.0",
+                "@ultrst-armada/floks": "2.0.6",
                 "@ultrst-armada/frnlts": "^0.5.23",
                 "@ultrst-armada/kloks": "^2.0.4",
                 "@ultrst-armada/krnl": "^1.0.25",
