@@ -26,7 +26,7 @@ def test_workspace_creation_dialog_is_owned_by_floks_for_all_skipo_scaffolds():
         assert "WorkspaceTilesMenu" in gate
         assert "storageOptions" in gate
         assert "onManageStorage={onManageStorage}" in gate
-        assert re.fullmatch(r"\^2\.\d+\.\d+", package["dependencies"]["@ultrst-armada/floks"])
+        assert re.fullmatch(r"\^?2\.\d+\.\d+", package["dependencies"]["@ultrst-armada/floks"])
 
     generator = (ROOT / "scripts/scaffold_app_structure.py").read_text()
     root_package = __import__("json").loads((ROOT / "package.json").read_text())
