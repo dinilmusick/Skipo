@@ -6,12 +6,12 @@ provider scripts or changes app-owned/unknown files without an explicit grant.
 ## Integration API
 
 ```python
-from scripts.skipo_dependency_migrations import (
+from skipo_dependency_migrations import (
     plan_dependency_migrations,
     execute_dependency_migrations,
     verify_dependency_migrations,
 )
-from scripts.skipo_dependency_safety import recover_dependency_migrations
+from skipo_dependency_safety import recover_dependency_migrations
 
 plan = plan_dependency_migrations(app_root, skipo_version="1.1.0")
 if plan["ok"]:
@@ -20,7 +20,8 @@ if plan["ok"]:
 # When an interrupted journal exists, recover explicitly before re-planning.
 ```
 
-The planner reads `package.json`, an npm v2/v3 `package-lock.json` or
+The standalone `scripts` directory must be on `PYTHONPATH` (as it is for the
+existing Skipo CLI). The planner reads `package.json`, an npm v2/v3 `package-lock.json` or
 `npm-shrinkwrap.json`, installed `node_modules/<package>/package.json`, the
 app's `.skipo/dependencies.json` previous-resolution ledger, and the versioned
 contract declared in the **installed provider package's** `skipo.migrations.json`
