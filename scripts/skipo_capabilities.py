@@ -133,7 +133,7 @@ def diagnose(root: Path) -> list[dict[str, Any]]:
                     rf"\\b(?:function|class|const|let|var)\\s+{re.escape(symbol)}\\b",
                     text,
                 ) or re.search(
-                    rf"\\b(?:from|require\\()\\s*['\\\"](?:\\.{1,2}/|@/)[^'\\\"]*{re.escape(symbol)}",
+                    rf"\\bimport\\s+(?:\\{{[^}}]*\\b{re.escape(symbol)}\\b[^}}]*\\}}|{re.escape(symbol)})\\s+from\\s*['\\\"](?:\\.{1,2}/|@/)",
                     text,
                 )
                 for symbol in provider_symbols
