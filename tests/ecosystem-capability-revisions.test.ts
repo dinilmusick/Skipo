@@ -81,8 +81,8 @@ describe('per-deployment static capability revisions', () => {
     const app = createEcosystemRuntime({
       appId: 'aiko',
       deploymentId: deploymentA,
-      capabilities: { 'workspace.list': async () => [] },
-      capabilityDescriptors: [ping],
+      capabilities: { workspaceList: async () => [] },
+      capabilityDescriptors: [{ ...ping, id: 'workspaceList' }],
       authenticate: async () => 'user-1',
       query: () => query,
     });
