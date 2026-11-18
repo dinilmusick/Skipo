@@ -47,6 +47,11 @@ BEGIN
     RAISE EXCEPTION 'FAIL: legacy catalog key changed';
   EXCEPTION WHEN check_violation THEN NULL;
   END;
+  BEGIN
+    DELETE FROM public."ultrst-apps" WHERE id = test_app;
+    RAISE EXCEPTION 'FAIL: canonical app could be deleted and identity reused';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
 
   BEGIN
     INSERT INTO skipo_ecosystem.deployments
