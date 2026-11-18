@@ -372,7 +372,7 @@ def test_project(root: Path) -> int:
 
 def main() -> int:
     if sys.argv[1:3] == ["update", "--pages"] or (sys.argv[1:2] == ["repair"] and sys.argv[2:3] in (["auth"], ["login"], ["workspace"], ["main"])):
-        from skipo_pages import compose_page
+        from skipo_pages import reconcile_pages
         page_parser = argparse.ArgumentParser(prog="skipo " + " ".join(sys.argv[1:3]))
         page_parser.add_argument("target", nargs="?", type=Path, default=Path.cwd())
         page_parser.add_argument("--plan", action="store_true")
@@ -380,12 +380,9 @@ def main() -> int:
         root = options.target.resolve()
         pages = ["auth", "workspace", "main"] if sys.argv[1] == "update" else [sys.argv[2]]
         try:
-            for page in pages:
-                result = compose_page(root, "auth" if page == "login" else page, apply=not options.plan)
-                print(json.dumps(result))
-                if not result["ok"]:
-                    return 1
-            return 0
+            result = reconcile_pages(root, pages, apply=not options.plan)
+            print(json.dumps(result, indent=2))
+            return 0 if result["ok"] else 1
         except (ValueError, OSError) as exc:
             print(json.dumps({"ok": False, "error": str(exc)}))
             return 1
@@ -443,9 +440,9 @@ def main() -> int:
     if a.command == "add" and items and (target / "vite.config.ts").is_file():
         page = "auth" if items[0] == "login" else items[0]
         if page in {"auth", "workspace", "main"} and (len(items) == 1 or items[:2] == ["main", "tab"]):
-            from skipo_pages import compose_page
+            from skipo_pages import reconcile_pages
             try:
-                result = compose_page(target, page, items[2] if len(items) == 3 else None, apply=not a.plan)
+                result = reconcile_pages(target, [page], items[2] if len(items) == 3 else None, apply=not a.plan)
                 print(json.dumps(result, indent=2))
                 return 0 if result["ok"] else 1
             except (ValueError, OSError) as exc:
