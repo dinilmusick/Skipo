@@ -36,7 +36,7 @@ export function MainTabContent({
 }: { id: string; activeWorkspace?: WorkspaceRecord | null; isGuest?: boolean }) {
   const Page = mainPageTabs.find(tab => tab.id === id)?.Page;
   return Page ? (
-    <Page workspaceId={activeWorkspace?.id} activeWorkspace={activeWorkspace} isGuest={isGuest} />
+    <Page key={`${id}:${activeWorkspace?.id || (isGuest ? 'guest' : 'unselected')}`} workspaceId={activeWorkspace?.id} activeWorkspace={activeWorkspace} isGuest={isGuest} />
   ) : null;
 }
 
