@@ -42,10 +42,11 @@ def _run(command: list[str], cwd: Path, limit: int = 180) -> dict[str, Any]:
     try:
         completed = subprocess.run(command, cwd=str(cwd), text=True, capture_output=True,
                                    timeout=limit, check=False)
-        return {"exit_code": completed.returncode,
+        return {"exit_code": completed.returncode, "stdout": completed.stdout,
+                "stderr": completed.stderr,
                 "output": (completed.stdout + "\n" + completed.stderr).strip()}
     except (OSError, subprocess.TimeoutExpired) as exc:
-        return {"exit_code": None, "output": str(exc)}
+        return {"exit_code": None, "stdout": "", "stderr": str(exc), "output": str(exc)}
 
 
 def _project_scripts(root: Path) -> dict[str, str]:
@@ -208,7 +209,7 @@ def _architecture(root: Path) -> list[dict[str, Any]]:
                        str(root), "--json"], ROOT, 240)
         if result["exit_code"] is None:
             raise RuntimeError(result["output"])
-        report = json.loads(result["output"])
+        report = json.loads(result["stdout"])
         findings = []
         for aspect in report.get("aspects", []):
             for item in aspect.get("violations", []):
