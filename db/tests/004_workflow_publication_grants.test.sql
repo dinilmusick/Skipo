@@ -112,6 +112,18 @@ BEGIN
     EXCEPTION WHEN unique_violation THEN NULL;
     END;
     BEGIN
+      DELETE FROM skipo_ecosystem.workflow_publications WHERE id=publication_one;
+      RAISE EXCEPTION 'publication history deletion was accepted';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+
+    BEGIN
+      DELETE FROM skipo_ecosystem.workflow_grants WHERE id=grant_one;
+      RAISE EXCEPTION 'grant history deletion was accepted';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+
+    BEGIN
       INSERT INTO skipo_ecosystem.workflow_grants
         (publication_id, owner_user_id, target_workspace_id, caller_app_id,
          source_workspace_id, granted_by_user_id)
