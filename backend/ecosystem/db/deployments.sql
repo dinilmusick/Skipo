@@ -107,7 +107,7 @@ BEGIN
 END;
 $deployment_proof_gate$;
 
--- A deployment may move to another URL, but NEVER to another application/ID.
+-- Deployment IDs and app IDs are immutable. Only unverified deployments may\n-- change URL directly; verified origin changes require separate re-attestation.
 CREATE OR REPLACE FUNCTION skipo_ecosystem.reject_deployment_identity_change()
 RETURNS trigger LANGUAGE plpgsql AS $deployment_identity$
 BEGIN
