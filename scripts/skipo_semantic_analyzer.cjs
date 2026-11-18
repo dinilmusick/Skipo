@@ -123,9 +123,14 @@ function projectOptions(ts, root, file, cache) {
   cache.set(config, parsed.options);
   return parsed.options;
 }
+function localSource(root, resolved) {
+  return inside(root, resolved) && !rel(root, resolved).split('/').some(segment =>
+    segment === 'node_modules' || segment === '.pnpm');
+}
 function resolveLocal(ts, root, file, specifier, options) {
   const resolved = ts.resolveModuleName(specifier, file, options, ts.sys).resolvedModule;
-  if (resolved && inside(root, path.resolve(resolved.resolvedFileName))) return path.resolve(resolved.resolvedFileName);
+  if (resolved && localSource(root, path.resolve(resolved.resolvedFileName)))
+    return path.resolve(resolved.resolvedFileName);
   // Paths aliases and NodeNext .js -> .ts are handled by the compiler above; this
   // fallback covers a missing tsconfig and extensionless imports without guessing.
   if (!specifier.startsWith('.')) return null;
@@ -133,7 +138,7 @@ function resolveLocal(ts, root, file, specifier, options) {
   const candidates = [target, ...['.ts','.tsx','.js','.jsx','.mts','.cts'].map(ext => target + ext),
     ...['.ts','.tsx','.js','.jsx'].map(ext => path.join(target, 'index' + ext))];
   if (/\.jsx?$/.test(target)) candidates.push(target.replace(/\.jsx?$/, '.ts'), target.replace(/\.jsx?$/, '.tsx'));
-  return candidates.find(p => inside(root,p) && fs.existsSync(p) && fs.statSync(p).isFile()) || null;
+  return candidates.find(p => localSource(root,p) && fs.existsSync(p) && fs.statSync(p).isFile()) || null;
 }
 function analyzeProject(rootInput, options = {}) {
   const root = path.resolve(rootInput || '.');
