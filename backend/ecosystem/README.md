@@ -98,3 +98,41 @@ Descriptors are allowlisted static metadata (schemas, access policy and
 BackendFacade service/operation mapping); session endpoints, credentials,
 tokens, workflow definitions and secret material are rejected/not stored.
 The Vite scaffold receives byte-identical SQL and runtime copies.
+
+## Metadata-only workflow publication and grants (v3)
+
+The registry stores only a workflow descriptor: canonical app, owner, owning
+workspace, stable workflow ID, immutable version, display name, description,
+and publish/withdraw state. Workflow definitions, graph nodes, source,
+execution inputs/outputs, credentials and runtime payloads remain in the
+owning application's workspace.
+
+A publication's identity, version and display metadata cannot be changed after
+creation. Withdrawal is one-way. Publish a changed workflow as a new version;
+never rewrite an existing published version.
+
+A grant binds one publication to an exact caller app, source workspace and
+target owning workspace. The grant scope and grantor are immutable. Only the
+publication owner may grant or revoke. Revocation is permanent and leaves an
+auditable row. Publication and grant history cannot be deleted. A later grant creates a new row; a partial unique index allows
+only one active grant for a given publication/caller/source/target scope.
+New grants are refused for withdrawn publications.
+
+Registry rows are metadata, not authorization tokens. The publishing API must
+authenticate the Luth principal and verify publication ownership before
+granting or revoking. Every target invocation and nested hop must re-check the
+current publication state, owner, caller app, source and target workspaces,
+requested version, and active grant. A withdrawn publication or revoked grant
+must fail closed immediately. Do not infer authorization from discovery
+results, cached descriptors, deployment leases or caller-supplied user IDs.
+
+The migration explicitly drops the earlier all-history `workflow_grants_scope_unique`
+constraint before creating the active-only partial index, so re-applying over
+an existing first-draft N5 schema still permits auditable re-grants.
+
+The isolated Neon test fixture is
+`db/tests/004_workflow_publication_grants.test.sql`. Run it only after
+applying the migration on the approved isolated development branch. It verifies
+owner/workspace isolation, immutable publication and grant fields, one-way
+withdrawal/revocation, auditable new-row re-grants, duplicate-active refusal,
+withdrawal gating and zero-fixture rollback.
