@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { dispatchNodeRequest } from './nodeRequestAdapter.js';
-import { fetchHandler } from '../backend/adapters/httpsAdapter.js';
+import { fetch as fetchHandler } from '../app.js';
 
 export const config = { api: { bodyParser: false } };
 

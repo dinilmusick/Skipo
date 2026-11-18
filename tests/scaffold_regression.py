@@ -83,10 +83,11 @@ class ScaffoldRegressionTest(unittest.TestCase):
         self.assertNotIn('/src/main.tsx', index_html)
         self.assertFalse((base / "src" / "main.tsx").exists(), "Obsolete root src/main.tsx must not remain")
 
-    def test_provider_entries_share_the_fetch_contract_without_node_leakage(self):
+    def test_provider_entries_share_the_canonical_fetch_handler_without_node_leakage(self):
         scaffold_name = "vite"
         base = SKIPO_ROOT / "scaffolds" / scaffold_name
         app_source = (base / "src/app.ts").read_text(encoding="utf-8")
+        legacy_adapter = (base / "src/backend/adapters/httpsAdapter.ts").read_text(encoding="utf-8")
         worker_source = (base / "src/providers/cloudflare.ts").read_text(encoding="utf-8")
         vercel_source = (base / "src/providers/vercel.ts").read_text(encoding="utf-8")
         node_source = (base / "src/providers/node.ts").read_text(encoding="utf-8")
@@ -94,16 +95,26 @@ class ScaffoldRegressionTest(unittest.TestCase):
         vercel = json.loads((base / "vercel.json").read_text(encoding="utf-8"))
 
         self.assertIn("UniversalBackend", app_source)
+        self.assertIn("ecosystem.observe", app_source)
+        self.assertIn("authenticateLuthRequest", app_source)
+        self.assertIn("handleUiSessionRequest", app_source)
+        self.assertIn("canonicalCapabilityRoutes", app_source)
+        self.assertIn("completeGoogleDriveOAuth", app_source)
         self.assertIn("fetchStaticAsset", app_source)
         self.assertNotIn("httpsAdapter", app_source)
-        self.assertIn("httpsAdapter.js", worker_source)
+        self.assertIn("../app.js", worker_source)
+        self.assertNotIn("httpsAdapter.js", worker_source)
         self.assertIn("fetchHandler", worker_source)
         self.assertNotIn("node:", worker_source)
+        self.assertIn("../app.js", vercel_source)
         self.assertIn("nodeRequestAdapter", vercel_source)
         self.assertIn("fetchHandler", vercel_source)
         self.assertNotIn("runtime: \"edge\"", vercel_source)
-        self.assertIn("httpsAdapter.js", node_source)
+        self.assertIn("../app.js", node_source)
+        self.assertNotIn("httpsAdapter.js", node_source)
         self.assertIn("fetchHandler", node_source)
+        self.assertIn("fetch as fetchHandler", legacy_adapter)
+        self.assertIn("../../app.js", legacy_adapter)
         self.assertIn('main = "dist/providers/cloudflare/worker.js"', wrangler)
         self.assertIn('not_found_handling = "none"', wrangler)
         self.assertNotIn("nodejs_compat", wrangler)
