@@ -9,9 +9,10 @@ export interface SkipoTabRuntime {
 }
 
 // A tab may be command-generated (name-hash) or app-owned (plain directory).
-// Only page.tsx is an entrypoint; supporting code can live anywhere under tabs.
+// Only a direct child tab/page.tsx is registered. Nested support pages stay private
+// to that tab and must not appear as unrelated top-level navigation tabs.
 const modules = import.meta.glob<{ title?: string; default: ComponentType<SkipoTabRuntime> }>(
-  './tabs/**/page.tsx', { eager: true },
+  './tabs/*/page.tsx', { eager: true },
 );
 
 function labelFor(path: string, title?: string): string {
