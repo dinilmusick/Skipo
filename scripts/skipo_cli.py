@@ -69,12 +69,49 @@ def manifest(root: Path) -> dict[str, Any]:
 def is_project(root: Path) -> bool:
     return (root / ".skipo" / "project.json").exists() or (root / "package.json").exists()
 
+def _snapshot_app_tabs_for_refresh(target: Path) -> tuple[list[Path], dict[Path, bytes]]:
+    """Capture only app-owned tab code before a forced scaffold replacement.
+
+    Framework files outside tabs may be replaced, but custom tabs are exclusively
+    application-owned. Reject symlinks before any potentially destructive copy.
+    """
+    parts = ("src", "frontend", "pages", "main", "tabs")
+    cursor = target
+    for part in parts:
+        cursor /= part
+        if cursor.is_symlink():
+            raise ValueError("Custom tab path contains a symlink: " + str(cursor))
+    if not cursor.exists():
+        return [], {}
+    if not cursor.is_dir():
+        raise ValueError("Custom tab root is not a directory: " + str(cursor))
+    directories: list[Path] = []
+    files: dict[Path, bytes] = {}
+    for child in sorted(cursor.rglob("*")):
+        if child.is_symlink():
+            raise ValueError("Custom tab contains a symlink: " + str(child))
+        relative = child.relative_to(cursor)
+        if child.is_dir():
+            directories.append(relative)
+        elif child.is_file():
+            files[relative] = child.read_bytes()
+        else:
+            raise ValueError("Custom tab contains a non-regular entry: " + str(child))
+    return directories, files
+
+
 def create_project(name: str, target: Path, framework: str, force: bool) -> int:
     source = SCAFFOLDS / framework
     if not source.is_dir():
         print(json.dumps({"ok": False, "error": f"Unknown scaffold: {framework}"})); return 2
     if target.exists() and any(target.iterdir()) and not force:
         print(json.dumps({"ok": False, "error": f"Target is not empty: {target}"})); return 2
+    try:
+        tab_directories, tab_files = _snapshot_app_tabs_for_refresh(target) if force else ([], {})
+    except (OSError, ValueError) as exc:
+        print(json.dumps({"ok": False, "error": "Unsafe app-owned tab source; refusing forced scaffold replacement.",
+                          "details": str(exc)}))
+        return 2
 
     # A forced scaffold refresh may replace framework files, but it must never
     # reset an application's durable identity or registry-provisioned roles.
@@ -114,6 +151,17 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
             except UnicodeDecodeError:
                 continue
             p.write_text(text.replace("MyApp", name).replace("my-app", name.lower().replace(" ", "-")), encoding="utf-8")
+    # Restore the original bytes *after* template placeholder substitution;
+    # never rewrite app-owned source, and let canonical-shell validation enforce
+    # the boundary without silently deleting custom tabs.
+    tab_root = target / "src" / "frontend" / "pages" / "main" / "tabs"
+    for relative in tab_directories:
+        (tab_root / relative).mkdir(parents=True, exist_ok=True)
+    for relative, raw in tab_files.items():
+        destination = tab_root / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(raw)
+
     d = target / ".skipo"
     d.mkdir(exist_ok=True)
     project_manifest = {
