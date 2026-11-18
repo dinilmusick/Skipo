@@ -26,6 +26,7 @@ function deploymentOrigin(input: unknown): string {
 
 export function createEcosystemRuntime(options: {
   appId: string;
+  registrationStatus?: 'pending_enrollment' | 'approved';
   capabilities: Record<string, Capability>;
   serviceCapabilities?: Record<string, (params: unknown, context: {
     callerApp: string; env: EcosystemEnv;
@@ -35,10 +36,14 @@ export function createEcosystemRuntime(options: {
   send?: typeof globalThis.fetch;
 }) {
   const { appId } = options;
+  const registrationStatus = options.registrationStatus ?? 'approved';
+  const identityApproved = registrationStatus === 'approved' && appPattern.test(appId);
+  const pendingIdentity = registrationStatus === 'pending_enrollment';
   const methods = new Map(Object.entries(options.capabilities));
   const serviceMethods = new Map(Object.entries(options.serviceCapabilities ?? {}));
   const capabilities = [...new Set([...methods.keys(), ...serviceMethods.keys()])].sort();
-  if (!appPattern.test(appId) || capabilities.some(name => !capabilityPattern.test(name)) ||
+  if ((!appPattern.test(appId) && !(pendingIdentity && (appId === '' || appPattern.test(appId)))) ||
+      capabilities.some(name => !capabilityPattern.test(name)) ||
       capabilities.length !== methods.size + serviceMethods.size) {
     throw new Error('Invalid ecosystem application or capability identifier.');
   }
@@ -50,6 +55,7 @@ export function createEcosystemRuntime(options: {
   let timer: ReturnType<typeof setInterval> | undefined;
 
   function heartbeat(env: EcosystemEnv, force = false): Promise<void> {
+    if (!identityApproved) return Promise.resolve();
     if (!env.APP_URL || !env.SYSTEM_DATABASE_URL) return Promise.resolve();
     // The untouched scaffold default is reserved for local development.
     if (env.APP_URL === 'http://localhost:3000') return Promise.resolve();
@@ -85,6 +91,7 @@ export function createEcosystemRuntime(options: {
     const respond = (body: unknown, status = 200) => Response.json(body, {
       status, headers: { 'cache-control': 'no-store' },
     });
+    if (!identityApproved) return respond({ error: 'APP_ENROLLMENT_REQUIRED' }, 503);
     if (request.method !== 'POST') return respond({ error: 'METHOD_NOT_ALLOWED' }, 405);
     const ticket = request.headers.get('x-skipo-invocation') || '';
     if (!ticketPattern.test(ticket)) return respond({ error: 'INVALID_INVOCATION' }, 401);
@@ -105,6 +112,7 @@ export function createEcosystemRuntime(options: {
   }
 
   async function client(request: Request, env: EcosystemEnv): Promise<RemoteApps> {
+    if (!identityApproved) throw new Error('Application enrollment is required before ecosystem invocation.');
     const userId = await options.authenticate(request, env);
     if (!userId) throw new Error('A verified Luth session is required to call ecosystem apps.');
     return createClient(env, userId);
@@ -112,6 +120,7 @@ export function createEcosystemRuntime(options: {
 
   function createClient(env: EcosystemEnv, userId: string | null): RemoteApps {
     async function invoke(app: string, capability: string, params: unknown) {
+      if (!identityApproved) throw new Error('Application enrollment is required before ecosystem invocation.');
       const payload = JSON.stringify(params ?? null);
       if (new TextEncoder().encode(payload).byteLength > 64 * 1024) {
         throw new Error('Ecosystem capability parameters exceed 64 KiB.');
