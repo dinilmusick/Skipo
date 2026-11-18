@@ -3,7 +3,7 @@
 Apply `db/skipo-ecosystem-deployments.sql` once to the primary Postgres database
 referenced by the apps' `SYSTEM_DATABASE_URL`. The migration creates only the
 private `skipo_ecosystem` schema. The application role needs schema usage,
-select/insert/update on deployments, and select/insert/delete on invocations.
+select/insert/update on deployments, select/insert on deployment capability revisions, and select/insert/delete on invocations.
 Grant these only to trusted ecosystem backend roles. Database writers share a
 trust boundary and can act on behalf of the code running on those servers.
 
@@ -78,3 +78,24 @@ Generated projects ship the portable runtime and SQL. To refresh an adopted
 project's generated files, run `python3 scripts/sync-ecosystem-runtime.py APP`
 from the framework checkout. The app's composition and provider adapters own
 its application ID, capability choices, and lifecycle wiring.
+
+ 
+## Versioned static capability snapshots (N4)
+
+Each stable deployment UUID owns an independent, monotonic stream of complete
+static capability descriptor snapshots. Identical snapshots are idempotent;
+a changed snapshot creates the next revision, so removing an operation removes
+it from the current snapshot rather than leaving a stale union. Only a
+deployment with a verified control-plane proof and a live lease may publish or
+resolve its latest snapshot.
+
+The descriptor allowlist contains only public metadata and service/operation
+mappings. The runtime and database both reject nested credential/key material,
+session or endpoint fields, URL values, bearer values and JWT-like values.
+Snapshots are append-only and immutable; their revision numbers must be
+contiguous. Deployment rows with snapshots cannot be deleted.
+
+Run `db/tests/005_deployment_capability_revisions.test.sql` only on the
+approved isolated Neon branch after applying the migration. It verifies
+independent deployment streams, monotonic revisions, verified/live-lease
+gating, recursive descriptor safety, snapshot immutability and rollback.
