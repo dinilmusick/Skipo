@@ -78,3 +78,20 @@ Generated projects ship the portable runtime and SQL. To refresh an adopted
 project's generated files, run `python3 scripts/sync-ecosystem-runtime.py APP`
 from the framework checkout. The app's composition and provider adapters own
 its application ID, capability choices, and lifecycle wiring.
+
+
+## Versioned static capability snapshots
+
+Stable deployment identities may publish complete static capability descriptor
+snapshots with `publishDeploymentCapabilityRevision`. Each deployment has an
+independent monotonic revision stream. An unchanged descriptor set is a no-op;
+a changed set creates a new immutable revision, so removing an operation
+withdraws it from the current snapshot instead of leaving stale unioned data.
+
+Only deployments with `verification_state = 'verified'` and a future
+`lease_expires_at` can publish or resolve a current snapshot. Existing
+unverified deployments remain unavailable to this descriptor resolver.
+Descriptors are allowlisted static metadata (schemas, access policy and
+BackendFacade service/operation mapping); session endpoints, credentials,
+tokens, workflow definitions and secret material are rejected/not stored.
+The Vite scaffold receives byte-identical SQL and runtime copies.
