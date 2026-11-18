@@ -397,24 +397,50 @@ def certify_project(root: Path, require_live: bool = False, output: str | None =
     return {"compliant_offline": 0, "noncompliant": 1, "unresolved": 2}[payload["compliance_status"]]
 
 def test_project(root: Path) -> int:
-    if not is_project(root):
+    """Run all four executable quality gates; never silently skip one."""
+    from skipo_conformance import REQUIRED_SCRIPTS, _runner, _script_preflight
+
+    package_path = root / "package.json"
+    if not is_project(root) or not package_path.is_file():
+        print(json.dumps({"ok": False, "operation": "test", "error": "Application package.json is required"}))
         return 2
-    pkg=root/"package.json"
-    if not pkg.exists():
+    try:
+        package = json.loads(package_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError) as exc:
+        print(json.dumps({"ok": False, "operation": "test", "error": f"Invalid package.json: {exc}"}))
         return 2
-    scripts=json.loads(pkg.read_text(encoding="utf-8")).get("scripts",{})
-    runner = "pnpm" if (root / "pnpm-lock.yaml").exists() else ("yarn" if (root / "yarn.lock").exists() else "npm")
-    commands=[]
-    for name in ("typecheck","lint","test","build"):
-        command = scripts.get(name)
-        if command and "skipo_cli.py test" not in command and "skipo test" not in command:
-            commands.append([runner,"run",name])
-    for cmd in commands:
-        if run(cmd,root):
+    if not isinstance(package, dict):
+        print(json.dumps({"ok": False, "operation": "test", "error": "package.json must be an object"}))
+        return 2
+
+    runner, locks = _runner(root)
+    if runner is None:
+        print(json.dumps({"ok": False, "operation": "test", "error":
+                          "Exactly one supported lockfile is required", "lockfiles": locks}))
+        return 2
+    scripts = package.get("scripts")
+    failures = [issue for name in REQUIRED_SCRIPTS
+                if (issue := _script_preflight(name, scripts)) is not None]
+    if failures:
+        print(json.dumps({"ok": False, "operation": "test", "error":
+                          "Required executable package scripts are missing or unsafe",
+                          "diagnostics": failures}, indent=2))
+        return 2
+
+    for name in REQUIRED_SCRIPTS:
+        command = [runner, "run", name]
+        try:
+            status = run(command, root)
+        except OSError as exc:
+            print(json.dumps({"ok": False, "operation": "test",
+                              "error": f"Cannot execute {name}: {exc}", "command": command}))
+            return 2
+        if status != 0:
+            print(json.dumps({"ok": False, "operation": "test",
+                              "error": f"Quality gate {name} failed",
+                              "command": command, "exit_code": status}))
             return 1
-    if verify_project(root):
-        return 1
-    return 0
+    return verify_project(root)
 
 def main() -> int:
     # Friendly full-stack page commands are aliases for the same atomic
