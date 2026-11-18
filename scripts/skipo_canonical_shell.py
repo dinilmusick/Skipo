@@ -257,12 +257,14 @@ def reconcile_shell(root: Path, apply: bool = True, title: str | None = None) ->
             before = path.read_bytes() if path.exists() else None
             if _digest(before) != item["before_sha256"]:
                 raise UnsafeShellRepair(f"Concurrent mutation of {rel}; refusing stale plan")
+            # Journal before mutation so even a write which raises after its
+            # replace is rolled back from the original exact bytes.
+            touched.append(rel)
             if item["action"] == "retire":
                 path.unlink()
             else:
                 mode = backups[rel][1] if backups[rel] else 0o644
                 _atomic_write(path, desired[rel], mode)
-            touched.append(rel)
         if not plan_shell(root, title)["noop"]:
             raise UnsafeShellRepair("Repaired shell still differs from Skipo canonical assets")
         if _snapshot_tabs(root) != expected_tabs:
