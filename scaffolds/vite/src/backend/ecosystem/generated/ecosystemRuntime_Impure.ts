@@ -36,7 +36,7 @@ export function createEcosystemRuntime(options: {
   send?: typeof globalThis.fetch;
 }) {
   const { appId } = options;
-  const registrationStatus = options.registrationStatus ?? 'approved';
+  const registrationStatus = options.registrationStatus ?? 'pending_enrollment';
   const identityApproved = registrationStatus === 'approved' && appPattern.test(appId);
   const pendingIdentity = registrationStatus === 'pending_enrollment';
   const methods = new Map(Object.entries(options.capabilities));
