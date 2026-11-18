@@ -122,7 +122,10 @@ export async function authenticateLuthRequest(request: Request): Promise<{
     }
 
     const forwarded = new Headers(request.headers);
-    // Replace caller-controlled app identity before passing the request downstream.
+    // Remove optional identity attributes supplied by the caller when Luth
+    // does not return authoritative replacements for this session.
+    forwarded.delete('x-user-email');
+    forwarded.delete('x-session-id');
     forwarded.set('x-app-id', configuredAppId);
     forwarded.set('x-user-id', session.user.id);
     if (session.user.email) forwarded.set('x-user-email', session.user.email);
