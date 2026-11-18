@@ -60,6 +60,18 @@ def is_project(root: Path) -> bool:
     return (root / ".skipo" / "project.json").exists() or (root / "package.json").exists()
 
 def create_project(name: str, target: Path, framework: str, force: bool) -> int:
+    existing_manifest_path = target / ".skipo" / "project.json"
+    existing_manifest: dict[str, Any] = {}
+    if existing_manifest_path.is_file():
+        try:
+            loaded_manifest = json.loads(existing_manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            print(json.dumps({"ok": False, "error": "Existing Skipo manifest is unreadable; refusing to replace permanent identity."}))
+            return 2
+        if not isinstance(loaded_manifest, dict):
+            print(json.dumps({"ok": False, "error": "Existing Skipo manifest must be a JSON object."}))
+            return 2
+        existing_manifest = loaded_manifest
     source = SCAFFOLDS / framework
     if not source.is_dir():
         print(json.dumps({"ok": False, "error": f"Unknown scaffold: {framework}"})); return 2
@@ -82,8 +94,12 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
             p.write_text(text.replace("MyApp", name).replace("my-app", name.lower().replace(" ", "-")), encoding="utf-8")
     d = target / ".skipo"
     d.mkdir(exist_ok=True)
+    project_manifest = {"framework":"skipo","scaffold":framework,"skipo_version":VERSION,"generated_by":"skipo"}
+    for key in ("app_id", "app_identity"):
+        if key in existing_manifest:
+            project_manifest[key] = existing_manifest[key]
     (d / "project.json").write_text(
-        json.dumps({"framework":"skipo","scaffold":framework,"skipo_version":VERSION,"generated_by":"skipo"}, indent=2)+"\n",
+        json.dumps(project_manifest, indent=2)+"\n",
         encoding="utf-8",
     )
     identity = ensure_app_identity(target)
