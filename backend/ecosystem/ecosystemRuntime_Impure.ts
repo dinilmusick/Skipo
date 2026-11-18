@@ -83,6 +83,7 @@ export function createEcosystemRuntime(options: {
   const capabilities = [...new Set([...methods.keys(), ...serviceMethods.keys()])].sort();
   const capabilityDescriptors = options.capabilityDescriptors === undefined
     ? undefined : normalizeStaticCapabilityDescriptors(options.capabilityDescriptors);
+  const verifiedSnapshotIds = new Set(capabilityDescriptors?.map(item => item.id) ?? []);
   if (!appPattern.test(appId) || capabilities.some(name => !capabilityPattern.test(name)) ||
       capabilities.length !== methods.size + serviceMethods.size) {
     throw new Error('Invalid ecosystem application or capability identifier.');
@@ -160,6 +161,12 @@ export function createEcosystemRuntime(options: {
     try {
       const invocation = await consumeInvocation(query(env), ticket, appId, deploymentOrigin(env.APP_URL));
       if (!invocation) return respond({ error: 'INVALID_INVOCATION' }, 401);
+      // A single-use legacy ticket does NOT carry verified Luth audience, grant
+      // or workspace claims. Published facade operations MUST be dispatched
+      // through the target's authenticated Kloks invocation boundary.
+      if (verifiedSnapshotIds.has(invocation.capability)) {
+        return respond({ error: 'AUTHENTICATED_FACADE_ROUTE_REQUIRED' }, 403);
+      }
       const context = { callerApp: invocation.caller_app, env };
       const service = serviceMethods.get(invocation.capability);
       if (service) return respond({ output: (await service(invocation.params, context)) ?? null });
