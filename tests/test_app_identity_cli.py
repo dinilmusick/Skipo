@@ -23,6 +23,9 @@ def test_identity_is_persisted_and_repairs_are_idempotent(tmp_path):
 
     assert first["app_id"] == second["app_id"] == stored["app_id"]
     assert first["registration_status"] == "pending_enrollment"
+    enrollment = json.loads((tmp_path / ".skipo/enrollment-request.json").read_text(encoding="utf-8"))
+    assert enrollment["app_id"] == first["app_id"]
+    assert enrollment["requires_ecosystem_admin_approval"] is True
     assert generated.count(first["app_id"]) == 1
     assert "WORKSPACE_APP_ID: appId" in generated
 
@@ -46,7 +49,7 @@ def test_existing_approved_identity_is_preserved(tmp_path):
     result = ensure_app_identity(tmp_path)
     stored = json.loads(manifest_path.read_text(encoding="utf-8"))
 
-    assert result == {"app_id": "aiko", "registration_status": "approved"}
+    assert result == {"app_id": "aiko", "registration_status": "approved", "enrollment_request": None}
     assert stored["app_identity"]["registration_status"] == "approved"
 
 
