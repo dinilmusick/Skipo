@@ -23,6 +23,7 @@ const enrollmentRequiredRuntime = {
 export const ecosystem = appId && appIdentityAuthorityVerified
   ? createEcosystemRuntime({
       appId,
+      appIdentityAuthorityVerified,
       authenticate: async request => (await getLuthSession(request))?.user?.id ?? null,
       capabilities: workspaceCapabilities(appId),
       serviceCapabilities: workspaceServiceCapabilities,
