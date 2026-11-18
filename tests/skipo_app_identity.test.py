@@ -165,5 +165,7 @@ def test_generated_identity_module_exports_runtime_contract_without_local_trust(
     assert "export const deploymentId: string | null = null;" in generated
     assert "export const oauthClientId: string | null = null;" in generated
     assert "WORKSPACE_APP_ID: appId" in generated
-    assert "appIdentityAuthorityVerified && appId" in generated
+    assert "appId ? { WORKSPACE_APP_ID: appId }" in generated
+    assert "appIdentityAuthorityVerified && deploymentId" in generated
+    assert "appIdentityAuthorityVerified && oauthClientId" in generated
     assert "LUTH_OAUTH_CLIENT_ID: oauthClientId" in generated
