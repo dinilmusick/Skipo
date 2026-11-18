@@ -230,9 +230,12 @@ def test_workspace_command_repairs_frontend_and_backend_together(tmp_path):
     ui = target / "src/frontend/components/gates/WorkspaceGate.tsx"
     backend = target / "src/backend/storage/canonicalCapabilityRoutes.ts"
     api = target / "src/backend/adapters/httpsAdapter.ts"
+    app_entry = target / "src/app.ts"
     assert "WorkspaceTilesMenu" in ui.read_text()
     assert "WorkspaceServiceFacade" in backend.read_text()
-    assert "listWorkspaces" in api.read_text()
+    assert "listWorkspaces" in app_entry.read_text()
+    assert "canonical application Fetch handler" in api.read_text()
+    assert "fetch as fetchHandler" in api.read_text()
 
     ui.write_text("export const localWorkspaceMenu = 1;\n")
     backend.write_text("export const localWorkspaceService = 1;\n")

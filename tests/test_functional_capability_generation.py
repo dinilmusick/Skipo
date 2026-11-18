@@ -40,9 +40,11 @@ def test_generated_scaffold_capabilities_match_registry():
 
 
 def test_production_flows_fail_closed_without_a_verified_principal():
-    vite_route = (ROOT / 'scaffolds/vite/src/backend/adapters/httpsAdapter.ts').read_text()
+    vite_route = (ROOT / 'scaffolds/vite/src/app.ts').read_text()
+    adapter = (ROOT / 'scaffolds/vite/src/backend/adapters/httpsAdapter.ts').read_text()
     assert 'authenticateLuthRequest(request)' in vite_route
     assert "headers.get('x-user-id')" in vite_route
+    assert "fetch as fetchHandler" in adapter
     scaffold = "vite"
     backend = (ROOT / 'scaffolds' / scaffold / 'src/backend/storage/canonicalCapabilityRoutes.ts').read_text()
     assert "WorkspaceServiceFacade.execute('createWorkspace'" in backend
