@@ -25,8 +25,9 @@ describe('pending application enrollment', () => {
       headers: { 'x-skipo-invocation': '00000000-0000-4000-8000-000000000000' },
     }), env);
 
-    expect(response?.status).toBe(503);
-    await expect(response?.json()).resolves.toEqual({ error: 'APP_ENROLLMENT_REQUIRED' });
+    expect(response).not.toBeNull();
+    expect(response!.status).toBe(503);
+    await expect(response!.json()).resolves.toEqual({ error: 'APP_ENROLLMENT_REQUIRED' });
     expect(query).not.toHaveBeenCalled();
   });
 
