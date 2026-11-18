@@ -9,6 +9,15 @@ describe('identity deployment environment upgrade regression', () => {
     expect(generated).toBe(source);
   });
 
+  it('retains immutable publication and grant transition enforcement', () => {
+    const sql = readFileSync(new URL('../backend/ecosystem/db/deployments.sql', import.meta.url), 'utf8');
+    expect(sql).toContain('CREATE TRIGGER workflow_publications_immutable');
+    expect(sql).toContain('CREATE TRIGGER workflow_grants_immutable');
+    expect(sql).toContain('CREATE TRIGGER workflow_grants_require_published');
+    expect(sql).toContain('workflow publication withdrawal is permanent');
+    expect(sql).toContain('workflow grant revocation is permanent');
+  });
+
   it('backfills unproved preview deployments without marking them verified', () => {
     const sql = readFileSync(new URL('../backend/ecosystem/db/deployments.sql', import.meta.url), 'utf8');
     expect(sql).toContain("ADD COLUMN IF NOT EXISTS environment text NOT NULL DEFAULT 'unclassified'");
