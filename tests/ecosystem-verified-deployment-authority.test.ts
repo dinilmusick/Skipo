@@ -88,4 +88,19 @@ describe('trusted-only Skipo deployment authority adapter', () => {
     )).rejects.toThrow(/revocation was denied/i);
     expect(query).not.toHaveBeenCalled();
   });
+  it('makes repeated approved revocation idempotent without changing a revoked row', async () => {
+    const query = vi.fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ deployment_id: deploymentId }]) as unknown as Query;
+    expect(await revokeVerifiedDeployment(query, authority(), {})).toBe(true);
+    expect(vi.mocked(query)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(query).mock.calls[1]![0]).toContain("verification_state = 'revoked'");
+  });
+
+  it('does not report cross-application revocation as successful', async () => {
+    const query = vi.fn(async () => []) as unknown as Query;
+    expect(await revokeVerifiedDeployment(query, authority(), {})).toBe(false);
+    expect(query).toHaveBeenCalledTimes(2);
+  });
+
 });
