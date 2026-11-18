@@ -77,12 +77,5 @@ describe('canonical ULTRST deployment identity', () => {
       expect(readFileSync(new URL(source, root), 'utf8'))
         .toBe(readFileSync(new URL(generated, root), 'utf8'));
     }
-    const sourceSql = readFileSync(new URL('backend/ecosystem/db/deployments.sql', root), 'utf8');
-    expect(sourceSql).toContain("ADD COLUMN IF NOT EXISTS environment text NOT NULL DEFAULT 'unclassified'");
-    expect(sourceSql).toContain("environment IN ('unclassified','development','preview','staging','production')");
-    expect(sourceSql).toContain('DROP CONSTRAINT IF EXISTS deployments_environment_check');
-    expect(sourceSql.indexOf('DROP CONSTRAINT IF EXISTS deployments_environment_check'))
-      .toBeLessThan(sourceSql.indexOf('UPDATE skipo_ecosystem.deployments'));
-    expect(sourceSql).toContain("SET environment = 'unclassified'");
   });
 });

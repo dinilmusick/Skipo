@@ -26,10 +26,10 @@ and routes only to deployments refreshed within the last 15 minutes.
 The same `db/skipo-ecosystem-deployments.sql` remains re-runnable on existing
 installations. It adds a UUID `deployment_id`, a foreign key to the existing
 Neon `public."ultrst-apps"(app_id)` unique catalog, an environment,
-verification state/proof digest and an optional lease expiry. Existing and
-legacy-heartbeat rows default to **unclassified** environment and **unverified**
-ownership until the relevant facts are independently proved. No migration or
-registration infers production/preview environment or acquires trust by itself. Unknown `app_id` values fail
+verification state/proof digest and an optional lease expiry. Existing rows
+are automatically backfilled with immutable UUIDs and remain **unverified**
+until a separately approved deployment-control verification; no registration
+acquires trust merely by running this migration. Unknown `app_id` values fail
 closed. Deployment `app_id` and `deployment_id` are immutable even when
 endpoints are updated. Existing `(app_id, app_url)` heartbeats, primary key
 and invocation routing are retained for compatibility.
@@ -78,3 +78,20 @@ Generated projects ship the portable runtime and SQL. To refresh an adopted
 project's generated files, run `python3 scripts/sync-ecosystem-runtime.py APP`
 from the framework checkout. The app's composition and provider adapters own
 its application ID, capability choices, and lifecycle wiring.
+
+
+## Versioned static capability snapshots
+
+Stable deployment identities may publish complete static capability descriptor
+snapshots with `publishDeploymentCapabilityRevision`. Each deployment has an
+independent monotonic revision stream. An unchanged descriptor set is a no-op;
+a changed set creates a new immutable revision, so removing an operation
+withdraws it from the current snapshot instead of leaving stale unioned data.
+
+Only deployments with `verification_state = 'verified'` and a future
+`lease_expires_at` can publish or resolve a current snapshot. Existing
+unverified deployments remain unavailable to this descriptor resolver.
+Descriptors are allowlisted static metadata (schemas, access policy and
+BackendFacade service/operation mapping); session endpoints, credentials,
+tokens, workflow definitions and secret material are rejected/not stored.
+The Vite scaffold receives byte-identical SQL and runtime copies.
