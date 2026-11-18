@@ -42,6 +42,7 @@ from skipo_environment_contract import (
 from skipo_capabilities import retire_known_duplicates
 from skipo_lifecycle import assess as assess_architecture, independent_verify, transaction_verify
 from skipo_reconciliation import reconcile as reconcile_transaction
+from skipo_app_identity import ensure_app_identity
 
 def run(cmd: list[str], cwd: Path) -> int:
     return subprocess.run(cmd, cwd=str(cwd)).returncode
@@ -85,6 +86,7 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
         json.dumps({"framework":"skipo","scaffold":framework,"skipo_version":VERSION,"generated_by":"skipo"}, indent=2)+"\n",
         encoding="utf-8",
     )
+    identity = ensure_app_identity(target)
     capability_adopt(target)
     # The scaffold contains an auth entrypoint, but the registry-owned
     # canonical auth page must also be generated and tracked in the ledger.
@@ -103,7 +105,7 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
         print(json.dumps({"ok": False, "operation": "create", "error":
                           "Canonical shell reconciliation failed", "shell": shell}, indent=2))
         return 1
-    print(json.dumps({"ok":True,"operation":"create","name":name,"framework":framework,"target":str(target),"skipo_version":VERSION}))
+    print(json.dumps({"ok":True,"operation":"create","name":name,"framework":framework,"target":str(target),"skipo_version":VERSION,"identity":identity,"enrollment_required":identity["registration_status"] != "approved"}))
     return 0
 
 def inspect_project(root: Path) -> int:
@@ -224,11 +226,13 @@ def update_project(root: Path) -> int:
         return 2
     try:
         if (root / ".skipo" / "project.json").exists():
+            identity = ensure_app_identity(root)
             payload = reconcile_transaction(
                 root, True, VERSION, with_environment=True,
                 verify_hook=lambda target: transaction_verify(target, VERSION),
             )
             payload["operation"] = "update"
+            payload["identity"] = identity
             payload["next_stage"] = "sync" if payload.get("ok") else "diagnose"
         else:
             # One-time legacy adoption retains its explicit manifest/provenance
@@ -285,10 +289,12 @@ def repair_project(root: Path, apply: bool) -> int:
                        "errors": ["Architectural preflight blocked mutation"],
                        "architecture": architecture}
         else:
+            identity = ensure_app_identity(root)
             payload = reconcile_transaction(
                 root, apply, VERSION, with_environment=True,
                 verify_hook=lambda target: transaction_verify(target, VERSION),
             )
+            payload["identity"] = identity
     except (ValueError, OSError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
         return 2
