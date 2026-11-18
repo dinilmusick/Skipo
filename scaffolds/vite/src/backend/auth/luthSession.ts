@@ -1,5 +1,11 @@
-import { appId as configuredAppId } from '../ecosystem/appIdentity_Pure.js';
+import * as appIdentity from '../ecosystem/appIdentity_Pure.js';
 import { DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth';
+function getConfiguredAppId(): string | null {
+  const candidate = appIdentity.appId;
+  return appIdentity.appIdentityAuthorityVerified === true &&
+    typeof candidate === 'string' && candidate.trim() ? candidate : null;
+}
+
 function stripGuestLeaseCookie(cookie: string | null): string | null {
   if (!cookie) return null;
   const retained = cookie.split(";").map((part) => part.trim()).filter((part) => !part.startsWith("__Host-skipo_guest="));
@@ -27,6 +33,7 @@ export async function proxyLuthAuthRequest(request: Request): Promise<Response |
     : url.pathname === '/api/auth/register'
       ? '/api/auth/sign-up/email'
       : url.pathname;
+  const configuredAppId = getConfiguredAppId();
   if (!configuredAppId) {
     return Response.json({ success: false, error: 'Application enrollment is required before Luth authentication.' }, { status: 503 });
   }
@@ -60,6 +67,7 @@ export async function proxyLuthAuthRequest(request: Request): Promise<Response |
 
 /** Verify the canonical Luth session for external HTTP and MCP transports. */
 export async function getLuthSession(request: Request) {
+  const configuredAppId = getConfiguredAppId();
   if (!configuredAppId) return null;
   const headers = new Headers({ 'x-app-id': configuredAppId });
   for (const name of ['authorization', 'origin']) {
@@ -101,6 +109,7 @@ export async function authenticateLuthRequest(request: Request): Promise<{
   const authorization = request.headers.get('authorization');
   const cookie = stripGuestLeaseCookie(request.headers.get('cookie'));
   if (!authorization && !cookie) return { status: 401, error: 'A verified Luth session is required.' };
+  const configuredAppId = getConfiguredAppId();
   if (!configuredAppId) return { status: 503, error: 'Application enrollment is required before Luth authentication.' };
 
   try {
