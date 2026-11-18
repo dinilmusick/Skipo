@@ -29,24 +29,12 @@ def dependencies(template):
 
 
 def restore(current, canonical, name):
-    if not current.strip():
-        return canonical
-    if current == canonical:
-        return canonical
-    # A pure removal from the scaffold is recoverable without discarding app edits.
-    diff = SequenceMatcher(None, current.splitlines(True), canonical.splitlines(True), autojunk=False)
-    if all(op in ("equal", "insert") for op, *_ in diff.get_opcodes()):
-        return canonical
-    # Upgrade the historical child slot in place, preserving consumer extensions.
-    if name == MAIN and ": children}</main>" in current and "import MainTabs " not in current and "import SettingsPage" in current:
-        return current.replace("import SettingsPage", "import MainTabs from './MainTabs.js';\nimport SettingsPage", 1).replace(
-            ": children}</main>", ": <MainTabs>{children}</MainTabs>}</main>", 1)
-    if name == MAIN and "<MainTabs>" in current and "import MainTabs " in current:
-        return current
-    # Preserve additions to canonical files, including custom HTTP routes.
-    if all(op in ("equal", "delete") for op, *_ in diff.get_opcodes()):
-        return current
-    raise ValueError(f"{name} contains app-specific changes overlapping managed wiring")
+    """Standard Skipo assets have no app-owned extension points.
+
+    Any drift outside src/frontend/pages/main/tabs is rewritten to the
+    authoritative template. Application code belongs in main-page tabs.
+    """
+    return canonical
 
 
 def plan_files(root, page, title=None):
@@ -57,21 +45,24 @@ def plan_files(root, page, title=None):
     config = root / ".skipo/pages.json"
     if config.exists():
         descriptor = json.loads(config.read_text())
-        if descriptor.get("schemaVersion") != 1 or descriptor.get("layout") != "integrated":
+        if descriptor.get("schemaVersion") == 2 and descriptor.get("layout") == "canonical":
+            pass  # Strict canonical shell; use authoritative template groups below.
+        elif descriptor.get("schemaVersion") == 1 and descriptor.get("layout") == "integrated":
+            names = {"auth": "src/frontend/components/skipo/pages/auth.tsx",
+                     "workspace": "src/frontend/components/skipo/pages/workspace.tsx",
+                     "main": "src/frontend/pages/main/tabRegistry.tsx"}
+            name = names[page]
+            target = root / name
+            if target.resolve() != target:
+                raise ValueError(f"Refusing symlinked project path: {name}")
+            value = (SOURCE / name).read_text()
+            writes = {} if target.is_file() and target.read_text() == value else {target: value}
+            from skipo_page_bindings import repair_bindings
+            repair_bindings(root, page, descriptor.get("bindings", []), writes)
+            plan_tab(root, title, writes)
+            return writes
+        else:
             raise ValueError("Unsupported .skipo/pages.json")
-        names = {"auth": "src/frontend/components/skipo/pages/auth.tsx",
-                 "workspace": "src/frontend/components/skipo/pages/workspace.tsx",
-                 "main": "src/frontend/pages/main/tabRegistry.tsx"}
-        name = names[page]
-        target = root / name
-        if target.resolve() != target:
-            raise ValueError(f"Refusing symlinked project path: {name}")
-        value = (SOURCE / name).read_text()
-        writes = {} if target.is_file() and target.read_text() == value else {target: value}
-        from skipo_page_bindings import repair_bindings
-        repair_bindings(root, page, descriptor.get("bindings", []), writes)
-        plan_tab(root, title, writes)
-        return writes
     managed = GROUPS[page]
     pending = list(managed)
     seen = set()
