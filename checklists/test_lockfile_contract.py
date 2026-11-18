@@ -42,9 +42,24 @@ def test_competing_lockfile_fails():
     assert not result.passed
     assert any(v.rule_id == "invalid-lockfile-set" for v in result.violations)
 
+
+def test_scaffold_lockfile_contract():
+    root = Path(__file__).resolve().parents[1]
+    result = validate_lockfile_contract(root / "scaffolds" / "vite")
+    assert result.passed, [f"{v.rule_id}: {v.message}" for v in result.violations]
+
+def test_scaffold_floks_pin_tracks_framework():
+    root = Path(__file__).resolve().parents[1]
+    framework = json.loads((root / "package.json").read_text())
+    scaffold = json.loads((root / "scaffolds" / "vite" / "package.json").read_text())
+    provider = "@ultrst-armada/floks"
+    assert scaffold["dependencies"][provider] == framework["dependencies"][provider]
+
 if __name__ == "__main__":
     test_matching_specifier_passes()
     test_stale_specifier_fails()
     test_wrong_package_manager_fails()
     test_competing_lockfile_fails()
+    test_scaffold_lockfile_contract()
+    test_scaffold_floks_pin_tracks_framework()
     print("lockfile contract tests passed")
