@@ -13,7 +13,7 @@ Resolves targets semantically by:
 
 from __future__ import annotations
 from dataclasses import dataclass, asdict
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any, Dict, List, Optional, Tuple
 import re
 
@@ -96,13 +96,45 @@ class SemanticTargetResolver:
     """Resolves stable semantic targets in TypeScript and JSX files without line numbers."""
 
     def __init__(self, project_root: Path):
-        self.project_root = project_root
+        self.project_root = project_root.resolve()
 
     def resolve(self, target: TargetSpec | Dict[str, Any]) -> ResolvedTarget:
         spec = target if isinstance(target, TargetSpec) else TargetSpec.from_dict(target)
-        file_path = (self.project_root / spec.file).resolve()
 
-        if not file_path.exists():
+        def invalid_target(reason: str) -> ResolvedTarget:
+            return ResolvedTarget(
+                found=False,
+                file_path=self.project_root,
+                start_char=-1,
+                end_char=-1,
+                matched_text="",
+                target_spec=spec,
+                insertion_point=-1,
+                reason=reason,
+            )
+
+        # A semantic file selector is data, never authority to read arbitrary
+        # source. Check both POSIX and Windows spellings, and then resolve
+        # symlinks before accepting a file beneath the canonical project root.
+        if not isinstance(spec.file, str) or not spec.file.strip() or "\\x00" in spec.file:
+            return invalid_target("Invalid semantic target file")
+        relative = Path(spec.file)
+        windows = PureWindowsPath(spec.file)
+        if (
+            relative.is_absolute()
+            or windows.is_absolute()
+            or windows.drive
+            or ".." in relative.parts
+            or ".." in windows.parts
+        ):
+            return invalid_target("Semantic target escapes project root")
+        try:
+            file_path = (self.project_root / relative).resolve()
+            file_path.relative_to(self.project_root)
+        except (ValueError, OSError, RuntimeError):
+            return invalid_target("Semantic target escapes project root")
+
+        if not file_path.is_file():
             return ResolvedTarget(
                 found=False,
                 file_path=file_path,
