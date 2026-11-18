@@ -129,6 +129,25 @@ describe('canonical generated application Fetch handler', () => {
     );
   });
 
+  it('fails closed on unknown application routes without a verified Luth session', async () => {
+    mocks.authenticateLuthRequest.mockResolvedValueOnce({
+      status: 401,
+      error: 'Luth session is invalid or expired.',
+    });
+    const response = await fetchApp(new Request('https://app.test/api/private/unknown'));
+    expect(response.status).toBe(401);
+    expect(mocks.authenticateLuthRequest).toHaveBeenCalledOnce();
+    expect(mocks.externalInterfaces.mcp).toHaveBeenCalledOnce();
+    expect(mocks.externalInterfaces.http).toHaveBeenCalledOnce();
+  });
+
+  it('returns a not-found response only after validating the Luth session', async () => {
+    const response = await fetchApp(new Request('https://app.test/api/private/unknown'));
+    expect(response.status).toBe(404);
+    expect(mocks.authenticateLuthRequest).toHaveBeenCalledOnce();
+    expect(mocks.handleUiSessionRequest).toHaveBeenCalledOnce();
+  });
+
   it('delegates MCP requests through the same Fetch entrypoint', async () => {
     const mcpResponse = new Response('mcp response');
     mocks.externalInterfaces.mcp.mockResolvedValueOnce(mcpResponse);

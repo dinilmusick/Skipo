@@ -96,6 +96,22 @@ export async function fetch(
     const http = await externalInterfaces.http(request);
     if (http) return http;
 
+    // Preserve the legacy adapter's fail-closed fallback for unhandled app
+    // routes: route handlers get first refusal, but unknown application paths
+    // still require a verified Luth principal before revealing a 404.
+    const auth = await authenticateLuthRequest(request);
+    if (auth.status) return json({ success: false, error: auth.error || 'Authentication required.' }, auth.status);
+    request = auth.request || request;
+
+    const userId = request.headers.get('x-user-id');
+    const uiSession = await handleUiSessionRequest(request, {
+      appId: 'skipo',
+      principalId: userId || '',
+      env,
+    });
+    if (uiSession) return uiSession;
+    if (!userId) return json({ success: false, error: 'Verified Luth identity required.' }, 401);
+
     return json({ error: 'Not Found' }, 404);
   }
 
