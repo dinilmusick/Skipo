@@ -34,6 +34,7 @@ describe('Skipo Vite canonical Luth boundary', () => {
     const request = new Request('https://app.example.test/api/workspaces', {
       headers: {
         authorization: 'Bearer luth-session-token',
+        'x-app-id': 'attacker-app',
         'x-user-id': 'attacker-user',
         'x-user-role': 'admin',
       },
