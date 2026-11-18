@@ -236,6 +236,12 @@ def _scan(root: Path) -> tuple[list[dict[str, Any]], dict[str, str], int]:
                 if category == "known_deprecated_alias":
                     alias_declarations.add(name)
                 if ENV_FILE.fullmatch(path.name):
+                    # A missing newline before an appended comment can become part
+                    # of a quoted dotenv value in downstream parsers.
+                    if _value is not None and re.search(r"""['"]#""", _value):
+                        findings.append(dict(variable=name, classification="malformed_env_value",
+                                             path=rel, line=line, occurrence=occurrence, target=None,
+                                             reason="Separate quoted .env values from trailing comments"))
                     if name in seen:
                         findings.append(dict(variable=name, classification="duplicate_declaration", path=rel,
                                              line=line, occurrence=occurrence, target=None,
@@ -307,7 +313,7 @@ def plan(root: Path) -> dict[str, Any]:
     findings, contents, _scanned = _scan(root)
     contract = load_contract()
     blocked = [f for f in findings if f["classification"] in {
-        "undeclared_framework_configuration", "unsafe_path", "duplicate_declaration"}]
+        "undeclared_framework_configuration", "unsafe_path", "duplicate_declaration", "malformed_env_value"}]
     conflicts = []
     actions = []
     by_path: dict[str, set[str]] = defaultdict(set)
