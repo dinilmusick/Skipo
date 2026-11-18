@@ -5,6 +5,7 @@ const read = (relative: string) => readFileSync(new URL(relative, import.meta.ur
 
 describe('Canonical Vite application shell', () => {
   const page = read('../scaffolds/vite/src/frontend/pages/main/page.tsx');
+  const app = read('../scaffolds/vite/src/frontend/App.tsx');
 
   it('uses the Floks AppShell as the managed root and bottom-bar owner', () => {
     expect(page).toContain("import { AppShell, BaseButton, type WorkspaceRecord } from '@ultrst-armada/floks/ui'");
@@ -38,6 +39,14 @@ describe('Canonical Vite application shell', () => {
     expect(page).toContain('agentChat={scopedAgentChat}');
     expect(page).not.toContain('agentChat={agentChat}');
     expect(page).not.toContain('agentChat={{');
+  });
+
+  it('does not retain another principal\'s selected workspace on Luth session change', () => {
+    expect(app).toContain('selection?.principalId === principalId');
+    expect(app).toContain('if (principalId) setSelection({ principalId, workspace: selected })');
+    expect(app).toContain('key={`\u0024{principalId}:\u0024{workspace.id}`}');
+    expect(app).toContain('principalId={principalId} activeWorkspace={workspace}');
+    expect(app).not.toContain('onSelectWorkspace={setWorkspace}');
   });
 
   it('is the existing canonical Skipo shell source for Vite repairs', () => {
