@@ -186,6 +186,86 @@ COMMENT ON TABLE skipo_ecosystem.workflow_publications IS
   'Metadata-only published workflow descriptors. Definitions and execution payloads remain in the owning workspace.';
 COMMENT ON TABLE skipo_ecosystem.workflow_grants IS
   'Owner-approved app/workspace grants. Target services must reauthorize publication and grant state on every call.';
+-- Publication identity and version are immutable. Publication is published -> withdrawn only.
+CREATE OR REPLACE FUNCTION skipo_ecosystem.guard_workflow_publication_update()
+RETURNS trigger LANGUAGE plpgsql AS $workflow_publication_guard$
+BEGIN
+  IF NEW.id IS DISTINCT FROM OLD.id
+     OR NEW.app_id IS DISTINCT FROM OLD.app_id
+     OR NEW.owner_user_id IS DISTINCT FROM OLD.owner_user_id
+     OR NEW.workspace_id IS DISTINCT FROM OLD.workspace_id
+     OR NEW.workflow_id IS DISTINCT FROM OLD.workflow_id
+     OR NEW.version IS DISTINCT FROM OLD.version
+     OR NEW.published_at IS DISTINCT FROM OLD.published_at THEN
+    RAISE EXCEPTION 'workflow publication identity and version are immutable'
+      USING ERRCODE='23514';
+  END IF;
+
+  IF NEW.publication_state IS DISTINCT FROM OLD.publication_state THEN
+    IF OLD.publication_state <> 'published'
+       OR NEW.publication_state <> 'withdrawn'
+       OR NEW.withdrawn_at IS NULL THEN
+      RAISE EXCEPTION 'workflow publication may only transition once from published to withdrawn'
+        USING ERRCODE='23514';
+    END IF;
+  ELSIF OLD.publication_state = 'withdrawn'
+        AND NEW.withdrawn_at IS DISTINCT FROM OLD.withdrawn_at THEN
+    RAISE EXCEPTION 'withdrawal timestamp is immutable'
+      USING ERRCODE='23514';
+  END IF;
+
+  RETURN NEW;
+END;
+$workflow_publication_guard$;
+
+DROP TRIGGER IF EXISTS workflow_publications_identity_immutable
+  ON skipo_ecosystem.workflow_publications;
+CREATE TRIGGER workflow_publications_identity_immutable
+  BEFORE UPDATE ON skipo_ecosystem.workflow_publications
+  FOR EACH ROW EXECUTE FUNCTION skipo_ecosystem.guard_workflow_publication_update();
+
+-- Grant principal and workspace scope cannot be reassigned. Revocation is terminal.
+CREATE OR REPLACE FUNCTION skipo_ecosystem.guard_workflow_grant_update()
+RETURNS trigger LANGUAGE plpgsql AS $workflow_grant_guard$
+BEGIN
+  IF NEW.id IS DISTINCT FROM OLD.id
+     OR NEW.publication_id IS DISTINCT FROM OLD.publication_id
+     OR NEW.owner_user_id IS DISTINCT FROM OLD.owner_user_id
+     OR NEW.target_workspace_id IS DISTINCT FROM OLD.target_workspace_id
+     OR NEW.caller_app_id IS DISTINCT FROM OLD.caller_app_id
+     OR NEW.source_workspace_id IS DISTINCT FROM OLD.source_workspace_id
+     OR NEW.granted_by_user_id IS DISTINCT FROM OLD.granted_by_user_id
+     OR NEW.granted_at IS DISTINCT FROM OLD.granted_at THEN
+    RAISE EXCEPTION 'workflow grant identity and authorization scope are immutable'
+      USING ERRCODE='23514';
+  END IF;
+
+  IF OLD.grant_state = 'revoked' THEN
+    IF NEW.grant_state IS DISTINCT FROM OLD.grant_state
+       OR NEW.revoked_at IS DISTINCT FROM OLD.revoked_at
+       OR NEW.revoked_by_user_id IS DISTINCT FROM OLD.revoked_by_user_id THEN
+      RAISE EXCEPTION 'workflow grant revocation is terminal'
+        USING ERRCODE='23514';
+    END IF;
+  ELSIF NEW.grant_state IS DISTINCT FROM OLD.grant_state THEN
+    IF OLD.grant_state <> 'active'
+       OR NEW.grant_state <> 'revoked'
+       OR NEW.revoked_at IS NULL
+       OR NEW.revoked_by_user_id IS DISTINCT FROM OLD.owner_user_id THEN
+      RAISE EXCEPTION 'workflow grant may only be revoked by its owner'
+        USING ERRCODE='23514';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$workflow_grant_guard$;
+
+DROP TRIGGER IF EXISTS workflow_grants_scope_immutable
+  ON skipo_ecosystem.workflow_grants;
+CREATE TRIGGER workflow_grants_scope_immutable
+  BEFORE UPDATE ON skipo_ecosystem.workflow_grants
+  FOR EACH ROW EXECUTE FUNCTION skipo_ecosystem.guard_workflow_grant_update();
 
 REVOKE ALL ON ALL TABLES IN SCHEMA skipo_ecosystem FROM PUBLIC;
 
