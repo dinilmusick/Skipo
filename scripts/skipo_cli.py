@@ -415,7 +415,26 @@ def main() -> int:
         return 0 if layer.get("state", layer.get("status")) == "compliant" else 1
     if a.command in {"repair", "fix"}:
         return repair_project(Path(a.target).resolve(), apply=not a.plan)
-    items, target = parse_items(a.items)
+    if a.command == "add" and a.items[:2] == ["main", "tab"]:
+        if len(a.items) not in (3, 4):
+            parser.error('use skipo add main tab "Name" [target]')
+        items = a.items[:3]
+        target = Path(a.items[3] if len(a.items) == 4 else ".").resolve()
+    else:
+        items, target = parse_items(a.items)
+    if a.command == "add" and items and (target / "vite.config.ts").is_file():
+        page = "auth" if items[0] == "login" else items[0]
+        if page in {"auth", "workspace", "main"} and (len(items) == 1 or items[:2] == ["main", "tab"]):
+            from skipo_pages import add
+            try:
+                paths = add(target, page, items[2] if len(items) == 3 else None, apply=not a.plan)
+                result = capability_compose(target, [page], apply=not a.plan) if page != "main" else {"ok": True}
+                result["page_paths"] = paths
+                print(json.dumps(result, indent=2))
+                return 0 if result["ok"] else 1
+            except (ValueError, OSError) as exc:
+                print(json.dumps({"ok": False, "error": str(exc)}))
+                return 1
     if not items:
         print(json.dumps({"ok":False,"error":"No capability supplied."})); return 2
     return compose_project(items,target,apply=not a.plan) if a.command=="add" else remove_project(items,target,apply=not a.plan)
