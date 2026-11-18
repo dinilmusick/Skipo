@@ -327,9 +327,16 @@ def verify_project(root: Path) -> int:
     diagnostics = list(legacy.get("diagnostics", []))
     framework_source = root.resolve() == ROOT.resolve()
     app_identity = inspect_identity(root)
-    if not framework_source and app_identity["status"] in ("enrollment_required", "registry_confirmation_required"):
+    if not framework_source and app_identity["status"] == "enrollment_required":
         diagnostics.append({"code": "SKIPO_APP_REGISTRY_ENROLLMENT_REQUIRED",
                             "status": "unresolved",
+                            "message": app_identity["next_action"], "path": ".skipo/project.json"})
+    elif not framework_source and app_identity["status"] == "registry_confirmation_required":
+        # Offline verify checks manifest shape and identity continuity only.
+        # Registry ownership is a separate live authority check, never inferred
+        # from a local manifest flag or from the presence of an app_id.
+        diagnostics.append({"code": "SKIPO_APP_REGISTRY_AUTHORITY_NOT_CHECKED",
+                            "status": "not_verified",
                             "message": app_identity["next_action"], "path": ".skipo/project.json"})
     elif not framework_source and not app_identity["ok"]:
         diagnostics.append({"code": "SKIPO_APP_IDENTITY_INVALID", "status": "invalid",
@@ -382,9 +389,19 @@ def verify_project(root: Path) -> int:
                     "message": f"{action['action']}: {action['path']}; run skipo update --pages",
                     "path": action["path"],
                 })
+    # "verify" is an offline structural check. It must not pretend to contact
+    # Neon, nor fail a structurally valid registered-ID reference solely because
+    # no live registry credential is available. "certify --require-live" keeps
+    # the authoritative enrollment/deployment proof gate.
+    identity_structure_ok = (
+        framework_source or (
+            app_identity["ok"] and
+            app_identity["status"] == "registry_confirmation_required"
+        )
+    )
     ok = bool(legacy.get("ok") and independent.get("ok")
               and shell.get("ok", False) and shell.get("noop", False)
-              and (framework_source or (app_identity["ok"] and app_identity["authority_verified"])))
+              and identity_structure_ok)
     payload = {"operation": "verify", "ok": ok,
                "status": legacy.get("status", "clean") if ok else (
                    legacy.get("status") if not legacy.get("ok") else "unresolved"),
