@@ -147,3 +147,29 @@ applying the migration on the approved isolated development branch. It verifies
 owner/workspace isolation, immutable publication and grant fields, one-way
 withdrawal/revocation, auditable new-row re-grants, duplicate-active refusal,
 withdrawal gating and zero-fixture rollback.
+
+
+## Registry-only hardening and Kloks provenance (staged)
+
+Verified target lookup rejects non-origin, local, non-HTTPS and IP-only
+endpoints in addition to requiring live proof, lease, environment, heartbeat
+and the latest immutable capability revision. Both static snapshot read
+and publication additionally reject stale deployment heartbeats; publication
+rejects the unclassified environment. Published historical revisions cannot
+be updated or deleted.
+
+When publishing `capabilityDescriptors`, a deployment must supply
+`backendFacadeOperations: { facade, registry }`. The `registry` is the
+real Kloks `BackendRegistry`, containing registered commands and queries
+with handlers; `facade` is the corresponding live `BackendFacade` whose
+named service has an `execute` method. Every descriptor's immutable
+`invocation.serviceId` and `invocation.operationId` must match one actual
+registered and executable operation. No hand-authored capability list alone
+can publish a verified revision. This proves installed-operation
+provenance only, **not** user/workspace/caller authorization: Kloks
+`createFacadeInvocationBoundary` and Luth must authorize every call.
+
+These verification gates do not silently switch existing legacy clients
+to verified-only calls. Trusted registry registration, lease renewal
+and production identity proof remain controlled external operations;
+see `REGISTRY_INTEGRATION_CONTRACT.md`.
