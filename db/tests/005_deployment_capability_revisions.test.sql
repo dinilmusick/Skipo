@@ -2,10 +2,10 @@
 -- The nested exception subtransaction leaves no deployment or revision fixtures.
 DO $capability_revision_test$
 DECLARE
-  deployment_one uuid := '36f3149f-1243-4a14-8641-dad57e3e6f83';
-  deployment_two uuid := 'a6b7aaf1-3d2c-4a7d-a0c4-7f9b1aeb13d1';
-  deployment_expired uuid := 'c6a2f9ab-64e8-4f65-9b3e-5b5a43e5c991';
-  deployment_unverified uuid := 'd7b30b8c-2d9f-44a1-a7e2-88c2a84e9a11';
+  deployment_one uuid := gen_random_uuid();
+  deployment_two uuid := gen_random_uuid();
+  deployment_expired uuid := gen_random_uuid();
+  deployment_unverified uuid := gen_random_uuid();
   oversized jsonb;
 BEGIN
   BEGIN
