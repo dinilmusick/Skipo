@@ -4,6 +4,10 @@ vi.mock('@ultrst-armada/kloks/auth', () => ({
   DEFAULT_LUTH_URL: 'https://luth.example.test',
 }));
 
+vi.mock('../scaffolds/vite/src/backend/ecosystem/appIdentity_Pure', () => ({
+  appId: 'aiko',
+}));
+
 import { authenticateLuthRequest, proxyLuthAuthRequest } from '../scaffolds/vite/src/backend/auth/luthSession';
 
 const originalFetch = globalThis.fetch;
@@ -52,7 +56,7 @@ describe('Skipo Vite canonical Luth boundary', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('proxies compatibility login to Luth and binds the actual application host', async () => {
+  it('proxies compatibility login to Luth and binds the canonical application ID', async () => {
     let target = '';
     let headers: Headers | undefined;
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -71,7 +75,7 @@ describe('Skipo Vite canonical Luth boundary', () => {
     });
     const response = await proxyLuthAuthRequest(request);
     expect(target).toBe('https://luth.example.test/api/auth/sign-in/email');
-    expect(headers?.get('x-app-id')).toBe('app.example.test');
+    expect(headers?.get('x-app-id')).toBe('aiko');
     expect(response?.status).toBe(200);
     expect(response?.headers.get('set-auth-token')).toBe('luth-token');
   });
