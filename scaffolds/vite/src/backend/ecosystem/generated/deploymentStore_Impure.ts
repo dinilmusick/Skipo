@@ -113,7 +113,13 @@ export function normalizeStaticCapabilityDescriptors(
   }
   const seen = new Set<string>();
   return descriptors.map((descriptor) => {
-    if (!descriptor || typeof descriptor !== 'object' ||
+    if (!descriptor || typeof descriptor !== 'object') {
+      throw new Error('Static capability descriptor is malformed.');
+    }
+    // Reject secret material before the structural allowlist, so sensitive
+    // nested selectors remain distinguishable from other invalid fields.
+    assertSafeDescriptorValue(descriptor);
+    if (
         Object.keys(descriptor).some((key) => !descriptorKeys.has(key)) ||
         !validStaticHandle(descriptor.id) ||
         typeof descriptor.description !== 'string' || !descriptor.description.trim() ||
@@ -133,7 +139,6 @@ export function normalizeStaticCapabilityDescriptors(
     }
     if (seen.has(descriptor.id)) throw new Error('Static capability descriptor IDs must be unique.');
     seen.add(descriptor.id);
-    assertSafeDescriptorValue(descriptor);
     return JSON.parse(JSON.stringify(descriptor)) as StaticCapabilityDescriptor;
   }).sort((left, right) => left.id.localeCompare(right.id));
 }
