@@ -15,6 +15,15 @@ BEGIN
        'n5-test-workflow', 1, 'Owner One Workflow'),
       (publication_two, 'aiko', 'n5-test-owner-two', 'n5-test-owner-workspace-two',
        'n5-test-workflow', 1, 'Owner Two Workflow');
+    BEGIN
+      INSERT INTO skipo_ecosystem.workflow_publications
+        (app_id, owner_user_id, workspace_id, workflow_id, version, display_name)
+      VALUES
+        ('aiko', 'n5-test-owner-one', 'n5-test-owner-workspace-one',
+         'n5-test-workflow', 1, 'Duplicate Version');
+      RAISE EXCEPTION 'duplicate publication version was accepted';
+    EXCEPTION WHEN unique_violation THEN NULL;
+    END;
     IF (SELECT count(*) FROM skipo_ecosystem.workflow_publications
         WHERE workflow_id='n5-test-workflow' AND version=1) <> 2 THEN
       RAISE EXCEPTION 'owner/workspace workflow namespace was not isolated';
@@ -39,6 +48,16 @@ BEGIN
       RAISE EXCEPTION 'publication reactivation was accepted';
     EXCEPTION WHEN check_violation THEN NULL;
     END;
+    BEGIN
+      INSERT INTO skipo_ecosystem.workflow_grants
+        (publication_id, owner_user_id, target_workspace_id, caller_app_id,
+         source_workspace_id, granted_by_user_id)
+      VALUES
+        (publication_two, 'n5-test-owner-two', 'n5-test-owner-workspace-two',
+         'kone', 'n5-test-source-workspace', 'n5-test-owner-one');
+      RAISE EXCEPTION 'non-owner grantor was accepted';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
     INSERT INTO skipo_ecosystem.workflow_grants
       (id, publication_id, owner_user_id, target_workspace_id, caller_app_id,
        source_workspace_id, granted_by_user_id)
@@ -55,6 +74,14 @@ BEGIN
       UPDATE skipo_ecosystem.workflow_grants
       SET caller_app_id='aiko' WHERE id=grant_one;
       RAISE EXCEPTION 'grant caller app mutation was accepted';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+    BEGIN
+      UPDATE skipo_ecosystem.workflow_grants
+      SET grant_state='revoked', revoked_at=clock_timestamp(),
+          revoked_by_user_id='n5-test-owner-one'
+      WHERE id=grant_one;
+      RAISE EXCEPTION 'non-owner grant revocation was accepted';
     EXCEPTION WHEN check_violation THEN NULL;
     END;
     UPDATE skipo_ecosystem.workflow_grants
