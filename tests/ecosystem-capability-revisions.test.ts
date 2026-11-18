@@ -147,6 +147,7 @@ describe('proof-qualified current deployment capability selection', () => {
     expect(sql).toContain('r.revision = $4::bigint');
     expect(sql).toContain('ORDER BY revision DESC');
     expect(sql).toContain('matched.descriptor->>\'id\' = $2');
+    expect(sql).toContain("matched.descriptor->>'discoverable'");
     expect(sql).toContain("d.verification_state = 'verified'");
     expect(sql).toContain("NULLIF(btrim(d.verification_proof_digest), '') IS NOT NULL");
     expect(sql).toContain('d.lease_expires_at > statement_timestamp()');
@@ -298,6 +299,19 @@ describe('proof-qualified current deployment capability selection', () => {
     expect(response?.status).toBe(200);
     expect(await response?.json()).toEqual({ output: 'legacy-output' });
     expect(legacy).toHaveBeenCalledTimes(1);
+  });
+
+  it('validates complete persisted snapshot data before returning any capability metadata', async () => {
+    const query = vi.fn(async () => [{
+      app_id: 'aiko', environment: 'production', revision: 1,
+      published_at: '2026-11-18T00:00:00Z',
+      descriptors: [{ ...ping, inputSchema: { type: 'object', properties: {
+        accessToken: { type: 'string' },
+      } } }],
+    }]) as unknown as Query;
+    await expect(getDeploymentCapabilityRevision(
+      query, 'aiko', deploymentA, 'production',
+    )).rejects.toThrow(/secret fields/i);
   });
 
 });
