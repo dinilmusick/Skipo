@@ -126,9 +126,22 @@ def test_real_cli_create_and_two_repairs_preserve_all_identity_dimensions(tmp_pa
     monkeypatch.setattr(cli, "capability_adopt", lambda _root: None)
     monkeypatch.setattr(cli, "capability_compose", lambda *_args, **_kwargs: {"ok": True})
     monkeypatch.setattr(cli, "assess_architecture", lambda _root: {"blocked": False})
-    monkeypatch.setattr(cli, "reconcile_transaction", lambda *_args, **_kwargs: {"ok": True})
+    monkeypatch.setattr(cli, "transaction_verify", lambda _root, _version: {"ok": True})
+
+    def rewrite_shell(root, apply):
+        if apply:
+            (root / "src/backend/ecosystem/appIdentity_Pure.ts").write_text("export const appId = 'my-app';\\n")
+        return {"ok": apply}
+
+    def reconcile(root, apply, _version, with_environment, verify_hook):
+        if apply:
+            (root / "src/backend/ecosystem/appIdentity_Pure.ts").write_text("export const appId = 'my-app';\\n")
+            return verify_hook(root)
+        return {"ok": True}
+
+    monkeypatch.setattr(cli, "reconcile_transaction", reconcile)
     monkeypatch.setitem(sys.modules, "skipo_canonical_shell", SimpleNamespace(
-        reconcile_shell=lambda _root, apply: {"ok": apply}
+        reconcile_shell=rewrite_shell
     ))
 
     target = tmp_path / "generated-app"
@@ -153,4 +166,7 @@ def test_real_cli_create_and_two_repairs_preserve_all_identity_dimensions(tmp_pa
     assert final["app_identity"]["registration_status"] == "pending_enrollment"
     assert final["deployment_id"] is None
     assert final["oauth_client_id"] is None
+    generated_identity = (target / "src/backend/ecosystem/appIdentity_Pure.ts").read_text(encoding="utf-8")
+    assert app_id in generated_identity
+    assert "my-app" not in generated_identity
     assert json.loads((target / ".skipo/enrollment-request.json").read_text())["app_id"] == app_id
