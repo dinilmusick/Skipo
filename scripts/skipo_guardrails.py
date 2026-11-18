@@ -301,7 +301,8 @@ def _sha(payload: Any) -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
-def clean_preview(root: Path, *, show_diff: bool = False) -> dict[str, Any]:
+def clean_preview(root: Path, *, show_diff: bool = False,
+                  include_diagnostics: bool = True) -> dict[str, Any]:
     """Produce a stable, exhaustive path-level change report before any mutation."""
     from skipo_canonical_shell import plan_shell, _desired
     root = root.resolve()
@@ -332,7 +333,8 @@ def clean_preview(root: Path, *, show_diff: bool = False) -> dict[str, Any]:
                         "rewrite": sum(a["action"] == "rewrite" for a in actions),
                         "create": sum(a["action"] in ("create", "create-tab") for a in actions),
                         "existing_bytes_at_risk": sum(a["existing_bytes_at_risk"] for a in actions)},
-            "ownership": plan["ownership"], "applied": False}
+            "ownership": plan["ownership"], "applied": False,
+            "diagnostics": check(root) if include_diagnostics else None}
 
 
 def _decision(timeout: int, on_timeout: str = "clean", *, quiet: bool = False) -> str:
@@ -394,7 +396,7 @@ def clean(root: Path, *, timeout: int = 60, on_timeout: str = "clean",
         return {**preview, "decision": "cancelled", "applied": False, "ok": True}
     try:
         # The plan can become stale while a person or agent performs manual fixes.
-        current = clean_preview(root, show_diff=False)
+        current = clean_preview(root, show_diff=False, include_diagnostics=False)
         if current["plan_id"] != preview["plan_id"]:
             return {**preview, "ok": False, "applied": False, "decision": "stale",
                     "error": "Project changed during countdown; rerun skipo clean to preview a fresh plan."}
@@ -427,5 +429,8 @@ def print_clean_preview(report: dict[str, Any], *, json_output: bool = False) ->
               flush=True)
         if item.get("diff"):
             print(item["diff"], flush=True)
+    if report.get("diagnostics") is not None:
+        print("\nFULL CHECK FINDINGS (read-only preflight):", flush=True)
+        print_check(report["diagnostics"])
     print("Skipo will aggressively restore canonical files listed above. "
           "No unlisted files are eligible for this transaction.", flush=True)
