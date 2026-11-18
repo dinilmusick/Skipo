@@ -1,4 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../scaffolds/vite/src/backend/ecosystem/appIdentity_Pure', () => ({
+  appId: 'aiko',
+  appRegistrationStatus: 'registry_confirmation_required',
+  appIdentityAuthorityVerified: false,
+  deploymentId: null,
+  oauthClientId: null,
+  workspaceEnvironment: (env: Record<string, unknown> = {}) => {
+    const { WORKSPACE_APP_ID: _untrustedAppId, SKIPO_DEPLOYMENT_ID: _untrustedDeploymentId,
+      LUTH_OAUTH_CLIENT_ID: _untrustedOauthClientId, ...safeEnv } = env;
+    return { ...safeEnv, WORKSPACE_APP_ID: 'aiko' };
+  },
+}));
 import { execFileSync } from 'node:child_process';
 import {
   StorageServiceFacade, WorkspaceServiceFacade,
@@ -60,10 +73,10 @@ describe('Vite Kloks HTTP adapter contracts', () => {
   it('routes workspace retrieval and creation to actual facade operations', async () => {
     const execute = vi.spyOn(WorkspaceServiceFacade, 'execute').mockResolvedValue({ success: true, workspaces: [] } as never);
     await adapter.listWorkspaces('luth-principal', { WORKSPACE_APP_ID: 'forged-workspace-namespace' });
-    expect(execute).toHaveBeenCalledWith('listWorkspaces', { userId: 'luth-principal', env: { WORKSPACE_APP_ID: 'my-app' } });
+    expect(execute).toHaveBeenCalledWith('listWorkspaces', { userId: 'luth-principal', env: { WORKSPACE_APP_ID: 'aiko' } });
     await adapter.createWorkspace('luth-principal', { name: 'Created', storageProvider: 'local_fs' });
     expect(execute).toHaveBeenLastCalledWith('createWorkspace', {
-      userId: 'luth-principal', workspace: { name: 'Created', storageProvider: 'local_fs' }, env: { WORKSPACE_APP_ID: 'my-app' },
+      userId: 'luth-principal', workspace: { name: 'Created', storageProvider: 'local_fs' }, env: { WORKSPACE_APP_ID: 'aiko' },
     });
   });
 
@@ -73,7 +86,7 @@ describe('Vite Kloks HTTP adapter contracts', () => {
       userId: 'forged-client-id', env: { SYSTEM_DATABASE_URL: 'forged' },
     }, { SYSTEM_DATABASE_URL: 'server-owned' });
     expect(execute).toHaveBeenCalledWith('getConnections', {
-      userId: 'verified-luth-id', env: { SYSTEM_DATABASE_URL: 'server-owned', WORKSPACE_APP_ID: 'my-app' },
+      userId: 'verified-luth-id', env: { SYSTEM_DATABASE_URL: 'server-owned', WORKSPACE_APP_ID: 'aiko' },
     });
   });
 
