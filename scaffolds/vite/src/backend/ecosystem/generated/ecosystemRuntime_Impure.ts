@@ -53,6 +53,17 @@ export function createEcosystemRuntime(options: {
       !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(options.deploymentId)) {
     throw new Error('Invalid ecosystem deployment identity.');
   }
+  // A public registry snapshot must describe operations actually installed on
+  // this runtime. Client-supplied descriptors alone are never proof of a facade.
+  if (capabilityDescriptors !== undefined) {
+    if (!options.deploymentId) {
+      throw new Error('Publishing static descriptors requires a stable deployment identity.');
+    }
+    if (capabilityDescriptors.some(descriptor =>
+      !methods.has(descriptor.id) && !serviceMethods.has(descriptor.id))) {
+      throw new Error('Static capability descriptors must reference registered callable capabilities.');
+    }
+  }
   const query = options.query ?? systemQuery;
   const send = options.send ?? globalThis.fetch;
   let lastRefresh = 0;
