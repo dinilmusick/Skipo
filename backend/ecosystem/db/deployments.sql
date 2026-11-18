@@ -116,6 +116,22 @@ BEGIN
     RAISE EXCEPTION 'deployment_id and app_id are immutable per deployment'
       USING ERRCODE='23514';
   END IF;
+  -- Untrusted app heartbeats may refresh an existing verified origin, but
+  -- cannot retarget a proof-backed deployment or change legacy operation claims.
+  -- Re-attestation must withdraw verification first, change the endpoint, and
+  -- independently reverify before issuing a new lease.
+  IF OLD.verification_state = 'verified'
+     AND (NEW.app_url IS DISTINCT FROM OLD.app_url
+          OR NEW.capabilities IS DISTINCT FROM OLD.capabilities) THEN
+    RAISE EXCEPTION 'verified deployment origin/capabilities require registry re-attestation'
+      USING ERRCODE='23514';
+  END IF;
+  -- Revocation is terminal for this deployment UUID, including across restarts.
+  IF OLD.verification_state = 'revoked'
+     AND NEW.verification_state IS DISTINCT FROM 'revoked' THEN
+    RAISE EXCEPTION 'revoked deployment identity cannot be reactivated'
+      USING ERRCODE='23514';
+  END IF;
   RETURN NEW;
 END;
 $deployment_identity$;
