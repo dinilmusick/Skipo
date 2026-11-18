@@ -1,22 +1,29 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+const appIdentityState = vi.hoisted(() => ({
+  appId: 'aiko' as string | null,
+  appIdentityAuthorityVerified: true,
+}));
+
 vi.mock('@ultrst-armada/kloks/auth', () => ({
   DEFAULT_LUTH_URL: 'https://luth.example.test',
 }));
 
 vi.mock('../scaffolds/vite/src/backend/ecosystem/appIdentity_Pure', () => ({
-  appId: 'aiko',
+  get appId() { return appIdentityState.appId; },
   appRegistrationStatus: 'registry_confirmation_required',
-  appIdentityAuthorityVerified: false,
+  get appIdentityAuthorityVerified() { return appIdentityState.appIdentityAuthorityVerified; },
   deploymentId: null,
   oauthClientId: null,
   workspaceEnvironment: (env: Record<string, unknown> = {}) => env,
 }));
 
-import { authenticateLuthRequest, proxyLuthAuthRequest } from '../scaffolds/vite/src/backend/auth/luthSession';
+import { authenticateLuthRequest, getLuthSession, proxyLuthAuthRequest } from '../scaffolds/vite/src/backend/auth/luthSession';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => {
+  appIdentityState.appId = 'aiko';
+  appIdentityState.appIdentityAuthorityVerified = true;
   globalThis.fetch = originalFetch;
   vi.restoreAllMocks();
 });
@@ -83,6 +90,31 @@ describe('Skipo Vite canonical Luth boundary', () => {
     expect(headers.get('x-user-role')).toBe('user');
     expect(headers.get('x-user-email')).toBeNull();
     expect(headers.get('x-session-id')).toBe('verified-session');
+  });
+
+  it('never forwards a non-empty candidate app ID before registry authority is verified', async () => {
+    appIdentityState.appId = 'aiko';
+    appIdentityState.appIdentityAuthorityVerified = false;
+    const fetchMock = vi.fn();
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    const proxyResponse = await proxyLuthAuthRequest(new Request(
+      'https://app.example.test/api/auth/login',
+      { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+    ));
+    expect(proxyResponse?.status).toBe(503);
+
+    const session = await getLuthSession(new Request('https://app.example.test/api/workspaces', {
+      headers: { authorization: 'Bearer luth-session-token' },
+    }));
+    expect(session).toBeNull();
+
+    const authenticated = await authenticateLuthRequest(new Request(
+      'https://app.example.test/api/workspaces',
+      { headers: { authorization: 'Bearer luth-session-token', 'x-app-id': 'aiko' } },
+    ));
+    expect(authenticated.status).toBe(503);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('does not authenticate static assets or public health requests', async () => {
