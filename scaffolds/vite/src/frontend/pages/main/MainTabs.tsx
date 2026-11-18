@@ -1,25 +1,22 @@
 /// <reference types="vite/client" />
-import { useState, type ComponentType, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { BaseButton } from '@ultrst-armada/floks/ui';
 
-const modules = import.meta.glob<{ title: string; default: ComponentType }>(
-  './tabs/*/page.tsx', { eager: true },
-);
-const tabs = Object.entries(modules).sort(([, a], [, b]) => a.title.localeCompare(b.title));
+import { mainPageTabs, MainTabContent } from './tabRegistry.js';
 
 export default function MainTabs({ children }: { children?: ReactNode }) {
   const [selected, select] = useState('');
-  if (!tabs.length) return <>{children}</>;
-  const Active = modules[selected]?.default;
+  if (!mainPageTabs.length) return <>{children}</>;
+  const active = mainPageTabs.some(tab => tab.id === selected);
   return <>
     <nav aria-label="Workspace views">
-      <BaseButton type="button" aria-pressed={!Active} onClick={() => select('')}>Overview</BaseButton>
-      {tabs.map(([path, tab]) => (
-        <BaseButton key={path} type="button" aria-pressed={selected === path} onClick={() => select(path)}>
-          {tab.title}
+      <BaseButton type="button" aria-pressed={!active} onClick={() => select('')}>Overview</BaseButton>
+      {mainPageTabs.map(tab => (
+        <BaseButton key={tab.id} type="button" aria-pressed={selected === tab.id} onClick={() => select(tab.id)}>
+          {tab.label}
         </BaseButton>
       ))}
     </nav>
-    {Active ? <Active /> : children}
+    {active ? <MainTabContent id={selected} /> : children}
   </>;
 }

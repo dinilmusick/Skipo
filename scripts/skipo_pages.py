@@ -54,6 +54,21 @@ def plan_files(root, page, title=None):
     if not (root / "package.json").is_file() or not (root / "vite.config.ts").is_file():
         raise ValueError("Expected a Skipo Vite application")
     app_id = json.loads((root / "package.json").read_text()).get("name", "my-app")
+    config = root / ".skipo/pages.json"
+    if config.exists():
+        if json.loads(config.read_text()) != {"schemaVersion": 1, "layout": "integrated"}:
+            raise ValueError("Unsupported .skipo/pages.json")
+        names = {"auth": "src/frontend/skipo/pages/auth.tsx",
+                 "workspace": "src/frontend/skipo/pages/workspace.tsx",
+                 "main": "src/frontend/pages/main/tabRegistry.tsx"}
+        name = names[page]
+        target = root / name
+        if target.resolve() != target:
+            raise ValueError(f"Refusing symlinked project path: {name}")
+        value = (SOURCE / name).read_text()
+        writes = {} if target.is_file() and target.read_text() == value else {target: value}
+        plan_tab(root, title, writes)
+        return writes
     managed = GROUPS[page]
     pending = list(managed)
     seen = set()
@@ -75,18 +90,7 @@ def plan_files(root, page, title=None):
         if desired != current:
             writes[dest] = desired
         pending.extend(dependencies(template))
-    if title is not None:
-        title = title.strip()
-        if not title or len(title) > 100 or any(ord(c) < 32 for c in title):
-            raise ValueError("Supply a tab name of 1 to 100 printable characters")
-        slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:48] or "tab"
-        key = hashlib.sha256(title.encode()).hexdigest()[:12]
-        tab = root / Path(MAIN).parent / "tabs" / f"{slug}-{key}" / "page.tsx"
-        if tab.resolve() != tab:
-            raise ValueError("Refusing symlinked tab path")
-        if not tab.exists():
-            writes[tab] = (f"export const title = {json.dumps(title)};\n\n"
-                           "export default function TabPage() {\n  return <h2>{title}</h2>;\n}\n")
+    plan_tab(root, title, writes)
     return writes
 
 
@@ -95,7 +99,7 @@ def compose_page(root, page, title=None, apply=True):
 
     writes = plan_files(root, page, title)
     result = {"ok": True, "actions": [], "conflicts": []}
-    if page != "main":
+    if page != "main" and not (root / ".skipo/pages.json").exists():
         result = compose(root, [page], apply=False)
         desired = {
             item["path"]: item["content"]
@@ -120,7 +124,22 @@ def compose_page(root, page, title=None, apply=True):
         for dest, value in writes.items():
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(value)
-        if page != "main":
+        if page != "main" and not (root / ".skipo/pages.json").exists():
             result = compose(root, [page], apply=True)
     result["page_paths"] = [str(path.relative_to(root)) for path in writes]
     return result
+
+
+def plan_tab(root, title, writes):
+    if title is not None:
+        title = title.strip()
+        if not title or len(title) > 100 or any(ord(c) < 32 for c in title):
+            raise ValueError("Supply a tab name of 1 to 100 printable characters")
+        slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:48] or "tab"
+        key = hashlib.sha256(title.encode()).hexdigest()[:12]
+        tab = root / Path(MAIN).parent / "tabs" / f"{slug}-{key}" / "page.tsx"
+        if tab.resolve() != tab:
+            raise ValueError("Refusing symlinked tab path")
+        if not tab.exists():
+            writes[tab] = (f"export const title = {json.dumps(title)};\n\n"
+                           "export default function TabPage() {\n  return <h2>{title}</h2>;\n}\n")

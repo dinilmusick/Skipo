@@ -89,6 +89,16 @@ if grep -Fq 'const authProxy = await proxyLuthAuthRequest(request);' "$app/src/a
 fi
 rm "$app/src/libraries/skipo/auth.ts"
 "$cli" add auth "$app"
+integrated="$temp/adopted-pages"
+mkdir -p "$integrated/.skipo"
+cp "$app/package.json" "$app/vite.config.ts" "$integrated"
+echo '{"schemaVersion":1,"layout":"integrated"}' > "$integrated/.skipo/pages.json"
+"$cli" update --pages "$integrated"
+echo broken > "$integrated/src/frontend/skipo/pages/auth.tsx"
+"$cli" repair auth "$integrated"
+grep -q LuthAuthPage "$integrated/src/frontend/skipo/pages/auth.tsx"
+"$cli" add main tab "Meter" "$integrated"
+test -s "$integrated/src/frontend/pages/main/tabRegistry.tsx"
 before="$(git diff --no-index /dev/null "$tab" || true)"
 "$cli" add main tab "Mixer" "$app"
 test "$(find "$app/src/frontend/pages/main/tabs" -name page.tsx | wc -l)" -eq 1
