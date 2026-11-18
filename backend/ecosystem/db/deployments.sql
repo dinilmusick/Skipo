@@ -19,13 +19,28 @@ CREATE INDEX IF NOT EXISTS deployments_by_refresh
 -- Application IDs come ONLY from public."ultrst-apps"; deployments never mint apps.
 ALTER TABLE skipo_ecosystem.deployments
   ADD COLUMN IF NOT EXISTS deployment_id uuid NOT NULL DEFAULT gen_random_uuid(),
-  ADD COLUMN IF NOT EXISTS environment text NOT NULL DEFAULT 'preview',
+  ADD COLUMN IF NOT EXISTS environment text NOT NULL DEFAULT 'unclassified',
   ADD COLUMN IF NOT EXISTS verification_state text NOT NULL DEFAULT 'unverified',
   ADD COLUMN IF NOT EXISTS verification_proof_digest text,
   ADD COLUMN IF NOT EXISTS lease_expires_at timestamptz;
 
 CREATE UNIQUE INDEX IF NOT EXISTS deployments_by_immutable_id
   ON skipo_ecosystem.deployments (deployment_id);
+
+-- Old URL-only heartbeat rows remain unclassified until proof of deployment control.
+-- This is intentionally idempotent across preview-era migration retries.
+ALTER TABLE skipo_ecosystem.deployments
+  ALTER COLUMN environment SET DEFAULT 'unclassified';
+
+UPDATE skipo_ecosystem.deployments
+SET environment = 'unclassified'
+WHERE environment = 'preview'
+  AND verification_state = 'unverified'
+  AND verification_proof_digest IS NULL;
+
+-- The original preview-only CHECK must be replaced on repeat migrations.
+ALTER TABLE skipo_ecosystem.deployments
+  DROP CONSTRAINT IF EXISTS deployments_environment_check;
 
 -- Re-runnable on existing databases without breaking the old composite PK.
 DO $deployment_identity$
@@ -45,7 +60,7 @@ BEGIN
   ) THEN
     ALTER TABLE skipo_ecosystem.deployments
       ADD CONSTRAINT deployments_environment_check CHECK
-      (environment IN ('development','preview','staging','production'));
+      (environment IN ('unclassified','development','preview','staging','production'));
   END IF;
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint WHERE conrelid='skipo_ecosystem.deployments'::regclass
