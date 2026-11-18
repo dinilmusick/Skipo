@@ -100,6 +100,7 @@ export function normalizeStaticCapabilityDescriptors(
   }
   const seen = new Set<string>();
   return descriptors.map((descriptor) => {
+    if (descriptor && typeof descriptor === 'object') assertSafeDescriptorValue(descriptor);
     if (!descriptor || typeof descriptor !== 'object' ||
         Object.keys(descriptor).some((key) => !descriptorKeys.has(key)) ||
         !/^[a-zA-Z0-9][a-zA-Z0-9._:-]{1,127}$/.test(descriptor.id) ||
@@ -120,7 +121,6 @@ export function normalizeStaticCapabilityDescriptors(
     }
     if (seen.has(descriptor.id)) throw new Error('Static capability descriptor IDs must be unique.');
     seen.add(descriptor.id);
-    assertSafeDescriptorValue(descriptor);
     return JSON.parse(JSON.stringify(descriptor)) as StaticCapabilityDescriptor;
   }).sort((left, right) => left.id.localeCompare(right.id));
 }
