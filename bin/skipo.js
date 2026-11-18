@@ -8,7 +8,7 @@ const __dirname = dirname(__filename);
 const args = process.argv.slice(2);
 const frameworkCommands = new Set([
   'create', 'inspect', 'check', 'diagnose', 'plan', 'adopt', 'sync',
-  'update', 'repair', 'fix', 'verify', 'test', 'remove',
+  'update', 'repair', 'fix', 'clean', 'verify', 'test', 'remove',
   'policy', 'semantic', 'certify',
   'auth', 'login', 'workspace', 'workspaceMenu', 'mainPage',
 ]);

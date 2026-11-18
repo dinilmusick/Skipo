@@ -115,22 +115,39 @@ def inspect_project(root: Path) -> int:
     print(json.dumps(payload, indent=2))
     return 0
 
-def check_project(root: Path) -> int:
-    if not is_project(root):
-        print(json.dumps({"ok":False,"error":"Not a recognized Skipo project."})); return 2
-    result = subprocess.run(
-        [sys.executable,str(ROOT/"checklists/full_system_validator.py"),str(root),"--json"],
-        cwd=str(ROOT), capture_output=True, text=True
-    )
+def check_project(root: Path, json_output: bool = False) -> int:
+    from skipo_guardrails import check, print_check
+    report = check(root)
+    print_check(report, json_output=json_output)
+    return 0 if report["ok"] else 1
+
+
+def clean_project(root: Path, *, timeout: int = 60, on_timeout: str = "clean",
+                  approve: bool = False, plan_only: bool = False,
+                  show_diff: bool = False, json_output: bool = False) -> int:
+    from skipo_guardrails import clean, clean_preview, print_clean_preview
     try:
-        payload = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        payload={"overall_passed":result.returncode==0,"stdout":result.stdout,"stderr":result.stderr}
-    payload["skipo_cli_version"]=VERSION
-    payload["architecture"]=assess_architecture(root)
-    payload["overall_passed"]=bool(payload.get("overall_passed") and payload["architecture"]["compliant"])
-    print(json.dumps(payload, indent=2))
-    return 0 if result.returncode == 0 and payload["overall_passed"] else 1
+        preview = clean_preview(root, show_diff=show_diff)
+    except (ValueError, OSError) as exc:
+        print(json.dumps({"ok": False, "operation": "clean", "error": str(exc),
+                          "applied": False}, indent=2))
+        return 2
+    if not preview["actions"] or plan_only:
+        print_clean_preview(preview, json_output=json_output)
+        return 0
+    result = clean(root, timeout=timeout, on_timeout=on_timeout,
+                   approve=approve, show_diff=show_diff, preview=preview,
+                   json_output=json_output)
+    if json_output:
+        print(json.dumps({"event": "result", **result}, separators=(",", ":")), flush=True)
+    else:
+        print("\nSKIPO CLEAN RESULT: " + result.get("decision", "unknown").upper())
+        if result.get("error"):
+            print("Error: " + str(result["error"]))
+        if result.get("verification"):
+            print("Verification: " + json.dumps(result["verification"], sort_keys=True))
+    return 0 if result.get("ok") else 1
+
 
 def diagnose_project(root: Path) -> int:
     if not (root / ".skipo" / "project.json").exists():
@@ -443,8 +460,10 @@ def main() -> int:
     p.add_argument("name"); p.add_argument("target",nargs="?",default=None)
     p.add_argument("--framework",choices=["vite"],default="vite"); p.add_argument("--force",action="store_true")
 
-    for cmd in ["inspect","check","diagnose","plan","adopt","sync","update","repair","fix","verify","test","policy","semantic","certify"]:
+    for cmd in ["inspect","check","diagnose","plan","adopt","sync","update","repair","fix","verify","test","policy","semantic","certify","clean"]:
         q=sub.add_parser(cmd); q.add_argument("target",nargs="?",default=".")
+    q=sub.choices["check"]; q.add_argument("--json",action="store_true"); q.add_argument("--human",action="store_true")
+    q=sub.choices["clean"]; q.add_argument("--timeout",type=int,default=60); q.add_argument("--on-timeout",choices=["clean","cancel"],default="clean"); q.add_argument("--approve",action="store_true"); q.add_argument("--plan",action="store_true"); q.add_argument("--diff",action="store_true"); q.add_argument("--json",action="store_true")
     q=sub.choices["sync"]; q.add_argument("--install",action="store_true")
     q=sub.choices["repair"]; q.add_argument("--plan",action="store_true")
     q=sub.choices["certify"]; q.add_argument("--require-live",action="store_true"); q.add_argument("--output"); q.add_argument("--commit-sha")
@@ -457,8 +476,14 @@ def main() -> int:
     a=parser.parse_args()
     if a.command=="create":
         return create_project(a.name,Path(a.target or a.name).resolve(),a.framework,a.force)
-    if a.command in {"inspect","check"}:
-        return {"inspect":inspect_project,"check":check_project}[a.command](Path(a.target).resolve())
+    if a.command == "inspect":
+        return inspect_project(Path(a.target).resolve())
+    if a.command == "check":
+        return check_project(Path(a.target).resolve(), json_output=(a.json or (not a.human and not sys.stdout.isatty())))
+    if a.command == "clean":
+        return clean_project(Path(a.target).resolve(), timeout=a.timeout,
+                             on_timeout=a.on_timeout, approve=a.approve,
+                             plan_only=a.plan, show_diff=a.diff, json_output=a.json)
     if a.command=="diagnose":
         return diagnose_project(Path(a.target).resolve())
     if a.command=="plan":

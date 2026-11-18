@@ -62,6 +62,55 @@ skipo test .
 
 **Migration for Aiko, SRKL, Kone and Kal:** These apps still have custom UI and dependencies outside the tab subtrees. Preserve the functionality by moving app frontend code into main tabs and replacing local provider duplicates with canonical Floks/Kloks interfaces. Then apply the full-stack Skipo repair and independently verify auth callback, sign-out, workspace operations, saved app capabilities, typecheck, tests, and a production build before merging the consumer PRs. Avoid applying a destructive rewrite to consumer main branches before the code is migrated and verified.
 
+## Read-only diagnostics and warned aggressive cleanup
+
+The CLI separates observing problems from applying canonical transformations:
+
+```bash
+skipo check .                       # human report in TTY, JSON in CI/non-TTY; no source edits
+skipo check . --human               # force grouped readable report in a pipe or script
+skipo check . --json                # structured policy/semantic/constraints/syntax/lint/types report
+skipo clean . --plan                # exact prospective create/rewrite/retire file list
+skipo clean . --plan --diff         # include readable before/after text diffs
+skipo clean .                       # show plan, accept clean/fix/cancel, 60-second deadline
+skipo clean . --timeout 120         # change human/agent response window
+skipo clean . --on-timeout cancel   # opt out of automatic expiry cleanup
+skipo clean . --approve            # explicit immediate execution (still prints preflight)
+skipo clean . --json               # machine-readable preflight and result events for agents
+```
+
+`check` performs read-only architecture policy, semantic analysis, environmental governance,
+the 26-aspect validator, exact canonical shell drift inventory, Python/JavaScript/JSON syntax,
+lint, and TypeScript typechecking where tools are configured. It keeps the legacy full-validator aspect JSON evidence for certification and groups each finding with
+a rule code, file, severity and suggested repair where available. Missing required analyzers
+are marked blocked; nonconfigured checks are marked not-run rather than falsely passed.
+To preserve read-only semantics, `check` never executes project-defined npm/pnpm/yarn
+`lint` or `typecheck` scripts. It invokes only a directly installed ESLint binary
+with fixed no-fix arguments when the configured lint script is a conventional
+`eslint .` or `eslint src`, and a directly installed TypeScript compiler with
+`--noEmit --incremental false` when a tsconfig is present. Custom scripts
+and missing analyzers are reported as not-run or blocked, not certified.
+Tests and production builds remain separate `skipo test` and project build operations,
+since running arbitrary scripts may create artifacts and is not guaranteed read-only.
+
+`clean` uses the canonical Vite shell reconciler, not a new unscoped deletion engine.
+Before writing, it **prints every prospective path**, whether it will be created, rewritten
+or retired, approximate existing bytes/lines at risk, plus the full impact summary and
+managed/protected ownership boundaries. A human or line-oriented agent can enter
+`fix` or `cancel` to stop, correct code manually, then rerun `skipo check` and
+`skipo clean`. Enter `clean` to apply immediately, or let the configurable timeout
+expire (default: clean). `--plan` never starts a timer or modifies the project.
+In noninteractive agents, `--json` can be consumed as preflight and result events;
+`--on-timeout cancel` disables unattended cleanup.
+
+**Canonical ownership is mandatory, even when the caller requests aggressive cleanup.**
+The existing repair engine allows authoritative Skipo-managed frontend/config and defined
+backend-adapter rewrites, but does not erase app-specific `src/backend/**` services or
+`src/frontend/pages/main/tabs/**` custom features. Symlinks, ambiguous targets and changed
+plans fail closed. On failure, the reconciler rolls back affected files; successful cleanup
+remains reviewable and revertible in Git. `clean` does not certify unrelated syntax, lint,
+dependency or live-integration issues; rerun `check`, `test` and `certify` afterward.
+
 ## Application state
 
 Adopted applications carry:
