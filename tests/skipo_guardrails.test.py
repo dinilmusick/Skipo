@@ -151,5 +151,48 @@ class GuardrailTests(unittest.TestCase):
         self.assertFalse(result["ok"])
 
 
+    def test_check_does_not_execute_arbitrary_lint_package_script(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            marker = root / "unwanted.txt"
+            (root / "package.json").write_text(json.dumps({"name": "test", "scripts": {
+                "lint": "node -e \"require('fs').writeFileSync('unwanted.txt', 'bad')\""
+            }}), encoding="utf-8")
+            with patch.object(guard, "_architecture", return_value=[]):
+                result = guard.check(root)
+            lint = next(s for s in result["sections"] if s["category"] == "lint")
+            self.assertEqual(lint["status"], "not-run")
+            self.assertFalse(marker.exists(), "Read-only check must never run npm scripts")
+
+    def test_check_does_not_execute_arbitrary_typecheck_package_script(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "package.json").write_text(json.dumps({"name": "test", "scripts": {
+                "typecheck": "node -e \"require('fs').writeFileSync('unwanted.txt', 'bad')\""
+            }}), encoding="utf-8")
+            (root / "tsconfig.json").write_text("{}", encoding="utf-8")
+            with patch.object(guard, "_architecture", return_value=[]):
+                result = guard.check(root)
+            types = next(s for s in result["sections"] if s["category"] == "types")
+            self.assertEqual(types["status"], "blocked")
+            self.assertFalse((root / "unwanted.txt").exists())
+
+    def test_lint_uses_only_fixed_nonfixing_local_eslint_command(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "package.json").write_text(json.dumps({"scripts": {
+                "lint": "eslint ."
+            }}), encoding="utf-8")
+            eslint = root / "node_modules" / ".bin" / "eslint"
+            eslint.parent.mkdir(parents=True)
+            eslint.write_text("#!/bin/sh\\nexit 0\\n", encoding="utf-8")
+            self.assertEqual(guard._safe_lint_command(root),
+                             [str(eslint), ".", "--no-fix"])
+            (root / "package.json").write_text(json.dumps({"scripts": {
+                "lint": "eslint . --fix"
+            }}), encoding="utf-8")
+            self.assertEqual(guard._safe_lint_command(root), [])
+
+
 if __name__ == "__main__":
     unittest.main()
