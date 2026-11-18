@@ -16,6 +16,7 @@ from pathlib import Path, PurePosixPath
 
 SOURCE = Path(__file__).resolve().parents[1] / "scaffolds/vite"
 TABS = ("src", "frontend", "pages", "main", "tabs")
+MANAGED_ROOTS = ("src", "scripts", "api", "backend", "ui", "generators", "mutators")
 CANONICAL_CONFIG = (
     "index.html", "server.ts", "vite.config.ts", "tsconfig.json",
     "vercel.json", "wrangler.toml", "skipo.providers.json",
@@ -50,25 +51,27 @@ def _digest(raw: bytes | None) -> str | None:
 
 
 def _source_tree(root: Path) -> dict[str, bytes]:
-    start = root / "src"
+    """Inventory all shared executable roots, excluding only main tab code."""
     found: dict[str, bytes] = {}
-    if not start.exists():
-        return found
-    if start.is_symlink() or not start.is_dir():
-        raise UnsafeShellRepair("src must be a real directory")
-    for directory, dirs, names in os.walk(start, followlinks=False):
-        base = Path(directory)
-        for name in dirs:
-            relative = (base / name).relative_to(root).as_posix()
-            _checked(root, relative)
-        for name in names:
-            relative = (base / name).relative_to(root).as_posix()
-            if is_tab(relative):
-                continue
-            path = _checked(root, relative)
-            if not path.is_file():
-                raise UnsafeShellRepair(f"Non-file source asset: {relative}")
-            found[relative] = path.read_bytes()
+    for name in MANAGED_ROOTS:
+        start = root / name
+        if not start.exists():
+            continue
+        if start.is_symlink() or not start.is_dir():
+            raise UnsafeShellRepair(f"{name} must be a real directory")
+        for directory, dirs, names in os.walk(start, followlinks=False):
+            base = Path(directory)
+            for dirname in dirs:
+                relative = (base / dirname).relative_to(root).as_posix()
+                _checked(root, relative)
+            for filename in names:
+                relative = (base / filename).relative_to(root).as_posix()
+                if is_tab(relative):
+                    continue
+                path = _checked(root, relative)
+                if not path.is_file():
+                    raise UnsafeShellRepair(f"Non-file source asset: {relative}")
+                found[relative] = path.read_bytes()
     return found
 
 
@@ -110,6 +113,20 @@ def _desired(root: Path) -> dict[str, bytes]:
             raw = asset["content"].encode("utf-8")
             if relative in desired and desired[relative] != raw:
                 raise UnsafeShellRepair(f"Conflicting canonical owners: {relative}")
+            desired[relative] = raw
+
+    # Standard scripts and adapters are also framework assets; unknown
+    # executable files in these roots are retired, not accepted as extensions.
+    for managed_root in MANAGED_ROOTS:
+        if managed_root == "src" or not (SOURCE / managed_root).is_dir():
+            continue
+        for src in sorted((SOURCE / managed_root).rglob("*")):
+            if not src.is_file():
+                continue
+            relative = src.relative_to(SOURCE).as_posix()
+            raw = src.read_bytes()
+            if src.suffix in {".ts", ".tsx", ".js", ".mjs", ".cjs", ".json", ".md"}:
+                raw = raw.decode("utf-8").replace("MyApp", name).replace("my-app", name).encode("utf-8")
             desired[relative] = raw
 
     for relative in CANONICAL_CONFIG:
@@ -170,7 +187,7 @@ def plan_shell(root: Path) -> dict:
                         "before_sha256": _digest(before), "after_sha256": _digest(after)})
     return {"ok": True, "operation": "canonical-shell", "actions": actions,
             "noop": not actions, "tab_files": len(_snapshot_tabs(root)),
-            "ownership": {"managed": "all src outside main tabs, plus canonical build/deployment assets",
+            "ownership": {"managed": "all executable roots outside main tabs, plus canonical build/deployment assets",
                           "custom": "src/frontend/pages/main/tabs/**"}}
 
 
