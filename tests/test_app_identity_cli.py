@@ -66,7 +66,13 @@ def test_existing_approved_identity_is_preserved(tmp_path):
     result = ensure_app_identity(tmp_path)
     stored = json.loads(manifest_path.read_text(encoding="utf-8"))
 
-    assert result == {"app_id": "aiko", "registration_status": "approved", "enrollment_request": None}
+    assert result == {
+        "app_id": "aiko",
+        "deployment_id": "d290f1ee-6c54-4b01-90e6-d701748f0851",
+        "oauth_client_id": "luth-aiko-web",
+        "registration_status": "approved",
+        "enrollment_request": None,
+    }
     assert stored["app_identity"]["registration_status"] == "approved"
     report = inspect_app_identity(tmp_path)
     assert report["ok"] is True
