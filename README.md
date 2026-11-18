@@ -84,6 +84,12 @@ the 26-aspect validator, exact canonical shell drift inventory, Python/JavaScrip
 lint, and TypeScript typechecking where tools are configured. It keeps the legacy full-validator aspect JSON evidence for certification and groups each finding with
 a rule code, file, severity and suggested repair where available. Missing required analyzers
 are marked blocked; nonconfigured checks are marked not-run rather than falsely passed.
+To preserve read-only semantics, `check` never executes project-defined npm/pnpm/yarn
+`lint` or `typecheck` scripts. It invokes only a directly installed ESLint binary
+with fixed no-fix arguments when the configured lint script is a conventional
+`eslint .` or `eslint src`, and a directly installed TypeScript compiler with
+`--noEmit --incremental false` when a tsconfig is present. Custom scripts
+and missing analyzers are reported as not-run or blocked, not certified.
 Tests and production builds remain separate `skipo test` and project build operations,
 since running arbitrary scripts may create artifacts and is not guaranteed read-only.
 
