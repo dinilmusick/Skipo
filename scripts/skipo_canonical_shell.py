@@ -41,7 +41,7 @@ FULL_STACK = {
     "workspace": {
         "frontend": ("src/frontend/pages/menus/workspaces/page.tsx",
                      "src/frontend/components/gates/WorkspaceGate.tsx"),
-        "backend": ("src/backend/storage/canonicalCapabilityRoutes.ts",
+        "backend": ("src/app.ts", "src/backend/storage/canonicalCapabilityRoutes.ts",
                     "src/backend/adapters/httpsAdapter.ts"),
         "services": ("@ultrst-armada/floks/ui", "@ultrst-armada/kloks/backend/krnl-services"),
         "routes": ("/api/auth/workspaces", "/api/auth/storage/*"),
