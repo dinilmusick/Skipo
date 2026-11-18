@@ -85,7 +85,7 @@ def ensure_app_identity(root: Path) -> dict[str, Any]:
         f"export const deploymentId = {json.dumps(deployment_id)} as string | null;\n"
         f"export const oauthClientId = {json.dumps(oauth_client_id)} as string | null;\n"
         "export function workspaceEnvironment(env?: Record<string, unknown>) {\n"
-        "  return { ...env, WORKSPACE_APP_ID: appId };\\n"
+        "  return { ...env, WORKSPACE_APP_ID: appId };\n"
         "}\n",
         encoding="utf-8",
     )
