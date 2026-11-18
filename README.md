@@ -78,7 +78,7 @@ skipo identity my-app          # shows enrollment_required, no forged app ID
 skipo inspect my-app           # includes explicit app_identity status
 skipo repair my-app            # preserves app_id
 skipo update my-app            # preserves app_id
-skipo verify my-app            # unresolved until identity authority is confirmed
+skipo verify my-app            # checks structure; live authority remains not_verified
 skipo certify my-app           # cannot claim verified enrollment offline
 ```
 
@@ -87,8 +87,10 @@ the project's manifest and cannot be inferred from the deployment URL.
 `deployment_id` and `oauth_client_id` are separate optional references.
 Changes to `APP_URL` and repeated repairs do not modify `app_id`.
 A local `registration_status: verified` string **does not establish trust**.
-Live authority and deployment-control verification are provided by the
-separate Luth/Neon enrollment stage, not by Skipo CLI or static certification.
+Offline `skipo verify` checks manifest structure and identity continuity; it
+reports registry authority as `not_verified` rather than claiming success.
+`skipo certify --require-live` remains unresolved until the separate Luth/Neon
+enrollment stage proves registration and deployment control.
 
 ## Application state
 
