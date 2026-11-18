@@ -187,3 +187,68 @@ def test_published_skipo_entrypoint_routes_identity_to_framework_cli(tmp_path):
     assert report["app_id"] == "aiko"
     assert report["status"] == "registry_confirmation_required"
     assert report["authority_verified"] is False
+
+
+def test_forced_scaffold_regeneration_preserves_app_owned_tabs_byte_for_byte(tmp_path):
+    scaffold_root = tmp_path / "scaffolds"
+    scaffold = scaffold_root / "vite"
+    main = scaffold / "src" / "frontend" / "pages" / "main"
+    main.mkdir(parents=True)
+    (scaffold / "package.json").write_text('{"name":"my-app"}\n', encoding="utf-8")
+    (scaffold / "vite.config.ts").write_text("export default {};\n", encoding="utf-8")
+    (main / "page.tsx").write_text("export const title = 'MyApp';\n", encoding="utf-8")
+
+    target = tmp_path / "existing"
+    target.mkdir()
+    make_manifest(target, app_id="aiko", deployment_id="aiko-prod-deployment",
+                  oauth_client_id="aiko-web-client", registration_status="verified")
+    tabs = target / "src" / "frontend" / "pages" / "main" / "tabs"
+    custom = tabs / "aiko"
+    custom.mkdir(parents=True)
+    page = custom / "page.tsx"
+    before = b"export default function MyApp() { return 'private-custom-tab'; }\n"
+    page.write_bytes(before)
+    assets = custom / "assets"
+    assets.mkdir()
+    raw_asset = assets / "fixture.bin"
+    raw_asset.write_bytes(b"\x00\xffMyApp\x00")
+    (tabs / "empty").mkdir()
+
+    with patch.object(cli, "SCAFFOLDS", scaffold_root), \\
+         patch.object(cli, "capability_adopt", return_value={"ok": True}), \\
+         patch.object(cli, "capability_compose", return_value={"ok": True}), \\
+         patch("skipo_canonical_shell.reconcile_shell", return_value={"ok": True}):
+        assert cli.create_project("Aiko Refreshed", target, "vite", True) == 0
+        assert cli.create_project("Aiko Refreshed", target, "vite", True) == 0
+
+    assert page.read_bytes() == before
+    assert raw_asset.read_bytes() == b"\x00\xffMyApp\x00"
+    assert (tabs / "empty").is_dir()
+    assert "Aiko Refreshed" in ((target / "src/frontend/pages/main/page.tsx")).read_text()
+    project = json.loads((target / ".skipo" / "project.json").read_text())
+    assert project["app_id"] == "aiko"
+    assert project["deployment_id"] == "aiko-prod-deployment"
+    assert identity.inspect_identity(target)["authority_verified"] is False
+
+
+def test_force_refresh_rejects_symlinked_custom_tabs_without_touching_source(tmp_path):
+    scaffold_root = tmp_path / "scaffolds"
+    scaffold = scaffold_root / "vite"
+    scaffold.mkdir(parents=True)
+    (scaffold / "package.json").write_text('{"name":"my-app"}\n', encoding="utf-8")
+    (scaffold / "vite.config.ts").write_text("export default {};\n", encoding="utf-8")
+
+    target = tmp_path / "app"
+    target.mkdir()
+    make_manifest(target, app_id="aiko")
+    real = tmp_path / "outside"
+    real.mkdir()
+    (real / "page.tsx").write_text("export const retained = true;\n", encoding="utf-8")
+    main = target / "src" / "frontend" / "pages" / "main"
+    main.mkdir(parents=True)
+    (main / "tabs").symlink_to(real, target_is_directory=True)
+
+    with patch.object(cli, "SCAFFOLDS", scaffold_root):
+        assert cli.create_project("Aiko", target, "vite", True) == 2
+    assert (real / "page.tsx").read_text() == "export const retained = true;\n"
+    assert (target / ".skipo" / "project.json").exists()
