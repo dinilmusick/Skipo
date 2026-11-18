@@ -184,6 +184,21 @@ def _runner(app: Path) -> tuple[str | None, list[str]]:
     return {"pnpm-lock.yaml": "pnpm", "package-lock.json": "npm", "yarn.lock": "yarn"}[locks[0]], locks
 
 
+def _script_preflight(name: str, scripts: Any) -> dict[str, Any] | None:
+    """Share fail-closed package script checks between test and certification."""
+    statement = scripts.get(name) if isinstance(scripts, dict) else None
+    if not isinstance(statement, str) or not statement.strip():
+        return _check("script_" + name, "failed", "SKIPO_SCRIPT_MISSING",
+                      f"Required package script {name} missing")
+    normalized = statement.strip().lower()
+    if (re.fullmatch(r"(?:true|:|exit\s+0|echo\b.*|printf\b.*)", normalized)
+            or re.search(r"\bskipo(?:_cli\.py)?\s+test\b", normalized)):
+        return _check("script_" + name, "failed", "SKIPO_SCRIPT_NONEXECUTABLE",
+                      f"Script {name} is a placeholder or recursive",
+                      declared_script=statement)
+    return None
+
+
 def _run_scripts(app: Path, scripts: dict[str, Any], runner: str, timeout: int) -> list[dict[str, Any]]:
     checks = []
     # Compilation often produces dist, .next or caches. Execute in a disposable copy,
@@ -195,13 +210,9 @@ def _run_scripts(app: Path, scripts: dict[str, Any], runner: str, timeout: int) 
         if modules.is_dir():
             (mirror / "node_modules").symlink_to(modules, target_is_directory=True)
         for name in REQUIRED_SCRIPTS:
-            statement = scripts.get(name)
-            if not isinstance(statement, str) or not statement.strip():
-                checks.append(_check("script_" + name, "failed", "SKIPO_SCRIPT_MISSING", f"Required package script {name} missing"))
-                continue
-            normalized = statement.strip().lower()
-            if re.fullmatch(r"(?:true|:|exit\s+0|echo\b.*|printf\b.*)", normalized) or re.search(r"\bskipo(?:_cli\.py)?\s+test\b", normalized):
-                checks.append(_check("script_" + name, "failed", "SKIPO_SCRIPT_NONEXECUTABLE", f"Script {name} is a placeholder or recursive", declared_script=statement))
+            issue = _script_preflight(name, scripts)
+            if issue:
+                checks.append(issue)
                 continue
             cmd = [runner, "run", name]
             code, stdout, stderr, error = _execute(cmd, mirror, timeout)
