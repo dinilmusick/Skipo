@@ -79,6 +79,23 @@ CREATE TRIGGER deployments_identity_immutable
 -- No existing registration is classified verified without deployment-control proof.
 -- Verification status/lease are reserved for separately authorized registry writers.
 
+
+-- Immutable, per-deployment snapshots of static callable capability metadata.
+-- Never store user workflow definitions, session URLs, bearer material or secrets here.
+CREATE TABLE IF NOT EXISTS skipo_ecosystem.deployment_capability_revisions (
+  deployment_id uuid NOT NULL
+    REFERENCES skipo_ecosystem.deployments(deployment_id) ON DELETE CASCADE,
+  revision bigint NOT NULL CHECK (revision > 0),
+  descriptors jsonb NOT NULL
+    CHECK (jsonb_typeof(descriptors) = 'array' AND jsonb_array_length(descriptors) <= 256),
+  published_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  PRIMARY KEY (deployment_id, revision)
+);
+
+CREATE INDEX IF NOT EXISTS deployment_capability_revisions_latest
+  ON skipo_ecosystem.deployment_capability_revisions
+    (deployment_id, revision DESC);
+
 CREATE TABLE IF NOT EXISTS skipo_ecosystem.invocations (
   id uuid PRIMARY KEY,
   caller_app text NOT NULL,
