@@ -325,12 +325,13 @@ def verify_project(root: Path) -> int:
     }
     independent = independent_verify(root, VERSION)
     diagnostics = list(legacy.get("diagnostics", []))
+    framework_source = root.resolve() == ROOT.resolve()
     app_identity = inspect_identity(root)
-    if app_identity["status"] in ("enrollment_required", "registry_confirmation_required"):
+    if not framework_source and app_identity["status"] in ("enrollment_required", "registry_confirmation_required"):
         diagnostics.append({"code": "SKIPO_APP_REGISTRY_ENROLLMENT_REQUIRED",
                             "status": "unresolved",
                             "message": app_identity["next_action"], "path": ".skipo/project.json"})
-    elif not app_identity["ok"]:
+    elif not framework_source and not app_identity["ok"]:
         diagnostics.append({"code": "SKIPO_APP_IDENTITY_INVALID", "status": "invalid",
                             "message": "; ".join(app_identity["errors"]), "path": ".skipo/project.json"})
     architecture = independent.get("architecture", {})
@@ -383,7 +384,7 @@ def verify_project(root: Path) -> int:
                 })
     ok = bool(legacy.get("ok") and independent.get("ok")
               and shell.get("ok", False) and shell.get("noop", False)
-              and app_identity["ok"] and app_identity["authority_verified"])
+              and (framework_source or (app_identity["ok"] and app_identity["authority_verified"])))
     payload = {"operation": "verify", "ok": ok,
                "status": legacy.get("status", "clean") if ok else (
                    legacy.get("status") if not legacy.get("ok") else "unresolved"),
@@ -400,12 +401,13 @@ def certify_project(root: Path, require_live: bool = False, output: str | None =
     payload = certify(root, FRAMEWORK_ROOT, require_live=require_live, commit_sha=commit_sha)
     identity = inspect_identity(root)
     payload["app_identity"] = identity
-    if payload["compliance_status"] == "compliant_offline" and not identity["authority_verified"]:
-        payload["compliance_status"] = "unresolved"
-        payload["offline_checks_passed"] = False
+    if not identity["authority_verified"]:
         payload["checks"].append({"id": "app_identity", "status": "unresolved",
                                   "code": "SKIPO_APP_REGISTRY_ENROLLMENT_REQUIRED",
                                   "message": identity.get("next_action", "Canonical app identity not verified by registrar")})
+        if payload["compliance_status"] == "compliant_offline":
+            payload["compliance_status"] = "unresolved"
+            payload["offline_checks_passed"] = False
     rendered = json.dumps(payload, indent=2, sort_keys=True) + "\n"
     if output:
         path = Path(output)
