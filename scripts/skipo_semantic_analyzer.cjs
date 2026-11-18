@@ -3,6 +3,7 @@
 /** Standalone, read-only TypeScript/React architecture analyser. No Skipo CLI imports. */
 const fs = require('node:fs');
 const path = require('node:path');
+const cp = require('node:child_process');
 
 const DEFAULT_POLICY = path.resolve(__dirname, '../architecture/semantic/owners.json');
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts', '.mjs', '.cjs']);
@@ -33,7 +34,14 @@ function typescript(root) {
       }
     }
   }
-  throw new Error('TypeScript compiler API unavailable; install the existing TypeScript devDependency');
+  // Preserve read-only CLI diagnostics for legacy/uninstalled projects.
+  // An installed application compiler always wins over the global fallback.
+  try {
+    const globalRoot = cp.execFileSync('npm', ['root', '-g'], { encoding: 'utf8' }).trim();
+    return require(require.resolve('typescript', { paths: [globalRoot] }));
+  } catch (_) {
+    throw new Error('TypeScript compiler API unavailable; install the existing TypeScript devDependency');
+  }
 }
 function validatePolicy(value) {
   const stringList = (x) => Array.isArray(x) && x.every(v => typeof v === 'string' && v.length > 0) && new Set(x).size === x.length;
