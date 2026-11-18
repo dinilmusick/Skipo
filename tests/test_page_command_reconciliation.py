@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -321,8 +322,23 @@ def test_canonical_main_tabs_receive_authenticated_workspace_id(tmp_path):
     shell = (target / "src/frontend/pages/main/page.tsx").read_text()
     tab_shell = (target / "src/frontend/pages/main/MainTabs.tsx").read_text()
     registry = (target / "src/frontend/pages/main/tabRegistry.tsx").read_text()
-    assert "<MainTabs activeWorkspace={activeWorkspace} isGuest={isGuest} />" in shell
-    assert "<MainTabContent id={activeTab} activeWorkspace={activeWorkspace} isGuest={isGuest} />" in tab_shell
+    # Keep checking the contract when canonical shell components gain more props.
+    # Exact JSX-element assertions are brittle and rejected the correctly wired
+    # currentUser / workspace actions before downstream checks could run.
+    main_tabs = re.search(r"<MainTabs\\b[^>]*?/>", shell, re.DOTALL)
+    assert main_tabs is not None
+    tab_content = re.search(r"<MainTabContent\\b[^>]*?/>", tab_shell, re.DOTALL)
+    assert tab_content is not None
+    for prop in (
+        "activeWorkspace={activeWorkspace}",
+        "isGuest={isGuest}",
+        "currentUser={currentUser}",
+        "onSwitchWorkspace={onSwitchWorkspace}",
+        "onLogout={onLogout}",
+    ):
+        assert prop in main_tabs.group(0)
+        assert prop in tab_content.group(0)
+    assert "id={activeTab}" in tab_content.group(0)
     assert "workspaceId={activeWorkspace?.id}" in registry
     assert "'./tabs/*/page.tsx'" in registry
     assert "'./tabs/**/page.tsx'" not in registry
