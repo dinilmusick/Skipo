@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
   getDeploymentCapabilityRevision,
+  resolveVerifiedCapabilityDeployment,
   normalizeStaticCapabilityDescriptors,
   publishDeploymentCapabilityRevision,
   type Query,
@@ -110,5 +111,64 @@ describe('per-deployment static capability revisions', () => {
     ]) {
       expect(readFileSync(new URL(source, root), 'utf8')).toBe(readFileSync(new URL(generated, root), 'utf8'));
     }
+  });
+});
+
+describe('proof-qualified current deployment capability selection', () => {
+  it('binds target app, environment, revision, proof, live lease, freshness and the latest snapshot', async () => {
+    const query = vi.fn(async () => [{
+      deployment_id: deploymentA, app_url: 'https://aiko.example', revision: '3',
+      descriptor: ping,
+    }]) as unknown as Query;
+    const resolved = await resolveVerifiedCapabilityDeployment(
+      query, 'aiko', ping.id, 'production', 3,
+    );
+    expect(resolved).toEqual({
+      deploymentId: deploymentA, url: 'https://aiko.example',
+      revision: 3, descriptor: ping,
+    });
+    const sql = vi.mocked(query).mock.calls[0]?.[0] ?? '';
+    const args = vi.mocked(query).mock.calls[0]?.[1] ?? [];
+    expect(args).toEqual(['aiko', ping.id, 'production', 3]);
+    expect(sql).toContain('d.app_id = $1');
+    expect(sql).toContain('d.environment = $3');
+    expect(sql).toContain('r.revision = $4::bigint');
+    expect(sql).toContain('ORDER BY revision DESC');
+    expect(sql).toContain('matched.descriptor->>\'id\' = $2');
+    expect(sql).toContain("d.verification_state = 'verified'");
+    expect(sql).toContain("NULLIF(btrim(d.verification_proof_digest), '') IS NOT NULL");
+    expect(sql).toContain('d.lease_expires_at > statement_timestamp()');
+    expect(sql).toContain("d.last_refresh_at > statement_timestamp() - interval '15 minutes'");
+  });
+
+  it('fails closed when no eligible deployment has a current matching capability', async () => {
+    const query = vi.fn(async () => []) as unknown as Query;
+    await expect(resolveVerifiedCapabilityDeployment(
+      query, 'aiko', ping.id, 'preview', 7,
+    )).resolves.toBeNull();
+    expect(vi.mocked(query).mock.calls[0]?.[1]).toEqual([
+      'aiko', ping.id, 'preview', 7,
+    ]);
+  });
+
+  it('rejects malformed selectors and stale or untrusted returned descriptors', async () => {
+    const query = vi.fn(async () => []) as unknown as Query;
+    await expect(resolveVerifiedCapabilityDeployment(
+      query, 'aiko', ping.id, 'production', 0,
+    )).rejects.toThrow(/invalid verified capability/i);
+    await expect(resolveVerifiedCapabilityDeployment(
+      query, 'aiko', ping.id, 'production', Number.NaN,
+    )).rejects.toThrow(/invalid verified capability/i);
+    await expect(resolveVerifiedCapabilityDeployment(
+      query, 'aiko', ping.id, 'unclassified' as never,
+    )).rejects.toThrow(/invalid verified capability/i);
+    expect(query).not.toHaveBeenCalled();
+    const forged = vi.fn(async () => [{
+      deployment_id: deploymentA, app_url: 'https://aiko.example', revision: '3',
+      descriptor: { ...ping, id: 'other.operation' },
+    }]) as unknown as Query;
+    await expect(resolveVerifiedCapabilityDeployment(
+      forged, 'aiko', ping.id, 'production',
+    )).rejects.toThrow(/invalid capability descriptor/i);
   });
 });
