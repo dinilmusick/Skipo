@@ -92,6 +92,9 @@ describe('canonical ULTRST deployment identity', () => {
     expect(sql).toContain('workflow grant scope and grantor are immutable');
     expect(sql).toContain('workflow publication withdrawal is permanent');
     expect(sql).toContain('workflow grant revocation is permanent');
+    expect(sql).toContain('workflow publication and grant history cannot be deleted');
+    expect(sql).toContain('BEFORE UPDATE OR DELETE ON skipo_ecosystem.workflow_publications');
+    expect(sql).toContain('BEFORE UPDATE OR DELETE ON skipo_ecosystem.workflow_grants');
     expect(sql).toContain('workflow_grants_one_active_scope');
     expect(sql).toContain('DROP CONSTRAINT IF EXISTS workflow_grants_scope_unique');
     const fixture = readFileSync(new URL('../db/tests/004_workflow_publication_grants.test.sql', import.meta.url), 'utf8');
