@@ -3,13 +3,18 @@
 -- No backfill, app enrollment, legacy deletion, privilege widening, or production cutover.
 BEGIN;
 
--- Both the legacy catalog key and canonical application ID must remain stable.
+-- Both the legacy catalog key and canonical application ID must remain stable, even
+-- when a catalog row has no active children. Retire via status, never DELETE.
 -- Newly enrolled apps are still created by the approved registry authority only.
 CREATE OR REPLACE FUNCTION skipo_ecosystem.reject_canonical_app_identity_change()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $guard$
 BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'canonical application identities must be retired, not deleted'
+      USING ERRCODE = '23514';
+  END IF;
   IF NEW.id IS DISTINCT FROM OLD.id
      OR NEW.app_id IS DISTINCT FROM OLD.app_id THEN
     RAISE EXCEPTION 'canonical application identity cannot be rebound'
@@ -28,9 +33,15 @@ BEGIN
     WHERE tgrelid = 'public."ultrst-apps"'::regclass
       AND tgname = 'ultrst_apps_canonical_identity_immutable'
       AND NOT tgisinternal
+      AND (tgtype::int & 8) <> 0
+      AND (tgtype::int & 16) <> 0
   ) THEN
+    -- Upgrade an older update-only guard without requiring a separate
+    -- migration; the ALTER is atomic with its replacement trigger.
+    DROP TRIGGER IF EXISTS ultrst_apps_canonical_identity_immutable
+      ON public."ultrst-apps";
     CREATE TRIGGER ultrst_apps_canonical_identity_immutable
-      BEFORE UPDATE ON public."ultrst-apps"
+      BEFORE UPDATE OR DELETE ON public."ultrst-apps"
       FOR EACH ROW
       EXECUTE FUNCTION skipo_ecosystem.reject_canonical_app_identity_change();
   END IF;
