@@ -49,7 +49,7 @@ def restore(current, canonical, name):
     raise ValueError(f"{name} contains app-specific changes overlapping managed wiring")
 
 
-def add(root, page, title=None, apply=True):
+def plan_files(root, page, title=None):
     root = root.resolve()
     if not (root / "package.json").is_file() or not (root / "vite.config.ts").is_file():
         raise ValueError("Expected a Skipo Vite application")
@@ -87,9 +87,40 @@ def add(root, page, title=None, apply=True):
         if not tab.exists():
             writes[tab] = (f"export const title = {json.dumps(title)};\n\n"
                            "export default function TabPage() {\n  return <h2>{title}</h2>;\n}\n")
-    if apply:
+    return writes
+
+
+def compose_page(root, page, title=None, apply=True):
+    from skipo_capabilities import compose, resolve_capabilities
+
+    writes = plan_files(root, page, title)
+    result = {"ok": True, "actions": [], "conflicts": []}
+    if page != "main":
+        result = compose(root, [page], apply=False)
+        desired = {
+            item["path"]: item["content"]
+            for _, spec in resolve_capabilities([page])
+            for item in spec.get("generated", [])
+        }
+        # Repair missing managed lines in registry-owned pages in the same preflight.
+        unresolved = []
+        for conflict in result["conflicts"]:
+            path = root / conflict["path"]
+            canonical = desired[conflict["path"]]
+            try:
+                repaired = restore(path.read_text(), canonical, conflict["path"])
+            except ValueError:
+                repaired = None
+            if repaired == canonical and path.resolve() == path:
+                writes[path] = repaired
+            else:
+                unresolved.append(conflict)
+        result.update(conflicts=unresolved, ok=not unresolved)
+    if apply and result["ok"]:
         for dest, value in writes.items():
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(value)
-    return [str(path.relative_to(root)) for path in writes]
-
+        if page != "main":
+            result = compose(root, [page], apply=True)
+    result["page_paths"] = [str(path.relative_to(root)) for path in writes]
+    return result
