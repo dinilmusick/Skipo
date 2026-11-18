@@ -114,3 +114,22 @@ operation, alternate registry or metadata-only method can pass.
 The target's `createFacadeInvocationBoundary` remains responsible for
 Luth and workspace/ACL authorization. Snapshots cannot be edited after
 publication; publish a new complete immutable revision to withdraw operations.
+
+## Trusted lease registrar handoff
+
+The private Skipo backend now has a registrar-only
+`verifiedDeploymentAuthority_Impure.ts` adapter with trusted callbacks
+for independently proven app/deployer ownership and endpoint challenge.
+It offers bounded attestation-driven first registration/renewal and
+owner-approved terminal, idempotent revocation. It is **not** included in
+generated Vite runtimes. The trusted host must wire real Luth/deployer
+verification and a distinct least-privilege registry SQL role; neither a
+frontend session nor local project manifest may serve as the verifier.
+Callers cannot extend a lease or mutate a verified origin through ordinary
+app heartbeats. Only after verified registrar integration should the
+authority flag in Skipo enrollment/Luth consumer PRs #161/#180/#187 be enabled.
+
+A rollback-safe DB fixture is committed at
+`db/tests/005_verified_deployment_registry_negative.test.sql`. It must
+be run with error-stop on an isolated fork after exact migration replay,
+not against production.
