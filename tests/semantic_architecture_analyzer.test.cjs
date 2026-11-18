@@ -91,3 +91,14 @@ test('canonical Kloks client import is browser-safe without allowing backend pro
   const blocked = analyzeProject(root);
   assert.ok(blocked.findings.some(f => f.ruleId === 'SEM102'));
 }));
+
+test('a canonical Luth facade delegation is not confused with a second auth provider', () => project('positive', root => {
+  fs.mkdirSync(path.join(root, 'src/backend'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'src/backend/luthBridge.ts'),
+    "import { DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth'; export const base = DEFAULT_LUTH_URL;\n");
+  fs.writeFileSync(path.join(root, 'src/backend/sessionFacade.ts'),
+    "import { base } from './luthBridge'; export const auth = { getSession() { return base; }, session: true };\n");
+  const report = analyzeProject(root);
+  assert.equal(report.status, 'compliant', JSON.stringify(report.findings));
+  assert.ok(!report.findings.some(f => f.ruleId === 'SEM106'));
+}));
