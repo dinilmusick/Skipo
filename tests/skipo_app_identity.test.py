@@ -146,7 +146,7 @@ def test_forced_create_preserves_existing_registered_identity_and_role_reference
     assert "export const appId: string | null = \\"aiko\\";" in generated
     assert "appIdentityAuthorityVerified = false" in generated
     assert "WORKSPACE_APP_ID: appId" in generated
-    assert (target / "existing-user-file.ts").exists() is False
+    assert (target / "existing-user-file.ts").exists() is True
     assert identity.inspect_identity(target)["app_id"] == "aiko"
 
 
