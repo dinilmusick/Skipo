@@ -68,7 +68,7 @@ def test_update_repairs_dirty_shell_and_protects_custom_tabs(tmp_path):
     legacy = target / "src/backend/legacyCustomSession.ts"
     legacy.write_text("export const bypassLuth = true;\n")
     stray_script = target / "scripts/local-auth.cjs"
-    stray_script.parent.mkdir(parents=True)
+    stray_script.parent.mkdir(parents=True, exist_ok=True)
     stray_script.write_text("module.exports = { bypass: true };\n")
     dirty_plan = invoke("update", "--pages", str(target), "--plan")
     assert dirty_plan.returncode == 0, dirty_plan.stdout + dirty_plan.stderr
