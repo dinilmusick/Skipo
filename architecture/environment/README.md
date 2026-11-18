@@ -8,6 +8,8 @@
 | `SYSTEM_DATABASE_URL_2` | DB fallback 1 | No |
 | `SYSTEM_DATABASE_URL_3` | DB fallback 2 | No |
 | `APP_URL` | Application's absolute origin | Yes |
+| `SKIPO_DEPLOYMENT_ID` | Registry-provisioned deployment identity; never derived from `APP_URL` | No |
+| `LUTH_OAUTH_CLIENT_ID` | Registry-provisioned OAuth client identity; distinct from `app_id` | No |
 
 `NODE_ENV`, `PORT`, and a narrow, exact list of host-provided variables are classified as **runtime/platform inputs**. Internal release, CI, inspection and maintenance inputs are classified as **internal tooling**, accepted only in known tooling locations (not in application environment files). Neither category changes the application's four-name contract. These classifications do *not* allow arbitrary `GITHUB_*`, `VERCEL_*`, `CF_*` or `NEXT_PUBLIC_*` variables. An application declaring `GEMINI_API_KEY`, `STORAGE_SECRET_ACCESS_KEY`, `ADMIN_PASSWORD` or another application credential must move that requirement to its canonical authorization/service integration, not add a new exception.
 
