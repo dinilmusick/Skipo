@@ -1,4 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../scaffolds/vite/src/backend/ecosystem/appIdentity_Pure', () => ({
+  appId: 'my-app',
+  appRegistrationStatus: 'approved',
+  deploymentId: null,
+  oauthClientId: null,
+  workspaceEnvironment: (env = {}) => ({ ...env, WORKSPACE_APP_ID: 'my-app' }),
+}));
 import { ServiceFacade } from '@ultrst-armada/krnl';
 import { AikoRuntime } from '@ultrst-armada/kloks/aiko';
 import { endpointToNode, executeFodFlow } from '@ultrst-armada/kloks/fod';
