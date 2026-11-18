@@ -191,8 +191,13 @@ def _script_preflight(name: str, scripts: Any) -> dict[str, Any] | None:
         return _check("script_" + name, "failed", "SKIPO_SCRIPT_MISSING",
                       f"Required package script {name} missing")
     normalized = statement.strip().lower()
+    recursive_package_script = re.search(
+        rf"\b(?:npm|pnpm|yarn)\s+(?:run\s+)?{re.escape(name)}(?=$|[\s;&|])",
+        normalized,
+    )
     if (re.fullmatch(r"(?:true|:|exit\s+0|echo\b.*|printf\b.*)", normalized)
-            or re.search(r"\bskipo(?:_cli\.py)?\s+test\b", normalized)):
+            or re.search(r"\bskipo(?:_cli\.py)?\s+test\b", normalized)
+            or recursive_package_script):
         return _check("script_" + name, "failed", "SKIPO_SCRIPT_NONEXECUTABLE",
                       f"Script {name} is a placeholder or recursive",
                       declared_script=statement)
