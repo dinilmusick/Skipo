@@ -23,10 +23,12 @@ def test_vite_scaffold_mounts_both_external_protocols():
     app = (base / "src/app.ts").read_text(encoding="utf-8")
     assert "externalInterfaces.mcp(request)" in app
     assert "externalInterfaces.http(request)" in app
-    assert "universalFetch(request, env)" in adapter
-    assert "/api/workspaces" in adapter
-    assert "/api/storage/connections" in adapter
-    assert "authenticateLuthRequest" in adapter
+    assert "listWorkspaces" in app
+    assert "/api/workspaces" in app
+    assert "/api/storage/connections" in app
+    assert "authenticateLuthRequest(request)" in app
+    assert "fetch as fetchHandler" in adapter
+    assert "../../app.js" in adapter
     worker = (base / "src/providers/cloudflare.ts").read_text(encoding="utf-8")
     vercel = (base / "src/providers/vercel.ts").read_text(encoding="utf-8")
     node = (base / "src/providers/node.ts").read_text(encoding="utf-8")
