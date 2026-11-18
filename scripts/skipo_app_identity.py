@@ -91,6 +91,8 @@ def ensure_app_identity(root: Path) -> dict[str, Any]:
     )
     return {
         "app_id": app_id,
+        "deployment_id": deployment_id,
+        "oauth_client_id": oauth_client_id,
         "registration_status": identity["registration_status"],
         "enrollment_request": ".skipo/enrollment-request.json" if not approved else None,
     }
