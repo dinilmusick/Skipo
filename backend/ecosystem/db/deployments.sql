@@ -32,15 +32,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS deployments_by_immutable_id
 ALTER TABLE skipo_ecosystem.deployments
   ALTER COLUMN environment SET DEFAULT 'unclassified';
 
+-- The old preview-only CHECK must be removed before unclassified rows are backfilled.
+ALTER TABLE skipo_ecosystem.deployments
+  DROP CONSTRAINT IF EXISTS deployments_environment_check;
+
 UPDATE skipo_ecosystem.deployments
 SET environment = 'unclassified'
 WHERE environment = 'preview'
   AND verification_state = 'unverified'
   AND verification_proof_digest IS NULL;
-
--- The original preview-only CHECK must be replaced on repeat migrations.
-ALTER TABLE skipo_ecosystem.deployments
-  DROP CONSTRAINT IF EXISTS deployments_environment_check;
 
 -- Re-runnable on existing databases without breaking the old composite PK.
 DO $deployment_identity$
