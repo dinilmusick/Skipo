@@ -146,3 +146,115 @@ def plan_tab(root, title, writes):
         if not tab.exists():
             writes[tab] = (f"export const title = {json.dumps(title)};\n\n"
                            "export default function TabPage() {\n  return <h2>{title}</h2>;\n}\n")
+
+
+def reconcile_pages(root, pages, title=None, apply=True):
+    """Reconcile one or more canonical pages as a fail-closed CLI transaction.
+
+    Preflight *all* requested pages before touching the project. Snapshot only
+    declared framework-managed outputs and binding locations, then verify that
+    a second reconciliation is a no-op. A failed write or verification restores
+    the original files; app-owned tab bodies are never in the replacement set.
+    """
+    import os
+    import stat
+
+    from skipo_capabilities import resolve_capabilities
+
+    root = Path(root).resolve()
+    pages = ["auth" if page == "login" else page for page in pages]
+    if not pages or any(page not in GROUPS for page in pages):
+        raise ValueError("Expected auth, workspace, or main pages")
+    if title is not None and pages != ["main"]:
+        raise ValueError("Named tabs belong to the main page")
+
+    previews = []
+    candidates = set()
+    for page in pages:
+        preview = compose_page(root, page, title if page == "main" else None, apply=False)
+        previews.append({"page": page, **preview})
+        if not preview.get("ok", False):
+            return {"ok": False, "applied": False, "pages": previews,
+                    "conflicts": preview.get("conflicts", []),
+                    "error": "Page preflight rejected an ambiguous or app-owned change"}
+        candidates.update(preview.get("page_paths", []))
+        if page != "main" and not (root / ".skipo/pages.json").exists():
+            for _, spec in resolve_capabilities([page]):
+                candidates.update(item["path"] for item in spec.get("generated", []))
+
+    if not apply:
+        return {"ok": True, "applied": False, "pages": previews,
+                "page_paths": sorted(candidates), "noop": not candidates}
+
+    # The capability composer updates these state files when installing a
+    # canonical page. They must participate in the same rollback boundary.
+    if any(page != "main" for page in pages) and not (root / ".skipo/pages.json").exists():
+        candidates.update({
+            "package.json", ".skipo/project.json", ".skipo/capabilities.json",
+            ".skipo/dependencies.json", ".skipo/overrides.json",
+            ".skipo/migration-state.json",
+        })
+
+    before = {}
+    new_directories = set()
+    for relative in sorted(candidates):
+        path = root / relative
+        if path.resolve() != path or (path.exists() and not path.is_file()):
+            raise ValueError(f"Unsafe managed page target: {relative}")
+        before[path] = (
+            (path.read_bytes(), stat.S_IMODE(path.stat().st_mode))
+            if path.exists() else None
+        )
+        parent = path.parent
+        while parent != root and not parent.exists():
+            new_directories.add(parent)
+            parent = parent.parent
+
+    results = []
+    try:
+        for page in pages:
+            result = compose_page(root, page, title if page == "main" else None, apply=True)
+            if not result.get("ok", False):
+                raise ValueError(f"{page}: reconciliation failed: {result.get('conflicts')}")
+            results.append({"page": page, **result})
+        post = [
+            {"page": page, **compose_page(root, page, title if page == "main" else None, apply=False)}
+            for page in pages
+        ]
+        dirty = [item for item in post if not item.get("ok") or item.get("page_paths")]
+        if dirty:
+            raise ValueError("Canonical pages remain dirty after reconciliation")
+    except Exception as exc:
+        rollback_errors = []
+        for path, original in before.items():
+            try:
+                if original is None:
+                    if path.exists():
+                        path.unlink()
+                else:
+                    data, mode = original
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(data)
+                    os.chmod(path, mode)
+            except OSError as error:
+                rollback_errors.append(f"{path.relative_to(root)}: {error}")
+        for path in sorted(new_directories, key=lambda item: len(item.parts), reverse=True):
+            try:
+                path.rmdir()
+            except OSError:
+                pass
+        return {"ok": False, "applied": False, "pages": results,
+                "error": str(exc), "rollback": {
+                    "status": "failed" if rollback_errors else "restored",
+                    "errors": rollback_errors,
+                }}
+
+    changed = sorted(
+        path.relative_to(root).as_posix()
+        for path, original in before.items()
+        if (path.read_bytes() if path.exists() else None) !=
+        (original[0] if original is not None else None)
+    )
+    return {"ok": True, "applied": True, "pages": results,
+            "page_paths": changed, "noop": not changed,
+            "verification": {"ok": True, "idempotent": True}}
