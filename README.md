@@ -30,6 +30,8 @@ skipo adopt .
 skipo inspect .
 skipo diagnose .
 skipo plan .
+skipo auth .                  # full-stack auth UI + routes + Kloks/Luth wiring
+skipo workspaceMenu .         # full-stack workspace UI + services + storage routes
 skipo add auth
 skipo add workspace
 skipo add main
@@ -54,12 +56,11 @@ skipo test .
 
 `add` is idempotent. It updates package dependencies and creates only thin app-owned wiring. Canonical UI/service implementations stay in Floks/Kloks.
 
-**Canonical ownership invariant:** Every `src/**` source file outside `src/frontend/pages/main/tabs/**` is Skipo-controlled, including the auth/login, workspace, main, settings, backend facade/infrastructure, and canonical capabilities. No app-specific view or code may be kept in those shared locations. The only application-owned source is in main-page tab subtrees; standard runtime and service implementations remain in Skipo/Floks/Kloks. Environment values and deployment identity are configuration, not custom application code.
+**Canonical application boundary:** All frontend code outside `src/frontend/pages/main/tabs/**` is generated, owned and repaired by Skipo. Application-specific backend capabilities and services are permitted. Canonical backend infrastructure (Luth authentication adapters, workspace/storage service facades, provider-facing routes, shared backend facade and deployment adapters) must conform to Skipo and delegate to Kloks; app-specific service code is preserved. When an existing local backend service duplicates a verified Kloks capability, migrate all callers to the Kloks facade and retire that duplicate only after successful integration tests.
 
-`skipo add main tab "Name"` creates a stable tab source and does not replace it on subsequent runs. `skipo update --pages .` and `skipo repair shell .` **aggressively reconstruct the standard Vite shell** from canonical Skipo scaffold and capability registry assets. These operations rewrite modified standard files and retire unknown `src/**` files outside tabs. They also restore broken auth/backend wiring, main/settings/workspace pages and standard build configuration, independent of pre-existing custom edits. `--plan` gives an exact list of rewrites/retirements without mutation; apply snapshots affected files and rolls back failed transactions. Repeating after successful repair yields `noop: true`.
+**Page commands are full-stack operations:** `skipo auth .`, `skipo workspaceMenu .`, `skipo add auth .`, `skipo add workspace .`, `skipo add main .`, and `skipo add main tab "Name" .` reconcile the canonical frontend **and** backend adapters, API paths, Luth session validation, Kloks capability facades and deployment scaffolding, not just UI markup. `skipo update --pages .` and `skipo repair shell .` reconcile the complete standard shell. `--plan` lists frontend/backend stack ownership, routes, provider contracts, and changes without writing. Repeating a clean command yields `noop: true`; failures roll back exact files and leave custom tabs and backend services intact.
 
-**Migration requirement for older apps:** Aiko, SRKL, and Kone currently contain app-specific modules outside their tab trees. Before applying aggressive shell healing on those apps, migrate the app-specific functionality and its dependencies into their tab subtrees and declarative canonical capability registrations. Otherwise the command will intentionally retire the noncanonical source. Keep the first rollout as a PR, inspect `--plan`, verify builds and runtime behavior before merging.
-
+**Migration for Aiko, SRKL, Kone and Kal:** These apps still have custom UI and dependencies outside the tab subtrees. Preserve the functionality by moving app frontend code into main tabs and replacing local provider duplicates with canonical Floks/Kloks interfaces. Then apply the full-stack Skipo repair and independently verify auth callback, sign-out, workspace operations, saved app capabilities, typecheck, tests, and a production build before merging the consumer PRs. Avoid applying a destructive rewrite to consumer main branches before the code is migrated and verified.
 
 ## Application state
 
