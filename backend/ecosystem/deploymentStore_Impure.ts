@@ -13,6 +13,19 @@ export function systemQuery(env: EcosystemEnv): Query {
   }) as Row[];
 }
 
+/** Refuse non-HTTPS, private or non-origin URLs returned by an external registry. */
+export function validatedDeploymentOrigin(value: unknown): string {
+  const parsed = new URL(typeof value === 'string' ? value.trim() : '');
+  const hostname = parsed.hostname;
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password ||
+      parsed.port || parsed.pathname !== '/' || parsed.search || parsed.hash ||
+      !hostname.includes('.') || /^(?:\\d+\\.){3}\\d+$/.test(hostname) ||
+      /\\.(?:localhost|local|internal)\\.?$/.test(hostname)) {
+    throw new Error('Verified deployment target must be a public HTTPS DNS origin.');
+  }
+  return parsed.origin;
+}
+
 export async function refreshDeployment(query: Query, app: string, url: string, capabilities: string[]) {
   await query(`
     WITH expired AS (
@@ -37,6 +50,7 @@ export async function refreshDeploymentById(
   if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(deploymentId)) {
     throw new Error('Deployment identity must be a UUID.');
   }
+  url = validatedDeploymentOrigin(url);
   const updated = await query<{ deployment_id: string }>(`
     INSERT INTO skipo_ecosystem.deployments (deployment_id, app_id, app_url, capabilities)
     VALUES ($1::uuid, $2, $3, $4::text[])
@@ -67,6 +81,11 @@ export interface StaticCapabilityDescriptor {
 }
 
 const forbiddenDescriptorKey = /(?:secret|token|session|endpoint|url|credential|authorization|password|cookie|bearer|(?:api|access|private|client|server|signing|encryption)[_-]?key|key[_-]?(?:material|secret))/i;
+const staticOperationHandle = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
+function validStaticHandle(value: unknown): value is string {
+  return typeof value === 'string' && staticOperationHandle.test(value) &&
+    !value.includes('..') && !['constructor', 'prototype', '__proto__'].includes(value);
+}
 const descriptorKeys = new Set([
   'id', 'description', 'inputSchema', 'outputSchema', 'name', 'serviceName',
   'invocation', 'access', 'requiredRoles', 'discoverable',
@@ -96,11 +115,12 @@ export function normalizeStaticCapabilityDescriptors(
   return descriptors.map((descriptor) => {
     if (!descriptor || typeof descriptor !== 'object' ||
         Object.keys(descriptor).some((key) => !descriptorKeys.has(key)) ||
-        !/^[a-zA-Z0-9][a-zA-Z0-9._:-]{1,127}$/.test(descriptor.id) ||
+        !validStaticHandle(descriptor.id) ||
         typeof descriptor.description !== 'string' || !descriptor.description.trim() ||
         !descriptor.invocation ||
-        typeof descriptor.invocation.serviceId !== 'string' || !descriptor.invocation.serviceId.trim() ||
-        typeof descriptor.invocation.operationId !== 'string' || !descriptor.invocation.operationId.trim() ||
+        Object.keys(descriptor.invocation).sort().join(',') !== 'operationId,serviceId' ||
+        !validStaticHandle(descriptor.invocation.serviceId) ||
+        !validStaticHandle(descriptor.invocation.operationId) ||
         !descriptor.inputSchema || typeof descriptor.inputSchema !== 'object' ||
         Array.isArray(descriptor.inputSchema) ||
         !descriptor.outputSchema || typeof descriptor.outputSchema !== 'object' ||
@@ -149,6 +169,8 @@ export async function publishDeploymentCapabilityRevision(
         AND verification_state = 'verified'
         AND NULLIF(btrim(verification_proof_digest), '') IS NOT NULL
         AND lease_expires_at > statement_timestamp()
+        AND environment <> 'unclassified'
+        AND last_refresh_at > statement_timestamp() - interval '15 minutes'
     ),
     inserted AS (
       INSERT INTO skipo_ecosystem.deployment_capability_revisions
@@ -172,6 +194,7 @@ export async function publishDeploymentCapabilityRevision(
 /** Returns only the latest snapshot for a verified deployment with a live lease. */
 export async function getDeploymentCapabilityRevision(
   query: Query, appId: string, deploymentId: string,
+  environment: 'development' | 'preview' | 'staging' | 'production',
 ) {
   const [row] = await query<{
     app_id: string; environment: string; revision: number | string;
@@ -188,11 +211,13 @@ export async function getDeploymentCapabilityRevision(
     ) r ON true
     WHERE d.app_id = $1
       AND d.deployment_id = $2::uuid
+      AND d.environment = $3
       AND d.verification_state = 'verified'
       AND NULLIF(btrim(d.verification_proof_digest), '') IS NOT NULL
       AND d.lease_expires_at > statement_timestamp()
+      AND d.last_refresh_at > statement_timestamp() - interval '15 minutes'
     LIMIT 1
-  `, [appId, deploymentId]);
+  `, [appId, deploymentId, environment]);
   return row;
 }
 
@@ -233,7 +258,7 @@ export async function findVerifiedDeployment(
     ORDER BY last_refresh_at DESC, app_url ASC
     LIMIT 1
   `, [app, capability, environment]);
-  return row ? { deploymentId: row.deployment_id, url: row.app_url } : null;
+  return row ? { deploymentId: row.deployment_id, url: validatedDeploymentOrigin(row.app_url) } : null;
 }
 
 
@@ -299,7 +324,7 @@ export async function resolveVerifiedCapabilityDeployment(
     throw new Error('Registry returned an invalid capability revision.');
   }
   return {
-    deploymentId: row.deployment_id, url: row.app_url,
+    deploymentId: row.deployment_id, url: validatedDeploymentOrigin(row.app_url),
     revision: currentRevision, descriptor,
   };
 }
