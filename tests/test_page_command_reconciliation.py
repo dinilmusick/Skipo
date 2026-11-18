@@ -263,3 +263,51 @@ def test_direct_auth_and_workspace_menu_are_fullstack_aliases(tmp_path):
     third = invoke("workspaceMenu", str(target))
     assert third.returncode == 0
     assert json.loads(third.stdout)["noop"] is True
+
+
+
+def test_declared_app_backend_entrypoints_are_preserved(tmp_path):
+    """App service routers may differ; canonical auth/workspace adapters may not."""
+    target = app(tmp_path)
+    package_path = target / "package.json"
+    package = json.loads(package_path.read_text())
+    package["skipo"] = {"backendExtensions": ["server.ts", "src/app.ts"]}
+    package_path.write_text(json.dumps(package), encoding="utf-8")
+    backend = target / "src/app.ts"
+    backend.parent.mkdir(parents=True, exist_ok=True)
+    backend.write_text("export const fetch = () => 'custom app capabilities';\n")
+    server = target / "server.ts"
+    server.write_text("export const start = () => 'application services';\n")
+    first = invoke("auth", str(target))
+    assert first.returncode == 0, first.stdout + first.stderr
+    assert backend.read_text() == "export const fetch = () => 'custom app capabilities';\n"
+    assert server.read_text() == "export const start = () => 'application services';\n"
+    assert (target / "src/backend/adapters/httpsAdapter.ts").is_file()
+    assert (target / "src/backend/storage/canonicalCapabilityRoutes.ts").is_file()
+    result = json.loads(invoke("workspaceMenu", str(target)).stdout)
+    assert result["noop"] is True
+    assert result["ownership"]["declared_backend_entries"] == ["server.ts", "src/app.ts"]
+
+
+def test_undeclared_backend_entry_is_healed(tmp_path):
+    target = app(tmp_path)
+    backend = target / "src/app.ts"
+    backend.parent.mkdir(parents=True, exist_ok=True)
+    backend.write_text("export const localAuthBypass = true;\n")
+    outcome = invoke("update", "--pages", str(target))
+    assert outcome.returncode == 0, outcome.stderr + outcome.stdout
+    assert "localAuthBypass" not in backend.read_text()
+    assert "fetch" in backend.read_text()
+
+
+def test_extension_policy_rejects_unknown_paths_and_frontend_exceptions(tmp_path):
+    target = app(tmp_path)
+    pkg = json.loads((target / "package.json").read_text())
+    for illegal in ("src/frontend/App.tsx", "../other/server.ts",
+                    "src/backend/adapters/httpsAdapter.ts"):
+        pkg["skipo"] = {"backendExtensions": [illegal]}
+        (target / "package.json").write_text(json.dumps(pkg))
+        preview = invoke("update", "--pages", str(target), "--plan")
+        assert preview.returncode != 0
+        assert "Only" in preview.stdout
+        assert not (target / "src/frontend/App.tsx").exists()
