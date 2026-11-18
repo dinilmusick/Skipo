@@ -400,6 +400,27 @@ def test_project(root: Path) -> int:
     return 0
 
 def main() -> int:
+    # Friendly full-stack page commands are aliases for the same atomic
+    # reconciler as "skipo add auth/workspace/main". They never stop at JSX.
+    command_aliases = {
+        "auth": "auth", "login": "auth",
+        "workspacemenu": "workspace", "workspace": "workspace",
+        "mainpage": "main",
+    }
+    if len(sys.argv) > 1 and sys.argv[1].lower() in command_aliases:
+        from skipo_canonical_shell import reconcile_shell
+        page_parser = argparse.ArgumentParser(prog="skipo " + sys.argv[1])
+        page_parser.add_argument("target", nargs="?", type=Path, default=Path.cwd())
+        page_parser.add_argument("--plan", action="store_true")
+        options = page_parser.parse_args(sys.argv[2:])
+        try:
+            result = reconcile_shell(options.target.resolve(), apply=not options.plan)
+            result["requested_stack"] = command_aliases[sys.argv[1].lower()]
+            print(json.dumps(result, indent=2))
+            return 0 if result["ok"] else 1
+        except (ValueError, OSError) as exc:
+            print(json.dumps({"ok": False, "error": str(exc)}))
+            return 1
     if sys.argv[1:3] in (["update", "--pages"], ["repair", "shell"]) or (
         sys.argv[1:2] == ["repair"] and
         sys.argv[2:3] in (["auth"], ["login"], ["workspace"], ["main"])
