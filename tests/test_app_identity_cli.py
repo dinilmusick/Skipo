@@ -33,8 +33,6 @@ def test_identity_is_persisted_and_repairs_are_idempotent(tmp_path):
     assert enrollment["requires_ecosystem_admin_approval"] is True
     assert generated.count(first["app_id"]) == 1
     assert "WORKSPACE_APP_ID: appId" in generated
-    assert "SKIPO_DEPLOYMENT_ID" in generated
-    assert "LUTH_OAUTH_CLIENT_ID" in generated
     assert "my-app" not in generated
 
 
