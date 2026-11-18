@@ -161,6 +161,22 @@ CREATE INDEX IF NOT EXISTS deployment_capability_revisions_latest
   ON skipo_ecosystem.deployment_capability_revisions
     (deployment_id, revision DESC);
 
+/* Historical static snapshots must never be edited or deleted. Replace the
+ * entire operation set with a new revision; withdrawal is a new revision. */
+CREATE OR REPLACE FUNCTION skipo_ecosystem.reject_capability_revision_mutation()
+RETURNS trigger LANGUAGE plpgsql AS $immutable_static_revision$
+BEGIN
+  RAISE EXCEPTION 'static capability revision history is immutable'
+    USING ERRCODE='23514';
+END;
+$immutable_static_revision$;
+
+DROP TRIGGER IF EXISTS deployment_capability_revisions_immutable
+  ON skipo_ecosystem.deployment_capability_revisions;
+CREATE TRIGGER deployment_capability_revisions_immutable
+  BEFORE UPDATE OR DELETE ON skipo_ecosystem.deployment_capability_revisions
+  FOR EACH ROW EXECUTE FUNCTION skipo_ecosystem.reject_capability_revision_mutation();
+
 -- Publish metadata only. Workflow definitions, graph nodes, source, runtime
 -- inputs/outputs and credentials remain in the owning application's workspace.
 CREATE TABLE IF NOT EXISTS skipo_ecosystem.workflow_publications (
