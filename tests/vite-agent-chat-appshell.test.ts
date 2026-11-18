@@ -23,9 +23,11 @@ describe('Canonical Vite application shell', () => {
   });
 
   it('accepts a typed Floks chat adapter, never creating local agent authority', () => {
-    expect(page).toContain("agentChat?: ComponentProps<typeof AppShell>['agentChat'];");
-    expect(page).toContain('agentChat={!isGuest && activeWorkspace ? agentChat : undefined}');
+    expect(page).toContain("agentChat?: ScopedAgentChatHost;");
+    expect(page).toContain('agentChat={scopedAgentChat}');
     expect(page).toContain('Kloks/Luth after permission filtering');
+    expect(page).toContain('bindAuthorizedAgentChat(agentChat, {');
+    expect(page).toContain('principalId, workspaceId: activeWorkspace?.id, isGuest');
     expect(page).not.toMatch(/import .*Aiko/);
     expect(page).not.toMatch(/import .*AgentChatPanel/);
     expect(page).not.toContain('new Agent');
@@ -33,7 +35,7 @@ describe('Canonical Vite application shell', () => {
   });
 
   it('does not activate a stale or unauthenticated chat directory in guest/no-workspace mode', () => {
-    expect(page).toContain('!isGuest && activeWorkspace ? agentChat : undefined');
+    expect(page).toContain('agentChat={scopedAgentChat}');
     expect(page).not.toContain('agentChat={agentChat}');
     expect(page).not.toContain('agentChat={{');
   });
