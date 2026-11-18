@@ -470,9 +470,10 @@ def main() -> int:
     if a.command == "add" and items and (target / "vite.config.ts").is_file():
         page = "auth" if items[0] == "login" else items[0]
         if page in {"auth", "workspace", "main"} and (len(items) == 1 or items[:2] == ["main", "tab"]):
-            from skipo_pages import reconcile_pages
+            from skipo_canonical_shell import reconcile_shell
             try:
-                result = reconcile_pages(target, [page], items[2] if len(items) == 3 else None, apply=not a.plan)
+                title = items[2] if len(items) == 3 else None
+                result = reconcile_shell(target, apply=not a.plan, title=title)
                 print(json.dumps(result, indent=2))
                 return 0 if result["ok"] else 1
             except (ValueError, OSError) as exc:
