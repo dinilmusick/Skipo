@@ -223,7 +223,7 @@ export async function getDeploymentCapabilityRevision(
       AND d.last_refresh_at > statement_timestamp() - interval '15 minutes'
     LIMIT 1
   `, [appId, deploymentId, environment]);
-  return row;
+  return row ? { ...row, descriptors: normalizeStaticCapabilityDescriptors(row.descriptors) } : undefined;
 }
 
 export async function findDeployment(query: Query, app: string, capability: string) {
@@ -250,20 +250,10 @@ export async function findVerifiedDeployment(
   capability: string,
   environment: 'development' | 'preview' | 'staging' | 'production',
 ): Promise<{ deploymentId: string; url: string } | null> {
-  const [row] = await query<{ deployment_id: string; app_url: string }>(`
-    SELECT deployment_id::text AS deployment_id, app_url
-    FROM skipo_ecosystem.deployments
-    WHERE app_id = $1
-      AND $2 = ANY(capabilities)
-      AND environment = $3
-      AND verification_state = 'verified'
-      AND NULLIF(btrim(verification_proof_digest), '') IS NOT NULL
-      AND lease_expires_at > statement_timestamp()
-      AND last_refresh_at > statement_timestamp() - interval '15 minutes'
-    ORDER BY last_refresh_at DESC, app_url ASC
-    LIMIT 1
-  `, [app, capability, environment]);
-  return row ? { deploymentId: row.deployment_id, url: validatedDeploymentOrigin(row.app_url) } : null;
+  // Never use legacy deployments.capabilities to discover a verified method:
+  // it may contain operations withdrawn by a newer immutable snapshot.
+  const resolved = await resolveVerifiedCapabilityDeployment(query, app, capability, environment);
+  return resolved ? { deploymentId: resolved.deploymentId, url: resolved.url } : null;
 }
 
 
@@ -309,7 +299,8 @@ export async function resolveVerifiedCapabilityDeployment(
       CASE WHEN jsonb_typeof(r.descriptors) = 'array'
         THEN r.descriptors ELSE '[]'::jsonb END
     ) AS matched(descriptor) ON matched.descriptor->>'id' = $2
-    WHERE d.app_id = $1
+    WHERE COALESCE((matched.descriptor->>'discoverable')::boolean, true)
+      AND d.app_id = $1
       AND d.environment = $3
       AND ($4::bigint IS NULL OR r.revision = $4::bigint)
       AND d.verification_state = 'verified'
