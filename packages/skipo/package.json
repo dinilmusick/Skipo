@@ -1,6 +1,6 @@
 {
   "name": "@ultrst-armada/skipo",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Skipo application framework CLI and self-contained project engine.",
   "type": "module",
   "bin": {

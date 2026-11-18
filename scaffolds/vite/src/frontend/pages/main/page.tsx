@@ -1,19 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { BaseButton, type WorkspaceRecord } from '@ultrst-armada/floks/ui';
 import MainTabs from './MainTabs.js';
 import SettingsPage from '../settings/page.js';
 
 export interface MainPageProps {
-  children?: React.ReactNode;
   isGuest?: boolean;
   activeWorkspace?: WorkspaceRecord | null;
   onSwitchWorkspace?: () => void;
 }
 
-/** Application-owned page content is supplied through children; no fake workspace is created. */
-export default function MainPage({ children, isGuest, activeWorkspace, onSwitchWorkspace }: MainPageProps) {
+/** The main-page shell is canonical; application UI is defined by tab modules only. */
+export default function MainPage({ isGuest, activeWorkspace, onSwitchWorkspace }: MainPageProps) {
   const [showSettings, setShowSettings] = useState(false);
   return (
     <div data-skipo-main-page="true" style={{ minHeight: '100vh' }}>
@@ -24,7 +23,7 @@ export default function MainPage({ children, isGuest, activeWorkspace, onSwitchW
           {showSettings ? 'Back to workspace' : 'Settings'}
         </BaseButton>
       </header>
-      <main>{showSettings ? <SettingsPage activeWorkspaceName={activeWorkspace?.title || (isGuest ? 'Guest' : undefined)} /> : <MainTabs>{children}</MainTabs>}</main>
+      <main>{showSettings ? <SettingsPage activeWorkspaceName={activeWorkspace?.title || (isGuest ? 'Guest' : undefined)} /> : <MainTabs />}</main>
     </div>
   );
 }

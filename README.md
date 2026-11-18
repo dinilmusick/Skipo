@@ -30,8 +30,20 @@ skipo adopt .
 skipo inspect .
 skipo diagnose .
 skipo plan .
+skipo auth .                  # full-stack auth UI + routes + Kloks/Luth wiring
+skipo workspaceMenu .         # full-stack workspace UI + services + storage routes
 skipo add auth
 skipo add workspace
+skipo add main
+skipo add main tab "Mixer"
+skipo add main tab "Diagnostics"
+skipo update --pages .                # aggressive whole-shell healing
+skipo repair shell .                  # same canonical shell reconstruction
+skipo repair shell . --plan           # enumerate rewrites/retirements first
+skipo repair auth .
+skipo repair workspace .
+skipo repair main .
+skipo update --pages . --plan
 skipo add service storage
 skipo add service midi
 skipo add ui settings
@@ -44,7 +56,11 @@ skipo test .
 
 `add` is idempotent. It updates package dependencies and creates only thin app-owned wiring. Canonical UI/service implementations stay in Floks/Kloks.
 
-`diagnose` detects local duplicate implementations and classifies them as **keep**, **adapt** or **retire**. `repair` uses the same composer as `add`, retires only registry-approved duplicate files, records migration state and re-verifies.
+**Canonical application boundary:** All frontend code outside `src/frontend/pages/main/tabs/**` is generated, owned and repaired by Skipo. Application-specific backend capabilities and services are permitted. Canonical backend infrastructure (Luth authentication adapters, workspace/storage service facades, provider-facing routes, shared backend facade and deployment adapters) must conform to Skipo and delegate to Kloks; app-specific service code is preserved. When an existing local backend service duplicates a verified Kloks capability, migrate all callers to the Kloks facade and retire that duplicate only after successful integration tests.
+
+**Page commands are full-stack operations:** `skipo auth .`, `skipo workspaceMenu .`, `skipo add auth .`, `skipo add workspace .`, `skipo add main .`, and `skipo add main tab "Name" .` reconcile the canonical frontend **and** backend adapters, API paths, Luth session validation, Kloks capability facades and deployment scaffolding, not just UI markup. `skipo update --pages .` and `skipo repair shell .` reconcile the complete standard shell. `--plan` lists frontend/backend stack ownership, routes, provider contracts, and changes without writing. Repeating a clean command yields `noop: true`; failures roll back exact files and leave custom tabs and backend services intact.
+
+**Migration for Aiko, SRKL, Kone and Kal:** These apps still have custom UI and dependencies outside the tab subtrees. Preserve the functionality by moving app frontend code into main tabs and replacing local provider duplicates with canonical Floks/Kloks interfaces. Then apply the full-stack Skipo repair and independently verify auth callback, sign-out, workspace operations, saved app capabilities, typecheck, tests, and a production build before merging the consumer PRs. Avoid applying a destructive rewrite to consumer main branches before the code is migrated and verified.
 
 ## Application state
 

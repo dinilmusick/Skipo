@@ -95,6 +95,14 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
                           "error": "Canonical auth generation failed",
                           "capability": canonical_auth}, indent=2))
         return 1
+    # Fresh apps immediately satisfy the same strict shell contract enforced
+    # during later updates. No consumer-owned code is allowed outside tabs.
+    from skipo_canonical_shell import reconcile_shell
+    shell = reconcile_shell(target, apply=True)
+    if not shell.get("ok", False):
+        print(json.dumps({"ok": False, "operation": "create", "error":
+                          "Canonical shell reconciliation failed", "shell": shell}, indent=2))
+        return 1
     print(json.dumps({"ok":True,"operation":"create","name":name,"framework":framework,"target":str(target),"skipo_version":VERSION}))
     return 0
 
@@ -328,13 +336,34 @@ def verify_project(root: Path) -> int:
     if architecture.get("semantic", {}).get("status") == "blocked" and not architecture.get("semantic", {}).get("findings"):
         diagnostics.append({"code": "SKP-SEM-EXECUTION-FAILED", "status": "invalid",
                             "message": "Semantic analysis did not provide findings"})
-    ok = bool(legacy.get("ok") and independent.get("ok"))
+    # A Vite application cannot be compliant if its common source diverges
+    # from the Skipo scaffold. The only custom source boundary is main tabs.
+    shell = {"ok": True, "noop": True, "actions": []}
+    if (root / "vite.config.ts").is_file() and (root / "package.json").is_file():
+        from skipo_canonical_shell import plan_shell
+        try:
+            shell = plan_shell(root)
+        except (ValueError, OSError) as exc:
+            shell = {"ok": False, "noop": False, "actions": [], "error": str(exc)}
+        if not shell.get("ok", False):
+            diagnostics.append({"code": "SKIPO_CANONICAL_SHELL_INVALID", "status": "unresolved",
+                                "message": shell.get("error", "Cannot inspect canonical shell")})
+        else:
+            for action in shell.get("actions", []):
+                diagnostics.append({
+                    "code": "SKIPO_NONCANONICAL_SOURCE", "status": "repairable",
+                    "message": f"{action['action']}: {action['path']}; run skipo update --pages",
+                    "path": action["path"],
+                })
+    ok = bool(legacy.get("ok") and independent.get("ok")
+              and shell.get("ok", False) and shell.get("noop", False))
     payload = {"operation": "verify", "ok": ok,
                "status": legacy.get("status", "clean") if ok else (
                    legacy.get("status") if not legacy.get("ok") else "unresolved"),
                "diagnostics": diagnostics, "diagnostic_count": len(diagnostics),
                "errors": [str(d.get("message")) for d in diagnostics],
-               "architecture": architecture, "independent": independent}
+               "architecture": architecture, "independent": independent,
+               "canonical_shell": shell}
     print(json.dumps(payload, indent=2))
     return 0 if ok else 1
 
@@ -371,23 +400,42 @@ def test_project(root: Path) -> int:
     return 0
 
 def main() -> int:
-    if sys.argv[1:3] == ["update", "--pages"] or (sys.argv[1:2] == ["repair"] and sys.argv[2:3] in (["auth"], ["login"], ["workspace"], ["main"])):
-        from skipo_pages import compose_page
+    # Friendly full-stack page commands are aliases for the same atomic
+    # reconciler as "skipo add auth/workspace/main". They never stop at JSX.
+    command_aliases = {
+        "auth": "auth", "login": "auth",
+        "workspacemenu": "workspace", "workspace": "workspace",
+        "mainpage": "main",
+    }
+    if len(sys.argv) > 1 and sys.argv[1].lower() in command_aliases:
+        from skipo_canonical_shell import reconcile_shell
+        page_parser = argparse.ArgumentParser(prog="skipo " + sys.argv[1])
+        page_parser.add_argument("target", nargs="?", type=Path, default=Path.cwd())
+        page_parser.add_argument("--plan", action="store_true")
+        options = page_parser.parse_args(sys.argv[2:])
+        try:
+            result = reconcile_shell(options.target.resolve(), apply=not options.plan)
+            result["requested_stack"] = command_aliases[sys.argv[1].lower()]
+            print(json.dumps(result, indent=2))
+            return 0 if result["ok"] else 1
+        except (ValueError, OSError) as exc:
+            print(json.dumps({"ok": False, "error": str(exc)}))
+            return 1
+    if sys.argv[1:3] in (["update", "--pages"], ["repair", "shell"]) or (
+        sys.argv[1:2] == ["repair"] and
+        sys.argv[2:3] in (["auth"], ["login"], ["workspace"], ["main"])
+    ):
+        from skipo_canonical_shell import UnsafeShellRepair, reconcile_shell
         page_parser = argparse.ArgumentParser(prog="skipo " + " ".join(sys.argv[1:3]))
         page_parser.add_argument("target", nargs="?", type=Path, default=Path.cwd())
         page_parser.add_argument("--plan", action="store_true")
         options = page_parser.parse_args(sys.argv[3:])
-        root = options.target.resolve()
-        pages = ["auth", "workspace", "main"] if sys.argv[1] == "update" else [sys.argv[2]]
         try:
-            for page in pages:
-                result = compose_page(root, "auth" if page == "login" else page, apply=not options.plan)
-                print(json.dumps(result))
-                if not result["ok"]:
-                    return 1
-            return 0
+            result = reconcile_shell(options.target.resolve(), apply=not options.plan)
+            print(json.dumps(result, indent=2))
+            return 0 if result.get("ok", False) else 1
         except (ValueError, OSError) as exc:
-            print(json.dumps({"ok": False, "error": str(exc)}))
+            print(json.dumps({"ok": False, "operation": "canonical-shell", "error": str(exc)}))
             return 1
     parser=argparse.ArgumentParser(prog="skipo",description="Skipo deterministic application builder and composition framework.")
     sub=parser.add_subparsers(dest="command",required=True)
@@ -443,9 +491,10 @@ def main() -> int:
     if a.command == "add" and items and (target / "vite.config.ts").is_file():
         page = "auth" if items[0] == "login" else items[0]
         if page in {"auth", "workspace", "main"} and (len(items) == 1 or items[:2] == ["main", "tab"]):
-            from skipo_pages import compose_page
+            from skipo_canonical_shell import reconcile_shell
             try:
-                result = compose_page(target, page, items[2] if len(items) == 3 else None, apply=not a.plan)
+                title = items[2] if len(items) == 3 else None
+                result = reconcile_shell(target, apply=not a.plan, title=title)
                 print(json.dumps(result, indent=2))
                 return 0 if result["ok"] else 1
             except (ValueError, OSError) as exc:
