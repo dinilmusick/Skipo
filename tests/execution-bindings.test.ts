@@ -7,6 +7,32 @@ import { createAppExternalInterfaces } from '../src/backend/externalInterfaces.j
 import { BackendFacade as ViteFacade } from '../scaffolds/vite/src/backend/BackendFacade.js';
 import { createAppExternalInterfaces as createViteInterfaces } from '../scaffolds/vite/src/backend/externalInterfaces.js';
 
+vi.mock('../scaffolds/vite/src/backend/auth/luthSession.js', () => ({
+  getLuthSession: async (request: Request) => {
+    const headers = new Headers({
+      'x-app-id': 'aiko',
+      ...(request.headers.get('authorization')
+        ? { authorization: request.headers.get('authorization')! }
+        : {}),
+    });
+    const cookie = request.headers.get('cookie');
+    if (cookie) headers.set('cookie', cookie);
+    const response = await fetch('https://luth.example.test/api/session', {
+      method: 'GET',
+      headers,
+      cache: 'no-store',
+    });
+    if (!response.ok) return null;
+    const session = await response.json() as {
+      authenticated?: boolean;
+      user?: { id?: string; roles?: string[] };
+      session?: { id?: string };
+    };
+    if (session.authenticated !== true || !session.user?.id || !session.session?.id) return null;
+    return session;
+  },
+}));
+
 const inputSchema = { type: 'object' as const, properties: { value: { type: 'number' as const } }, required: ['value'], additionalProperties: false };
 const outputSchema = { type: 'object' as const, properties: { doubled: { type: 'number' as const } }, required: ['doubled'], additionalProperties: false };
 const request = new Request('https://app.test/workflows', { headers: { 'x-user-id': 'unverified', authorization: 'Bearer fixture' } });
