@@ -273,6 +273,23 @@ function analyzeProject(rootInput, options = {}) {
       }
     }
   }
+  // Canonical facade delegation can be indirect: a client wrapper or backend
+  // adapter may import a local bridge that owns the canonical Kloks entrypoint.
+  // Only static, in-project import edges count; never treat unknown imports or
+  // arbitrary package mentions as proof of canonical ownership.
+  const delegatesTo = (start, entrypoints) => {
+    const queue = [start], visited = new Set();
+    while (queue.length) {
+      const current = queue.shift();
+      if (visited.has(current)) continue;
+      visited.add(current);
+      for (const edge of graph.get(current) || []) {
+        if (entrypoints.some(prefix => matchPrefix(edge.specifier, prefix))) return true;
+        if (edge.target && !visited.has(edge.target)) queue.push(edge.target);
+      }
+    }
+    return false;
+  };
   // AST identifiers and declaration signatures, not filenames or regex text, are
   // used for semantic duplication evidence. Canonical delegation is an extension.
   for (const file of files) {
@@ -289,9 +306,11 @@ function analyzeProject(rootInput, options = {}) {
     for (const [capability, def] of Object.entries(policy.capabilities)) {
       const sdk = imports.filter(s => def.rawSdks.some(p => matchPrefix(s,p)));
       const canonical = imports.some(s => def.canonical.some(p => matchPrefix(s,p)));
+      const declaresProvider = def.declarations.some(s=>declarations.has(s));
       const evidence = [...def.signals.filter(s=>identifiers.has(s)), ...def.declarations.filter(s=>declarations.has(s))];
-      const isCandidate = evidence.length >= 2 || def.declarations.some(s=>declarations.has(s));
-      if (!sdk.length && (!isCandidate || canonical)) continue;
+      const isCandidate = evidence.length >= 2 || declaresProvider;
+      if (!sdk.length && (!isCandidate || canonical ||
+          (!declaresProvider && delegatesTo(file, def.canonical)))) continue;
       // The provider may legitimately own its SDK; a source package named Kloks/Floks
       // should not be labeled a duplicate solely for using its own implementation.
       const currentPackage = (()=> { try { return JSON.parse(fs.readFileSync(path.join(packageOwner(root,file),'package.json'),'utf8')).name; } catch (_) { return null; } })();
