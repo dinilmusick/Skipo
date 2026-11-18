@@ -42,6 +42,17 @@ from skipo_environment_contract import (
 from skipo_capabilities import retire_known_duplicates
 from skipo_lifecycle import assess as assess_architecture, independent_verify, transaction_verify
 from skipo_reconciliation import reconcile as reconcile_transaction
+from skipo_app_identity import inspect_identity, initialize_unenrolled_identity, unchanged_identity
+
+
+def _check_identity_continuity(root: Path, before: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
+    """A canonical app reference must survive all Skipo maintenance operations."""
+    after = inspect_identity(root)
+    payload["app_identity"] = after
+    if before.get("status") not in ("manifest_missing", "invalid_manifest") and not unchanged_identity(before, after):
+        payload["ok"] = False
+        payload.setdefault("errors", []).append("Canonical app_id was changed by Skipo maintenance; restore the registered identity.")
+    return payload
 
 def run(cmd: list[str], cwd: Path) -> int:
     return subprocess.run(cmd, cwd=str(cwd)).returncode
@@ -85,6 +96,7 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
         json.dumps({"framework":"skipo","scaffold":framework,"skipo_version":VERSION,"generated_by":"skipo"}, indent=2)+"\n",
         encoding="utf-8",
     )
+    app_identity = initialize_unenrolled_identity(target)
     capability_adopt(target)
     # The scaffold contains an auth entrypoint, but the registry-owned
     # canonical auth page must also be generated and tracked in the ledger.
@@ -103,7 +115,7 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
         print(json.dumps({"ok": False, "operation": "create", "error":
                           "Canonical shell reconciliation failed", "shell": shell}, indent=2))
         return 1
-    print(json.dumps({"ok":True,"operation":"create","name":name,"framework":framework,"target":str(target),"skipo_version":VERSION}))
+    print(json.dumps({"ok":True,"operation":"create","name":name,"framework":framework,"target":str(target),"skipo_version":VERSION,"app_identity":app_identity}))
     return 0
 
 def inspect_project(root: Path) -> int:
@@ -111,6 +123,7 @@ def inspect_project(root: Path) -> int:
     observed = maintenance_inspect(root) if is_project(root) else {}
     state = observed.get("capability_state", {})
     payload = {"project": str(root), "skipo_project": bool(data), **data,
+               "app_identity": inspect_identity(root),
                "capabilities": state, "maintenance_observation": observed, "architecture": assess_architecture(root)}
     print(json.dumps(payload, indent=2))
     return 0
@@ -216,6 +229,7 @@ def sync_project(root: Path, install: bool) -> int:
     return 0 if payload.get("ok", False) else 1
 
 def update_project(root: Path) -> int:
+    before_identity = inspect_identity(root)
     architecture = assess_architecture(root)
     if architecture["blocked"]:
         print(json.dumps({"ok": False, "operation": "update", "applied": False,
@@ -242,10 +256,12 @@ def update_project(root: Path) -> int:
     except (ValueError, OSError) as exc:
         print(json.dumps({"ok": False, "operation": "update", "errors": [str(exc)]}, indent=2))
         return 2
+    _check_identity_continuity(root, before_identity, payload)
     print(json.dumps(payload, indent=2))
     return 0 if payload.get("ok", False) else 1
 
 def repair_project(root: Path, apply: bool) -> int:
+    before_identity = inspect_identity(root)
     if not (root / ".skipo" / "project.json").exists():
         try:
             planned = environment_plan(root)
@@ -276,6 +292,7 @@ def repair_project(root: Path, apply: bool) -> int:
         except (ValueError, OSError) as exc:
             print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
             return 2
+        _check_identity_continuity(root, before_identity, payload)
         print(json.dumps(payload, indent=2))
         return 0 if payload.get("ok", False) else 1
     try:
@@ -292,6 +309,7 @@ def repair_project(root: Path, apply: bool) -> int:
     except (ValueError, OSError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
         return 2
+    _check_identity_continuity(root, before_identity, payload)
     print(json.dumps(payload, indent=2))
     return 0 if payload.get("ok", False) else 1
 
@@ -307,6 +325,14 @@ def verify_project(root: Path) -> int:
     }
     independent = independent_verify(root, VERSION)
     diagnostics = list(legacy.get("diagnostics", []))
+    app_identity = inspect_identity(root)
+    if app_identity["status"] in ("enrollment_required", "registry_confirmation_required"):
+        diagnostics.append({"code": "SKIPO_APP_REGISTRY_ENROLLMENT_REQUIRED",
+                            "status": "unresolved",
+                            "message": app_identity["next_action"], "path": ".skipo/project.json"})
+    elif not app_identity["ok"]:
+        diagnostics.append({"code": "SKIPO_APP_IDENTITY_INVALID", "status": "invalid",
+                            "message": "; ".join(app_identity["errors"]), "path": ".skipo/project.json"})
     architecture = independent.get("architecture", {})
     for finding in architecture.get("policy", {}).get("diagnostics", []):
         if finding.get("state") != "compliant":
@@ -356,14 +382,15 @@ def verify_project(root: Path) -> int:
                     "path": action["path"],
                 })
     ok = bool(legacy.get("ok") and independent.get("ok")
-              and shell.get("ok", False) and shell.get("noop", False))
+              and shell.get("ok", False) and shell.get("noop", False)
+              and app_identity["ok"] and app_identity["authority_verified"])
     payload = {"operation": "verify", "ok": ok,
                "status": legacy.get("status", "clean") if ok else (
                    legacy.get("status") if not legacy.get("ok") else "unresolved"),
                "diagnostics": diagnostics, "diagnostic_count": len(diagnostics),
                "errors": [str(d.get("message")) for d in diagnostics],
                "architecture": architecture, "independent": independent,
-               "canonical_shell": shell}
+               "app_identity": app_identity, "canonical_shell": shell}
     print(json.dumps(payload, indent=2))
     return 0 if ok else 1
 
@@ -371,6 +398,14 @@ def certify_project(root: Path, require_live: bool = False, output: str | None =
                     commit_sha: str | None = None) -> int:
     from skipo_conformance import certify, FRAMEWORK_ROOT
     payload = certify(root, FRAMEWORK_ROOT, require_live=require_live, commit_sha=commit_sha)
+    identity = inspect_identity(root)
+    payload["app_identity"] = identity
+    if payload["compliance_status"] == "compliant_offline" and not identity["authority_verified"]:
+        payload["compliance_status"] = "unresolved"
+        payload["offline_checks_passed"] = False
+        payload["checks"].append({"id": "app_identity", "status": "unresolved",
+                                  "code": "SKIPO_APP_REGISTRY_ENROLLMENT_REQUIRED",
+                                  "message": identity.get("next_action", "Canonical app identity not verified by registrar")})
     rendered = json.dumps(payload, indent=2, sort_keys=True) + "\n"
     if output:
         path = Path(output)
@@ -443,7 +478,7 @@ def main() -> int:
     p.add_argument("name"); p.add_argument("target",nargs="?",default=None)
     p.add_argument("--framework",choices=["vite"],default="vite"); p.add_argument("--force",action="store_true")
 
-    for cmd in ["inspect","check","diagnose","plan","adopt","sync","update","repair","fix","verify","test","policy","semantic","certify"]:
+    for cmd in ["inspect","identity","check","diagnose","plan","adopt","sync","update","repair","fix","verify","test","policy","semantic","certify"]:
         q=sub.add_parser(cmd); q.add_argument("target",nargs="?",default=".")
     q=sub.choices["sync"]; q.add_argument("--install",action="store_true")
     q=sub.choices["repair"]; q.add_argument("--plan",action="store_true")
@@ -459,6 +494,10 @@ def main() -> int:
         return create_project(a.name,Path(a.target or a.name).resolve(),a.framework,a.force)
     if a.command in {"inspect","check"}:
         return {"inspect":inspect_project,"check":check_project}[a.command](Path(a.target).resolve())
+    if a.command == "identity":
+        identity = inspect_identity(Path(a.target).resolve())
+        print(json.dumps(identity, indent=2))
+        return 0 if identity["ok"] else 1
     if a.command=="diagnose":
         return diagnose_project(Path(a.target).resolve())
     if a.command=="plan":
