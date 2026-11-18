@@ -8,7 +8,9 @@
     ],
     "optional": [
       "SYSTEM_DATABASE_URL_2",
-      "SYSTEM_DATABASE_URL_3"
+      "SYSTEM_DATABASE_URL_3",
+      "SKIPO_DEPLOYMENT_ID",
+      "LUTH_OAUTH_CLIENT_ID"
     ]
   },
   "deprecated_aliases": {
