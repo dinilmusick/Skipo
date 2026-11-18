@@ -39,3 +39,30 @@ describe('pending application enrollment', () => {
     expect(query).not.toHaveBeenCalled();
   });
 });
+
+
+describe('runtime fails closed when registration status is omitted', () => {
+  it('defaults to pending enrollment and blocks heartbeat and calls', async () => {
+    const query = vi.fn(() => {
+      throw new Error('unregistered runtime must not touch registry state');
+    });
+    const runtime = createEcosystemRuntime({
+      appId: 'local-candidate',
+      capabilities: { listWorkspaces: async () => [] },
+      authenticate: async () => 'verified-user',
+      query: query as never,
+    });
+    const env = { APP_URL: 'https://app.example', SYSTEM_DATABASE_URL: 'server-owned' } as never;
+
+    await runtime.heartbeat(env, true);
+    const response = await runtime.handle(new Request('https://app.example/api/ecosystem/invoke', {
+      method: 'POST',
+      headers: { 'x-skipo-invocation': '00000000-0000-4000-8000-000000000000' },
+    }), env);
+
+    expect(response?.status).toBe(503);
+    await expect(runtime.client(new Request('https://app.example'), env))
+      .rejects.toThrow('Application enrollment is required');
+    expect(query).not.toHaveBeenCalled();
+  });
+});
