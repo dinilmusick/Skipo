@@ -143,7 +143,7 @@ def test_forced_create_preserves_existing_registered_identity_and_role_reference
     assert manifest["app_identity_version"] == 1
     assert manifest["registration_status"] == "verified"
     generated = (target / "src/backend/ecosystem/appIdentity_Pure.ts").read_text(encoding="utf-8")
-    assert "export const appId: string | null = \\"aiko\\";" in generated
+    assert 'export const appId: string | null = "aiko";' in generated
     assert "appIdentityAuthorityVerified = false" in generated
     assert "WORKSPACE_APP_ID: appId" in generated
     assert (target / "existing-user-file.ts").exists() is True
