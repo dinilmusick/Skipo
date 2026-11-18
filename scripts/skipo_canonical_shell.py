@@ -152,8 +152,9 @@ def _desired(root: Path, title: str | None = None) -> dict[str, bytes]:
     installed = capability_state(root).get("installed", {})
     if not isinstance(installed, dict):
         raise UnsafeShellRepair("Invalid Skipo capability state")
-    baseline = {"auth", "workspace", "settings", "accounts"}
-    for _, spec in resolve_capabilities(sorted(baseline | set(installed))):
+    baseline = {"auth", "workspace", "settings", "accounts", "storage"}
+    resolved = resolve_capabilities(sorted(baseline | set(installed)))
+    for _, spec in resolved:
         for asset in spec.get("generated", []):
             relative = asset["path"]
             if not relative.startswith("src/") or is_tab(relative):
@@ -162,6 +163,35 @@ def _desired(root: Path, title: str | None = None) -> dict[str, bytes]:
             if relative in desired and desired[relative] != raw:
                 raise UnsafeShellRepair(f"Conflicting canonical owners: {relative}")
             desired[relative] = raw
+
+    # The full-stack command pins the shared provider packages. Retain
+    # application-specific dependencies and scripts rather than copying a
+    # generic app package.json over them. Lockfile generation remains a
+    # separate install step checked by downstream CI.
+    packages = json.loads(package_path.read_text(encoding="utf-8"))
+    dependencies = dict(packages.get("dependencies", {}))
+    for _, capability in resolved:
+        dependencies.update(capability.get("dependencies", {}))
+    packages["dependencies"] = dependencies
+    desired["package.json"] = (json.dumps(packages, indent=2) + "\n").encode("utf-8")
+
+    # Auditable install receipt: each page command has mandatory UI + server
+    # assets, routes and actual canonical provider package resolution.
+    desired[".skipo/full-stack.json"] = (
+        json.dumps({
+            "schemaVersion": 1,
+            "generator": "skipo",
+            "framework": "vite",
+            "stacks": {
+                stack: {**spec, "frontend": list(spec["frontend"]),
+                        "backend": list(spec["backend"]),
+                        "services": list(spec["services"]),
+                        "routes": list(spec["routes"])}
+                for stack, spec in sorted(FULL_STACK.items())
+            },
+            "capabilities": sorted(name for name, _ in resolved),
+        }, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
 
     for relative in CANONICAL_CONFIG:
         src = SOURCE / relative
