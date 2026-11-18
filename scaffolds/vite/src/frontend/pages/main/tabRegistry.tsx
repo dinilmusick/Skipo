@@ -1,10 +1,16 @@
 /// <reference types="vite/client" />
 import type { ComponentType, ComponentProps } from 'react';
-import { TopToolbar } from '@ultrst-armada/floks/ui';
+import { TopToolbar, type WorkspaceRecord } from '@ultrst-armada/floks/ui';
+
+export interface SkipoTabRuntime {
+  workspaceId?: string;
+  activeWorkspace?: WorkspaceRecord | null;
+  isGuest?: boolean;
+}
 
 // A tab may be command-generated (name-hash) or app-owned (plain directory).
 // Only page.tsx is an entrypoint; supporting code can live anywhere under tabs.
-const modules = import.meta.glob<{ title?: string; default: ComponentType }>(
+const modules = import.meta.glob<{ title?: string; default: ComponentType<SkipoTabRuntime> }>(
   './tabs/**/page.tsx', { eager: true },
 );
 
@@ -24,9 +30,14 @@ export const mainPageTabs = Object.entries(modules)
   }))
   .sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
 
-export function MainTabContent({ id }: { id: string }) {
+/** Canonical authenticated workspace identity is passed to every app tab. */
+export function MainTabContent({
+  id, activeWorkspace, isGuest,
+}: { id: string; activeWorkspace?: WorkspaceRecord | null; isGuest?: boolean }) {
   const Page = mainPageTabs.find(tab => tab.id === id)?.Page;
-  return Page ? <Page /> : null;
+  return Page ? (
+    <Page workspaceId={activeWorkspace?.id} activeWorkspace={activeWorkspace} isGuest={isGuest} />
+  ) : null;
 }
 
 /** All app-specific content is registered as a main-page tab. */
