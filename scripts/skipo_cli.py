@@ -371,7 +371,20 @@ def test_project(root: Path) -> int:
     return 0
 
 def main() -> int:
-    if sys.argv[1:3] == ["update", "--pages"] or (sys.argv[1:2] == ["repair"] and sys.argv[2:3] in (["auth"], ["login"], ["workspace"], ["main"])):
+    if sys.argv[1:3] in (["update", "--pages"], ["repair", "shell"]):
+        from skipo_canonical_shell import UnsafeShellRepair, reconcile_shell
+        page_parser = argparse.ArgumentParser(prog="skipo " + " ".join(sys.argv[1:3]))
+        page_parser.add_argument("target", nargs="?", type=Path, default=Path.cwd())
+        page_parser.add_argument("--plan", action="store_true")
+        options = page_parser.parse_args(sys.argv[3:])
+        try:
+            result = reconcile_shell(options.target.resolve(), apply=not options.plan)
+            print(json.dumps(result, indent=2))
+            return 0 if result.get("ok", False) else 1
+        except (ValueError, OSError) as exc:
+            print(json.dumps({"ok": False, "operation": "canonical-shell", "error": str(exc)}))
+            return 1
+    if sys.argv[1:2] == ["repair"] and sys.argv[2:3] in (["auth"], ["login"], ["workspace"], ["main"]):
         from skipo_pages import reconcile_pages
         page_parser = argparse.ArgumentParser(prog="skipo " + " ".join(sys.argv[1:3]))
         page_parser.add_argument("target", nargs="?", type=Path, default=Path.cwd())
