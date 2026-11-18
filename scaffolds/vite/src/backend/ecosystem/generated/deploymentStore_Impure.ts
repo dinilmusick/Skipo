@@ -236,6 +236,74 @@ export async function findVerifiedDeployment(
   return row ? { deploymentId: row.deployment_id, url: row.app_url } : null;
 }
 
+
+/**
+ * Resolve only a capability in the CURRENT, complete, immutable snapshot of
+ * a proof-qualified deployment. Pinning a revision rejects stale callers
+ * rather than executing an operation removed by a later publication.
+ *
+ * This is the trusted-discovery path. Legacy findDeployment stays available
+ * only for explicitly unverified compatibility consumers during cutover.
+ */
+export async function resolveVerifiedCapabilityDeployment(
+  query: Query,
+  appId: string,
+  capabilityId: string,
+  environment: 'development' | 'preview' | 'staging' | 'production',
+  revision?: number,
+): Promise<{
+  deploymentId: string; url: string; revision: number;
+  descriptor: StaticCapabilityDescriptor;
+} | null> {
+  if (!/^[a-z][a-z0-9-]{0,62}$/.test(appId) ||
+      !/^[a-zA-Z0-9][a-zA-Z0-9._:-]{1,127}$/.test(capabilityId) ||
+      !['development', 'preview', 'staging', 'production'].includes(environment) ||
+      (revision !== undefined && (!Number.isSafeInteger(revision) || revision < 1))) {
+    throw new Error('Invalid verified capability target selector.');
+  }
+  const [row] = await query<{
+    deployment_id: string; app_url: string; revision: number | string;
+    descriptor: StaticCapabilityDescriptor;
+  }>(`
+    SELECT d.deployment_id::text AS deployment_id, d.app_url, r.revision,
+           matched.descriptor
+    FROM skipo_ecosystem.deployments d
+    JOIN LATERAL (
+      SELECT revision, descriptors
+      FROM skipo_ecosystem.deployment_capability_revisions
+      WHERE deployment_id = d.deployment_id
+      ORDER BY revision DESC
+      LIMIT 1
+    ) r ON true
+    JOIN LATERAL jsonb_array_elements(
+      CASE WHEN jsonb_typeof(r.descriptors) = 'array'
+        THEN r.descriptors ELSE '[]'::jsonb END
+    ) AS matched(descriptor) ON matched.descriptor->>'id' = $2
+    WHERE d.app_id = $1
+      AND d.environment = $3
+      AND ($4::bigint IS NULL OR r.revision = $4::bigint)
+      AND d.verification_state = 'verified'
+      AND NULLIF(btrim(d.verification_proof_digest), '') IS NOT NULL
+      AND d.lease_expires_at > statement_timestamp()
+      AND d.last_refresh_at > statement_timestamp() - interval '15 minutes'
+    ORDER BY d.last_refresh_at DESC, d.deployment_id ASC
+    LIMIT 1
+  `, [appId, capabilityId, environment, revision ?? null]);
+  if (!row) return null;
+  const [descriptor] = normalizeStaticCapabilityDescriptors([row.descriptor]);
+  if (!descriptor || descriptor.id !== capabilityId) {
+    throw new Error('Registry returned an invalid capability descriptor.');
+  }
+  const currentRevision = Number(row.revision);
+  if (!Number.isSafeInteger(currentRevision) || currentRevision < 1) {
+    throw new Error('Registry returned an invalid capability revision.');
+  }
+  return {
+    deploymentId: row.deployment_id, url: row.app_url,
+    revision: currentRevision, descriptor,
+  };
+}
+
 export async function createInvocation(
   query: Query, caller: string, target: string, url: string, capability: string,
   userId: string | null, params: string,
