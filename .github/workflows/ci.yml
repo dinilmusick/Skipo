@@ -42,7 +42,8 @@ jobs:
             tests/test_skipo_policy_validation.py \
             tests/test_environment_governance_v2.py \
             tests/test_functional_capability_generation.py \
-            tests/conformance_test.py
+            tests/conformance_test.py \
+            tests/test_skipo_required_test_gates.py
           node --test tests/semantic_architecture_analyzer.test.cjs
       - name: Prove generated Vite capability contracts
         run: |
