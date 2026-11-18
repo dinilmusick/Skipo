@@ -6,6 +6,9 @@ export interface SkipoTabRuntime {
   workspaceId?: string;
   activeWorkspace?: WorkspaceRecord | null;
   isGuest?: boolean;
+  currentUser?: { id: string; email: string; name?: string } | null;
+  onSwitchWorkspace?: () => void;
+  onLogout?: () => void;
 }
 
 // A tab may be command-generated (name-hash) or app-owned (plain directory).
@@ -33,11 +36,11 @@ export const mainPageTabs = Object.entries(modules)
 
 /** Canonical authenticated workspace identity is passed to every app tab. */
 export function MainTabContent({
-  id, activeWorkspace, isGuest,
-}: { id: string; activeWorkspace?: WorkspaceRecord | null; isGuest?: boolean }) {
+  id, activeWorkspace, isGuest, currentUser, onSwitchWorkspace, onLogout,
+}: { id: string; activeWorkspace?: WorkspaceRecord | null; isGuest?: boolean; currentUser?: { id: string; email: string; name?: string } | null; onSwitchWorkspace?: () => void; onLogout?: () => void }) {
   const Page = mainPageTabs.find(tab => tab.id === id)?.Page;
   return Page ? (
-    <Page key={`${id}:${activeWorkspace?.id || (isGuest ? 'guest' : 'unselected')}`} workspaceId={activeWorkspace?.id} activeWorkspace={activeWorkspace} isGuest={isGuest} />
+    <Page key={`${id}:${activeWorkspace?.id || (isGuest ? 'guest' : 'unselected')}`} workspaceId={activeWorkspace?.id} activeWorkspace={activeWorkspace} isGuest={isGuest} currentUser={currentUser} onSwitchWorkspace={onSwitchWorkspace} onLogout={onLogout} />
   ) : null;
 }
 
