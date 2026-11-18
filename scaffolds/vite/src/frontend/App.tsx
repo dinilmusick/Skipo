@@ -23,7 +23,7 @@ function AuthenticatedApplication({ auth }: { auth: UseLuthAuthResult }) {
         onSelectWorkspace={selected => { if (principalId) setSelection({ principalId, workspace: selected }); }}
         onLogout={() => { void auth.signOut(); }}
       />
-      ) : <MainPage key={`${principalId}:${workspace.id}`} principalId={principalId} activeWorkspace={workspace}
+      ) : <MainPage principalId={principalId} activeWorkspace={workspace}
         onSwitchWorkspace={() => setSelection(null)} />}
     </>
   );
