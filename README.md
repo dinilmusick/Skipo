@@ -62,6 +62,34 @@ skipo test .
 
 **Migration for Aiko, SRKL, Kone and Kal:** These apps still have custom UI and dependencies outside the tab subtrees. Preserve the functionality by moving app frontend code into main tabs and replacing local provider duplicates with canonical Floks/Kloks interfaces. Then apply the full-stack Skipo repair and independently verify auth callback, sign-out, workspace operations, saved app capabilities, typecheck, tests, and a production build before merging the consumer PRs. Avoid applying a destructive rewrite to consumer main branches before the code is migrated and verified.
 
+## Canonical application identity and enrollment
+
+Skipo application identity is a durable reference to the **existing Neon app registry**.
+An application name or `APP_URL` is never an enrollment certificate or identity generator.
+The CLI records `app_id: null`, `app_identity_version: 1`, and
+`registration_status: enrollment_required` in newly generated
+`.skipo/project.json`. The `app_id` must be registered by the authorized
+ecosystem registrar before applications use cross-app discovery or invocation;
+this command does not create Neon records or assert deployment ownership.
+
+```bash
+skipo create my-app
+skipo identity my-app          # shows enrollment_required, no forged app ID
+skipo inspect my-app           # includes explicit app_identity status
+skipo repair my-app            # preserves app_id
+skipo update my-app            # preserves app_id
+skipo verify my-app            # unresolved until identity authority is confirmed
+skipo certify my-app           # cannot claim verified enrollment offline
+```
+
+Once a registrar has approved an immutable `app_id`, that value belongs in
+the project's manifest and cannot be inferred from the deployment URL.
+`deployment_id` and `oauth_client_id` are separate optional references.
+Changes to `APP_URL` and repeated repairs do not modify `app_id`.
+A local `registration_status: verified` string **does not establish trust**.
+Live authority and deployment-control verification are provided by the
+separate Luth/Neon enrollment stage, not by Skipo CLI or static certification.
+
 ## Application state
 
 Adopted applications carry:
