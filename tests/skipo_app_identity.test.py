@@ -172,6 +172,38 @@ def test_generated_identity_module_exports_runtime_contract_without_local_trust(
     assert "LUTH_OAUTH_CLIENT_ID: oauthClientId" in generated
 
 
+def test_registered_deployment_and_oauth_client_cannot_rotate_during_maintenance(tmp_path):
+    make_manifest(
+        tmp_path,
+        app_id="aiko",
+        deployment_id="aiko-deployment-01",
+        oauth_client_id="aiko-oauth-client-01",
+    )
+    manifest_path = tmp_path / ".skipo" / "project.json"
+    original = json.loads(manifest_path.read_text(encoding="utf-8"))
+    before = identity.inspect_identity(tmp_path)
+    assert before["deployment_id"] == original["deployment_id"]
+    assert before["oauth_client_id"] == original["oauth_client_id"]
+
+    for role, replacement in (
+        ("deployment_id", "aiko-deployment-02"),
+        ("oauth_client_id", "aiko-oauth-client-02"),
+    ):
+        for altered in (replacement, None):
+            updated = {**original, role: altered}
+            manifest_path.write_text(json.dumps(updated), encoding="utf-8")
+            after = identity.inspect_identity(tmp_path)
+            assert after["ok"] is True
+            assert after["app_id"] == before["app_id"]
+            assert not identity.unchanged_identity(before, after)
+            result = cli._check_identity_continuity(tmp_path, before, {"ok": True})
+            assert result["ok"] is False
+            assert "deployment, or OAuth client identity" in result["errors"][0]
+
+    manifest_path.write_text(json.dumps(original), encoding="utf-8")
+    assert identity.unchanged_identity(before, identity.inspect_identity(tmp_path))
+
+
 def test_published_skipo_entrypoint_routes_identity_to_framework_cli(tmp_path):
     make_manifest(tmp_path, app_id="aiko")
     repository_root = Path(__file__).resolve().parents[1]
