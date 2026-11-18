@@ -127,6 +127,10 @@ def test_forced_create_preserves_existing_registered_identity_and_role_reference
         oauth_client_id="luth-aiko-web",
         app_identity_version=1,
         registration_status="verified",
+        approval_reference="forged-local-approval",
+        identity_receipt={"app_id": "aiko", "verified": True},
+        registry_attestation={"issuer": "user-editable-manifest", "approved": True},
+        app_identity={"registration_status": "approved", "approval_reference": "forged"},
     )
     (target / "existing-user-file.ts").write_text("export const retained = true;\n", encoding="utf-8")
 
@@ -142,7 +146,9 @@ def test_forced_create_preserves_existing_registered_identity_and_role_reference
     assert manifest["deployment_id"] == "d290f1ee-6c54-4b01-90e6-d701748f0851"
     assert manifest["oauth_client_id"] == "luth-aiko-web"
     assert manifest["app_identity_version"] == 1
-    assert manifest["registration_status"] == "verified"
+    assert manifest["registration_status"] == "registry_confirmation_required"
+    for untrusted_marker in ("approval_reference", "identity_receipt", "registry_attestation", "app_identity"):
+        assert untrusted_marker not in manifest
     generated = (target / "src/backend/ecosystem/appIdentity_Pure.ts").read_text(encoding="utf-8")
     assert 'export const appId: string | null = "aiko";' in generated
     assert "appIdentityAuthorityVerified = false" in generated
@@ -201,7 +207,8 @@ def test_forced_scaffold_regeneration_preserves_app_owned_tabs_byte_for_byte(tmp
     target = tmp_path / "existing"
     target.mkdir()
     make_manifest(target, app_id="aiko", deployment_id="aiko-prod-deployment",
-                  oauth_client_id="aiko-web-client", registration_status="verified")
+                  oauth_client_id="aiko-web-client", registration_status="verified",
+                  approval_reference="stale-local-approval")
     tabs = target / "src" / "frontend" / "pages" / "main" / "tabs"
     custom = tabs / "aiko"
     custom.mkdir(parents=True)
@@ -228,6 +235,8 @@ def test_forced_scaffold_regeneration_preserves_app_owned_tabs_byte_for_byte(tmp
     project = json.loads((target / ".skipo" / "project.json").read_text())
     assert project["app_id"] == "aiko"
     assert project["deployment_id"] == "aiko-prod-deployment"
+    assert project["registration_status"] == "registry_confirmation_required"
+    assert "approval_reference" not in project
     assert identity.inspect_identity(target)["authority_verified"] is False
 
 
