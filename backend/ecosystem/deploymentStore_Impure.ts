@@ -56,13 +56,13 @@ export async function refreshDeploymentById(
 export interface StaticCapabilityDescriptor {
   id: string;
   description: string;
-  inputSchema: Record<string, unknown>;
-  outputSchema: Record<string, unknown>;
+  inputSchema: object;
+  outputSchema: object;
   name?: string;
   serviceName?: string;
   invocation: { serviceId: string; operationId: string };
   access?: 'public' | 'authenticated' | 'roles';
-  requiredRoles?: string[];
+  requiredRoles?: readonly string[];
   discoverable?: boolean;
 }
 
