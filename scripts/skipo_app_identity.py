@@ -85,9 +85,9 @@ def ensure_app_identity(root: Path) -> dict[str, Any]:
         f"export const deploymentId = {json.dumps(deployment_id)} as string | null;\n"
         f"export const oauthClientId = {json.dumps(oauth_client_id)} as string | null;\n"
         "export function workspaceEnvironment(env?: Record<string, unknown>) {\n"
-        "  const resolvedDeploymentId = deploymentId ?? (typeof env?.SKIPO_DEPLOYMENT_ID === 'string' ? env.SKIPO_DEPLOYMENT_ID : undefined);\\n"
-        "  const resolvedOauthClientId = oauthClientId ?? (typeof env?.LUTH_OAUTH_CLIENT_ID === 'string' ? env.LUTH_OAUTH_CLIENT_ID : undefined);\\n"
-        "  return { ...env, WORKSPACE_APP_ID: appId, ...(resolvedDeploymentId ? { SKIPO_DEPLOYMENT_ID: resolvedDeploymentId } : {}), ...(resolvedOauthClientId ? { LUTH_OAUTH_CLIENT_ID: resolvedOauthClientId } : {}) };\\n"
+        "  const resolvedDeploymentId = deploymentId ?? (typeof env?.SKIPO_DEPLOYMENT_ID === 'string' ? env.SKIPO_DEPLOYMENT_ID : undefined);\n"
+        "  const resolvedOauthClientId = oauthClientId ?? (typeof env?.LUTH_OAUTH_CLIENT_ID === 'string' ? env.LUTH_OAUTH_CLIENT_ID : undefined);\n"
+        "  return { ...env, WORKSPACE_APP_ID: appId, ...(resolvedDeploymentId ? { SKIPO_DEPLOYMENT_ID: resolvedDeploymentId } : {}), ...(resolvedOauthClientId ? { LUTH_OAUTH_CLIENT_ID: resolvedOauthClientId } : {}) };\n"
         "}\n",
         encoding="utf-8",
     )
