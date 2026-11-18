@@ -32,6 +32,14 @@ skipo diagnose .
 skipo plan .
 skipo add auth
 skipo add workspace
+skipo add main
+skipo add main tab "Mixer"
+skipo add main tab "Diagnostics"
+skipo update --pages .
+skipo repair auth .
+skipo repair workspace .
+skipo repair main .
+skipo update --pages . --plan
 skipo add service storage
 skipo add service midi
 skipo add ui settings
@@ -43,6 +51,8 @@ skipo test .
 ```
 
 `add` is idempotent. It updates package dependencies and creates only thin app-owned wiring. Canonical UI/service implementations stay in Floks/Kloks.
+
+Page commands target the Vite app in the current directory or accept an explicit app path. `login` aliases `auth`. The `main tab` command creates a stable named tab and never overwrites its app-owned body. `update --pages` reconciles auth, workspace and main together; `repair <page>` limits the same reconciliation to one page. `--plan` previews changes without writing. All page commands preflight declared wiring and refuse missing/ambiguous binding markers instead of inventing changes to app code. If an apply or post-repair idempotence check fails, touched managed files are restored from the pre-command snapshot. Rerunning a clean command reports `noop: true`. This repairs managed drift, not arbitrary unknown application-owned code.
 
 `diagnose` detects local duplicate implementations and classifies them as **keep**, **adapt** or **retire**. `repair` uses the same composer as `add`, retires only registry-approved duplicate files, records migration state and re-verifies.
 
