@@ -1,9 +1,9 @@
-"""Strict canonical Skipo Vite shell reconciliation.
+"""Full-stack canonical Skipo Vite reconciliation.
 
-All application source outside main-page tab subtrees is framework-owned. The
-canonical Vite scaffold is authoritative; unknown source is retired, never
-treated as an app-owned extension. Local configuration/credentials, Git history,
-tab source and external data are not in the source-repair boundary.
+Frontend code is framework-owned except main-page tabs. Canonical backend
+entrypoints and Kloks adapters are framework-owned, but application-specific
+backend services survive. Unknown backend code is never erased by shell repair:
+provider replacements require an explicit verified mapping and migration.
 """
 from __future__ import annotations
 
@@ -16,7 +16,45 @@ from pathlib import Path, PurePosixPath
 
 SOURCE = Path(__file__).resolve().parents[1] / "scaffolds/vite"
 TABS = ("src", "frontend", "pages", "main", "tabs")
-MANAGED_ROOTS = ("src", "scripts", "api", "backend", "ui", "generators", "mutators")
+# Only frontend and shared client infrastructure have an exclusive code boundary.
+# App backend services, tests, workflows and scripts are not disposable.
+MANAGED_ROOTS = ("src/frontend", "src/libraries/client", "src/config", "src/providers")
+CANONICAL_BACKEND = (
+    "src/app.ts",
+    "src/backend/auth/luthSession.ts",
+    "src/backend/storage/canonicalCapabilityRoutes.ts",
+    "src/backend/adapters/httpsAdapter.ts",
+    "src/backend/BackendFacade.ts",
+    "src/backend/BackendFacadeTypes.ts",
+    "src/backend/BackendCapabilityCatalog.ts",
+    "src/backend/LuthAuthServiceFacade.ts",
+)
+FULL_STACK = {
+    "auth": {
+        "frontend": ("src/frontend/App.tsx", "src/frontend/components/skipo/pages/auth.tsx",
+                     "src/frontend/pages/auth/page.tsx"),
+        "backend": ("src/app.ts", "src/backend/auth/luthSession.ts",
+                    "src/backend/adapters/httpsAdapter.ts"),
+        "services": ("@ultrst-armada/floks/auth", "@ultrst-armada/kloks/auth"),
+        "routes": ("/api/auth/*", "/api/session"),
+    },
+    "workspace": {
+        "frontend": ("src/frontend/pages/menus/workspaces/page.tsx",
+                     "src/frontend/components/gates/WorkspaceGate.tsx"),
+        "backend": ("src/backend/storage/canonicalCapabilityRoutes.ts",
+                    "src/backend/adapters/httpsAdapter.ts"),
+        "services": ("@ultrst-armada/floks/ui", "@ultrst-armada/kloks/backend/krnl-services"),
+        "routes": ("/api/auth/workspaces", "/api/auth/storage/*"),
+    },
+    "main": {
+        "frontend": ("src/frontend/pages/main/page.tsx",
+                     "src/frontend/pages/main/MainTabs.tsx",
+                     "src/frontend/pages/main/tabRegistry.tsx"),
+        "backend": ("src/backend/BackendFacade.ts",),
+        "services": ("@ultrst-armada/floks/ui", "@ultrst-armada/krnl"),
+        "routes": (),
+    },
+}
 CANONICAL_CONFIG = (
     "index.html", "server.ts", "vite.config.ts", "tsconfig.json",
     "vercel.json", "wrangler.toml", "skipo.providers.json",
@@ -72,6 +110,12 @@ def _source_tree(root: Path) -> dict[str, bytes]:
                 if not path.is_file():
                     raise UnsafeShellRepair(f"Non-file source asset: {relative}")
                 found[relative] = path.read_bytes()
+    for relative in CANONICAL_BACKEND:
+        path = _checked(root, relative)
+        if path.exists():
+            if not path.is_file():
+                raise UnsafeShellRepair(f"Non-file canonical backend adapter: {relative}")
+            found[relative] = path.read_bytes()
     return found
 
 
@@ -85,17 +129,21 @@ def _desired(root: Path, title: str | None = None) -> dict[str, bytes]:
     if not isinstance(name, str) or not name.strip():
         raise UnsafeShellRepair("App package.json must declare a valid name")
     desired: dict[str, bytes] = {}
-    for src in sorted((SOURCE / "src").rglob("*")):
-        if not src.is_file():
-            continue
-        relative = src.relative_to(SOURCE).as_posix()
-        if is_tab(relative):
-            continue
-        raw = src.read_bytes()
-        if src.suffix in {".ts", ".tsx", ".js", ".mjs", ".cjs", ".json", ".md"}:
-            text = raw.decode("utf-8")
-            raw = text.replace("MyApp", name).replace("my-app", name).encode("utf-8")
-        desired[relative] = raw
+    for managed_root in MANAGED_ROOTS:
+        for src in sorted((SOURCE / managed_root).rglob("*")):
+            if not src.is_file():
+                continue
+            relative = src.relative_to(SOURCE).as_posix()
+            if is_tab(relative):
+                continue
+            raw = src.read_bytes()
+            if src.suffix in {".ts", ".tsx", ".js", ".mjs", ".cjs", ".json", ".md"}:
+                raw = raw.decode("utf-8").replace("MyApp", name).replace("my-app", name).encode("utf-8")
+            desired[relative] = raw
+    for relative in CANONICAL_BACKEND:
+        template = SOURCE / relative
+        desired[relative] = template.read_bytes()
+
     # Capability-generated standard pages are also Skipo assets. The Vite
     # template alone omits its generated Luth auth page; deleting those files
     # would break a working application. Include the baseline capabilities and
@@ -113,20 +161,6 @@ def _desired(root: Path, title: str | None = None) -> dict[str, bytes]:
             raw = asset["content"].encode("utf-8")
             if relative in desired and desired[relative] != raw:
                 raise UnsafeShellRepair(f"Conflicting canonical owners: {relative}")
-            desired[relative] = raw
-
-    # Standard scripts and adapters are also framework assets; unknown
-    # executable files in these roots are retired, not accepted as extensions.
-    for managed_root in MANAGED_ROOTS:
-        if managed_root == "src" or not (SOURCE / managed_root).is_dir():
-            continue
-        for src in sorted((SOURCE / managed_root).rglob("*")):
-            if not src.is_file():
-                continue
-            relative = src.relative_to(SOURCE).as_posix()
-            raw = src.read_bytes()
-            if src.suffix in {".ts", ".tsx", ".js", ".mjs", ".cjs", ".json", ".md"}:
-                raw = raw.decode("utf-8").replace("MyApp", name).replace("my-app", name).encode("utf-8")
             desired[relative] = raw
 
     for relative in CANONICAL_CONFIG:
@@ -197,8 +231,12 @@ def plan_shell(root: Path, title: str | None = None) -> dict:
                         "before_sha256": _digest(before), "after_sha256": _digest(after)})
     return {"ok": True, "operation": "canonical-shell", "actions": actions,
             "noop": not actions, "tab_files": len(_snapshot_tabs(root)),
-            "ownership": {"managed": "all executable roots outside main tabs, plus canonical build/deployment assets",
-                          "custom": "src/frontend/pages/main/tabs/**"}}
+            "stacks": {name: {**spec, "complete": all(relative in desired for relative in
+                         (*spec["frontend"], *spec["backend"]))}
+                       for name, spec in FULL_STACK.items()},
+            "ownership": {"managed": "canonical frontend outside tabs, shared client and defined backend adapters",
+                          "custom_frontend": "src/frontend/pages/main/tabs/**",
+                          "custom_backend": "src/backend/** except canonical backend adapter paths"}}
 
 
 def _atomic_write(path: Path, data: bytes, mode: int | None = None) -> None:
@@ -222,7 +260,8 @@ def reconcile_shell(root: Path, apply: bool = True, title: str | None = None) ->
     Plans are nonmutating. Applying snapshots all planned paths, enforces
     expected old hashes, verifies exact replan/no-op and tab digests, and rolls
     back touched files on failure. Existing app business logic outside tabs
-    is deliberately reported as a 'retire' operation.
+    is reported as a 'retire' operation only within frontend ownership.
+    Custom application backend services are retained for conformance checks.
     """
     root = Path(root).resolve()
     plan = plan_shell(root, title)
