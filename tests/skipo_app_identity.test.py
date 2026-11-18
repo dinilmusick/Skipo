@@ -86,6 +86,7 @@ def test_identity_initializer_is_idempotent_and_never_overwrites_reference(tmp_p
 
 
 
+
 def test_offline_verify_checks_identity_shape_without_claiming_registry_authority(tmp_path, capsys):
     make_manifest(tmp_path, app_id="aiko", registration_status="verified")
     with patch.object(cli, "maintenance_verify", return_value={"ok": True, "status": "clean", "diagnostics": []}):
