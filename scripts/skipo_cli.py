@@ -462,7 +462,7 @@ def main() -> int:
 
     for cmd in ["inspect","check","diagnose","plan","adopt","sync","update","repair","fix","verify","test","policy","semantic","certify","clean"]:
         q=sub.add_parser(cmd); q.add_argument("target",nargs="?",default=".")
-    q=sub.choices["check"]; q.add_argument("--json",action="store_true")
+    q=sub.choices["check"]; q.add_argument("--json",action="store_true"); q.add_argument("--human",action="store_true")
     q=sub.choices["clean"]; q.add_argument("--timeout",type=int,default=60); q.add_argument("--on-timeout",choices=["clean","cancel"],default="clean"); q.add_argument("--approve",action="store_true"); q.add_argument("--plan",action="store_true"); q.add_argument("--diff",action="store_true"); q.add_argument("--json",action="store_true")
     q=sub.choices["sync"]; q.add_argument("--install",action="store_true")
     q=sub.choices["repair"]; q.add_argument("--plan",action="store_true")
@@ -479,7 +479,7 @@ def main() -> int:
     if a.command == "inspect":
         return inspect_project(Path(a.target).resolve())
     if a.command == "check":
-        return check_project(Path(a.target).resolve(), json_output=a.json)
+        return check_project(Path(a.target).resolve(), json_output=(a.json or (not a.human and not sys.stdout.isatty())))
     if a.command == "clean":
         return clean_project(Path(a.target).resolve(), timeout=a.timeout,
                              on_timeout=a.on_timeout, approve=a.approve,
