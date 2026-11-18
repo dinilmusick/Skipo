@@ -8,7 +8,7 @@ describe('Canonical Vite application shell', () => {
 
   it('uses the Floks AppShell as the managed root and bottom-bar owner', () => {
     expect(page).toContain("import { AppShell, BaseButton, type WorkspaceRecord } from '@ultrst-armada/floks/ui'");
-    expect(page).toContain('<AppShell data-skipo-main-page="true" header={header}>');
+    expect(page).toContain('<AppShell data-skipo-main-page="true" header={header}');
     expect(page).toContain('</AppShell>');
     expect(page).not.toContain('<BottomStrip');
     expect(page).not.toContain('centerSlot=');
@@ -20,6 +20,22 @@ describe('Canonical Vite application shell', () => {
     expect(page).toContain('<SettingsPage activeWorkspaceName=');
     expect(page).toContain('<MainTabs />');
     expect(page).toContain("isGuest ? 'Guest' : undefined");
+  });
+
+  it('accepts a typed Floks chat adapter, never creating local agent authority', () => {
+    expect(page).toContain("agentChat?: ComponentProps<typeof AppShell>['agentChat'];");
+    expect(page).toContain('agentChat={!isGuest && activeWorkspace ? agentChat : undefined}');
+    expect(page).toContain('Kloks/Luth after permission filtering');
+    expect(page).not.toMatch(/import .*Aiko/);
+    expect(page).not.toMatch(/import .*AgentChatPanel/);
+    expect(page).not.toContain('new Agent');
+    expect(page).not.toContain('fetch(');
+  });
+
+  it('does not activate a stale or unauthenticated chat directory in guest/no-workspace mode', () => {
+    expect(page).toContain('!isGuest && activeWorkspace ? agentChat : undefined');
+    expect(page).not.toContain('agentChat={agentChat}');
+    expect(page).not.toContain('agentChat={{');
   });
 
   it('is the existing canonical Skipo shell source for Vite repairs', () => {
