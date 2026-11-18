@@ -29,6 +29,20 @@ export function bindAuthorizedAgentChat(
     host.workspaceId !== context.workspaceId ||
     !host.onInvoke || !host.targets?.length) return undefined;
 
+  // A directory must be the caller-authorized Kloks projection, not an
+  // ambiguous collection. Aliases remain display-only; stable IDs route calls.
+  const seen = new Set<string>();
+  for (const target of host.targets) {
+    if (!target || typeof target.id !== 'string' || !target.id.trim() ||
+      typeof target.name !== 'string' || !target.name.trim() ||
+      !['app', 'endpoint', 'workflow'].includes(target.kind) ||
+      seen.has(target.id)) return undefined;
+    seen.add(target.id);
+  }
+  if (host.appAgentId && !host.targets.some(
+    target => target.id === host.appAgentId && target.kind === 'app'
+  )) return undefined;
+
   return {
     scopeKey: host.scopeKey,
     targets: host.targets,
