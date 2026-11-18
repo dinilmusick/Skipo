@@ -75,7 +75,7 @@ def _source_tree(root: Path) -> dict[str, bytes]:
     return found
 
 
-def _desired(root: Path) -> dict[str, bytes]:
+def _desired(root: Path, title: str | None = None) -> dict[str, bytes]:
     package_path = _checked(root, "package.json")
     vite_path = _checked(root, "vite.config.ts")
     if not package_path.is_file() or not vite_path.is_file():
@@ -140,6 +140,15 @@ def _desired(root: Path) -> dict[str, bytes]:
                     "customCodeRoot": "src/frontend/pages/main/tabs"},
                    indent=2, sort_keys=True) + "\n"
     ).encode("utf-8")
+    if title is not None:
+        from skipo_pages import plan_tab
+        planned = {}
+        plan_tab(root, title, planned)
+        for path, content in planned.items():
+            relative = path.relative_to(root).as_posix()
+            if not is_tab(relative):
+                raise UnsafeShellRepair(f"Tab generator escaped custom-code boundary: {relative}")
+            desired[relative] = content.encode("utf-8")
     return desired
 
 
@@ -165,9 +174,9 @@ def _snapshot_tabs(root: Path) -> dict[str, str]:
     return snapshot
 
 
-def plan_shell(root: Path) -> dict:
+def plan_shell(root: Path, title: str | None = None) -> dict:
     root = Path(root).resolve()
-    desired = _desired(root)
+    desired = _desired(root, title)
     current = _source_tree(root)
     for relative in (*CANONICAL_CONFIG, DESCRIPTOR):
         path = _checked(root, relative)
@@ -177,12 +186,13 @@ def plan_shell(root: Path) -> dict:
             current[relative] = path.read_bytes()
     actions = []
     for relative in sorted(desired.keys() | current.keys()):
-        if is_tab(relative):
+        if is_tab(relative) and relative not in desired:
             continue
         before, after = current.get(relative), desired.get(relative)
         if before == after:
             continue
-        action = "retire" if after is None else ("create" if before is None else "rewrite")
+        action = ("create-tab" if is_tab(relative) else
+                  ("retire" if after is None else ("create" if before is None else "rewrite")))
         actions.append({"action": action, "path": relative,
                         "before_sha256": _digest(before), "after_sha256": _digest(after)})
     return {"ok": True, "operation": "canonical-shell", "actions": actions,
@@ -206,7 +216,7 @@ def _atomic_write(path: Path, data: bytes, mode: int | None = None) -> None:
             os.unlink(temporary)
 
 
-def reconcile_shell(root: Path, apply: bool = True) -> dict:
+def reconcile_shell(root: Path, apply: bool = True, title: str | None = None) -> dict:
     """Reproduce the standard shell. Never silently preserve non-tab drift.
 
     Plans are nonmutating. Applying snapshots all planned paths, enforces
@@ -215,15 +225,19 @@ def reconcile_shell(root: Path, apply: bool = True) -> dict:
     is deliberately reported as a 'retire' operation.
     """
     root = Path(root).resolve()
-    plan = plan_shell(root)
+    plan = plan_shell(root, title)
     if not apply:
         return {**plan, "applied": False}
 
     actions = plan["actions"]
     if not actions:
         return {**plan, "applied": True, "verification": {"ok": True, "idempotent": True}}
-    desired = _desired(root)
+    desired = _desired(root, title)
     protected_tabs = _snapshot_tabs(root)
+    expected_tabs = dict(protected_tabs)
+    for item in actions:
+        if is_tab(item["path"]):
+            expected_tabs[item["path"]] = item["after_sha256"]
     backups: dict[str, tuple[bytes, int] | None] = {}
     new_directories: set[Path] = set()
     for item in actions:
@@ -249,9 +263,9 @@ def reconcile_shell(root: Path, apply: bool = True) -> dict:
                 mode = backups[rel][1] if backups[rel] else 0o644
                 _atomic_write(path, desired[rel], mode)
             touched.append(rel)
-        if not plan_shell(root)["noop"]:
+        if not plan_shell(root, title)["noop"]:
             raise UnsafeShellRepair("Repaired shell still differs from Skipo canonical assets")
-        if _snapshot_tabs(root) != protected_tabs:
+        if _snapshot_tabs(root) != expected_tabs:
             raise UnsafeShellRepair("Application tab code changed during shell reconciliation")
     except Exception as exc:
         errors = []
