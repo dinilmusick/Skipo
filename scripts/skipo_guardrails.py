@@ -9,6 +9,7 @@ import difflib
 import hashlib
 import json
 import os
+import re
 import select
 import shutil
 import subprocess
@@ -61,6 +62,36 @@ def _package_runner(root: Path) -> str | None:
     return next((tool for tool in names if shutil.which(tool)), None)
 
 
+def _parse_tool_findings(category: str, output: str) -> list[dict[str, Any]]:
+    """Split compiler and ESLint messages into individual file/line findings."""
+    findings = []
+    current_file = ""
+    for raw in output.splitlines():
+        line = raw.strip()
+        match = re.match(r"^(.+?)\((\d+),(\d+)\):\s*(error|warning)\s+(TS\d+):\s*(.+)$", line)
+        if match:
+            path, row, col, severity, code, message = match.groups()
+            findings.append(_finding(category, code, message, path=path,
+                                     line=int(row), severity=severity))
+            continue
+        match = re.match(r"^(.+?):(\d+):(\d+):\s*(error|warning)\s*[:\-]\s*(.+)$", line)
+        if match:
+            path, row, col, severity, message = match.groups()
+            findings.append(_finding(category, "SKIPO_" + category.upper(),
+                                     message, path=path, line=int(row), severity=severity))
+            continue
+        match = re.match(r"^(\d+):(\d+)\s+(error|warning)\s+(.+)$", line)
+        if match and current_file:
+            row, col, severity, message = match.groups()
+            findings.append(_finding(category, "SKIPO_" + category.upper(),
+                                     message, path=current_file, line=int(row), severity=severity))
+            continue
+        if (line.endswith((".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")) and
+                not line.startswith((">", "npm", "Error"))):
+            current_file = line
+    return findings
+
+
 def _tool_section(root: Path, name: str, command: list[str] | None) -> dict[str, Any]:
     if not command:
         return _section(name, [], status="not-run", details="Tool or script is not configured")
@@ -68,10 +99,14 @@ def _tool_section(root: Path, name: str, command: list[str] | None) -> dict[str,
     if execution["exit_code"] == 0:
         return _section(name, [], details={"command": command, "exit_code": 0})
     reason = "Analyzer unavailable" if execution["exit_code"] is None else "Analyzer reported errors"
-    return _section(name, [_finding(name, "SKIPO_" + name.upper() + "_FAILED",
-        reason + ":\n" + execution["output"], suggestion="Fix the diagnostics and rerun skipo check.")],
+    findings = _parse_tool_findings(name, execution["output"])
+    if not findings:
+        findings = [_finding(name, "SKIPO_" + name.upper() + "_FAILED",
+            reason + ":\n" + execution["output"],
+            suggestion="Fix the diagnostics and rerun skipo check.")]
+    return _section(name, findings,
         status="blocked" if execution["exit_code"] is None else "fail",
-        details={"command": command, "exit_code": execution["exit_code"]})
+        details={"command": command, "exit_code": execution["exit_code"], "raw_output": execution["output"]})
 
 
 def _safe_lint_command(root: Path) -> list[str] | None:
@@ -300,14 +335,15 @@ def clean_preview(root: Path, *, show_diff: bool = False) -> dict[str, Any]:
             "ownership": plan["ownership"], "applied": False}
 
 
-def _decision(timeout: int, on_timeout: str = "clean") -> str:
+def _decision(timeout: int, on_timeout: str = "clean", *, quiet: bool = False) -> str:
     """Line-oriented stdin lets a human or agent respond within the deadline."""
     if timeout < 0:
         raise ValueError("timeout must be nonnegative")
+    stream = sys.stderr if quiet else sys.stdout
     print("Decision: [clean] apply changes; [fix] or [cancel] leave files untouched.",
-          flush=True)
+          file=stream, flush=True)
     print("If no response within " + str(timeout) + " seconds: " + on_timeout + ".",
-          flush=True)
+          file=stream, flush=True)
     expiry = time.monotonic() + timeout
     available = True
     while True:
@@ -329,7 +365,7 @@ def _decision(timeout: int, on_timeout: str = "clean") -> str:
                         return "clean"
                     if answer in ("cancel", "no", "n", "fix", "stop"):
                         return "cancel"
-                    print("Unknown response. Choose clean, fix or cancel.", flush=True)
+                    print("Unknown response. Choose clean, fix or cancel.", file=stream, flush=True)
         else:
             time.sleep(min(remaining, 1))
 
@@ -353,7 +389,7 @@ def clean(root: Path, *, timeout: int = 60, on_timeout: str = "clean",
         preview["decision"] = "planned" if plan_only else "noop"
         return preview
     # The caller prints and flushes the full preview *before* entering this function's wait.
-    choice = "clean" if approve else _decision(timeout, on_timeout)
+    choice = "clean" if approve else _decision(timeout, on_timeout, quiet=json_output)
     if choice != "clean":
         return {**preview, "decision": "cancelled", "applied": False, "ok": True}
     try:
@@ -374,7 +410,7 @@ def clean(root: Path, *, timeout: int = 60, on_timeout: str = "clean",
 
 def print_clean_preview(report: dict[str, Any], *, json_output: bool = False) -> None:
     if json_output:
-        print(json.dumps({"event": "preflight", **report}, indent=2), flush=True)
+        print(json.dumps({"event": "preflight", **report}, separators=(",", ":")), flush=True)
         return
     if not report.get("ok"):
         print("SKIPO CLEAN BLOCKED: " + str(report.get("error")), flush=True)
