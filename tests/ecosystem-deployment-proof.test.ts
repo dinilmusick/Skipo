@@ -21,7 +21,7 @@ describe('verified deployment proof invariants', () => {
   it('requires nonblank proof digest and a lease expiry to enter verified state', () => {
     expect(canonical).toContain('deployments_verified_proof_required');
     expect(canonical).toContain("verification_state <> 'verified'");
-    expect(canonical).toContain("NULLIF(btrim(d.verification_proof_digest), '') IS NOT NULL");
+    expect(canonical).toContain("NULLIF(btrim(verification_proof_digest), '') IS NOT NULL");
     expect(canonical).toContain('lease_expires_at IS NOT NULL');
   });
 
@@ -34,7 +34,7 @@ describe('verified deployment proof invariants', () => {
   it('selects only verified deployments in the requested environment with an active lease', async () => {
     const query = vi.fn(async (sql: string, args: unknown[]) => {
       expect(sql).toContain("verification_state = 'verified'");
-      expect(sql).toContain("NULLIF(btrim(verification_proof_digest), '') IS NOT NULL");
+      expect(sql).toContain("NULLIF(btrim(d.verification_proof_digest), '') IS NOT NULL");
       expect(sql).toContain('lease_expires_at > statement_timestamp()');
       expect(sql).toContain("last_refresh_at > statement_timestamp() - interval '15 minutes'");
       expect(sql).toContain('environment = $3');
