@@ -221,7 +221,11 @@ def _architecture(root: Path) -> list[dict[str, Any]]:
                                      "Validator failed without structured violations"))
         sections.append(_section("constraints", findings,
                                 details={"score": report.get("overall_score"),
-                                         "aspects": len(report.get("aspects", []))}))
+                                         "aspects": report.get("aspects", []),
+                                         "profile": report.get("profile"),
+                                         "overall_passed": report.get("overall_passed"),
+                                         "total_errors": report.get("total_errors"),
+                                         "total_warnings": report.get("total_warnings")}))
     except (ValueError, KeyError, RuntimeError) as exc:
         sections.append(_section("constraints", [
             _finding("constraints", "SKIPO_VALIDATOR_UNAVAILABLE", str(exc))], status="blocked"))
@@ -278,8 +282,18 @@ def check(root: Path) -> dict[str, Any]:
     warnings = sum(sum(x["severity"] == "warning" for x in section["findings"]) for section in sections)
     incomplete = [section["category"] for section in sections if section["status"] == "blocked"]
     not_run = [s["category"] for s in sections if s["status"] == "not-run"]
-    return {"ok": errors == 0 and not incomplete and not not_run, "operation": "check", "root": str(root),
+    validator = next((section.get("details") for section in sections
+                      if section["category"] == "constraints"), None) or {}
+    ok = errors == 0 and not incomplete and not not_run
+    # Preserve the stable top-level legacy validator evidence: Skipo's
+    # independent certifier requires all 26 aspect records in the CLI JSON.
+    return {"ok": ok, "operation": "check", "root": str(root),
             "schemaVersion": 1, "sections": sections,
+            "profile": validator.get("profile", "unresolved"),
+            "aspects": validator.get("aspects", []),
+            "overall_passed": bool(ok and validator.get("overall_passed")),
+            "total_errors": max(errors, validator.get("total_errors") or 0),
+            "total_warnings": max(warnings, validator.get("total_warnings") or 0),
             "summary": {"errors": errors, "warnings": warnings, "blocked": incomplete,
                         "not_run": not_run, "complete": not incomplete and not not_run},
             "note": "Source is not modified. Tests and builds are separate commands; TypeScript syntax requires typecheck."}
