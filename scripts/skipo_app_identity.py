@@ -100,6 +100,16 @@ def sync_identity_artifact(root: Path) -> dict[str, Any]:
     identity_file = Path(root) / "src" / "backend" / "ecosystem" / "appIdentity_Pure.ts"
     identity_file.parent.mkdir(parents=True, exist_ok=True)
     identity_file.write_text(generated, encoding="utf-8")
+    # Browser clients receive only the public app reference, never a registry
+    # attestation or deployment/OAuth credentials. The local manifest cannot
+    # authorize an application: Luth must verify its enrollment independently.
+    browser_identity_file = Path(root) / "src" / "libraries" / "client" / "appIdentity_Pure.ts"
+    browser_identity_file.parent.mkdir(parents=True, exist_ok=True)
+    browser_identity_file.write_text(
+        "// Generated from .skipo/project.json; reference only, not authorization.\n"
+        f"export const appId: string | null = {json.dumps(app_id)};\n",
+        encoding="utf-8",
+    )
     return {
         "app_id": app_id,
         "deployment_id": deployment_id,
