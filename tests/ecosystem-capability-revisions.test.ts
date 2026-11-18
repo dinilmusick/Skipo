@@ -68,7 +68,7 @@ describe('per-deployment static capability revisions', () => {
       { ...ping, description: 'Bearer opaque-token-value' },
     ])).toThrow(/endpoint URLs, bearer tokens or secret material/i);
     expect(() => normalizeStaticCapabilityDescriptors([
-      { ...ping, invocation: { ...ping.invocation, url: 'https://private.example' } } as never,
+      { ...ping, invocation: { ...ping.invocation, extra: true } } as never,
     ])).toThrow(/malformed/i);
   });
 
