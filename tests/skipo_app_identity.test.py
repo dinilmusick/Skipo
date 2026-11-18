@@ -214,10 +214,10 @@ def test_forced_scaffold_regeneration_preserves_app_owned_tabs_byte_for_byte(tmp
     raw_asset.write_bytes(b"\x00\xffMyApp\x00")
     (tabs / "empty").mkdir()
 
-    with patch.object(cli, "SCAFFOLDS", scaffold_root), \\
-         patch.object(cli, "capability_adopt", return_value={"ok": True}), \\
-         patch.object(cli, "capability_compose", return_value={"ok": True}), \\
-         patch("skipo_canonical_shell.reconcile_shell", return_value={"ok": True}):
+    with (patch.object(cli, "SCAFFOLDS", scaffold_root),
+          patch.object(cli, "capability_adopt", return_value={"ok": True}),
+          patch.object(cli, "capability_compose", return_value={"ok": True}),
+          patch("skipo_canonical_shell.reconcile_shell", return_value={"ok": True})):
         assert cli.create_project("Aiko Refreshed", target, "vite", True) == 0
         assert cli.create_project("Aiko Refreshed", target, "vite", True) == 0
 
