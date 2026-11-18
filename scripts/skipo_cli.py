@@ -130,9 +130,7 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
         if previous_identity.get("status") in {"invalid_manifest", "invalid_identity"}:
             print(json.dumps({"ok": False, "error": "Existing application identity is invalid; refusing destructive refresh.", "identity": previous_identity}))
             return 2
-        for key in ("app_id", "deployment_id", "oauth_client_id", "app_identity_version",
-                    "registration_status", "app_identity", "approval_reference",
-                    "identity_receipt", "registry_attestation"):
+        for key in ("app_id", "deployment_id", "oauth_client_id", "app_identity_version"):
             if key in existing_project:
                 preserved_identity[key] = existing_project[key]
 
@@ -169,6 +167,13 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
         "skipo_version": VERSION, "generated_by": "skipo",
         **preserved_identity,
     }
+    # Local registration markers and receipts are user-editable metadata, not
+    # authority. Preserve canonical reference IDs only, then normalize status.
+    project_manifest["registration_status"] = (
+        "enrollment_required"
+        if project_manifest.get("app_id") in (None, "")
+        else "registry_confirmation_required"
+    )
     (d / "project.json").write_text(
         json.dumps(project_manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
