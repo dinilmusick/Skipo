@@ -34,8 +34,15 @@ function typescript(root) {
       }
     }
   }
+  // Published CLI consumers may install TypeScript alongside the Skipo
+  // package rather than inside the analyzed legacy application. Retain Node's
+  // normal package-resolution path only after the target-local compiler.
+  try { return require('typescript'); }
+  catch (error) {
+    if (error.code !== 'MODULE_NOT_FOUND') throw error;
+  }
   // Preserve read-only CLI diagnostics for legacy/uninstalled projects.
-  // An installed application compiler always wins over the global fallback.
+  // A target-local compiler always wins over the global fallback.
   try {
     const globalRoot = cp.execFileSync('npm', ['root', '-g'], { encoding: 'utf8' }).trim();
     return require(require.resolve('typescript', { paths: [globalRoot] }));
