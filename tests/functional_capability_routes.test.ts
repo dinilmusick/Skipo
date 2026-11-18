@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../scaffolds/vite/src/backend/ecosystem/appIdentity_Pure', () => ({
   appId: 'aiko',
   appRegistrationStatus: 'registry_confirmation_required',
-  appIdentityAuthorityVerified: false,
+  appIdentityAuthorityVerified: true,
   deploymentId: null,
   oauthClientId: null,
   workspaceEnvironment: (env: Record<string, unknown> = {}) => {
