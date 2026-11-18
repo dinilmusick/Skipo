@@ -1,5 +1,6 @@
 """Skipo app identity: no derived authority, immutable reference through repair."""
 import json
+import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -169,3 +170,20 @@ def test_generated_identity_module_exports_runtime_contract_without_local_trust(
     assert "appIdentityAuthorityVerified && deploymentId" in generated
     assert "appIdentityAuthorityVerified && oauthClientId" in generated
     assert "LUTH_OAUTH_CLIENT_ID: oauthClientId" in generated
+
+
+def test_published_skipo_entrypoint_routes_identity_to_framework_cli(tmp_path):
+    make_manifest(tmp_path, app_id="aiko")
+    repository_root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        ["node", str(repository_root / "bin" / "skipo.js"), "identity", str(tmp_path)],
+        cwd=repository_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    report = json.loads(result.stdout)
+    assert report["app_id"] == "aiko"
+    assert report["status"] == "registry_confirmation_required"
+    assert report["authority_verified"] is False
