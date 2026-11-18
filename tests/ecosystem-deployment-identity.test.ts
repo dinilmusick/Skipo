@@ -83,4 +83,16 @@ describe('canonical ULTRST deployment identity', () => {
     expect(sourceSql).toContain('DROP CONSTRAINT IF EXISTS deployments_environment_check');
     expect(sourceSql).toContain("SET environment = 'unclassified'");
   });
+  it('enforces immutable publication identity/version and one-way grant revocation', () => {
+    const sql = readFileSync(new URL('../backend/ecosystem/db/deployments.sql', import.meta.url), 'utf8');
+    expect(sql).toContain('workflow_publications_immutable');
+    expect(sql).toContain('workflow_grants_immutable');
+    expect(sql).toContain('workflow_grants_require_published');
+    expect(sql).toContain('workflow publication identity and version are immutable');
+    expect(sql).toContain('workflow grant scope and grantor are immutable');
+    expect(sql).toContain('workflow publication withdrawal is permanent');
+    expect(sql).toContain('workflow grant revocation is permanent');
+    expect(sql).toContain('workflow_grants_one_active_scope');
+    expect(sql).toContain("WHERE grant_state = 'active'");
+  });
 });
