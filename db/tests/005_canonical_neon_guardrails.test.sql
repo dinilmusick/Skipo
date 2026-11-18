@@ -113,7 +113,7 @@ BEGIN
     VALUES (publication_id, 'atax-foreign-owner', 'atax-target-workspace',
       'kone', 'atax-source-workspace', 'atax-foreign-owner');
     RAISE EXCEPTION 'FAIL: other-owner grant was accepted';
-  EXCEPTION WHEN foreign_key_violation THEN NULL;
+  EXCEPTION WHEN foreign_key_violation OR check_violation THEN NULL;
   END;
   BEGIN
     INSERT INTO skipo_ecosystem.workflow_grants
@@ -122,7 +122,7 @@ BEGIN
     VALUES (publication_id, 'atax-owner', 'atax-wrong-target',
       'kone', 'atax-source-workspace', 'atax-owner');
     RAISE EXCEPTION 'FAIL: grant for another target workspace accepted';
-  EXCEPTION WHEN foreign_key_violation THEN NULL;
+  EXCEPTION WHEN foreign_key_violation OR check_violation THEN NULL;
   END;
   BEGIN
     INSERT INTO skipo_ecosystem.workflow_grants
