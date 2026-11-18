@@ -19,7 +19,7 @@ function AuthenticatedApplication({ auth }: { auth: UseLuthAuthResult }) {
         onSelectWorkspace={setWorkspace}
         onLogout={() => { void auth.signOut(); }}
       />
-      ) : <MainPage activeWorkspace={workspace} onSwitchWorkspace={() => setWorkspace(null)} />}
+      ) : <MainPage activeWorkspace={workspace} currentUser={auth.user ? { id: auth.user.id, email: auth.user.email, name: auth.user.name } : null} onSwitchWorkspace={() => setWorkspace(null)} onLogout={() => { void auth.signOut(); }} />}
     </>
   );
 }
@@ -28,7 +28,7 @@ export function App() {
   const [isGuest, setIsGuest] = useState(false);
   return (
     <SkipoThemeProvider defaultTheme="dark">
-      {isGuest ? <MainPage isGuest /> : (
+      {isGuest ? <MainPage isGuest onLogout={() => setIsGuest(false)} /> : (
         <>
           <LuthAuthPage
             ecosystemId="ultrst-armada"
