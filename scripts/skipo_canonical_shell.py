@@ -93,6 +93,25 @@ def _desired(root: Path) -> dict[str, bytes]:
             text = raw.decode("utf-8")
             raw = text.replace("MyApp", name).replace("my-app", name).encode("utf-8")
         desired[relative] = raw
+    # Capability-generated standard pages are also Skipo assets. The Vite
+    # template alone omits its generated Luth auth page; deleting those files
+    # would break a working application. Include the baseline capabilities and
+    # any explicitly installed standard capabilities from the registry.
+    from skipo_capabilities import capability_state, resolve_capabilities
+    installed = capability_state(root).get("installed", {})
+    if not isinstance(installed, dict):
+        raise UnsafeShellRepair("Invalid Skipo capability state")
+    baseline = {"auth", "workspace", "settings", "accounts"}
+    for _, spec in resolve_capabilities(sorted(baseline | set(installed))):
+        for asset in spec.get("generated", []):
+            relative = asset["path"]
+            if not relative.startswith("src/") or is_tab(relative):
+                raise UnsafeShellRepair(f"Invalid generated capability path: {relative}")
+            raw = asset["content"].encode("utf-8")
+            if relative in desired and desired[relative] != raw:
+                raise UnsafeShellRepair(f"Conflicting canonical owners: {relative}")
+            desired[relative] = raw
+
     for relative in CANONICAL_CONFIG:
         src = SOURCE / relative
         raw = src.read_bytes()
