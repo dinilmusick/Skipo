@@ -234,7 +234,7 @@ def test_workspace_command_repairs_frontend_and_backend_together(tmp_path):
     assert "WorkspaceTilesMenu" in ui.read_text()
     assert "WorkspaceServiceFacade" in backend.read_text()
     assert "listWorkspaces" in app_entry.read_text()
-    assert "canonical application Fetch handler" in api.read_text()
+    assert "canonical app Fetch handler" in api.read_text()
     assert "fetch as fetchHandler" in api.read_text()
 
     ui.write_text("export const localWorkspaceMenu = 1;\n")
