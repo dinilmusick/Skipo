@@ -241,3 +241,25 @@ def test_workspace_command_repairs_frontend_and_backend_together(tmp_path):
     assert "WorkspaceTilesMenu" in ui.read_text()
     assert "WorkspaceServiceFacade" in backend.read_text()
     assert json.loads(invoke("add", "workspace", str(target)).stdout)["noop"] is True
+
+
+
+def test_direct_auth_and_workspace_menu_are_fullstack_aliases(tmp_path):
+    target = app(tmp_path)
+    first = invoke("auth", str(target))
+    assert first.returncode == 0, first.stdout + first.stderr
+    auth = json.loads(first.stdout)
+    assert auth["requested_stack"] == "auth"
+    assert auth["stacks"]["auth"]["complete"]
+    assert (target / "src/backend/auth/luthSession.ts").is_file()
+    second = invoke("workspaceMenu", str(target))
+    assert second.returncode == 0, second.stdout + second.stderr
+    workspace = json.loads(second.stdout)
+    assert workspace["requested_stack"] == "workspace"
+    assert workspace["stacks"]["workspace"]["complete"]
+    assert "WorkspaceServiceFacade" in (
+        target / "src/backend/storage/canonicalCapabilityRoutes.ts"
+    ).read_text()
+    third = invoke("workspaceMenu", str(target))
+    assert third.returncode == 0
+    assert json.loads(third.stdout)["noop"] is True
