@@ -102,3 +102,34 @@ test('a canonical Luth facade delegation is not confused with a second auth prov
   assert.equal(report.status, 'compliant', JSON.stringify(report.findings));
   assert.ok(!report.findings.some(f => f.ruleId === 'SEM106'));
 }));
+
+test('attested backend-only generated bridge is allowed but forged changes and frontend reachability are not', () => project('positive', root => {
+  const crypto = require('node:crypto');
+  const registry = require('../architecture/capabilities/registry.json');
+  const relative = 'src/libraries/skipo/auth.ts';
+  const content = registry.capabilities.auth.generated.find(entry => entry.path === relative).content;
+  const target = path.join(root, relative);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(target, content);
+  const digest = crypto.createHash('sha256').update(content).digest('hex');
+  fs.mkdirSync(path.join(root, '.skipo'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.skipo/capabilities.json'), JSON.stringify({
+    schemaVersion: 1, installed: {}, generated: [
+      { path: relative, owner: 'skipo', capability: 'auth', checksum: digest },
+    ],
+  }));
+  const trusted = analyzeProject(root);
+  assert.ok(!trusted.findings.some(f => f.ruleId === 'SEM102' && f.file === relative),
+    JSON.stringify(trusted.findings));
+
+  fs.writeFileSync(target, content + '\n// app-owned modification');
+  const tampered = analyzeProject(root);
+  assert.ok(tampered.findings.some(f => f.ruleId === 'SEM102' && f.file === relative));
+
+  fs.writeFileSync(target, content);
+  fs.writeFileSync(path.join(root, 'src/frontend/useBridge.ts'),
+    "import { AuthServiceFacade } from '../libraries/skipo/auth'; export { AuthServiceFacade };\n");
+  const exposed = analyzeProject(root);
+  assert.ok(exposed.findings.some(f => f.ruleId === 'SEM109' && f.file === 'src/frontend/useBridge.ts'),
+    JSON.stringify(exposed.findings));
+}));
