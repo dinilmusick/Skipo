@@ -59,7 +59,7 @@ BEGIN
     BEGIN
       INSERT INTO skipo_ecosystem.deployment_capability_revisions
         (deployment_id, revision, descriptors)
-      VALUES (deployment_one, 3, '[{"id":"workspace.list","description":"https://private.example"}]'::jsonb);
+      VALUES (deployment_one, 3, '[{"id":"workspace.list","description":"ftp://private.example"}]'::jsonb);
       RAISE EXCEPTION 'endpoint URL descriptor value was accepted';
     EXCEPTION WHEN check_violation THEN NULL;
     END;
