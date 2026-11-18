@@ -1,0 +1,72 @@
+"""Skipo app identity metadata. Identity authority lives in the Neon app catalog.
+
+This module never creates, approves, or verifies a canonical app_id. A project
+manifest is a durable local *reference* to an externally enrolled application;
+APP_URL, an OAuth client, and a deployment are not application identities.
+"""
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+from typing import Any
+
+APP_ID_PATTERN = re.compile(r"^[a-z][a-z0-9-]{0,62}$")
+ROLE_KEYS = ("deployment_id", "oauth_client_id")
+
+
+def inspect_identity(root: Path) -> dict[str, Any]:
+    """Read application identity without contacting or impersonating the registry."""
+    manifest = Path(root) / ".skipo" / "project.json"
+    if not manifest.is_file():
+        return {"ok": False, "status": "manifest_missing", "app_id": None,
+                "authority_verified": False, "errors": [".skipo/project.json is missing"]}
+    try:
+        project = json.loads(manifest.read_text(encoding="utf-8"))
+    except (ValueError, OSError) as error:
+        return {"ok": False, "status": "invalid_manifest", "app_id": None,
+                "authority_verified": False, "errors": [str(error)]}
+    if not isinstance(project, dict):
+        return {"ok": False, "status": "invalid_manifest", "app_id": None,
+                "authority_verified": False, "errors": ["Project manifest must be an object"]}
+    app_id = project.get("app_id")
+    if app_id is None or app_id == "":
+        return {"ok": True, "status": "enrollment_required", "app_id": None,
+                "authority_verified": False, "errors": [],
+                "next_action": "Enroll the application with the authorized Neon app registry before invoking cross-app services."}
+    errors = []
+    if not isinstance(app_id, str) or not APP_ID_PATTERN.fullmatch(app_id):
+        errors.append("app_id must be a registered canonical lowercase application ID")
+    for key in ROLE_KEYS:
+        value = project.get(key)
+        if value is not None and (not isinstance(value, str) or not value.strip()):
+            errors.append(key + " must be a non-empty identifier when present")
+        elif isinstance(value, str) and value == app_id:
+            errors.append(key + " must not equal the canonical app_id")
+    if errors:
+        return {"ok": False, "status": "invalid_identity", "app_id": app_id,
+                "authority_verified": False, "errors": errors}
+    # A local value alone is never proof that the user owns this app_id.
+    return {"ok": True, "status": "registry_confirmation_required", "app_id": app_id,
+            "authority_verified": False, "errors": [],
+            "next_action": "Verify app registration and deployment control in the canonical Neon catalog; do not trust this local value as an authorization grant."}
+
+
+def initialize_unenrolled_identity(root: Path) -> dict[str, Any]:
+    """Mark a newly scaffolded app as unenrolled, never deriving identity from its name or URL."""
+    path = Path(root) / ".skipo" / "project.json"
+    project = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(project, dict):
+        raise ValueError("Project manifest must be an object")
+    # Refuse to reset a previously assigned identity (including a pending one).
+    if "app_id" not in project:
+        project["app_id"] = None
+    project.setdefault("app_identity_version", 1)
+    project.setdefault("registration_status", "enrollment_required")
+    path.write_text(json.dumps(project, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return inspect_identity(root)
+
+
+def unchanged_identity(before: dict[str, Any], after: dict[str, Any]) -> bool:
+    """A repair cannot silently change the canonical application reference."""
+    return before.get("app_id") == after.get("app_id") and after.get("status") != "invalid_identity"
