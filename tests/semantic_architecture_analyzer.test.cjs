@@ -65,3 +65,29 @@ test('AST ignores misleading comments and string literals', () => project('posit
   const report=analyzeProject(root);
   assert.equal(report.status,'compliant');
 }));
+
+test('installed package declaration paths never become application dependency planes', () => project('positive', root => {
+  const vendor = path.join(root, 'node_modules/vendor-types');
+  fs.mkdirSync(path.join(vendor, 'src/frontend'), { recursive: true });
+  fs.writeFileSync(path.join(vendor, 'package.json'), JSON.stringify({
+    name: 'vendor-types', version: '1.0.0', types: 'src/frontend/index.d.ts',
+  }));
+  fs.writeFileSync(path.join(vendor, 'src/frontend/index.d.ts'), 'export declare const fetchClient: () => void;\n');
+  fs.mkdirSync(path.join(root,'src/backend'), { recursive: true });
+  fs.writeFileSync(path.join(root,'src/backend/use.ts'), "import { fetchClient } from 'vendor-types'; export { fetchClient };\n");
+  const report = analyzeProject(root);
+  assert.equal(report.status, 'compliant', JSON.stringify(report.findings));
+  assert.ok(report.dependencies.some(edge => edge.file === 'src/backend/use.ts' &&
+    edge.specifier === 'vendor-types' && edge.target === null));
+}));
+
+test('canonical Kloks client import is browser-safe without allowing backend providers', () => project('positive', root => {
+  const filename = path.join(root,'src/frontend/kloksClient.ts');
+  fs.writeFileSync(filename, "import { WorkspaceAutosaveController } from '@ultrst-armada/kloks/client'; export { WorkspaceAutosaveController };\n");
+  const report = analyzeProject(root);
+  assert.equal(report.status, 'compliant', JSON.stringify(report.findings));
+  assert.ok(!report.findings.some(f => f.ruleId === 'SEM102'));
+  fs.writeFileSync(filename, "import { BackendFacade } from '@ultrst-armada/kloks/backend'; export { BackendFacade };\n");
+  const blocked = analyzeProject(root);
+  assert.ok(blocked.findings.some(f => f.ruleId === 'SEM102'));
+}));
