@@ -102,3 +102,15 @@ identity, credential, scheduler, registry, or BackendFacade implementation.
    the authorized migration and independent certification are complete.
 
 No production SQL mutation, merge, release or auth cutover is implied.
+
+
+## Validated source-of-truth contract
+
+Skipo `createEcosystemRuntime` requires `backendFacadeOperations` when
+`capabilityDescriptors` are provided. The source must expose the real
+Kloks `BackendRegistry.getCommand/getQuery` registered handler and a
+matching live `BackendFacade.services[serviceId].execute`. No invented
+operation, alternate registry or metadata-only method can pass.
+The target's `createFacadeInvocationBoundary` remains responsible for
+Luth and workspace/ACL authorization. Snapshots cannot be edited after
+publication; publish a new complete immutable revision to withdraw operations.
