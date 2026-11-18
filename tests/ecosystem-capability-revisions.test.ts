@@ -68,6 +68,15 @@ describe('per-deployment static capability revisions', () => {
       { ...ping, description: 'Bearer opaque-token-value' },
     ])).toThrow(/endpoint URLs, bearer tokens or secret material/i);
     expect(() => normalizeStaticCapabilityDescriptors([
+      { ...ping, description: 'ftp://private.example/download' },
+    ])).toThrow(/endpoint URLs, bearer tokens or secret material/i);
+    expect(() => normalizeStaticCapabilityDescriptors([
+      { ...ping, description: 'api_key=embedded-secret-value' },
+    ])).toThrow(/endpoint URLs, bearer tokens or secret material/i);
+    expect(() => normalizeStaticCapabilityDescriptors([
+      { ...ping, description: '-----BEGIN PRIVATE KEY-----' },
+    ])).toThrow(/endpoint URLs, bearer tokens or secret material/i);
+    expect(() => normalizeStaticCapabilityDescriptors([
       { ...ping, invocation: { ...ping.invocation, extra: true } } as never,
     ])).toThrow(/malformed/i);
   });
