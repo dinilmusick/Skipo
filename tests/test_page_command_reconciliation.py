@@ -73,7 +73,7 @@ def test_update_repairs_dirty_shell_and_protects_custom_tabs(tmp_path):
     dirty_plan = invoke("update", "--pages", str(target), "--plan")
     assert dirty_plan.returncode == 0, dirty_plan.stdout + dirty_plan.stderr
     actions = json.loads(dirty_plan.stdout)["actions"]
-    assert {"rewrite", "retire"} <= {item["action"] for item in actions}
+    assert "rewrite" in {item["action"] for item in actions}
     assert auth.read_text() == "const localAuth = 'invalid';\n"
     assert legacy.exists()
 
@@ -81,8 +81,8 @@ def test_update_repairs_dirty_shell_and_protects_custom_tabs(tmp_path):
     assert repaired.returncode == 0, repaired.stdout + repaired.stderr
     assert "LuthAuthPage" in auth.read_text()
     assert "MainTabs" in main.read_text()
-    assert not legacy.exists()
-    assert not stray_script.exists()
+    assert legacy.exists(), "Application-owned backend service must survive"
+    assert stray_script.exists(), "App-specific backend scripts must survive"
     assert tab.read_bytes() == original_tab
     second = invoke("update", "--pages", str(target))
     assert second.returncode == 0, second.stdout + second.stderr
@@ -190,3 +190,54 @@ def test_created_tab_is_rolled_back_if_write_fails_after_replace(tmp_path, monke
     assert not list((target / "src/frontend/pages/main/tabs").glob("*/page.tsx"))
     assert not (target / "src/frontend/App.tsx").exists()
     assert json.loads((target / ".skipo/pages.json").read_text())["layout"] == "integrated"
+
+
+
+def test_auth_command_repairs_full_stack_and_preserves_custom_backend(tmp_path):
+    target = app(tmp_path)
+    app_service = target / "src/backend/services/mySpecialService.ts"
+    app_service.parent.mkdir(parents=True)
+    app_service.write_text("export const specialWork = () => 42;\n")
+    legacy_proxy = target / "src/backend/auth/luthSession.ts"
+    legacy_proxy.parent.mkdir(parents=True)
+    legacy_proxy.write_text("export function localAuthProvider() { return true; }\n")
+
+    preview = invoke("add", "auth", str(target), "--plan")
+    assert preview.returncode == 0, preview.stdout + preview.stderr
+    scope = json.loads(preview.stdout)["stacks"]["auth"]
+    assert "src/backend/auth/luthSession.ts" in scope["backend"]
+    assert "src/frontend/App.tsx" in scope["frontend"]
+    assert "@ultrst-armada/kloks/auth" in scope["services"]
+    assert "/api/auth/*" in scope["routes"]
+    assert legacy_proxy.read_text().startswith("export function localAuthProvider")
+
+    actual = invoke("add", "auth", str(target))
+    assert actual.returncode == 0, actual.stdout + actual.stderr
+    assert "authenticateLuthRequest" in legacy_proxy.read_text()
+    assert "proxyLuthAuthRequest" in (target / "src/app.ts").read_text()
+    assert "LuthAuthPage" in (target / "src/frontend/App.tsx").read_text()
+    assert app_service.read_text() == "export const specialWork = () => 42;\n"
+
+    again = invoke("add", "auth", str(target))
+    assert again.returncode == 0
+    assert json.loads(again.stdout)["noop"] is True
+
+
+def test_workspace_command_repairs_frontend_and_backend_together(tmp_path):
+    target = app(tmp_path)
+    first = invoke("add", "workspace", str(target))
+    assert first.returncode == 0, first.stdout + first.stderr
+    ui = target / "src/frontend/components/gates/WorkspaceGate.tsx"
+    backend = target / "src/backend/storage/canonicalCapabilityRoutes.ts"
+    api = target / "src/backend/adapters/httpsAdapter.ts"
+    assert "WorkspaceTilesMenu" in ui.read_text()
+    assert "WorkspaceServiceFacade" in backend.read_text()
+    assert "listWorkspaces" in api.read_text()
+
+    ui.write_text("export const localWorkspaceMenu = 1;\n")
+    backend.write_text("export const localWorkspaceService = 1;\n")
+    repaired = invoke("add", "workspace", str(target))
+    assert repaired.returncode == 0, repaired.stdout + repaired.stderr
+    assert "WorkspaceTilesMenu" in ui.read_text()
+    assert "WorkspaceServiceFacade" in backend.read_text()
+    assert json.loads(invoke("add", "workspace", str(target)).stdout)["noop"] is True
