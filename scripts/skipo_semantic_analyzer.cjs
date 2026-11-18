@@ -3,7 +3,7 @@
 /** Standalone, read-only TypeScript/React architecture analyser. No Skipo CLI imports. */
 const fs = require('node:fs');
 const path = require('node:path');
-const cp = require('node:child_process');
+
 const DEFAULT_POLICY = path.resolve(__dirname, '../architecture/semantic/owners.json');
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts', '.mjs', '.cjs']);
 const SKIP_DIRS = new Set(['.git', 'node_modules', '.next', 'dist', 'build', 'coverage', '.turbo', '.pnpm', 'vendor']);
@@ -16,12 +16,24 @@ const matchPrefix = (specifier, prefix) => prefix.endsWith('/') || prefix.endsWi
 const rel = (root, file) => unix(path.relative(root, file));
 const inside = (root, file) => file === root || file.startsWith(root + path.sep);
 
-function typescript() {
-  try { return require('typescript'); }
-  catch (_) {
-    try { return require(require.resolve('typescript', { paths: [cp.execFileSync('npm', ['root', '-g'], { encoding: 'utf8' }).trim()] })); }
-    catch (_) { throw new Error('TypeScript compiler API unavailable; install the existing TypeScript devDependency'); }
+function typescript(root) {
+  // The analyzer may live outside the application (e.g. an installed CLI).
+  // Load the compiler from the analyzed project's installed dependency first;
+  // never resolve an unrelated parent package or execute a global fallback.
+  const engine = path.resolve(__dirname, '..');
+  for (const base of [root, engine]) {
+    const candidate = path.join(base, 'node_modules', 'typescript');
+    try {
+      const physical = fs.realpathSync(candidate);
+      if (!inside(base, physical) || !fs.statSync(physical).isDirectory()) continue;
+      return require(candidate);
+    } catch (error) {
+      if (error.code !== 'ENOENT' && error.code !== 'MODULE_NOT_FOUND') {
+        throw error;
+      }
+    }
   }
+  throw new Error('TypeScript compiler API unavailable; install the existing TypeScript devDependency');
 }
 function validatePolicy(value) {
   const stringList = (x) => Array.isArray(x) && x.every(v => typeof v === 'string' && v.length > 0) && new Set(x).size === x.length;
@@ -121,7 +133,7 @@ function analyzeProject(rootInput, options = {}) {
   try {
     if (!fs.statSync(root).isDirectory()) throw new Error('Target must be a directory');
     policy = validatePolicy(JSON.parse(fs.readFileSync(options.policyPath || DEFAULT_POLICY, 'utf8')));
-    ts = typescript();
+    ts = typescript(root);
   } catch (error) { return blocked(error.message); }
   const files = scanFiles(root, !!options.includeTests);
   const configCache = new Map();
