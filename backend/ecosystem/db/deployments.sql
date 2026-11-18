@@ -167,6 +167,11 @@ CREATE TABLE IF NOT EXISTS skipo_ecosystem.workflow_grants (
         AND revoked_by_user_id = owner_user_id)
   )
 );
+-- Remove the earlier all-history scope uniqueness from the first N5 draft;
+-- revoked rows must coexist with a later new grant for the same scope.
+ALTER TABLE skipo_ecosystem.workflow_grants
+  DROP CONSTRAINT IF EXISTS workflow_grants_scope_unique;
+
 CREATE UNIQUE INDEX IF NOT EXISTS workflow_grants_one_active_scope
   ON skipo_ecosystem.workflow_grants
     (publication_id, caller_app_id, source_workspace_id, target_workspace_id)
