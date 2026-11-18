@@ -59,6 +59,7 @@ CANONICAL_CONFIG = (
     "index.html", "server.ts", "vite.config.ts", "tsconfig.json",
     "vercel.json", "wrangler.toml", "skipo.providers.json",
     "scripts/skipo-build.mjs", "scripts/skipo-lint.mjs",
+    ".env.example", "db/skipo-ecosystem-deployments.sql",
 )
 DESCRIPTOR = ".skipo/pages.json"
 
@@ -196,7 +197,7 @@ def _desired(root: Path, title: str | None = None) -> dict[str, bytes]:
     for relative in CANONICAL_CONFIG:
         src = SOURCE / relative
         raw = src.read_bytes()
-        if src.suffix in {".ts", ".tsx", ".js", ".mjs", ".json", ".html", ".toml"}:
+        if src.suffix in {".ts", ".tsx", ".js", ".mjs", ".json", ".html", ".toml", ".sql"}:
             raw = raw.decode("utf-8").replace("MyApp", name).replace("my-app", name).encode("utf-8")
         desired[relative] = raw
     desired[DESCRIPTOR] = (
