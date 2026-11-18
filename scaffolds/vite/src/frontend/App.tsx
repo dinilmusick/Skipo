@@ -9,17 +9,22 @@ import { UiSessionControls } from './components/UiSessionControls.js';
 import { getSkipoApplicationId, luthFetch } from '../libraries/client/luthAuthClient.js';
 
 function AuthenticatedApplication({ auth }: { auth: UseLuthAuthResult }) {
-  const [workspace, setWorkspace] = useState<WorkspaceRecord | null>(null);
+  // Bind workspace selection to its authenticated principal. Rendering is
+  // fail-closed immediately on a Luth identity switch, without waiting for effects.
+  const [selection, setSelection] = useState<{ principalId: string; workspace: WorkspaceRecord } | null>(null);
+  const principalId = auth.user?.id;
+  const workspace = principalId && selection?.principalId === principalId ? selection.workspace : null;
   return (
     <>
       <UiSessionControls request={luthFetch} />
       {!workspace ? (
       <WorkspacesPage
         currentUser={auth.user ? { id: auth.user.id, email: auth.user.email, name: auth.user.name } : null}
-        onSelectWorkspace={setWorkspace}
+        onSelectWorkspace={selected => { if (principalId) setSelection({ principalId, workspace: selected }); }}
         onLogout={() => { void auth.signOut(); }}
       />
-      ) : <MainPage activeWorkspace={workspace} onSwitchWorkspace={() => setWorkspace(null)} />}
+      ) : <MainPage key={`${principalId}:${workspace.id}`} principalId={principalId} activeWorkspace={workspace}
+        onSwitchWorkspace={() => setSelection(null)} />}
     </>
   );
 }
