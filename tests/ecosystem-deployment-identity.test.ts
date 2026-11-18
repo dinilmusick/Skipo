@@ -78,4 +78,19 @@ describe('canonical ULTRST deployment identity', () => {
         .toBe(readFileSync(new URL(generated, root), 'utf8'));
     }
   });
+  it('protects verified endpoint bindings and makes revocation terminal in canonical and generated SQL', () => {
+    const root = new URL('../', import.meta.url);
+    const canonical = readFileSync(new URL('backend/ecosystem/db/deployments.sql', root), 'utf8');
+    const generated = readFileSync(new URL('scaffolds/vite/db/skipo-ecosystem-deployments.sql', root), 'utf8');
+    expect(canonical).toBe(generated);
+    expect(canonical).toContain("OLD.verification_state = 'verified'");
+    expect(canonical).toContain('NEW.app_url IS DISTINCT FROM OLD.app_url');
+    expect(canonical).toContain('NEW.capabilities IS DISTINCT FROM OLD.capabilities');
+    expect(canonical).toContain('registry re-attestation');
+    expect(canonical).toContain("OLD.verification_state = 'revoked'");
+    expect(canonical).toContain("NEW.verification_state IS DISTINCT FROM 'revoked'");
+    expect(canonical).toContain("revoked deployment identity cannot be reactivated");
+    expect(canonical).toContain('BEFORE UPDATE ON skipo_ecosystem.deployments');
+  });
+
 });
