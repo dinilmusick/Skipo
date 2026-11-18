@@ -6,7 +6,7 @@
       "kind": "capability",
       "description": "Canonical Luth authentication and Floks auth surface.",
       "dependencies": {
-        "@ultrst-armada/floks": "2.0.7",
+        "@ultrst-armada/floks": "2.0.8",
         "@ultrst-armada/kloks": "2.2.4"
       },
       "providers": [
@@ -79,7 +79,7 @@
       "kind": "capability",
       "description": "Canonical workspace selection and workspace service.",
       "dependencies": {
-        "@ultrst-armada/floks": "2.0.7",
+        "@ultrst-armada/floks": "2.0.8",
         "@ultrst-armada/kloks": "2.2.4"
       },
       "providers": [
@@ -252,7 +252,7 @@
       "kind": "ui",
       "description": "Canonical Floks settings primitive.",
       "dependencies": {
-        "@ultrst-armada/floks": "2.0.7"
+        "@ultrst-armada/floks": "2.0.8"
       },
       "providers": [
         {
@@ -310,7 +310,7 @@
       "kind": "ui",
       "description": "Canonical Floks settings/account surface.",
       "dependencies": {
-        "@ultrst-armada/floks": "2.0.7"
+        "@ultrst-armada/floks": "2.0.8"
       },
       "providers": [
         {
@@ -363,7 +363,7 @@
       "kind": "ui",
       "description": "Canonical Floks application navigation primitives.",
       "dependencies": {
-        "@ultrst-armada/floks": "2.0.7"
+        "@ultrst-armada/floks": "2.0.8"
       },
       "providers": [
         {
@@ -423,7 +423,7 @@
       "kind": "ui",
       "description": "Canonical graph/canvas primitives from Floks.",
       "dependencies": {
-        "@ultrst-armada/floks": "2.0.7"
+        "@ultrst-armada/floks": "2.0.8"
       },
       "providers": [
         {
@@ -508,7 +508,7 @@
       "@ultrst-armada/krnl": "^1.0.28",
       "@ultrst-armada/frnlts": "0.5.26",
       "@ultrst-armada/kloks": "2.2.4",
-      "@ultrst-armada/floks": "2.0.7"
+      "@ultrst-armada/floks": "2.0.8"
     },
     "ownership": {
       "applicationComposition": "skipo",
