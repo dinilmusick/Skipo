@@ -36,9 +36,15 @@ and invocation routing are retained for compatibility.
 
 Approved deployers can opt in to `createEcosystemRuntime({ appId,
 deploymentId, ... })` with a **persistently provisioned** deployment UUID.
-The opt-in `refreshDeploymentById` upsert can change the endpoint without
-changing the deployment's identity, and rejects attempts to reuse an existing
-deployment ID for another app. The ID is not generated from `APP_URL` or a
+The opt-in `refreshDeploymentById` upsert can change an **unverified**
+deployment endpoint without changing the deployment's identity and rejects
+attempts to reuse an existing deployment ID for another app. For a **verified**
+deployment, its registered URL and legacy operation claims remain pinned: the
+registry authority must withdraw verification, independently attest control
+of a new URL, then issue a new proof-backed lease before the new origin can
+become verified. A `revoked` deployment UUID is terminal; provision a new
+UUID rather than reactivating it. Ordinary app heartbeat code does **not**
+perform enrollment, proof validation or lease issuance. The ID is not generated from `APP_URL` or a
 device URL. Do not invent a UUID on every runtime boot; do not enable
 production OAuth/native callbacks or authorization from this schema alone.
 
@@ -97,6 +103,11 @@ unverified deployments remain unavailable to this descriptor resolver.
 Descriptors are allowlisted static metadata (schemas, access policy and
 BackendFacade service/operation mapping); session endpoints, credentials,
 tokens, workflow definitions and secret material are rejected/not stored.
+A published descriptor's ID must match a callable method actually bound to
+that deployment's runtime (`capabilities` or `serviceCapabilities`); an
+arbitrary descriptor list cannot mint a callable operation. This is only a
+method-presence guard: BackendFacade service/operation provenance must still
+be verified by the registering Kloks composition and trusted registry authority.
 The Vite scaffold receives byte-identical SQL and runtime copies.
 
 ## Metadata-only workflow publication and grants (v3)
