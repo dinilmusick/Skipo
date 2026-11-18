@@ -225,9 +225,32 @@ def _architecture(root: Path) -> list[dict[str, Any]]:
                     item.get("message", "Constraint violation"), path=item.get("file_path", ""),
                     line=item.get("line"), severity=item.get("severity", "error"),
                     suggestion=item.get("suggestion", "")))
-        if result["exit_code"] and not findings:
-            findings.append(_finding("constraints", "SKIPO_VALIDATOR_FAILURE",
-                                     "Validator failed without structured violations"))
+        # A zero exit code alone is not proof that all 26 canonical aspects
+        # were assessed. A partially populated/contradictory JSON report must
+        # never make "skipo check" report success.
+        aspects = report.get("aspects")
+        canonical_ids = {f"aspect_{number:02d}" for number in range(1, 27)}
+        valid_aspects = (
+            isinstance(aspects, list)
+            and len(aspects) >= len(canonical_ids)
+            and all(isinstance(item, dict) and item.get("passed") is True
+                    for item in aspects)
+            and canonical_ids.issubset(
+                {item.get("aspect_id") for item in aspects})
+        )
+        certified = (
+            result["exit_code"] == 0
+            and report.get("overall_passed") is True
+            and type(report.get("total_errors")) is int
+            and report["total_errors"] == 0
+            and valid_aspects
+        )
+        if not certified:
+            findings.append(_finding(
+                "constraints", "SKIPO_VALIDATOR_NOT_CERTIFIED",
+                "Full 26-aspect validator did not independently certify success "
+                "(exit status, summary, aspect coverage or error count is inconsistent).",
+                suggestion="Inspect the validator output and rerun skipo check."))
         sections.append(_section("constraints", findings,
                                 details={"score": report.get("overall_score"),
                                          "aspects": report.get("aspects", []),
@@ -288,9 +311,10 @@ def check(root: Path) -> dict[str, Any]:
     warnings = sum(sum(x["severity"] == "warning" for x in section["findings"]) for section in sections)
     incomplete = [section["category"] for section in sections if section["status"] == "blocked"]
     not_run = [s["category"] for s in sections if s["status"] == "not-run"]
+    failed = [s["category"] for s in sections if s["status"] == "fail"]
     validator = next((section.get("details") for section in sections
                       if section["category"] == "constraints"), None) or {}
-    ok = errors == 0 and not incomplete and not not_run
+    ok = errors == 0 and not incomplete and not not_run and not failed
     # Preserve the stable top-level legacy validator evidence: Skipo's
     # independent certifier requires all 26 aspect records in the CLI JSON.
     return {"ok": ok, "operation": "check", "root": str(root),
@@ -301,7 +325,8 @@ def check(root: Path) -> dict[str, Any]:
             "total_errors": max(errors, validator.get("total_errors") or 0),
             "total_warnings": max(warnings, validator.get("total_warnings") or 0),
             "summary": {"errors": errors, "warnings": warnings, "blocked": incomplete,
-                        "not_run": not_run, "complete": not incomplete and not not_run},
+                        "failed": failed, "not_run": not_run,
+                        "complete": not incomplete and not not_run and not failed},
             "note": "Source is not modified. Tests and builds are separate commands; TypeScript syntax requires typecheck."}
 
 

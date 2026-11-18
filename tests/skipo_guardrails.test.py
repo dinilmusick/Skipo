@@ -66,6 +66,83 @@ class GuardrailTests(unittest.TestCase):
             self.assertIn("overall_passed", result)
             self.assertFalse(result["overall_passed"])  # missing lint/typecheck is not a full pass
 
+    def test_constraints_fail_closed_on_incomplete_or_contradictory_certification(self):
+        """No positive all-aspects certificate means check cannot be green."""
+        aspects = [
+            {"aspect_id": f"aspect_{index:02d}", "passed": True, "violations": []}
+            for index in range(1, 27)
+        ]
+        good = {
+            "overall_passed": True,
+            "total_errors": 0,
+            "total_warnings": 0,
+            "aspects": aspects,
+            "profile": "application",
+        }
+        cases = [
+            ("explicit failed summary", {"overall_passed": False}, 0),
+            ("nonzero summary errors", {"total_errors": 2}, 0),
+            ("missing total errors", {"total_errors": None}, 0),
+            ("unverified truncated aspects", {"aspects": aspects[:25]}, 0),
+            ("false per-aspect result", {"aspects": [
+                {**item, "passed": False} if item["aspect_id"] == "aspect_09" else item
+                for item in aspects]}, 0),
+            ("nonzero process exit", {}, 1),
+        ]
+        architecture = {
+            "policy": {"state": "compliant"},
+            "semantic": {"status": "compliant"},
+            "environment": {"ok": True},
+        }
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.project(root)
+            for label, changes, exit_code in cases:
+                with self.subTest(label=label):
+                    report = {**good, **changes}
+                    with patch("skipo_lifecycle.assess", return_value=architecture):
+                        with patch.object(guard, "_run", return_value={
+                            "exit_code": exit_code, "stdout": json.dumps(report),
+                            "stderr": "", "output": ""}):
+                            sections = guard._architecture(root)
+                    constraints = next(
+                        section for section in sections
+                        if section["category"] == "constraints")
+                    self.assertEqual(constraints["status"], "fail", label)
+                    self.assertTrue(any(
+                        finding["code"] == "SKIPO_VALIDATOR_NOT_CERTIFIED"
+                        for finding in constraints["findings"]), label)
+
+            with patch("skipo_lifecycle.assess", return_value=architecture):
+                with patch.object(guard, "_run", return_value={
+                    "exit_code": 0, "stdout": json.dumps(good),
+                    "stderr": "", "output": ""}):
+                    sections = guard._architecture(root)
+            constraints = next(
+                section for section in sections
+                if section["category"] == "constraints")
+            self.assertEqual(constraints["status"], "pass")
+            self.assertEqual(constraints["findings"], [])
+
+    def test_check_rejects_failed_section_without_individual_error_findings(self):
+        """A category status of FAIL is independently sufficient to fail check."""
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.project(root)
+            failed = guard._section("constraints", [], status="fail", details={
+                "aspects": [], "overall_passed": False, "total_errors": 0
+            })
+            with patch.object(guard, "_architecture", return_value=[failed]):
+                with patch.object(guard, "_tool_section", side_effect=(
+                        lambda root, category, command: guard._section(category, []))):
+                    with patch.object(guard, "_code_syntax",
+                                      return_value=guard._section("syntax", [])):
+                        report = guard.check(root)
+            self.assertFalse(report["ok"])
+            self.assertEqual(report["total_errors"], 0)
+            self.assertEqual(report["summary"]["failed"], ["constraints"])
+            self.assertFalse(report["summary"]["complete"])
+
     def test_timeout_chooses_aggressive_clean(self):
         self.assertEqual(guard._decision(0), "clean")
         self.assertEqual(guard._decision(0, "cancel"), "cancel")
