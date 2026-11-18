@@ -111,17 +111,25 @@ def _tool_section(root: Path, name: str, command: list[str] | None) -> dict[str,
 
 
 def _safe_lint_command(root: Path) -> list[str] | None:
-    scripts = _project_scripts(root)
-    script = scripts.get("lint")
+    """Run an installed, explicitly read-only analyzer, never arbitrary npm scripts.
+
+    npm/yarn/pnpm run lint can execute any JavaScript or shell command. Merely
+    searching its text for --fix is not a read-only guarantee, and --plan must
+    not write files as a side effect of its diagnostics preflight.
+    """
+    script = _project_scripts(root).get("lint")
     if not isinstance(script, str):
         return None
-    # A read-only command cannot delegate to autofix or clean scripts.
     forbidden = ("--fix", "--write", "rm ", "rimraf", "prettier --write",
                  "skipo clean", "skipo repair", "skipo update")
     if any(item in script.lower() for item in forbidden):
         return []
-    runner = _package_runner(root)
-    return [runner, "run", "lint"] if runner else None
+    # Do not execute project-controlled npm scripts. Only use the installed
+    # ESLint binary with fixed non-fixing arguments for conventional lint tasks.
+    if not re.fullmatch(r"\s*eslint(?:\s+\.|\s+src)?\s*", script):
+        return None
+    eslint = root / "node_modules" / ".bin" / "eslint"
+    return [str(eslint), ".", "--no-fix"] if eslint.is_file() else None
 
 
 def _code_syntax(root: Path) -> dict[str, Any]:
@@ -257,8 +265,6 @@ def check(root: Path) -> dict[str, Any]:
                 "sections": [_section("project", [_finding(
                     "project", "SKIPO_PACKAGE_MISSING", "No package.json at target")])]}
     sections = _architecture(root)
-    scripts = _project_scripts(root)
-    runner = _package_runner(root)
     lint = _safe_lint_command(root)
     if lint == []:
         sections.append(_section("lint", [_finding("lint", "SKIPO_MUTATING_LINTER",
@@ -266,12 +272,11 @@ def check(root: Path) -> dict[str, Any]:
     else:
         sections.append(_tool_section(root, "lint", lint))
     local_tsc = root / "node_modules/.bin/tsc"
-    if local_tsc.is_file():
-        type_command = [str(local_tsc), "--noEmit", "--pretty", "false"]
-    elif "typecheck" in scripts and runner:
-        type_command = [runner, "run", "typecheck"]
-    elif (root / "tsconfig.json").is_file():
-        type_command = None
+    if (root / "tsconfig.json").is_file() and local_tsc.is_file():
+        # Incremental compilation may persist .tsbuildinfo even with noEmit.
+        # Disable it explicitly instead of invoking a project-controlled script.
+        type_command = [str(local_tsc), "--noEmit", "--incremental", "false",
+                        "--pretty", "false"]
     else:
         type_command = None
     types = _tool_section(root, "types", type_command)
