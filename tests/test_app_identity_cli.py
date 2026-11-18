@@ -28,7 +28,7 @@ def test_identity_is_not_minted_locally_and_enrollment_request_is_idempotent(tmp
 
     assert first["app_id"] is None
     assert second["app_id"] is None
-    assert stored["app_id"] if "app_id" in stored else None is None
+    assert stored.get("app_id") is None
     assert first["registration_status"] == second["registration_status"] == "pending_enrollment"
     assert first_request["request_id"] == second_request["request_id"]
     assert first_request["app_id"] is None
