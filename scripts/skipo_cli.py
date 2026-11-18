@@ -336,13 +336,34 @@ def verify_project(root: Path) -> int:
     if architecture.get("semantic", {}).get("status") == "blocked" and not architecture.get("semantic", {}).get("findings"):
         diagnostics.append({"code": "SKP-SEM-EXECUTION-FAILED", "status": "invalid",
                             "message": "Semantic analysis did not provide findings"})
-    ok = bool(legacy.get("ok") and independent.get("ok"))
+    # A Vite application cannot be compliant if its common source diverges
+    # from the Skipo scaffold. The only custom source boundary is main tabs.
+    shell = {"ok": True, "noop": True, "actions": []}
+    if (root / "vite.config.ts").is_file() and (root / "package.json").is_file():
+        from skipo_canonical_shell import plan_shell
+        try:
+            shell = plan_shell(root)
+        except (ValueError, OSError) as exc:
+            shell = {"ok": False, "noop": False, "actions": [], "error": str(exc)}
+        if not shell.get("ok", False):
+            diagnostics.append({"code": "SKIPO_CANONICAL_SHELL_INVALID", "status": "unresolved",
+                                "message": shell.get("error", "Cannot inspect canonical shell")})
+        else:
+            for action in shell.get("actions", []):
+                diagnostics.append({
+                    "code": "SKIPO_NONCANONICAL_SOURCE", "status": "repairable",
+                    "message": f"{action['action']}: {action['path']}; run skipo update --pages",
+                    "path": action["path"],
+                })
+    ok = bool(legacy.get("ok") and independent.get("ok")
+              and shell.get("ok", False) and shell.get("noop", False))
     payload = {"operation": "verify", "ok": ok,
                "status": legacy.get("status", "clean") if ok else (
                    legacy.get("status") if not legacy.get("ok") else "unresolved"),
                "diagnostics": diagnostics, "diagnostic_count": len(diagnostics),
                "errors": [str(d.get("message")) for d in diagnostics],
-               "architecture": architecture, "independent": independent}
+               "architecture": architecture, "independent": independent,
+               "canonical_shell": shell}
     print(json.dumps(payload, indent=2))
     return 0 if ok else 1
 
