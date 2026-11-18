@@ -1,7 +1,7 @@
 import {
   consumeInvocation, createInvocation, findDeployment, refreshDeployment, refreshDeploymentById,
   publishDeploymentCapabilityRevision, normalizeStaticCapabilityDescriptors,
-  type EcosystemEnv, type Query, type StaticCapabilityDescriptor,
+  type EcosystemEnv, type Query, type StaticCapabilityDescriptor, systemQuery,
 } from './deploymentStore_Impure.js';
 
 const invocationPath = '/api/ecosystem/invoke';
