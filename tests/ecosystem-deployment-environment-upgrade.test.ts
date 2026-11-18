@@ -24,4 +24,29 @@ describe('identity deployment environment upgrade regression', () => {
     expect(sql.indexOf('DROP CONSTRAINT IF EXISTS deployments_environment_check'))
       .toBeLessThan(sql.indexOf('UPDATE skipo_ecosystem.deployments'));
   });
+
+  it('freezes publication/version identity and grant authorization scope', () => {
+    const root = new URL('../', import.meta.url);
+    const sql = readFileSync(new URL('backend/ecosystem/db/deployments.sql', root), 'utf8');
+    for (const marker of [
+      'guard_workflow_publication_update',
+      'NEW.app_id IS DISTINCT FROM OLD.app_id',
+      'NEW.owner_user_id IS DISTINCT FROM OLD.owner_user_id',
+      'NEW.workspace_id IS DISTINCT FROM OLD.workspace_id',
+      'NEW.workflow_id IS DISTINCT FROM OLD.workflow_id',
+      'NEW.version IS DISTINCT FROM OLD.version',
+      'workflow_publications_identity_immutable',
+      'guard_workflow_grant_update',
+      'NEW.publication_id IS DISTINCT FROM OLD.publication_id',
+      'NEW.caller_app_id IS DISTINCT FROM OLD.caller_app_id',
+      'NEW.source_workspace_id IS DISTINCT FROM OLD.source_workspace_id',
+      'NEW.target_workspace_id IS DISTINCT FROM OLD.target_workspace_id',
+      "OLD.grant_state = 'revoked'",
+      "NEW.grant_state <> 'revoked'",
+      'workflow_grants_scope_immutable',
+    ]) {
+      expect(sql).toContain(marker);
+    }
+  });
+  });
 });
