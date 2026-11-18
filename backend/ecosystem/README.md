@@ -21,6 +21,36 @@ deployments that must remain discoverable, configure a platform monitor to call
 `/api/health` at least every five minutes. The registry retains historical rows
 and routes only to deployments refreshed within the last 15 minutes.
 
+## Additive canonical app identity migration (v2)
+
+The same `db/skipo-ecosystem-deployments.sql` remains re-runnable on existing
+installations. It adds a UUID `deployment_id`, a foreign key to the existing
+Neon `public."ultrst-apps"(app_id)` unique catalog, an environment,
+verification state/proof digest and an optional lease expiry. Existing rows
+are automatically backfilled with immutable UUIDs and remain **unverified**
+until a separately approved deployment-control verification; no registration
+acquires trust merely by running this migration. Unknown `app_id` values fail
+closed. Deployment `app_id` and `deployment_id` are immutable even when
+endpoints are updated. Existing `(app_id, app_url)` heartbeats, primary key
+and invocation routing are retained for compatibility.
+
+Approved deployers can opt in to `createEcosystemRuntime({ appId,
+deploymentId, ... })` with a **persistently provisioned** deployment UUID.
+The opt-in `refreshDeploymentById` upsert can change the endpoint without
+changing the deployment's identity, and rejects attempts to reuse an existing
+deployment ID for another app. The ID is not generated from `APP_URL` or a
+device URL. Do not invent a UUID on every runtime boot; do not enable
+production OAuth/native callbacks or authorization from this schema alone.
+
+**Rollback:** Deploy rollback of the new Skipo code first (legacy heartbeat
+and registration remain compatible). On a disconnected test database, the
+reversible schema delta is the new trigger/function, new app FK/check
+constraints, unique UUID index and the five additive columns. Do not remove
+them from production until all code and recorded references have been audited.
+A dry-run SQL fixture can be enclosed in a savepoint/exception subtransaction,
+demonstrating that successful/failed test writes leave zero persistent rows.
+The Neon migration must be tested independently before any production cutover.
+
 Use the backend facade's ecosystem member:
 
 ```ts
