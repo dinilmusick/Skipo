@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../scaffolds/vite/src/backend/ecosystem/appIdentity_Pure', () => ({
   appId: 'my-app',
-  appRegistrationStatus: 'approved',
+  appRegistrationStatus: 'pending_enrollment',
+  appIdentityAuthorityVerified: false,
   deploymentId: null,
   oauthClientId: null,
   workspaceEnvironment: (env = {}) => ({ ...env, WORKSPACE_APP_ID: 'my-app' }),
