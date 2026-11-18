@@ -153,3 +153,40 @@ def test_failure_during_page_commit_restores_first_page_and_app_files(tmp_path, 
     assert not (target / "src/frontend/components/skipo/pages/auth.tsx").exists()
     assert not (target / "src/frontend/components/skipo/pages/workspace.tsx").exists()
     assert (target / "package.json").read_text() == '{"name":"reconciliation-fixture","dependencies":{}}\n'
+
+
+
+def test_add_tab_repairs_non_tab_drift_in_same_transaction(tmp_path):
+    target = app(tmp_path)
+    rogue = target / "src/frontend/CustomShell.tsx"
+    rogue.parent.mkdir(parents=True)
+    rogue.write_text("export const localLogin = true;\n")
+    response = invoke("add", "main", "tab", "Mixer", str(target))
+    assert response.returncode == 0, response.stdout + response.stderr
+    assert not rogue.exists()
+    tabs = list((target / "src/frontend/pages/main/tabs").glob("*/page.tsx"))
+    assert len(tabs) == 1
+    assert "Mixer" in tabs[0].read_text()
+    assert invoke("add", "main", "tab", "Mixer", str(target)).returncode == 0
+
+
+def test_created_tab_is_rolled_back_if_write_fails_after_replace(tmp_path, monkeypatch):
+    target = app(tmp_path)
+    actual = skipo_canonical_shell._atomic_write
+    failed = False
+
+    def fail_after_tab_replace(path, content, mode=None):
+        nonlocal failed
+        actual(path, content, mode)
+        if not failed and "/tabs/" in path.as_posix():
+            failed = True
+            raise OSError("injected failure after tab replace")
+
+    monkeypatch.setattr(skipo_canonical_shell, "_atomic_write", fail_after_tab_replace)
+    result = skipo_canonical_shell.reconcile_shell(target, title="Mixer")
+    assert failed
+    assert result["ok"] is False
+    assert result["rollback"]["status"] == "restored"
+    assert not list((target / "src/frontend/pages/main/tabs").glob("*/page.tsx"))
+    assert not (target / "src/frontend/App.tsx").exists()
+    assert json.loads((target / ".skipo/pages.json").read_text())["layout"] == "integrated"
