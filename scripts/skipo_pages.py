@@ -88,12 +88,20 @@ def plan_files(root, page, title=None):
     return writes
 
 
+def canonical_capability_layout(root):
+    config = root / ".skipo/pages.json"
+    if not config.exists():
+        return True
+    descriptor = json.loads(config.read_text(encoding="utf-8"))
+    return descriptor.get("schemaVersion") == 2 and descriptor.get("layout") == "canonical"
+
+
 def compose_page(root, page, title=None, apply=True):
     from skipo_capabilities import compose, resolve_capabilities
 
     writes = plan_files(root, page, title)
     result = {"ok": True, "actions": [], "conflicts": []}
-    if page != "main" and not (root / ".skipo/pages.json").exists():
+    if page != "main" and canonical_capability_layout(root):
         result = compose(root, [page], apply=False)
         desired = {
             item["path"]: item["content"]
@@ -118,7 +126,7 @@ def compose_page(root, page, title=None, apply=True):
         for dest, value in writes.items():
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(value)
-        if page != "main" and not (root / ".skipo/pages.json").exists():
+        if page != "main" and canonical_capability_layout(root):
             result = compose(root, [page], apply=True)
     result["page_paths"] = [str(path.relative_to(root)) for path in writes]
     return result
@@ -169,7 +177,7 @@ def reconcile_pages(root, pages, title=None, apply=True):
                     "conflicts": preview.get("conflicts", []),
                     "error": "Page preflight rejected an ambiguous or app-owned change"}
         candidates.update(preview.get("page_paths", []))
-        if page != "main" and not (root / ".skipo/pages.json").exists():
+        if page != "main" and canonical_capability_layout(root):
             for _, spec in resolve_capabilities([page]):
                 candidates.update(item["path"] for item in spec.get("generated", []))
 
@@ -184,7 +192,7 @@ def reconcile_pages(root, pages, title=None, apply=True):
 
     # The capability composer updates these state files when installing a
     # canonical page. They must participate in the same rollback boundary.
-    if any(page != "main" for page in pages) and not (root / ".skipo/pages.json").exists():
+    if any(page != "main" for page in pages) and canonical_capability_layout(root):
         candidates.update({
             "package.json", ".skipo/project.json", ".skipo/capabilities.json",
             ".skipo/dependencies.json", ".skipo/overrides.json",
