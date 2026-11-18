@@ -42,6 +42,36 @@ deployment ID for another app. The ID is not generated from `APP_URL` or a
 device URL. Do not invent a UUID on every runtime boot; do not enable
 production OAuth/native callbacks or authorization from this schema alone.
 
+## Metadata-only workflow publication and grants (v3)
+
+`workflow_publications` stores only the canonical app, owner, owning workspace,
+stable workflow ID, immutable version, display name, description, and publish /
+withdraw state. It does **not** store workflow definitions, graph nodes, source,
+execution inputs/outputs, credentials, or runtime payloads; those remain in the
+owning application's workspace.
+
+`workflow_grants` binds one published version to the exact caller app and
+source workspace plus the target owning workspace. The database constraints
+bind the target workspace and owner back to the publication and require the
+recorded grantor/revoker to be that owner. Revoke by changing the grant state
+and recording the revocation timestamp; do not delete grant history. Re-grants
+reuse the same scope row after an owner-authorized transition.
+
+These columns are **not** an authorization token. The publishing API must
+authenticate the Luth principal and verify that the actor owns the publication
+before writing or revoking a grant. Every target invocation and nested hop
+must re-check the current publication state, owner, caller app, source and
+target workspaces, requested version, and current grant state. A withdrawn
+publication or revoked grant must fail closed immediately. Do not infer
+authorization from discovery results, cached descriptors, deployment leases,
+or a caller-supplied user ID.
+
+The schema contains no workflow body or arbitrary JSON payload column. It
+references canonical application IDs in `public."ultrst-apps"` and is kept in
+the private `skipo_ecosystem` schema; only trusted backend roles should receive
+schema/table privileges. The Neon migration must be applied and tested on the
+approved isolated branch before any production cutover.
+
 **Rollback:** Deploy rollback of the new Skipo code first (legacy heartbeat
 and registration remain compatible). On a disconnected test database, the
 reversible schema delta is the new trigger/function, new app FK/check
