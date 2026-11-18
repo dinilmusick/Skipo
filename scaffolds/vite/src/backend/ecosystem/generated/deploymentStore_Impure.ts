@@ -62,6 +62,36 @@ export async function findDeployment(query: Query, app: string, capability: stri
   return row?.app_url;
 }
 
+/**
+ * Staged proof/lease-qualified deployment resolution for identity-aware callers.
+ * A proof digest alone does not establish ownership: only the separately verified
+ * registry writer may set verified state. Caller authorization and workspace
+ * grants MUST be rechecked at the selected target before invoking a capability.
+ *
+ * Existing findDeployment stays intact for the approved legacy transition.
+ */
+export async function findVerifiedDeployment(
+  query: Query,
+  app: string,
+  capability: string,
+  environment: 'development' | 'preview' | 'staging' | 'production',
+): Promise<{ deploymentId: string; url: string } | null> {
+  const [row] = await query<{ deployment_id: string; app_url: string }>(`
+    SELECT deployment_id::text AS deployment_id, app_url
+    FROM skipo_ecosystem.deployments
+    WHERE app_id = $1
+      AND $2 = ANY(capabilities)
+      AND environment = $3
+      AND verification_state = 'verified'
+      AND NULLIF(btrim(verification_proof_digest), '') IS NOT NULL
+      AND lease_expires_at > statement_timestamp()
+      AND last_refresh_at > statement_timestamp() - interval '15 minutes'
+    ORDER BY last_refresh_at DESC, app_url ASC
+    LIMIT 1
+  `, [app, capability, environment]);
+  return row ? { deploymentId: row.deployment_id, url: row.app_url } : null;
+}
+
 export async function createInvocation(
   query: Query, caller: string, target: string, url: string, capability: string,
   userId: string | null, params: string,
