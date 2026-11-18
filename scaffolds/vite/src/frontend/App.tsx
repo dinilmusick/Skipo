@@ -6,7 +6,7 @@ import { LuthAuthPage, type UseLuthAuthResult } from '@ultrst-armada/floks/auth'
 import MainPage from './pages/main/page.js';
 import WorkspacesPage from './pages/menus/workspaces/page.js';
 import { UiSessionControls } from './components/UiSessionControls.js';
-import { getSkipoApplicationId, luthFetch } from '../libraries/client/luthAuthClient.js';
+import { SKIPO_APPLICATION_ID, luthFetch } from '../libraries/client/luthAuthClient.js';
 
 function AuthenticatedApplication({ auth }: { auth: UseLuthAuthResult }) {
   const [workspace, setWorkspace] = useState<WorkspaceRecord | null>(null);
@@ -30,12 +30,18 @@ export function App() {
     <SkipoThemeProvider defaultTheme="dark">
       {isGuest ? <MainPage isGuest /> : (
         <>
-          <LuthAuthPage
-            ecosystemId="ultrst-armada"
-            applicationId={getSkipoApplicationId()}
-            appName="SKIPO APP"
-            authenticatedContent={(auth) => <AuthenticatedApplication auth={auth} />}
-          />
+          {SKIPO_APPLICATION_ID ? (
+            <LuthAuthPage
+              ecosystemId="ultrst-armada"
+              applicationId={SKIPO_APPLICATION_ID}
+              appName="SKIPO APP"
+              authenticatedContent={(auth) => <AuthenticatedApplication auth={auth} />}
+            />
+          ) : (
+            <p role="status" style={{ textAlign: 'center', padding: 12 }}>
+              Application enrollment is required before Luth sign-in.
+            </p>
+          )}
           <div style={{ display: 'flex', justifyContent: 'center', padding: 12 }}>
             <BaseButton type="button" onClick={() => setIsGuest(true)}>Continue as guest</BaseButton>
           </div>
