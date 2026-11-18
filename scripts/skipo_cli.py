@@ -42,7 +42,7 @@ from skipo_environment_contract import (
 from skipo_capabilities import retire_known_duplicates
 from skipo_lifecycle import assess as assess_architecture, independent_verify, transaction_verify
 from skipo_reconciliation import reconcile as reconcile_transaction
-from skipo_app_identity import inspect_identity, initialize_unenrolled_identity, unchanged_identity
+from skipo_app_identity import inspect_identity, initialize_unenrolled_identity, unchanged_identity, sync_identity_artifact
 
 
 def _check_identity_continuity(root: Path, before: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
@@ -75,6 +75,30 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
         print(json.dumps({"ok": False, "error": f"Unknown scaffold: {framework}"})); return 2
     if target.exists() and any(target.iterdir()) and not force:
         print(json.dumps({"ok": False, "error": f"Target is not empty: {target}"})); return 2
+
+    # A forced scaffold refresh may replace framework files, but it must never
+    # reset an application's durable identity or registry-provisioned roles.
+    preserved_identity: dict[str, Any] = {}
+    existing_manifest = target / ".skipo" / "project.json"
+    if force and existing_manifest.is_file():
+        try:
+            existing_project = json.loads(existing_manifest.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            print(json.dumps({"ok": False, "error": "Existing Skipo manifest is unreadable; refusing destructive refresh.", "details": str(exc)}))
+            return 2
+        if not isinstance(existing_project, dict):
+            print(json.dumps({"ok": False, "error": "Existing Skipo manifest must be an object; refusing destructive refresh."}))
+            return 2
+        previous_identity = inspect_identity(target)
+        if previous_identity.get("status") in {"invalid_manifest", "invalid_identity"}:
+            print(json.dumps({"ok": False, "error": "Existing application identity is invalid; refusing destructive refresh.", "identity": previous_identity}))
+            return 2
+        for key in ("app_id", "deployment_id", "oauth_client_id", "app_identity_version",
+                    "registration_status", "app_identity", "approval_reference",
+                    "identity_receipt", "registry_attestation"):
+            if key in existing_project:
+                preserved_identity[key] = existing_project[key]
+
     target.mkdir(parents=True, exist_ok=True)
     for item in source.iterdir():
         if item.name in {".git", ".skipo"}:
@@ -92,8 +116,13 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
             p.write_text(text.replace("MyApp", name).replace("my-app", name.lower().replace(" ", "-")), encoding="utf-8")
     d = target / ".skipo"
     d.mkdir(exist_ok=True)
+    project_manifest = {
+        "framework": "skipo", "scaffold": framework,
+        "skipo_version": VERSION, "generated_by": "skipo",
+        **preserved_identity,
+    }
     (d / "project.json").write_text(
-        json.dumps({"framework":"skipo","scaffold":framework,"skipo_version":VERSION,"generated_by":"skipo"}, indent=2)+"\n",
+        json.dumps(project_manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
     app_identity = initialize_unenrolled_identity(target)
@@ -115,6 +144,9 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
         print(json.dumps({"ok": False, "operation": "create", "error":
                           "Canonical shell reconciliation failed", "shell": shell}, indent=2))
         return 1
+    # Shell reconciliation owns framework files. Re-emit identity from the
+    # durable manifest last so a scaffold placeholder cannot overwrite it.
+    sync_identity_artifact(target)
     print(json.dumps({"ok":True,"operation":"create","name":name,"framework":framework,"target":str(target),"skipo_version":VERSION,"app_identity":app_identity}))
     return 0
 
