@@ -94,7 +94,7 @@ never rewrite an existing published version.
 A grant binds one publication to an exact caller app, source workspace and
 target owning workspace. The grant scope and grantor are immutable. Only the
 publication owner may grant or revoke. Revocation is permanent and leaves an
-auditable row. A later grant creates a new row; a partial unique index allows
+auditable row. Publication and grant history cannot be deleted. A later grant creates a new row; a partial unique index allows
 only one active grant for a given publication/caller/source/target scope.
 New grants are refused for withdrawn publications.
 
