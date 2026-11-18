@@ -2,6 +2,7 @@
 'use strict';
 /** Standalone, read-only TypeScript/React architecture analyser. No Skipo CLI imports. */
 const fs = require('node:fs');
+const crypto = require('node:crypto');
 const path = require('node:path');
 const cp = require('node:child_process');
 
@@ -134,6 +135,30 @@ function localSource(root, resolved) {
   return inside(root, resolved) && !rel(root, resolved).split('/').some(segment =>
     segment === 'node_modules' || segment === '.pnpm');
 }
+function trustedGeneratedServerBridge(root, file, specifier) {
+  // The static capability registry, owner ledger and actual bytes must agree.
+  // A generated re-export can serve backend consumers, but a frontend import
+  // of that module remains blocked by SEM109's transitive provider check.
+  if (specifier !== '@ultrst-armada/kloks/backend/krnl-services') return false;
+  const relative = rel(root, file);
+  if (!new Set([
+    'src/libraries/skipo/auth.ts',
+    'src/libraries/skipo/workspace.ts',
+    'src/libraries/skipo/services/storage.ts',
+  ]).has(relative)) return false;
+  try {
+    const state = JSON.parse(fs.readFileSync(path.join(root,'.skipo/capabilities.json'),'utf8'));
+    const ledger = state.generated?.find(entry => entry.path === relative && entry.owner === 'skipo');
+    if (!ledger || !/^[a-f0-9]{64}$/.test(ledger.checksum)) return false;
+    const registry = JSON.parse(fs.readFileSync(path.resolve(__dirname,'../architecture/capabilities/registry.json'),'utf8'));
+    const templates = Object.values(registry.capabilities || {}).flatMap(cap => cap.generated || []);
+    const canonical = templates.find(template => template.path === relative);
+    if (!canonical || typeof canonical.content !== 'string') return false;
+    const actual = crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+    const expected = crypto.createHash('sha256').update(canonical.content,'utf8').digest('hex');
+    return actual === expected && actual === ledger.checksum;
+  } catch (_) { return false; }
+}
 function resolveLocal(ts, root, file, specifier, options) {
   const resolved = ts.resolveModuleName(specifier, file, options, ts.sys).resolvedModule;
   if (resolved && localSource(root, path.resolve(resolved.resolvedFileName)))
@@ -224,7 +249,8 @@ function analyzeProject(rootInput, options = {}) {
     if (['frontend','libraries'].includes(origin)) {
       const forbidden = policy.browserForbidden.some(p => matchPrefix(edge.specifier,p));
       const allowed = policy.browserAllowed.some(p => matchPrefix(edge.specifier,p));
-      if (forbidden && !allowed) emit('SEM102','error','violation',edge.file,edge.node,source,
+      if (forbidden && !allowed && !trustedGeneratedServerBridge(root,edge.file,edge.specifier))
+        emit('SEM102','error','violation',edge.file,edge.node,source,
         'Browser/shared module imports server-only implementation', [{kind:'import',value:edge.specifier}],
         'Use a browser-safe facade or canonical client entrypoint');
     }
