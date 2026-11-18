@@ -26,6 +26,7 @@ jobs:
       - run: python -m pip install pytest
       - run: python -m pytest -q --import-mode=importlib tests/linked_dependencies.test.py
       - run: python -m pytest -q --import-mode=importlib tests/self_upgrade.test.py
+      - run: python -m pytest -q --import-mode=importlib tests/test_skipo_identity_migration_preservation.py
       - run: bash tests/smoke_published_cli.sh
       - name: Verify idempotent page/tab CLI and atomic rollback
         run: python -m pytest -q --import-mode=importlib tests/test_page_command_reconciliation.py
