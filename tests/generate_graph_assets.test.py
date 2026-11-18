@@ -107,6 +107,20 @@ class GraphAssetGeneratorTests(unittest.TestCase):
         self.assertFalse(metadata.exists())
         self.assertFalse((target.parent / "Garden.tsx").exists())
 
+    def test_symlinked_leaf_cannot_overwrite_external_file(self):
+        target = self.root / "src/frontend/pages/main/tabs/Garden/GardenGraph"
+        target.mkdir(parents=True)
+        outside = self.root / "custom-graph.tsx"
+        outside.write_text("user-owned")
+        try:
+            (target / "GardenGraph.tsx").symlink_to(outside)
+        except (OSError, NotImplementedError):
+            self.skipTest("Symlinks unsupported")
+        with self.assertRaisesRegex(ValueError, "symlinked graph asset"):
+            MODULE.generate(self.manifest, self.root, "Garden", "GardenGraph")
+        self.assertEqual(outside.read_text(), "user-owned")
+        self.assertFalse((target / "graph-assets.manifest.json").exists())
+
     def test_symlinked_destination_cannot_escape_root(self):
         other = self.root / "outside"
         other.mkdir()
