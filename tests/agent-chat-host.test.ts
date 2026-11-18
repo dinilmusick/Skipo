@@ -41,6 +41,18 @@ describe('Skipo Vite Agent Chat host binding', () => {
     expect(bindAuthorizedAgentChat({ ...base, onInvoke: undefined }, context)).toBeUndefined();
   });
 
+  it('fails closed on duplicate agent IDs, malformed kinds or an unlisted app agent', () => {
+    expect(bindAuthorizedAgentChat({
+      ...base, targets: [...base.targets, { ...base.targets[0] }],
+    }, context)).toBeUndefined();
+    expect(bindAuthorizedAgentChat({
+      ...base, targets: [{ id: 'app-agent', kind: 'unknown' as 'app', name: 'Forgery' }],
+    }, context)).toBeUndefined();
+    expect(bindAuthorizedAgentChat({
+      ...base, appAgentId: 'missing-agent',
+    }, context)).toBeUndefined();
+  });
+
   it('passes a fresh grant revision only from a fresh supplied host context', () => {
     const fresh = { ...base, scopeKey: 'luth-session-1-grants-2' };
     expect(bindAuthorizedAgentChat(fresh, context)?.scopeKey).toBe('luth-session-1-grants-2');
