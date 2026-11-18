@@ -35,7 +35,7 @@ def ensure_app_identity(root: Path) -> dict[str, Any]:
     identity = manifest.get("app_identity")
     if not isinstance(identity, dict):
         identity = {}
-    approved = identity.get("registration_status") == "approved"
+    approved = identity.get("registration_status") == "approved" and bool(identity.get("approval_reference"))
     identity.update({
         "app_id": app_id,
         "registration_status": "approved" if approved else "pending_enrollment",
@@ -77,4 +77,32 @@ def ensure_app_identity(root: Path) -> dict[str, Any]:
         "app_id": app_id,
         "registration_status": identity["registration_status"],
         "enrollment_request": ".skipo/enrollment-request.json" if not approved else None,
+    }
+
+    
+def inspect_app_identity(root: Path) -> dict[str, Any] | None:
+    """Read identity without mutation; pending enrollment is not certification."""
+    project_file = root / ".skipo" / "project.json"
+    if not project_file.is_file():
+        return None
+    try:
+        manifest = json.loads(project_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"ok": False, "status": "invalid_manifest", "enrollment_required": True}
+    if not isinstance(manifest, dict):
+        return {"ok": False, "status": "invalid_manifest", "enrollment_required": True}
+    app_id = manifest.get("app_id")
+    if not isinstance(app_id, str) or not APP_ID_PATTERN.fullmatch(app_id):
+        return {"ok": False, "status": "missing_or_invalid_app_id", "enrollment_required": True}
+    identity = manifest.get("app_identity")
+    identity = identity if isinstance(identity, dict) else {}
+    approved = identity.get("registration_status") == "approved" and bool(identity.get("approval_reference"))
+    request_path = root / ".skipo" / "enrollment-request.json"
+    return {
+        "ok": approved,
+        "app_id": app_id,
+        "status": "approval_reference_present" if approved else "pending_enrollment",
+        "enrollment_required": not approved,
+        "enrollment_request": ".skipo/enrollment-request.json" if request_path.is_file() else None,
+        "registry_trust_verified": False,
     }
