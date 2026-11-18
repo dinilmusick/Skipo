@@ -59,7 +59,7 @@ def ensure_app_identity(root: Path) -> dict[str, Any]:
                 "status": "pending",
                 "requires_ecosystem_admin_approval": True,
                 "created_by": "skipo-cli",
-            }, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+            }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     project_file.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     identity_file = root / "src" / "backend" / "ecosystem" / "appIdentity_Pure.ts"
