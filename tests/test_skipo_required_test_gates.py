@@ -109,3 +109,29 @@ def test_delegating_to_distinct_test_script_is_allowed(tmp_path, monkeypatch):
     monkeypatch.setattr(skipo_cli, "verify_project", lambda _root: 0)
     assert skipo_cli.test_project(root) == 0
     assert observed == ["typecheck", "lint", "test", "build"]
+
+
+def test_fresh_generated_scaffold_has_current_migrations_and_attested_auth(tmp_path, capsys):
+    import hashlib
+    from skipo_migrations import load_catalogue
+
+    root = tmp_path / "generated-app"
+    assert skipo_cli.create_project("CanonicalFixture", root, "vite", False) == 0
+    created = json.loads(capsys.readouterr().out)
+    assert created["ok"] is True
+
+    project = json.loads((root / ".skipo/project.json").read_text(encoding="utf-8"))
+    migrations = json.loads((root / ".skipo/migration-state.json").read_text(encoding="utf-8"))
+    expected = [item["id"] for item in load_catalogue()
+                if item["_version_key"] <= tuple(map(int, project["skipo_version"].split("+", 1)[0].split(".")))]
+    assert migrations["schemaVersion"] == 2
+    assert migrations["applied"] == expected
+    assert migrations["pending"] == []
+
+    rel = "src/libraries/skipo/auth.ts"
+    digest = hashlib.sha256((root / rel).read_bytes()).hexdigest()
+    provenance = json.loads((root / ".skipo/generated-assets.json").read_text(encoding="utf-8"))
+    capabilities = json.loads((root / ".skipo/capabilities.json").read_text(encoding="utf-8"))
+    recorded = next(entry for entry in capabilities["generated"] if entry["path"] == rel)
+    assert provenance == {"schema_version": 1, "assets": {rel: {"owner": "skipo", "sha256": digest}}}
+    assert recorded["checksum"] == digest
