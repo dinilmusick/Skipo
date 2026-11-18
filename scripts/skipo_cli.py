@@ -139,7 +139,7 @@ def clean_project(root: Path, *, timeout: int = 60, on_timeout: str = "clean",
                    approve=approve, show_diff=show_diff, preview=preview,
                    json_output=json_output)
     if json_output:
-        print(json.dumps({"event": "result", **result}, indent=2))
+        print(json.dumps({"event": "result", **result}, separators=(",", ":")), flush=True)
     else:
         print("\nSKIPO CLEAN RESULT: " + result.get("decision", "unknown").upper())
         if result.get("error"):
