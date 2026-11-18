@@ -54,6 +54,52 @@ class EnvironmentContractTests(unittest.TestCase):
         self.assertFalse(result["applied"])
         self.assertEqual(path.read_text(encoding="utf-8"), before)
 
+    def test_glued_inline_comment_is_blocked_without_mutation(self):
+        path = self.write(
+            ".env.example",
+            'SYSTEM_DATABASE_URL=postgres://db\nAPP_URL="https://app.example"# Comment should be on a new line\n',
+        )
+        before = path.read_text(encoding="utf-8")
+        diagnostic = env.diagnose(self.root)
+        self.assertFalse(diagnostic["ok"])
+        self.assertTrue(any(
+            finding["classification"] == "malformed_env_value"
+            and finding["variable"] == "APP_URL"
+            for finding in diagnostic["findings"]
+        ))
+        planned = env.plan(self.root)
+        self.assertFalse(planned["ok"])
+        self.assertTrue(any(
+            finding["classification"] == "malformed_env_value"
+            for finding in planned["blocked_findings"]
+        ))
+        repaired = env.repair(self.root, apply=True)
+        self.assertFalse(repaired["ok"])
+        self.assertFalse(repaired["applied"])
+        self.assertEqual(path.read_text(encoding="utf-8"), before)
+
+    def test_checked_in_vite_app_env_is_exactly_canonical(self):
+        example = (REPO / "scaffolds/vite/.env.example").read_text(encoding="utf-8")
+        self.assertTrue(example.endswith("\n"), "Scaffold .env.example must end with a newline")
+        declarations = {
+            line.split("=", 1)[0].strip()
+            for line in example.splitlines()
+            if line.strip() and not line.lstrip().startswith("#") and "=" in line
+        }
+        self.assertEqual(declarations, {"SYSTEM_DATABASE_URL", "APP_URL"})
+
+        app_env = (REPO / "scaffolds/vite/src/config/env.ts").read_text(encoding="utf-8")
+        interface = app_env.split("export interface AppEnv {", 1)[1].split("}", 1)[0]
+        fields = {
+            line.strip().split(":", 1)[0].rstrip("?")
+            for line in interface.splitlines()
+            if ":" in line
+        }
+        self.assertEqual(fields, {
+            "SYSTEM_DATABASE_URL", "SYSTEM_DATABASE_URL_2",
+            "SYSTEM_DATABASE_URL_3", "APP_URL",
+        })
+
     def test_missing_required_variable_blocks_plan(self):
         (self.root / ".env.example").write_text("APP_URL=https://app.example\n", encoding="utf-8")
         result = env.plan(self.root)
