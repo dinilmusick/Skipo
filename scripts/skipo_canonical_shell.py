@@ -212,11 +212,15 @@ def plan_shell(root: Path, title: str | None = None) -> dict:
     root = Path(root).resolve()
     desired = _desired(root, title)
     current = _source_tree(root)
-    for relative in (*CANONICAL_CONFIG, DESCRIPTOR):
+    # The registry also defines canonical service facades outside the frontend
+    # roots. Read their actual state; otherwise every repeat looks like a create.
+    for relative in desired:
+        if relative in current or is_tab(relative):
+            continue
         path = _checked(root, relative)
         if path.exists():
             if not path.is_file():
-                raise UnsafeShellRepair(f"Non-file standard asset: {relative}")
+                raise UnsafeShellRepair(f"Non-file canonical asset: {relative}")
             current[relative] = path.read_bytes()
     actions = []
     for relative in sorted(desired.keys() | current.keys()):
