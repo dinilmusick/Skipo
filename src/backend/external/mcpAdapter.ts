@@ -20,12 +20,12 @@ export function createMcpHandler(options: McpAdapterOptions) {
       const context: ExternalCapabilityContext = { principal, transport: "mcp", requestId: request.headers.get("x-request-id") ?? crypto.randomUUID() };
       if (rpc.method === "initialize") return response(rpc.id, { protocolVersion: "2025-03-26", capabilities: { tools: { listChanged: false } }, serverInfo: { name: options.serverName ?? "skipo-application", version: options.serverVersion ?? "1.0.0" } });
       if (rpc.method === "ping") return response(rpc.id, {});
-      if (rpc.method === "tools/list") return response(rpc.id, { tools: options.registry.list(principal).map(cap => ({ name: cap.id, title: cap.id, description: cap.description, inputSchema: cap.inputSchema, outputSchema: cap.outputSchema, _meta: { "skipo/invocation": cap.invocation } })) });
+      if (rpc.method === "tools/list") return response(rpc.id, { tools: options.registry.listRemote(principal).map(cap => ({ name: cap.id, title: cap.id, description: cap.description, inputSchema: cap.inputSchema, outputSchema: cap.outputSchema, _meta: { "skipo/invocation": cap.invocation } })) });
       if (rpc.method === "tools/call") {
         const params = rpc.params ?? {}, name = params.name;
         if (typeof name !== "string") return rpcError(rpc.id, -32602, "Tool name is required");
         try {
-          const output = await options.registry.invoke(name, params.arguments ?? {}, context);
+          const output = await options.registry.invokeRemote(name, params.arguments ?? {}, context);
           return response(rpc.id, { content: [{ type: "text", text: JSON.stringify(output) }], structuredContent: output, isError: false });
         } catch (error) {
           const code = error instanceof ExternalInterfaceError ? error.code : "INTERNAL_ERROR";
