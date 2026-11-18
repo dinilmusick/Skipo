@@ -272,7 +272,7 @@ def update_project(root: Path) -> int:
         if (root / ".skipo" / "project.json").exists():
             payload = reconcile_transaction(
                 root, True, VERSION, with_environment=True,
-                verify_hook=lambda target: transaction_verify(target, VERSION),
+                verify_hook=lambda target: (sync_identity_artifact(target), transaction_verify(target, VERSION))[1],
             )
             payload["operation"] = "update"
             payload["next_stage"] = "sync" if payload.get("ok") else "diagnose"
@@ -336,7 +336,7 @@ def repair_project(root: Path, apply: bool) -> int:
         else:
             payload = reconcile_transaction(
                 root, apply, VERSION, with_environment=True,
-                verify_hook=lambda target: transaction_verify(target, VERSION),
+                verify_hook=lambda target: ((sync_identity_artifact(target) if apply else None), transaction_verify(target, VERSION))[1],
             )
     except (ValueError, OSError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
