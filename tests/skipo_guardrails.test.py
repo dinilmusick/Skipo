@@ -121,6 +121,16 @@ class GuardrailTests(unittest.TestCase):
         self.assertIn("src/frontend/rogue.ts", stdout.getvalue())
         self.assertIn("20", stdout.getvalue())
 
+    def test_full_check_exposes_all_real_validator_aspects(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.project(root)
+            report = guard.check(root)
+            self.assertEqual(report["profile"], "application", report)
+            self.assertEqual(len(report["aspects"]), 26,
+                             "Never omit any canonical checklist runner")
+            self.assertEqual(len({a["aspect_id"] for a in report["aspects"]}), 26)
+
     def test_missing_project_does_not_pretend_to_pass(self):
         with tempfile.TemporaryDirectory() as folder:
             result = guard.check(Path(folder))
