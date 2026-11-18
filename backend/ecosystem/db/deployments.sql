@@ -208,6 +208,7 @@ RETURNS trigger LANGUAGE plpgsql AS $capability_revision$
 BEGIN
   RAISE EXCEPTION 'published capability revisions are immutable'
     USING ERRCODE='23514';
+  RETURN NULL;
 END;
 $capability_revision$;
 
