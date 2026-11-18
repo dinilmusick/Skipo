@@ -3,8 +3,9 @@
 Apply `db/skipo-ecosystem-deployments.sql` once to the primary Postgres database
 referenced by the apps' `SYSTEM_DATABASE_URL`. The migration creates only the
 private `skipo_ecosystem` schema. The application role needs schema usage,
-select/insert/update on deployments, and select/insert/delete on invocations.
-Grant these only to trusted ecosystem backend roles. Database writers share a
+select/insert/update on deployments, select/insert/delete on invocations, and
+select/insert/update on workflow publications and grants. Grant these only to
+trusted ecosystem backend roles. Database writers share a
 trust boundary and can act on behalf of the code running on those servers.
 
 Set each deployment's `APP_URL` to its canonical public HTTPS origin. Skipo
