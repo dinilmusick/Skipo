@@ -66,7 +66,7 @@ export interface StaticCapabilityDescriptor {
   discoverable?: boolean;
 }
 
-const forbiddenDescriptorKey = /(?:secret|token|session|endpoint|url|credential|authorization|password|cookie|bearer)/i;
+const forbiddenDescriptorKey = /(?:secret|token|session|endpoint|url|credential|authorization|password|cookie|bearer|(?:api|access|private|client|server|signing|encryption)[_-]?key|key[_-]?(?:material|secret))/i;
 const descriptorKeys = new Set([
   'id', 'description', 'inputSchema', 'outputSchema', 'name', 'serviceName',
   'invocation', 'access', 'requiredRoles', 'discoverable',
