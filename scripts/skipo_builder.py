@@ -13,7 +13,7 @@ Adheres strictly to the SKIPO BUILDER / PACKAGE COMPOSITION SYSTEM specification
 
 from __future__ import annotations
 from dataclasses import dataclass, asdict
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any, Dict, List, Optional, Tuple
 import argparse
 import json
@@ -140,8 +140,8 @@ class CodeComposer:
     """Applies atomic composition operations to target files without line numbers."""
 
     def __init__(self, project_root: Path):
-        self.project_root = project_root
-        self.resolver = SemanticTargetResolver(project_root)
+        self.project_root = project_root.resolve()
+        self.resolver = SemanticTargetResolver(self.project_root)
 
     def detect_backend_facade(self) -> Tuple[str, str]:
         backend_dir = self.project_root / "src" / "backend"
@@ -213,9 +213,28 @@ class CodeComposer:
         snapshots: Dict[Path, str] = {}
 
         for op in operations:
-            target_path = (self.project_root / op.file).resolve()
-            if not target_path.exists():
-                return False, [f"Target file missing: {op.file}"]
+            # Operation manifests and semantic targets are not filesystem authority.
+            # Reject traversal before resolving paths, then reject symlink escapes.
+            if not isinstance(op.file, str) or not op.file.strip():
+                return False, ["Composition target must be a nonempty relative file path"]
+            relative = Path(op.file)
+            if relative.is_absolute() or PureWindowsPath(op.file).is_absolute() or ".." in relative.parts:
+                return False, [f"Composition target escapes project root: {op.file}"]
+            try:
+                target_path = (self.project_root / relative).resolve()
+                target_path.relative_to(self.project_root)
+            except (ValueError, OSError, RuntimeError):
+                return False, [f"Composition target escapes project root: {op.file}"]
+
+            if op.target is not None:
+                if not isinstance(op.target, dict):
+                    return False, [f"Invalid semantic target for {op.file}"]
+                target_file = op.target.get("file")
+                if target_file is not None and target_file != op.file:
+                    return False, [f"Semantic target file differs from operation file: {op.file}"]
+
+            if not target_path.is_file():
+                return False, [f"Target file missing or not a regular file: {op.file}"]
 
             if target_path not in files_to_modify:
                 content = target_path.read_text(encoding="utf-8")
@@ -297,9 +316,27 @@ class CodeComposer:
                 files_to_modify[target_path] = content
                 logs.append(f"Injected JSX '{jsx.strip()}' into {op.file}")
 
+            else:
+                return False, [f"Unsupported composition operation type: {op.type}"]
+
         if not dry_run:
-            for path, new_code in files_to_modify.items():
-                path.write_text(new_code, encoding="utf-8")
+            # Commit only after every operation has validated. If a later write
+            # fails, restore even the partially-written target before returning.
+            attempted: List[Path] = []
+            try:
+                for path, new_code in files_to_modify.items():
+                    if new_code == snapshots[path]:
+                        continue
+                    attempted.append(path)
+                    path.write_text(new_code, encoding="utf-8")
+            except OSError as exc:
+                rollback_errors: List[str] = []
+                for path in reversed(attempted):
+                    try:
+                        path.write_text(snapshots[path], encoding="utf-8")
+                    except OSError as restore_exc:
+                        rollback_errors.append(f"Could not restore {path}: {restore_exc}")
+                return False, [f"Composition write failed: {exc}; rollback attempted", *rollback_errors]
 
         return True, logs
 
