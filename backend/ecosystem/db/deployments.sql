@@ -74,6 +74,40 @@ BEGIN
 END;
 $deployment_identity$;
 
+-- Structural proof gate: a deployment cannot be marked verified while its
+-- ownership proof digest or lease expiry is missing. Presence of these fields
+-- is NOT an attestation; only a separately authenticated registry authority
+-- may validate proof, set verification_state and issue or renew leases.
+-- Keep prior entries unchanged and fail rather than silently approving them.
+DO $deployment_proof_gate$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM skipo_ecosystem.deployments
+    WHERE verification_state = 'verified'
+      AND (NULLIF(btrim(verification_proof_digest), '') IS NULL
+        OR lease_expires_at IS NULL)
+  ) THEN
+    RAISE EXCEPTION 'verified deployments without proof digest or lease require review'
+      USING ERRCODE = '23514';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'skipo_ecosystem.deployments'::regclass
+      AND conname = 'deployments_verified_proof_required'
+  ) THEN
+    ALTER TABLE skipo_ecosystem.deployments
+      ADD CONSTRAINT deployments_verified_proof_required
+      CHECK (
+        verification_state <> 'verified'
+        OR (
+          NULLIF(btrim(verification_proof_digest), '') IS NOT NULL
+          AND lease_expires_at IS NOT NULL
+        )
+      );
+  END IF;
+END;
+$deployment_proof_gate$;
+
 -- A deployment may move to another URL, but NEVER to another application/ID.
 CREATE OR REPLACE FUNCTION skipo_ecosystem.reject_deployment_identity_change()
 RETURNS trigger LANGUAGE plpgsql AS $deployment_identity$
