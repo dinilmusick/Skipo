@@ -28,6 +28,13 @@ BEGIN
 
   INSERT INTO public."ultrst-apps" (id, app_id, name)
   VALUES (test_app, test_app, 'Temporary Neon certification fixture');
+
+  -- Older isolated Neon baselines predate Kone enrollment. Preserve their
+  -- catalog as-is after rollback while still exercising a distinct caller app.
+  IF NOT EXISTS (SELECT 1 FROM public."ultrst-apps" WHERE app_id='kone') THEN
+    INSERT INTO public."ultrst-apps" (id, app_id, name)
+    VALUES ('atax-kone-caller-fixture-20261118', 'kone', 'Temporary caller fixture');
+  END IF;
   BEGIN
     UPDATE public."ultrst-apps" SET app_id = test_app || '-forged'
     WHERE id = test_app;
