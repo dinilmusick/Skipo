@@ -44,6 +44,28 @@ class GuardrailTests(unittest.TestCase):
             self.assertEqual(lint["status"], "blocked")
             self.assertEqual(lint["findings"][0]["code"], "SKIPO_MUTATING_LINTER")
 
+    def test_compiler_findings_keep_file_line_and_code(self):
+        items = guard._parse_tool_findings(
+            "types", "src/example.ts(7,12): error TS2322: Type is incompatible")
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["code"], "TS2322")
+        self.assertEqual(items[0]["path"], "src/example.ts")
+        self.assertEqual(items[0]["line"], 7)
+
+    def test_noninteractive_check_preserves_legacy_validator_evidence(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.project(root)
+            sections = [guard._section("constraints", [], details={
+                "profile": "application", "aspects": [{"aspect_id": "aspect_01", "passed": True}],
+                "overall_passed": True, "total_errors": 0, "total_warnings": 0})]
+            with patch.object(guard, "_architecture", return_value=sections):
+                result = guard.check(root)
+            self.assertEqual(result["profile"], "application")
+            self.assertEqual(result["aspects"][0]["aspect_id"], "aspect_01")
+            self.assertIn("overall_passed", result)
+            self.assertFalse(result["overall_passed"])  # missing lint/typecheck is not a full pass
+
     def test_timeout_chooses_aggressive_clean(self):
         self.assertEqual(guard._decision(0), "clean")
         self.assertEqual(guard._decision(0, "cancel"), "cancel")
