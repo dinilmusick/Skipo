@@ -31,6 +31,8 @@ export function createEcosystemRuntime(options: {
     callerApp: string; env: EcosystemEnv;
   }) => Promise<unknown>>;
   authenticate: (request: Request, env: EcosystemEnv) => Promise<string | null>;
+  /** Set only from a trusted registry attestation. Omitted/false means pending enrollment. */
+  appIdentityAuthorityVerified?: boolean;
   query?: (env: EcosystemEnv) => Query;
   send?: typeof globalThis.fetch;
 }) {
@@ -42,6 +44,9 @@ export function createEcosystemRuntime(options: {
       capabilities.length !== methods.size + serviceMethods.size) {
     throw new Error('Invalid ecosystem application or capability identifier.');
   }
+  // Never infer enrollment from appId or local configuration. Direct factory users
+  // must supply an explicit, trusted authority result; the default is fail-closed.
+  const identityAuthorityVerified = options.appIdentityAuthorityVerified === true;
   const query = options.query ?? systemQuery;
   const send = options.send ?? globalThis.fetch;
   let lastRefresh = 0;
@@ -50,6 +55,7 @@ export function createEcosystemRuntime(options: {
   let timer: ReturnType<typeof setInterval> | undefined;
 
   function heartbeat(env: EcosystemEnv, force = false): Promise<void> {
+    if (!identityAuthorityVerified) return Promise.resolve();
     if (!env.APP_URL || !env.SYSTEM_DATABASE_URL) return Promise.resolve();
     // The untouched scaffold default is reserved for local development.
     if (env.APP_URL === 'http://localhost:3000') return Promise.resolve();
@@ -72,6 +78,7 @@ export function createEcosystemRuntime(options: {
   }
 
   function start(env: EcosystemEnv) {
+    if (!identityAuthorityVerified) return Promise.resolve();
     const startup = observe(env);
     if (!timer) {
       timer = setInterval(() => { void observe(env); }, heartbeatInterval);
@@ -85,6 +92,9 @@ export function createEcosystemRuntime(options: {
     const respond = (body: unknown, status = 200) => Response.json(body, {
       status, headers: { 'cache-control': 'no-store' },
     });
+    if (!identityAuthorityVerified) {
+      return respond({ error: 'APP_ENROLLMENT_REQUIRED' }, 503);
+    }
     if (request.method !== 'POST') return respond({ error: 'METHOD_NOT_ALLOWED' }, 405);
     const ticket = request.headers.get('x-skipo-invocation') || '';
     if (!ticketPattern.test(ticket)) return respond({ error: 'INVALID_INVOCATION' }, 401);
@@ -105,6 +115,9 @@ export function createEcosystemRuntime(options: {
   }
 
   async function client(request: Request, env: EcosystemEnv): Promise<RemoteApps> {
+    if (!identityAuthorityVerified) {
+      throw new Error('Application enrollment is required before calling ecosystem apps.');
+    }
     const userId = await options.authenticate(request, env);
     if (!userId) throw new Error('A verified Luth session is required to call ecosystem apps.');
     return createClient(env, userId);
@@ -112,6 +125,9 @@ export function createEcosystemRuntime(options: {
 
   function createClient(env: EcosystemEnv, userId: string | null): RemoteApps {
     async function invoke(app: string, capability: string, params: unknown) {
+      if (!identityAuthorityVerified) {
+        throw new Error('Application enrollment is required before calling ecosystem apps.');
+      }
       const payload = JSON.stringify(params ?? null);
       if (new TextEncoder().encode(payload).byteLength > 64 * 1024) {
         throw new Error('Ecosystem capability parameters exceed 64 KiB.');
