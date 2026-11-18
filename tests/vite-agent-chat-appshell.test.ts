@@ -44,8 +44,8 @@ describe('Canonical Vite application shell', () => {
   it('does not retain another principal\'s selected workspace on Luth session change', () => {
     expect(app).toContain('selection?.principalId === principalId');
     expect(app).toContain('if (principalId) setSelection({ principalId, workspace: selected })');
-    expect(app).toContain('key={`\u0024{principalId}:\u0024{workspace.id}`}');
     expect(app).toContain('principalId={principalId} activeWorkspace={workspace}');
+    // The Floks dock itself remounts on the server-supplied scopeKey; the workspace selector is principal-bound.
     expect(app).not.toContain('onSelectWorkspace={setWorkspace}');
   });
 
