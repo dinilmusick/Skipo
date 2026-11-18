@@ -41,6 +41,17 @@ describe('per-deployment static capability revisions', () => {
     ])).toThrow(/cannot contain session, endpoint, credential or secret/i);
   });
 
+  it('rejects common API, client, private and key-material fields at every nesting level', () => {
+    for (const keyName of ['apiKey', 'api_key', 'private_key', 'clientKey', 'keyMaterial']) {
+      const descriptor = {
+        ...ping,
+        inputSchema: { type: 'object', properties: { [keyName]: { type: 'string' } } },
+      };
+      expect(() => normalizeStaticCapabilityDescriptors([descriptor]), keyName)
+        .toThrow(/cannot contain session, endpoint, credential or secret/i);
+    }
+  });
+
   it('stores independent revision streams per stable deployment UUID', async () => {
     const query = vi.fn(async (_sql: string, args: unknown[]) => [{ revision: args[0] === deploymentA ? 1 : 4 }]) as unknown as Query;
     await expect(publishDeploymentCapabilityRevision(query, deploymentA, [ping])).resolves.toBe(1);
