@@ -38,7 +38,7 @@ def test_identity_is_not_minted_locally_and_enrollment_request_is_idempotent(tmp
     assert stored["oauth_client_id"] is None
     assert inspect_app_identity(tmp_path)["enrollment_required"] is True
     assert inspect_app_identity(tmp_path)["registry_trust_verified"] is False
-    assert generated.count("export const appId = '';") == 1
+    assert generated.count('export const appId = "" as const;') == 1
     assert "app- " not in generated
     assert "WORKSPACE_APP_ID: appId" in generated
     assert "my-app" not in generated
@@ -185,7 +185,7 @@ def test_real_cli_create_and_two_repairs_keep_identity_unassigned_until_registry
     assert final["deployment_id"] is None
     assert final["oauth_client_id"] is None
     generated_identity = (target / "src/backend/ecosystem/appIdentity_Pure.ts").read_text(encoding="utf-8")
-    assert "export const appId = ''; " .strip() in generated_identity
+    assert 'export const appId = "" as const;' in generated_identity
     assert "my-app" not in generated_identity
     enrollment = json.loads((target / ".skipo/enrollment-request.json").read_text(encoding="utf-8"))
     assert enrollment["app_id"] is None
