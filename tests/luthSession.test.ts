@@ -47,6 +47,54 @@ describe('Skipo Vite canonical Luth boundary', () => {
     expect(headers.get('x-user-role')).toBe('user');
   });
 
+  it('pins external and backend session checks to the configured app and strips forged optional identity headers', async () => {
+    const seen: Headers[] = [];
+    globalThis.fetch = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      seen.push(new Headers(init?.headers));
+      return new Response(JSON.stringify({
+        authenticated: true,
+        user: { id: 'verified-user' },
+        session: { id: 'verified-session' },
+      }), { status: 200 });
+    }) as typeof fetch;
+
+    const request = new Request('https://app.example.test/api/workspaces', {
+      headers: {
+        authorization: 'Bearer valid-session',
+        'x-app-id': 'attacker-app',
+        'x-user-id': 'attacker-user',
+        'x-user-email': 'attacker@example.test',
+        'x-session-id': 'attacker-session',
+        'x-user-role': 'admin',
+      },
+    });
+    const result = await authenticateLuthRequest(request);
+    expect(result.request).toBeDefined();
+    expect(seen[0].get('x-app-id')).toBe('aiko');
+    const forwarded = new Headers(result.request?.headers);
+    expect(forwarded.get('x-app-id')).toBe('aiko');
+    expect(forwarded.get('x-user-id')).toBe('verified-user');
+    expect(forwarded.get('x-session-id')).toBe('verified-session');
+    expect(forwarded.get('x-user-email')).toBeNull();
+    expect(forwarded.get('x-user-role')).toBe('user');
+  });
+
+  it('does not let caller x-app-id select another app for direct Luth session checks', async () => {
+    let headers: Headers | undefined;
+    globalThis.fetch = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      headers = new Headers(init?.headers);
+      return new Response(JSON.stringify({
+        authenticated: true, user: { id: 'verified-user' }, session: { id: 'verified-session' },
+      }), { status: 200 });
+    }) as typeof fetch;
+    const request = new Request('https://app.example.test/api/workspaces', {
+      headers: { authorization: 'Bearer token', 'x-app-id': 'attacker-app' },
+    });
+    const { getLuthSession } = await import('../scaffolds/vite/src/backend/auth/luthSession');
+    expect(await getLuthSession(request)).toMatchObject({ authenticated: true });
+    expect(headers?.get('x-app-id')).toBe('aiko');
+  });
+
   it('does not authenticate static assets or public health requests', async () => {
     const fetchMock = vi.fn();
     globalThis.fetch = fetchMock as typeof fetch;
