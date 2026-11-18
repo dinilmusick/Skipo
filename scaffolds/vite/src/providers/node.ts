@@ -2,35 +2,33 @@ import { ecosystem } from '../backend/ecosystem/AppEcosystem_Impure.js';
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { resolve, extname, sep } from "node:path";
-import { fetchHandler } from "../backend/adapters/httpsAdapter.js";
+import { fetch as fetchHandler } from "../app.js";
 
 const root = process.cwd();
 const assets = {
   async fetch(request: Request): Promise<Response> {
     const pathname = decodeURIComponent(new URL(request.url).pathname);
-    const requested = resolve(root, "dist/client", `.${pathname}`);
+    const requested = resolve(root, "dist/client", "." + pathname);
     const base = resolve(root, "dist/client");
     if (requested !== base && !requested.startsWith(base + sep)) {
       return new Response("Not Found", { status: 404 });
     }
-    const candidates = [requested];
-    for (const candidate of candidates) {
-      try {
-        const body = await readFile(candidate);
-        const types: Record<string, string> = {
-          ".html": "text/html; charset=utf-8",
-          ".js": "text/javascript; charset=utf-8",
-          ".css": "text/css; charset=utf-8",
-          ".json": "application/json",
-          ".svg": "image/svg+xml",
-          ".png": "image/png",
-        };
-        return new Response(body, {
-          headers: { "content-type": types[extname(candidate)] || "application/octet-stream" },
-        });
-      } catch { /* Try the SPA index fallback. */ }
+    try {
+      const body = await readFile(requested);
+      const types: Record<string, string> = {
+        ".html": "text/html; charset=utf-8",
+        ".js": "text/javascript; charset=utf-8",
+        ".css": "text/css; charset=utf-8",
+        ".json": "application/json",
+        ".svg": "image/svg+xml",
+        ".png": "image/png",
+      };
+      return new Response(body, {
+        headers: { "content-type": types[extname(requested)] || "application/octet-stream" },
+      });
+    } catch {
+      return new Response("Not Found", { status: 404 });
     }
-    return new Response("Not Found", { status: 404 });
   },
 };
 
@@ -40,13 +38,13 @@ const server = createServer(async (incoming, outgoing) => {
     const protocol = incoming.headers["x-forwarded-proto"] || "http";
     const host = incoming.headers.host || "localhost";
     const chunks: Uint8Array[] = [];
-    for await (const chunk of incoming) chunks.push(
-      typeof chunk === "string" ? Buffer.from(chunk) : chunk,
-    );
+    for await (const chunk of incoming) {
+      chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+    }
     const body = incoming.method === "GET" || incoming.method === "HEAD"
       ? undefined
       : Buffer.concat(chunks);
-    const request = new Request(`${protocol}://${host}${incoming.url || "/"}`, {
+    const request = new Request(protocol + "://" + host + (incoming.url || "/"), {
       method: incoming.method,
       headers: incoming.headers as HeadersInit,
       body,
@@ -61,5 +59,5 @@ const server = createServer(async (incoming, outgoing) => {
 });
 server.listen(port, () => {
   void ecosystem.start(process.env);
-  console.log(`Skipo Fetch app listening on ${port}`);
+  console.log("Skipo Fetch app listening on " + port);
 });
