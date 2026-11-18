@@ -69,6 +69,21 @@ ENV
 (cd "$temp/legacy-app" && npm install --package-lock-only --ignore-scripts --no-audit --no-fund >/dev/null)
 
 cli="$temp/consumer/node_modules/.bin/skipo"
+app="$temp/pages"
+"$cli" create PageFixture "$app"
+"$cli" add login "$app"
+"$cli" add workspace "$app"
+"$cli" add main "$app"
+"$cli" add main tab "Mixer" "$app"
+tab="$(find "$app/src/frontend/pages/main/tabs" -name page.tsx)"
+echo '// app-owned edit' >> "$tab"
+sed -i '/const authProxy = await proxyLuthAuthRequest(request);/d' "$app/src/app.ts"
+"$cli" add auth "$app"
+grep -Fq 'const authProxy = await proxyLuthAuthRequest(request);' "$app/src/app.ts"
+before="$(git diff --no-index /dev/null "$tab" || true)"
+"$cli" add main tab "Mixer" "$app"
+test "$(find "$app/src/frontend/pages/main/tabs" -name page.tsx | wc -l)" -eq 1
+test "$before" = "$(git diff --no-index /dev/null "$tab" || true)"
 "$cli" plan "$temp/legacy-app" > "$temp/plan.json"
 test ! -e "$temp/legacy-app/.skipo/project.json"
 "$cli" update "$temp/legacy-app" > "$temp/first.json"

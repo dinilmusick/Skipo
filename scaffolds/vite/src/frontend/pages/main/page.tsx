@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { BaseButton, type WorkspaceRecord } from '@ultrst-armada/floks/ui';
+import MainTabs from './MainTabs.js';
 import SettingsPage from '../settings/page.js';
 
 export interface MainPageProps {
@@ -23,7 +24,7 @@ export default function MainPage({ children, isGuest, activeWorkspace, onSwitchW
           {showSettings ? 'Back to workspace' : 'Settings'}
         </BaseButton>
       </header>
-      <main>{showSettings ? <SettingsPage activeWorkspaceName={activeWorkspace?.title || (isGuest ? 'Guest' : undefined)} /> : children}</main>
+      <main>{showSettings ? <SettingsPage activeWorkspaceName={activeWorkspace?.title || (isGuest ? 'Guest' : undefined)} /> : <MainTabs>{children}</MainTabs>}</main>
     </div>
   );
 }
