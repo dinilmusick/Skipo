@@ -31,6 +31,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS deployments_by_immutable_id
 ALTER TABLE skipo_ecosystem.deployments
   ALTER COLUMN environment SET DEFAULT 'unclassified';
 
+-- Remove the preview-era CHECK before reclassifying rows to unclassified.
+ALTER TABLE skipo_ecosystem.deployments
+  DROP CONSTRAINT IF EXISTS deployments_environment_check;
+
 -- Reclassify rows created under the earlier inferred-preview default when no
 -- deployment-control proof exists. Preserve explicitly verified rows.
 UPDATE skipo_ecosystem.deployments
@@ -38,10 +42,6 @@ SET environment = 'unclassified'
 WHERE environment = 'preview'
   AND verification_state = 'unverified'
   AND verification_proof_digest IS NULL;
-
--- Replace the original four-state constraint on repeat runs as well.
-ALTER TABLE skipo_ecosystem.deployments
-  DROP CONSTRAINT IF EXISTS deployments_environment_check;
 
 -- Re-runnable on existing databases without breaking the old composite PK.
 DO $deployment_identity$
@@ -108,6 +108,136 @@ CREATE TABLE IF NOT EXISTS skipo_ecosystem.invocations (
 
 CREATE INDEX IF NOT EXISTS invocations_by_expiry
   ON skipo_ecosystem.invocations (expires_at);
+-- Publish metadata only. Workflow definitions, graph nodes, source, runtime
+-- inputs/outputs and credentials remain in the owning application's workspace.
+CREATE TABLE IF NOT EXISTS skipo_ecosystem.workflow_publications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  app_id text NOT NULL
+    REFERENCES public."ultrst-apps"(app_id) ON UPDATE RESTRICT ON DELETE RESTRICT,
+  owner_user_id text NOT NULL CHECK (length(btrim(owner_user_id)) > 0),
+  workspace_id text NOT NULL CHECK (length(btrim(workspace_id)) > 0),
+  workflow_id text NOT NULL CHECK (length(btrim(workflow_id)) > 0),
+  version integer NOT NULL CHECK (version > 0),
+  display_name text NOT NULL CHECK (length(btrim(display_name)) > 0),
+  description text,
+  publication_state text NOT NULL DEFAULT 'published'
+    CHECK (publication_state IN ('published','withdrawn')),
+  published_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  withdrawn_at timestamptz,
+  CONSTRAINT workflow_publications_version_unique
+    UNIQUE (app_id, owner_user_id, workspace_id, workflow_id, version),
+  -- Composite key lets grants prove the publication owner and target workspace.
+  CONSTRAINT workflow_publications_grant_target_unique
+    UNIQUE (id, owner_user_id, workspace_id),
+  CONSTRAINT workflow_publications_withdrawal_consistent
+    CHECK (
+      (publication_state = 'published' AND withdrawn_at IS NULL)
+      OR (publication_state = 'withdrawn' AND withdrawn_at IS NOT NULL)
+    )
+);
+
+CREATE INDEX IF NOT EXISTS workflow_publications_discovery
+  ON skipo_ecosystem.workflow_publications
+    (app_id, workspace_id, publication_state, published_at DESC);
+
+-- An owner-authorized grant binds one caller app + source workspace to the
+-- exact target workspace/publication. Revocation is durable and checked on
+-- every target-side invocation; it does not delete publication history.
+CREATE TABLE IF NOT EXISTS skipo_ecosystem.workflow_grants (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  publication_id uuid NOT NULL,
+  owner_user_id text NOT NULL,
+  target_workspace_id text NOT NULL,
+  caller_app_id text NOT NULL
+    REFERENCES public."ultrst-apps"(app_id) ON UPDATE RESTRICT ON DELETE RESTRICT,
+  source_workspace_id text NOT NULL CHECK (length(btrim(source_workspace_id)) > 0),
+  granted_by_user_id text NOT NULL,
+  grant_state text NOT NULL DEFAULT 'active'
+    CHECK (grant_state IN ('active','revoked')),
+  granted_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  revoked_at timestamptz,
+  revoked_by_user_id text,
+  CONSTRAINT workflow_grants_publication_target_fkey
+    FOREIGN KEY (publication_id, owner_user_id, target_workspace_id)
+    REFERENCES skipo_ecosystem.workflow_publications (id, owner_user_id, workspace_id)
+    ON UPDATE RESTRICT ON DELETE RESTRICT,
+  CONSTRAINT workflow_grants_owner_approval
+    CHECK (granted_by_user_id = owner_user_id),
+  CONSTRAINT workflow_grants_owner_revocation
+    CHECK (revoked_by_user_id IS NULL OR revoked_by_user_id = owner_user_id),
+  CONSTRAINT workflow_grants_revocation_consistent
+    CHECK (
+      (grant_state = 'active' AND revoked_at IS NULL AND revoked_by_user_id IS NULL)
+      OR (grant_state = 'revoked' AND revoked_at IS NOT NULL
+          AND revoked_by_user_id = owner_user_id)
+    ),
+  CONSTRAINT workflow_grants_scope_unique
+    UNIQUE (publication_id, caller_app_id, source_workspace_id, target_workspace_id)
+);
+
+CREATE INDEX IF NOT EXISTS workflow_grants_caller_scope
+  ON skipo_ecosystem.workflow_grants
+    (caller_app_id, source_workspace_id, target_workspace_id, grant_state);
+
+CREATE INDEX IF NOT EXISTS workflow_grants_publication_state
+  ON skipo_ecosystem.workflow_grants (publication_id, grant_state);
+
+COMMENT ON TABLE skipo_ecosystem.workflow_publications IS
+  'Metadata-only published workflow descriptors. Definitions and execution payloads remain in the owning workspace.';
+COMMENT ON TABLE skipo_ecosystem.workflow_grants IS
+  'Owner-approved app/workspace grants. Target services must reauthorize publication and grant state on every call.';
+
+-- Identity and scope are immutable after publication/grant creation. Only the
+-- publication display metadata/state and grant revocation state may change.
+CREATE OR REPLACE FUNCTION skipo_ecosystem.reject_workflow_publication_identity_change()
+RETURNS trigger LANGUAGE plpgsql AS $workflow_publication_identity$
+BEGIN
+  IF NEW.id IS DISTINCT FROM OLD.id
+     OR NEW.app_id IS DISTINCT FROM OLD.app_id
+     OR NEW.owner_user_id IS DISTINCT FROM OLD.owner_user_id
+     OR NEW.workspace_id IS DISTINCT FROM OLD.workspace_id
+     OR NEW.workflow_id IS DISTINCT FROM OLD.workflow_id
+     OR NEW.version IS DISTINCT FROM OLD.version
+     OR NEW.published_at IS DISTINCT FROM OLD.published_at THEN
+    RAISE EXCEPTION 'workflow publication identity and version are immutable'
+      USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$workflow_publication_identity$;
+
+DROP TRIGGER IF EXISTS workflow_publications_identity_immutable
+  ON skipo_ecosystem.workflow_publications;
+CREATE TRIGGER workflow_publications_identity_immutable
+  BEFORE UPDATE ON skipo_ecosystem.workflow_publications
+  FOR EACH ROW EXECUTE FUNCTION
+    skipo_ecosystem.reject_workflow_publication_identity_change();
+
+CREATE OR REPLACE FUNCTION skipo_ecosystem.reject_workflow_grant_scope_change()
+RETURNS trigger LANGUAGE plpgsql AS $workflow_grant_scope$
+BEGIN
+  IF NEW.id IS DISTINCT FROM OLD.id
+     OR NEW.publication_id IS DISTINCT FROM OLD.publication_id
+     OR NEW.owner_user_id IS DISTINCT FROM OLD.owner_user_id
+     OR NEW.target_workspace_id IS DISTINCT FROM OLD.target_workspace_id
+     OR NEW.caller_app_id IS DISTINCT FROM OLD.caller_app_id
+     OR NEW.source_workspace_id IS DISTINCT FROM OLD.source_workspace_id
+     OR NEW.granted_by_user_id IS DISTINCT FROM OLD.granted_by_user_id
+     OR NEW.granted_at IS DISTINCT FROM OLD.granted_at THEN
+    RAISE EXCEPTION 'workflow grant identity and scope are immutable'
+      USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$workflow_grant_scope$;
+
+DROP TRIGGER IF EXISTS workflow_grants_scope_immutable
+  ON skipo_ecosystem.workflow_grants;
+CREATE TRIGGER workflow_grants_scope_immutable
+  BEFORE UPDATE ON skipo_ecosystem.workflow_grants
+  FOR EACH ROW EXECUTE FUNCTION
+    skipo_ecosystem.reject_workflow_grant_scope_change();
+
 REVOKE ALL ON ALL TABLES IN SCHEMA skipo_ecosystem FROM PUBLIC;
 
 COMMIT;

@@ -81,6 +81,21 @@ describe('canonical ULTRST deployment identity', () => {
     expect(sourceSql).toContain("ADD COLUMN IF NOT EXISTS environment text NOT NULL DEFAULT 'unclassified'");
     expect(sourceSql).toContain("environment IN ('unclassified','development','preview','staging','production')");
     expect(sourceSql).toContain('DROP CONSTRAINT IF EXISTS deployments_environment_check');
+    expect(sourceSql.indexOf('DROP CONSTRAINT IF EXISTS deployments_environment_check'))
+      .toBeLessThan(sourceSql.indexOf('UPDATE skipo_ecosystem.deployments'));
     expect(sourceSql).toContain("SET environment = 'unclassified'");
   });
+
+  it('makes workflow publication identity/version and grant scope immutable', () => {
+    const sql = readFileSync(new URL('../backend/ecosystem/db/deployments.sql', import.meta.url), 'utf8');
+    expect(sql).toContain('workflow_publications_identity_immutable');
+    expect(sql).toContain('reject_workflow_publication_identity_change');
+    expect(sql).toContain('NEW.workflow_id IS DISTINCT FROM OLD.workflow_id');
+    expect(sql).toContain('NEW.version IS DISTINCT FROM OLD.version');
+    expect(sql).toContain('workflow_grants_scope_immutable');
+    expect(sql).toContain('reject_workflow_grant_scope_change');
+    expect(sql).toContain('NEW.source_workspace_id IS DISTINCT FROM OLD.source_workspace_id');
+    expect(sql).toContain('NEW.caller_app_id IS DISTINCT FROM OLD.caller_app_id');
+  });
+
 });
