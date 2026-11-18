@@ -182,9 +182,14 @@ def reconcile_pages(root, pages, title=None, apply=True):
             for _, spec in resolve_capabilities([page]):
                 candidates.update(item["path"] for item in spec.get("generated", []))
 
+    pending_capability_actions = any(
+        action.get("action") != "unchanged"
+        for preview in previews for action in preview.get("actions", [])
+    )
     if not apply:
         return {"ok": True, "applied": False, "pages": previews,
-                "page_paths": sorted(candidates), "noop": not candidates}
+                "page_paths": sorted(candidates),
+                "noop": not candidates and not pending_capability_actions}
 
     # The capability composer updates these state files when installing a
     # canonical page. They must participate in the same rollback boundary.
@@ -221,7 +226,12 @@ def reconcile_pages(root, pages, title=None, apply=True):
             {"page": page, **compose_page(root, page, title if page == "main" else None, apply=False)}
             for page in pages
         ]
-        dirty = [item for item in post if not item.get("ok") or item.get("page_paths")]
+        dirty = [
+            item for item in post
+            if not item.get("ok") or item.get("page_paths") or any(
+                action.get("action") != "unchanged" for action in item.get("actions", [])
+            )
+        ]
         if dirty:
             raise ValueError("Canonical pages remain dirty after reconciliation")
     except Exception as exc:
