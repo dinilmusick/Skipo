@@ -51,7 +51,7 @@ def _check_identity_continuity(root: Path, before: dict[str, Any], payload: dict
     payload["app_identity"] = after
     if before.get("status") not in ("manifest_missing", "invalid_manifest") and not unchanged_identity(before, after):
         payload["ok"] = False
-        payload.setdefault("errors", []).append("Canonical app_id was changed by Skipo maintenance; restore the registered identity.")
+        payload.setdefault("errors", []).append("Application, deployment, or OAuth client identity was changed by Skipo maintenance; restore the registered identity.")
     return payload
 
 def run(cmd: list[str], cwd: Path) -> int:
