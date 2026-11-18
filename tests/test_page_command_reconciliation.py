@@ -324,5 +324,6 @@ def test_canonical_main_tabs_receive_authenticated_workspace_id(tmp_path):
     assert "<MainTabs activeWorkspace={activeWorkspace} isGuest={isGuest} />" in shell
     assert "<MainTabContent id={activeTab} activeWorkspace={activeWorkspace} isGuest={isGuest} />" in tab_shell
     assert "workspaceId={activeWorkspace?.id}" in registry
+    assert "key={`${id}:${activeWorkspace?.id" in registry
     assert "activeWorkspace={activeWorkspace}" in registry
     assert json.loads(invoke("repair", "main", str(target)).stdout)["noop"] is True
