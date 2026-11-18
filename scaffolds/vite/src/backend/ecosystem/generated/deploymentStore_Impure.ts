@@ -52,6 +52,148 @@ export async function refreshDeploymentById(
   }
 }
 
+
+export interface StaticCapabilityDescriptor {
+  id: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  outputSchema: Record<string, unknown>;
+  name?: string;
+  serviceName?: string;
+  invocation: { serviceId: string; operationId: string };
+  access?: 'public' | 'authenticated' | 'roles';
+  requiredRoles?: string[];
+  discoverable?: boolean;
+}
+
+const forbiddenDescriptorKey = /(?:secret|token|session|endpoint|url|credential|authorization|password|cookie|bearer)/i;
+const descriptorKeys = new Set([
+  'id', 'description', 'inputSchema', 'outputSchema', 'name', 'serviceName',
+  'invocation', 'access', 'requiredRoles', 'discoverable',
+]);
+
+function assertSafeDescriptorValue(value: unknown): void {
+  if (Array.isArray(value)) {
+    for (const item of value) assertSafeDescriptorValue(item);
+    return;
+  }
+  if (!value || typeof value !== 'object') return;
+  for (const [key, nested] of Object.entries(value)) {
+    if (forbiddenDescriptorKey.test(key)) {
+      throw new Error('Static capability descriptors cannot contain session, endpoint, credential or secret fields.');
+    }
+    assertSafeDescriptorValue(nested);
+  }
+}
+
+export function normalizeStaticCapabilityDescriptors(
+  descriptors: readonly StaticCapabilityDescriptor[],
+): StaticCapabilityDescriptor[] {
+  if (!Array.isArray(descriptors) || descriptors.length > 256) {
+    throw new Error('Static capability descriptor collection is invalid.');
+  }
+  const seen = new Set<string>();
+  return descriptors.map((descriptor) => {
+    if (!descriptor || typeof descriptor !== 'object' ||
+        Object.keys(descriptor).some((key) => !descriptorKeys.has(key)) ||
+        !/^[a-zA-Z0-9][a-zA-Z0-9._:-]{1,127}$/.test(descriptor.id) ||
+        typeof descriptor.description !== 'string' || !descriptor.description.trim() ||
+        !descriptor.invocation ||
+        typeof descriptor.invocation.serviceId !== 'string' || !descriptor.invocation.serviceId.trim() ||
+        typeof descriptor.invocation.operationId !== 'string' || !descriptor.invocation.operationId.trim() ||
+        !descriptor.inputSchema || typeof descriptor.inputSchema !== 'object' ||
+        Array.isArray(descriptor.inputSchema) ||
+        !descriptor.outputSchema || typeof descriptor.outputSchema !== 'object' ||
+        Array.isArray(descriptor.outputSchema) ||
+        (descriptor.access !== undefined && !['public', 'authenticated', 'roles'].includes(descriptor.access)) ||
+        (descriptor.requiredRoles !== undefined &&
+          (!Array.isArray(descriptor.requiredRoles) || descriptor.requiredRoles.some((role) => typeof role !== 'string'))) ||
+        (descriptor.discoverable !== undefined && typeof descriptor.discoverable !== 'boolean')) {
+      throw new Error('Static capability descriptor is malformed.');
+    }
+    if (seen.has(descriptor.id)) throw new Error('Static capability descriptor IDs must be unique.');
+    seen.add(descriptor.id);
+    assertSafeDescriptorValue(descriptor);
+    return JSON.parse(JSON.stringify(descriptor)) as StaticCapabilityDescriptor;
+  }).sort((left, right) => left.id.localeCompare(right.id));
+}
+
+/**
+ * Persist a new immutable snapshot only when the descriptor set changes.
+ * The row is written only for a deployment whose ownership proof and lease
+ * are currently valid; an unverified deployment has no discoverable snapshot.
+ */
+export async function publishDeploymentCapabilityRevision(
+  query: Query, deploymentId: string, descriptors: readonly StaticCapabilityDescriptor[],
+): Promise<number | null> {
+  if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(deploymentId)) {
+    throw new Error('Deployment identity must be a UUID.');
+  }
+  const normalized = normalizeStaticCapabilityDescriptors(descriptors);
+  const [row] = await query<{ revision: number | string }>(`
+    WITH lock AS MATERIALIZED (
+      SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))
+    ),
+    latest AS MATERIALIZED (
+      SELECT revision, descriptors
+      FROM skipo_ecosystem.deployment_capability_revisions
+      CROSS JOIN lock
+      WHERE deployment_id = $1::uuid
+      ORDER BY revision DESC
+      LIMIT 1
+    ),
+    eligible AS MATERIALIZED (
+      SELECT deployment_id
+      FROM skipo_ecosystem.deployments
+      WHERE deployment_id = $1::uuid
+        AND verification_state = 'verified'
+        AND lease_expires_at > statement_timestamp()
+    ),
+    inserted AS (
+      INSERT INTO skipo_ecosystem.deployment_capability_revisions
+        (deployment_id, revision, descriptors)
+      SELECT $1::uuid, COALESCE((SELECT revision FROM latest), 0) + 1, $2::jsonb
+      FROM eligible
+      WHERE NOT EXISTS (SELECT 1 FROM latest WHERE descriptors = $2::jsonb)
+      RETURNING revision
+    )
+    SELECT revision FROM inserted
+    UNION ALL
+    SELECT latest.revision
+    FROM latest
+    JOIN eligible ON true
+    WHERE latest.descriptors = $2::jsonb
+    LIMIT 1
+  `, [deploymentId, JSON.stringify(normalized)]);
+  return row ? Number(row.revision) : null;
+}
+
+/** Returns only the latest snapshot for a verified deployment with a live lease. */
+export async function getDeploymentCapabilityRevision(
+  query: Query, appId: string, deploymentId: string,
+) {
+  const [row] = await query<{
+    app_id: string; environment: string; revision: number | string;
+    descriptors: StaticCapabilityDescriptor[]; published_at: string;
+  }>(`
+    SELECT d.app_id, d.environment, r.revision, r.descriptors, r.published_at
+    FROM skipo_ecosystem.deployments d
+    JOIN LATERAL (
+      SELECT revision, descriptors, published_at
+      FROM skipo_ecosystem.deployment_capability_revisions
+      WHERE deployment_id = d.deployment_id
+      ORDER BY revision DESC
+      LIMIT 1
+    ) r ON true
+    WHERE d.app_id = $1
+      AND d.deployment_id = $2::uuid
+      AND d.verification_state = 'verified'
+      AND d.lease_expires_at > statement_timestamp()
+    LIMIT 1
+  `, [appId, deploymentId]);
+  return row;
+}
+
 export async function findDeployment(query: Query, app: string, capability: string) {
   const [row] = await query<{ app_url: string }>(`
     SELECT app_url FROM skipo_ecosystem.deployments
