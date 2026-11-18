@@ -173,3 +173,31 @@ These verification gates do not silently switch existing legacy clients
 to verified-only calls. Trusted registry registration, lease renewal
 and production identity proof remain controlled external operations;
 see `REGISTRY_INTEGRATION_CONTRACT.md`.
+
+## Registrar-only verified lease lifecycle
+
+`verifiedDeploymentAuthority_Impure.ts` supplies control-plane-only
+`registerOrRenewVerifiedDeployment` and `revokeVerifiedDeployment`.
+It is deliberately **not** copied to generated Vite applications. The host
+must supply two actual trust authorities:
+`attest(untrustedRequest)` (authenticated application owner and independent
+deployment-origin challenge) and `authorizeRevocation(untrustedRequest)`
+(owner/control-plane revocation), plus a separately privileged SQL connection.
+
+The module never accepts a caller-supplied `verified` flag or bearer as proof.
+Bounded leases expire within 30 minutes; renewed attestation must keep the
+existing canonical app, UUID, origin and environment. Revoked UUIDs cannot
+be renewed. Authorized revocation is idempotent, with an immediate lease cut-off.
+A SQL caller without the privileged registrar role must not have access to
+`verification_state`, `verification_proof_digest` or `lease_expires_at`
+updates. The default `SYSTEM_DATABASE_URL` used by generated app heartbeats
+**must not** be a table owner with registrar write privileges at production
+cutover; a host-only registry authority must perform enrollment.
+
+The migration's new immutable revision trigger and the verified URL/revocation
+trigger were independently tested using exact function bodies on an isolated
+Neon development branch, with temporary fixtures and no persistent writes.
+After applying the migration to a fresh nonproduction fork, run
+`db/tests/005_verified_deployment_registry_negative.test.sql` with
+`psql -v ON_ERROR_STOP=1`; its savepoint rolls back fixtures.
+The isolated branch's persistent data and production remain unchanged.
