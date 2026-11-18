@@ -116,7 +116,7 @@ BEGIN
       END IF;
     END LOOP;
   ELSIF jsonb_typeof(p_value) = 'string' THEN
-    IF (p_value #>> '{}') ~* '(https?://|wss?://|postgres(ql)?://|bearer[[:space:]]+|eyJ[A-Za-z0-9_-]{10,}[.][A-Za-z0-9_-]{10,}[.])' THEN
+    IF (p_value #>> '{}') ~* '([a-z][a-z0-9+.-]*://|bearer[[:space:]]+|eyJ[A-Za-z0-9_-]{10,}[.][A-Za-z0-9_-]{10,}[.]|-----BEGIN [A-Z ]*PRIVATE KEY-----|((api|client|private)[_-]?(key|secret))[[:space:]]*[:=][[:space:]]*[^[:space:]]+)' THEN
       RETURN false;
     END IF;
   END IF;
