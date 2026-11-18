@@ -32,7 +32,7 @@ export async function proxyLuthAuthRequest(request: Request): Promise<Response |
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
-  const resolvedAppId = request.headers.get('x-app-id') || configuredAppId;
+  const resolvedAppId = configuredAppId;
   if (!resolvedAppId) {
     return Response.json({ success: false, error: 'Application enrollment is required before Luth authentication.' }, { status: 503 });
   }
