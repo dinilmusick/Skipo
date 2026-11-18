@@ -35,10 +35,6 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
   const url = new URL(request.url);
   const path = url.pathname.replace(/^\/api\/auth(?=\/)/, '/api');
 
-  if (env.ASSETS && typeof env.ASSETS.fetch === 'function' &&
-      !url.pathname.startsWith('/api/') && url.pathname !== '/health' && url.pathname !== '/mcp') {
-    return env.ASSETS.fetch(request);
-  }
   if (path === '/api/health' || path === '/health') return json({ status: 'ok', service: 'skipo-application' });
 
   // Application capability endpoints must not be consumed by generic external interfaces.
