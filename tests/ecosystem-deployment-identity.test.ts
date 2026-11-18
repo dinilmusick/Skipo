@@ -78,4 +78,16 @@ describe('canonical ULTRST deployment identity', () => {
         .toBe(readFileSync(new URL(generated, root), 'utf8'));
     }
   });
+
+  it('stores metadata-only workflow publications and owner-scoped revocable grants', () => {
+    const sql = readFileSync(new URL('../backend/ecosystem/db/deployments.sql', import.meta.url), 'utf8');
+    expect(sql).toContain('CREATE TABLE IF NOT EXISTS skipo_ecosystem.workflow_publications');
+    expect(sql).toContain('CREATE TABLE IF NOT EXISTS skipo_ecosystem.workflow_grants');
+    expect(sql).toContain('UNIQUE (app_id, owner_user_id, workspace_id, workflow_id, version)');
+    expect(sql).toContain('REFERENCES public."ultrst-apps"(app_id)');
+    expect(sql).toContain('granted_by_user_id = owner_user_id');
+    expect(sql).toContain("grant_state IN ('active','revoked')");
+    expect(sql).toContain('workflow_grants_caller_scope');
+    expect(sql).not.toMatch(/workflow_(?:graph|definition|source|payload)|credentials\s+jsonb|api_key\s+jsonb/i);
+  });
 });
