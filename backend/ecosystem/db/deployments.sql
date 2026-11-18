@@ -185,6 +185,10 @@ CREATE INDEX IF NOT EXISTS workflow_grants_publication_state
 CREATE OR REPLACE FUNCTION skipo_ecosystem.enforce_workflow_registry_immutability()
 RETURNS trigger LANGUAGE plpgsql AS $workflow_immutability$
 BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'workflow publication and grant history cannot be deleted'
+      USING ERRCODE='23514';
+  END IF;
   IF TG_TABLE_NAME = 'workflow_publications' THEN
     IF NEW.id IS DISTINCT FROM OLD.id
        OR NEW.app_id IS DISTINCT FROM OLD.app_id
@@ -255,12 +259,12 @@ $workflow_immutability$;
 DROP TRIGGER IF EXISTS workflow_publications_immutable
   ON skipo_ecosystem.workflow_publications;
 CREATE TRIGGER workflow_publications_immutable
-  BEFORE UPDATE ON skipo_ecosystem.workflow_publications
+  BEFORE UPDATE OR DELETE ON skipo_ecosystem.workflow_publications
   FOR EACH ROW EXECUTE FUNCTION skipo_ecosystem.enforce_workflow_registry_immutability();
 DROP TRIGGER IF EXISTS workflow_grants_immutable
   ON skipo_ecosystem.workflow_grants;
 CREATE TRIGGER workflow_grants_immutable
-  BEFORE UPDATE ON skipo_ecosystem.workflow_grants
+  BEFORE UPDATE OR DELETE ON skipo_ecosystem.workflow_grants
   FOR EACH ROW EXECUTE FUNCTION skipo_ecosystem.enforce_workflow_registry_immutability();
 
 CREATE OR REPLACE FUNCTION skipo_ecosystem.require_published_workflow_for_grant()
