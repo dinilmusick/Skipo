@@ -6,7 +6,7 @@ import { appId, appIdentityAuthorityVerified } from './appIdentity_Pure.js';
 const invocationPath = '/api/ecosystem/invoke';
 const enrollmentRequiredRuntime = {
   observe: async (_env: Record<string, unknown>) => undefined,
-  handle: async (request: Request): Promise<Response | null> => {
+  handle: async (request: Request, _env?: Record<string, unknown>): Promise<Response | null> => {
     if (new URL(request.url).pathname !== invocationPath) return null;
     return Response.json({ error: 'APP_ENROLLMENT_REQUIRED' }, {
       status: 503, headers: { 'cache-control': 'no-store' },
