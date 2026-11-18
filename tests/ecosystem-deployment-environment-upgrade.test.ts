@@ -48,5 +48,4 @@ describe('identity deployment environment upgrade regression', () => {
       expect(sql).toContain(marker);
     }
   });
-  });
 });
