@@ -66,7 +66,7 @@ BEGIN
       (deployment_id, revision, descriptors)
     VALUES (dep_id, 1, '[]'::jsonb);
     RAISE EXCEPTION 'FAIL: duplicate capability revision was accepted';
-  EXCEPTION WHEN unique_violation THEN NULL;
+  EXCEPTION WHEN check_violation OR unique_violation THEN NULL;
   END;
 
   INSERT INTO public.luth_oauth_clients
