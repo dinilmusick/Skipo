@@ -93,6 +93,7 @@ describe('canonical ULTRST deployment identity', () => {
     expect(sql).toContain('workflow publication withdrawal is permanent');
     expect(sql).toContain('workflow grant revocation is permanent');
     expect(sql).toContain('workflow_grants_one_active_scope');
+    expect(sql).toContain('DROP CONSTRAINT IF EXISTS workflow_grants_scope_unique');
     expect(sql).toContain("WHERE grant_state = 'active'");
   });
 });
