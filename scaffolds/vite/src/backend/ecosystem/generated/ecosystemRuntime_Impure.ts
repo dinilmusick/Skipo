@@ -1,5 +1,5 @@
 import {
-  consumeInvocation, createInvocation, findDeployment, refreshDeployment, systemQuery,
+  consumeInvocation, createInvocation, findDeployment, refreshDeployment, refreshDeploymentById, systemQuery,
   type EcosystemEnv, type Query,
 } from './deploymentStore_Impure.js';
 
@@ -26,6 +26,8 @@ function deploymentOrigin(input: unknown): string {
 
 export function createEcosystemRuntime(options: {
   appId: string;
+  /** Persistent deployment UUID, provisioned by an approved control plane. */
+  deploymentId?: string;
   capabilities: Record<string, Capability>;
   serviceCapabilities?: Record<string, (params: unknown, context: {
     callerApp: string; env: EcosystemEnv;
@@ -41,6 +43,10 @@ export function createEcosystemRuntime(options: {
   if (!appPattern.test(appId) || capabilities.some(name => !capabilityPattern.test(name)) ||
       capabilities.length !== methods.size + serviceMethods.size) {
     throw new Error('Invalid ecosystem application or capability identifier.');
+  }
+  if (options.deploymentId !== undefined &&
+      !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(options.deploymentId)) {
+    throw new Error('Invalid ecosystem deployment identity.');
   }
   const query = options.query ?? systemQuery;
   const send = options.send ?? globalThis.fetch;
@@ -58,7 +64,12 @@ export function createEcosystemRuntime(options: {
       return Promise.resolve();
     }
     pending = Promise.resolve().then(async () => {
-      await refreshDeployment(query(env), appId, deploymentOrigin(env.APP_URL), capabilities);
+      if (options.deploymentId) {
+        await refreshDeploymentById(query(env), appId, options.deploymentId,
+          deploymentOrigin(env.APP_URL), capabilities);
+      } else {
+        await refreshDeployment(query(env), appId, deploymentOrigin(env.APP_URL), capabilities);
+      }
       lastUrl = env.APP_URL;
       lastRefresh = Date.now();
     }).finally(() => { pending = undefined; });
