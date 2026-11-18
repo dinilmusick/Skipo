@@ -7,7 +7,7 @@ const inputSchema = { type: "object" as const, properties: { value: { type: "num
 const outputSchema = { type: "object" as const, properties: { doubled: { type: "number" as const } }, required: ["doubled"], additionalProperties: false };
 function setup(principal: ExternalPrincipal | null = { userId: "u1", roles: ["reader"] }) {
   const execute = vi.fn(async (_service: string, _operation: string, input: any) => ({ doubled: input.value * 2 }));
-  const registry = new CapabilityRegistry({ execute }).register({ id: "math.double", description: "Double a number.", inputSchema, outputSchema, invocation: { serviceId: "math", operationId: "double" }, access: "authenticated" });
+  const registry = new CapabilityRegistry({ execute }, [{ id: "math.double", description: "Double a number.", inputSchema, outputSchema, invocation: { serviceId: "math", operationId: "double" }, access: "authenticated" }]);
   const authenticate = vi.fn(async () => principal);
   return { execute, registry, authenticate, http: createExternalHttpHandler({ registry, authenticate }), mcp: createMcpHandler({ registry, authenticate }) };
 }
@@ -44,8 +44,8 @@ describe("Skipo external interfaces", () => {
     await expect(broken.invoke("bad.output", { value: 1 }, { principal: null, transport: "http", requestId: "test" })).rejects.toMatchObject({ code: "INVALID_OUTPUT", expose: false });
   });
   it("normalizes errors and hides internal exception messages", async () => {
-    const registry = new CapabilityRegistry({ execute: async () => { throw new Error("secret database detail"); } }).register({ id: "throws", description: "Throws.", inputSchema, outputSchema, invocation: { serviceId: "x", operationId: "y" }, access: "public" });
-    const http = createExternalHttpHandler({ registry, authenticate: async () => null });
+    const registry = new CapabilityRegistry({ execute: async () => { throw new Error("secret database detail"); } }, [{ id: "throws", description: "Throws.", inputSchema, outputSchema, invocation: { serviceId: "x", operationId: "y" }, access: "public" }]);
+    const http = createExternalHttpHandler({ registry, authenticate: async () => ({ userId: "u1" }) });
     const result = await http(new Request("https://app.test/api/capabilities/throws/invoke", { method: "POST", body: JSON.stringify({ value: 1 }) }));
     expect(await result!.json()).toEqual({ error: { code: "INTERNAL_ERROR", message: "Internal server error" } });
     const mcp = createMcpHandler({ registry, authenticate: async () => null });
@@ -75,8 +75,8 @@ it("supports MCP initialized notifications and structured tool errors", async ()
   const s = setup();
   const notification = await s.mcp(new Request("https://app.test/mcp", { method: "POST", body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) }));
   expect(notification!.status).toBe(202);
-  const failedRegistry = new CapabilityRegistry({ execute: async () => { throw new Error("private detail"); } }).register({ id: "fails", description: "Fails.", inputSchema, outputSchema, invocation: { serviceId: "x", operationId: "y" }, access: "public" });
-  const failedMcp = createMcpHandler({ registry: failedRegistry, authenticate: async () => null });
+  const failedRegistry = new CapabilityRegistry({ execute: async () => { throw new Error("private detail"); } }, [{ id: "fails", description: "Fails.", inputSchema, outputSchema, invocation: { serviceId: "x", operationId: "y" }, access: "public" }]);
+  const failedMcp = createMcpHandler({ registry: failedRegistry, authenticate: async () => ({ userId: "u1" }) });
   const result = await failedMcp(new Request("https://app.test/mcp", { method: "POST", body: JSON.stringify({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "fails", arguments: { value: 1 } } }) }));
   expect((await result!.json()).result.structuredContent).toEqual({ error: { code: "INTERNAL_ERROR", message: "Internal server error" } });
 });
@@ -178,5 +178,70 @@ it("retains the registered role and schema for static remote operations", async 
   await expect(registry.invokeRemote(descriptor.id, {}, {
     principal: admin, requestId: "invalid", transport: "workflow",
   })).rejects.toMatchObject({ code: "INVALID_INPUT" });
+  expect(execute).not.toHaveBeenCalled();
+});
+
+
+it("excludes locally registered workflows from HTTP, OpenAPI and MCP remote discovery and calls", async () => {
+  const s = setup();
+  s.registry.register({
+    id: "saved.workflow", description: "Owner's private workflow.", inputSchema, outputSchema,
+    invocation: { serviceId: "fod", operationId: "executeFlow" }, access: "authenticated",
+  });
+  expect(s.registry.list({ userId: "u1" }).map(cap => cap.id)).toEqual(["math.double", "saved.workflow"]);
+
+  const listing = await s.http(new Request("https://app.test/api/capabilities"));
+  expect((await listing!.json()).capabilities.map((cap: { id: string }) => cap.id)).toEqual(["math.double"]);
+  const details = await s.http(new Request("https://app.test/api/capabilities/saved.workflow"));
+  expect(details!.status).toBe(404);
+  const openapi = await s.http(new Request("https://app.test/api/openapi.json"));
+  expect(Object.keys((await openapi!.json()).paths)).toEqual(["/api/capabilities/math.double/invoke"]);
+  const httpCall = await s.http(new Request("https://app.test/api/capabilities/saved.workflow/invoke", {
+    method: "POST", body: JSON.stringify({ value: 3 }),
+  }));
+  expect(httpCall!.status).toBe(404);
+
+  const tools = await s.mcp(new Request("https://app.test/mcp", {
+    method: "POST", body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+  }));
+  expect((await tools!.json()).result.tools.map((tool: { name: string }) => tool.name)).toEqual(["math.double"]);
+  const call = await s.mcp(new Request("https://app.test/mcp", {
+    method: "POST", body: JSON.stringify({
+      jsonrpc: "2.0", id: 2, method: "tools/call",
+      params: { name: "saved.workflow", arguments: { value: 3 } },
+    }),
+  }));
+  expect((await call!.json()).result.structuredContent.error.code).toBe("NOT_FOUND");
+  expect(s.execute).not.toHaveBeenCalled();
+});
+
+it("revokes previously advertised static operations on both HTTP and MCP without restart", async () => {
+  let bindingCurrent = true;
+  const execute = vi.fn(async () => ({ doubled: 2 }));
+  const operation = {
+    id: "math.double", description: "Double a number.", inputSchema, outputSchema,
+    invocation: { serviceId: "math", operationId: "double" }, access: "authenticated" as const,
+  };
+  const registry = new CapabilityRegistry({ execute }, [operation], () => bindingCurrent);
+  const http = createExternalHttpHandler({ registry, authenticate: async () => ({ userId: "u1" }) });
+  const mcp = createMcpHandler({ registry, authenticate: async () => ({ userId: "u1" }) });
+  expect((await (await http(new Request("https://app.test/api/capabilities")))!.json()).capabilities).toHaveLength(1);
+  bindingCurrent = false;
+  expect((await (await http(new Request("https://app.test/api/capabilities")))!.json()).capabilities).toEqual([]);
+  const denied = await http(new Request("https://app.test/api/capabilities/math.double/invoke", {
+    method: "POST", body: JSON.stringify({ value: 1 }),
+  }));
+  expect(denied!.status).toBe(404);
+  const tools = await mcp(new Request("https://app.test/mcp", {
+    method: "POST", body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+  }));
+  expect((await tools!.json()).result.tools).toEqual([]);
+  const call = await mcp(new Request("https://app.test/mcp", {
+    method: "POST", body: JSON.stringify({
+      jsonrpc: "2.0", id: 2, method: "tools/call",
+      params: { name: "math.double", arguments: { value: 1 } },
+    }),
+  }));
+  expect((await call!.json()).result.structuredContent.error.code).toBe("NOT_FOUND");
   expect(execute).not.toHaveBeenCalled();
 });
