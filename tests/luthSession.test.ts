@@ -58,6 +58,33 @@ describe('Skipo Vite canonical Luth boundary', () => {
     expect(headers.get('x-user-role')).toBe('user');
   });
 
+  it('drops caller-supplied optional identity claims omitted by Luth', async () => {
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({
+      authenticated: true,
+      user: { id: 'verified-user' },
+      session: { id: 'verified-session' },
+    }), { status: 200 })) as typeof fetch;
+
+    const request = new Request('https://app.example.test/api/workspaces', {
+      headers: {
+        authorization: 'Bearer luth-session-token',
+        'x-app-id': 'attacker-app',
+        'x-user-id': 'attacker-user',
+        'x-user-email': 'attacker@example.test',
+        'x-session-id': 'attacker-session',
+        'x-user-role': 'admin',
+      },
+    });
+    const result = await authenticateLuthRequest(request);
+    expect(result.status).toBeUndefined();
+    const headers = new Headers(result.request?.headers);
+    expect(headers.get('x-app-id')).toBe('aiko');
+    expect(headers.get('x-user-id')).toBe('verified-user');
+    expect(headers.get('x-user-role')).toBe('user');
+    expect(headers.get('x-user-email')).toBeNull();
+    expect(headers.get('x-session-id')).toBe('verified-session');
+  });
+
   it('does not authenticate static assets or public health requests', async () => {
     const fetchMock = vi.fn();
     globalThis.fetch = fetchMock as typeof fetch;
