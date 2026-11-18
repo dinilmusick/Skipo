@@ -116,7 +116,7 @@ class SemanticTargetResolver:
         # A semantic file selector is data, never authority to read arbitrary
         # source. Check both POSIX and Windows spellings, and then resolve
         # symlinks before accepting a file beneath the canonical project root.
-        if not isinstance(spec.file, str) or not spec.file.strip() or "\\x00" in spec.file:
+        if not isinstance(spec.file, str) or not spec.file.strip() or chr(0) in spec.file:
             return invalid_target("Invalid semantic target file")
         relative = Path(spec.file)
         windows = PureWindowsPath(spec.file)
