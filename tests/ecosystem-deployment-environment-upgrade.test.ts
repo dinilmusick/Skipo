@@ -20,6 +20,8 @@ describe('identity deployment environment upgrade regression', () => {
     expect(sql).toContain("environment IN ('unclassified','development','preview','staging','production')");
     expect(sql).not.toContain("ADD COLUMN IF NOT EXISTS environment text NOT NULL DEFAULT 'preview'");
     expect(sql.indexOf('DROP CONSTRAINT IF EXISTS deployments_environment_check'))
+      .toBeLessThan(sql.indexOf('UPDATE skipo_ecosystem.deployments'));
+    expect(sql.indexOf('DROP CONSTRAINT IF EXISTS deployments_environment_check'))
       .toBeLessThan(sql.indexOf('ADD CONSTRAINT deployments_environment_check'));
   });
 });
