@@ -80,15 +80,13 @@ echo '// app-owned edit' >> "$tab"
 sed -i '/const authProxy = await proxyLuthAuthRequest(request);/d' "$app/src/app.ts"
 "$cli" add auth "$app"
 grep -Fq 'const authProxy = await proxyLuthAuthRequest(request);' "$app/src/app.ts"
-# A conflicting app-owned registry file must leave the pending route repair untouched.
+# All standard framework files are Skipo-owned. Even a noncanonical auth
+# implementation must be overwritten rather than treated as app-owned.
 printf 'export const localAuthBridge = 1;\n' > "$app/src/libraries/skipo/auth.ts"
 sed -i '/const authProxy = await proxyLuthAuthRequest(request);/d' "$app/src/app.ts"
-if "$cli" add auth "$app"; then echo "Expected an app-owned conflict"; exit 1; fi
-if grep -Fq 'const authProxy = await proxyLuthAuthRequest(request);' "$app/src/app.ts"; then
-  echo "A rejected page operation modified its target"; exit 1
-fi
-rm "$app/src/libraries/skipo/auth.ts"
 "$cli" add auth "$app"
+grep -Fq 'const authProxy = await proxyLuthAuthRequest(request);' "$app/src/app.ts"
+grep -Fq '@ultrst-armada/floks/auth' "$app/src/libraries/skipo/auth.ts"
 integrated="$temp/adopted-pages"
 mkdir -p "$integrated/.skipo"
 cp "$app/package.json" "$app/vite.config.ts" "$integrated"
