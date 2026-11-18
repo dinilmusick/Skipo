@@ -132,11 +132,12 @@ def clean_project(root: Path, *, timeout: int = 60, on_timeout: str = "clean",
         print(json.dumps({"ok": False, "operation": "clean", "error": str(exc),
                           "applied": False}, indent=2))
         return 2
-    print_clean_preview(preview, json_output=json_output)
     if not preview["actions"] or plan_only:
+        print_clean_preview(preview, json_output=json_output)
         return 0
     result = clean(root, timeout=timeout, on_timeout=on_timeout,
-                   approve=approve, show_diff=show_diff)
+                   approve=approve, show_diff=show_diff, preview=preview,
+                   json_output=json_output)
     if json_output:
         print(json.dumps({"event": "result", **result}, indent=2))
     else:
