@@ -225,9 +225,32 @@ def _architecture(root: Path) -> list[dict[str, Any]]:
                     item.get("message", "Constraint violation"), path=item.get("file_path", ""),
                     line=item.get("line"), severity=item.get("severity", "error"),
                     suggestion=item.get("suggestion", "")))
-        if result["exit_code"] and not findings:
-            findings.append(_finding("constraints", "SKIPO_VALIDATOR_FAILURE",
-                                     "Validator failed without structured violations"))
+        # A zero exit code alone is not proof that all 26 canonical aspects
+        # were assessed. A partially populated/contradictory JSON report must
+        # never make "skipo check" report success.
+        aspects = report.get("aspects")
+        canonical_ids = {f"aspect_{number:02d}" for number in range(1, 27)}
+        valid_aspects = (
+            isinstance(aspects, list)
+            and len(aspects) >= len(canonical_ids)
+            and all(isinstance(item, dict) and item.get("passed") is True
+                    for item in aspects)
+            and canonical_ids.issubset(
+                {item.get("aspect_id") for item in aspects})
+        )
+        certified = (
+            result["exit_code"] == 0
+            and report.get("overall_passed") is True
+            and type(report.get("total_errors")) is int
+            and report["total_errors"] == 0
+            and valid_aspects
+        )
+        if not certified:
+            findings.append(_finding(
+                "constraints", "SKIPO_VALIDATOR_NOT_CERTIFIED",
+                "Full 26-aspect validator did not independently certify success "
+                "(exit status, summary, aspect coverage or error count is inconsistent).",
+                suggestion="Inspect the validator output and rerun skipo check."))
         sections.append(_section("constraints", findings,
                                 details={"score": report.get("overall_score"),
                                          "aspects": report.get("aspects", []),
