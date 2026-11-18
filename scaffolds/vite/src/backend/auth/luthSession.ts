@@ -1,3 +1,4 @@
+import { appId as configuredAppId } from '../ecosystem/appIdentity_Pure.js';
 import { DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth';
 function stripGuestLeaseCookie(cookie: string | null): string | null {
   if (!cookie) return null;
@@ -26,13 +27,17 @@ export async function proxyLuthAuthRequest(request: Request): Promise<Response |
     : url.pathname === '/api/auth/register'
       ? '/api/auth/sign-up/email'
       : url.pathname;
+  if (!configuredAppId) {
+    return Response.json({ success: false, error: 'Application enrollment is required before Luth authentication.' }, { status: 503 });
+  }
   const headers = new Headers();
   for (const name of ['authorization', 'cookie', 'content-type', 'origin', 'user-agent']) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
-  const appId = request.headers.get('x-app-id') || url.hostname || 'my-app';
-  headers.set('x-app-id', appId);
+  // x-app-id is derived only from the project manifest's canonical reference.
+  // Luth remains responsible for confirming the client/application registration.
+  headers.set('x-app-id', configuredAppId);
 
   try {
     const upstream = await fetch(`${DEFAULT_LUTH_URL}${targetPath}${url.search}`, {
@@ -55,9 +60,8 @@ export async function proxyLuthAuthRequest(request: Request): Promise<Response |
 
 /** Verify the canonical Luth session for external HTTP and MCP transports. */
 export async function getLuthSession(request: Request) {
-  const headers = new Headers({
-    'x-app-id': request.headers.get('x-app-id') || new URL(request.url).hostname,
-  });
+  if (!configuredAppId) return null;
+  const headers = new Headers({ 'x-app-id': configuredAppId });
   for (const name of ['authorization', 'origin']) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
@@ -97,10 +101,10 @@ export async function authenticateLuthRequest(request: Request): Promise<{
   const authorization = request.headers.get('authorization');
   const cookie = stripGuestLeaseCookie(request.headers.get('cookie'));
   if (!authorization && !cookie) return { status: 401, error: 'A verified Luth session is required.' };
+  if (!configuredAppId) return { status: 503, error: 'Application enrollment is required before Luth authentication.' };
 
   try {
-    const appId = request.headers.get('x-app-id') || url.hostname || 'my-app';
-    const headers = new Headers({ 'x-app-id': appId });
+    const headers = new Headers({ 'x-app-id': configuredAppId });
     if (authorization) headers.set('authorization', authorization);
     if (cookie) headers.set('cookie', cookie);
     const response = await fetch(`${DEFAULT_LUTH_URL}/api/session`, {
