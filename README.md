@@ -67,7 +67,8 @@ skipo test .
 The CLI separates observing problems from applying canonical transformations:
 
 ```bash
-skipo check .                       # grouped human-readable report, never writes source
+skipo check .                       # human report in TTY, JSON in CI/non-TTY; no source edits
+skipo check . --human               # force grouped readable report in a pipe or script
 skipo check . --json                # structured policy/semantic/constraints/syntax/lint/types report
 skipo clean . --plan                # exact prospective create/rewrite/retire file list
 skipo clean . --plan --diff         # include readable before/after text diffs
@@ -80,7 +81,7 @@ skipo clean . --json               # machine-readable preflight and result event
 
 `check` performs read-only architecture policy, semantic analysis, environmental governance,
 the 26-aspect validator, exact canonical shell drift inventory, Python/JavaScript/JSON syntax,
-lint, and TypeScript typechecking where tools are configured. It groups each finding with
+lint, and TypeScript typechecking where tools are configured. It keeps the legacy full-validator aspect JSON evidence for certification and groups each finding with
 a rule code, file, severity and suggested repair where available. Missing required analyzers
 are marked blocked; nonconfigured checks are marked not-run rather than falsely passed.
 Tests and production builds remain separate `skipo test` and project build operations,
