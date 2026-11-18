@@ -88,9 +88,9 @@ def test_identity_initializer_is_idempotent_and_never_overwrites_reference(tmp_p
 
 def test_offline_verify_checks_identity_shape_without_claiming_registry_authority(tmp_path, capsys):
     make_manifest(tmp_path, app_id="aiko", registration_status="verified")
-    with patch.object(cli, "maintenance_verify", return_value={"ok": True, "status": "clean", "diagnostics": []}), \\
-         patch.object(cli, "independent_verify", return_value={"ok": True, "architecture": {}}):
-        assert cli.verify_project(tmp_path) == 0
+    with patch.object(cli, "maintenance_verify", return_value={"ok": True, "status": "clean", "diagnostics": []}):
+        with patch.object(cli, "independent_verify", return_value={"ok": True, "architecture": {}}):
+            assert cli.verify_project(tmp_path) == 0
     report = json.loads(capsys.readouterr().out)
     assert report["ok"] is True
     assert report["app_identity"]["authority_verified"] is False
@@ -100,9 +100,9 @@ def test_offline_verify_checks_identity_shape_without_claiming_registry_authorit
 
 def test_offline_verify_rejects_missing_canonical_app_id(tmp_path, capsys):
     make_manifest(tmp_path)
-    with patch.object(cli, "maintenance_verify", return_value={"ok": True, "status": "clean", "diagnostics": []}), \\
-         patch.object(cli, "independent_verify", return_value={"ok": True, "architecture": {}}):
-        assert cli.verify_project(tmp_path) == 1
+    with patch.object(cli, "maintenance_verify", return_value={"ok": True, "status": "clean", "diagnostics": []}):
+        with patch.object(cli, "independent_verify", return_value={"ok": True, "architecture": {}}):
+            assert cli.verify_project(tmp_path) == 1
     report = json.loads(capsys.readouterr().out)
     assert report["ok"] is False
     assert any(item["code"] == "SKIPO_APP_REGISTRY_ENROLLMENT_REQUIRED"
