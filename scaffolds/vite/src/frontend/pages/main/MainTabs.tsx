@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { mainPageTabs, MainTabContent, MainPageToolbar } from './tabRegistry.js';
+import type { WorkspaceRecord } from '@ultrst-armada/floks/ui';
 
 /** App-specific UI exists exclusively inside registered main-page tab modules. */
-export default function MainTabs() {
+export default function MainTabs({ activeWorkspace, isGuest }: { activeWorkspace?: WorkspaceRecord | null; isGuest?: boolean }) {
   const [selected, select] = useState('');
   const activeTab = mainPageTabs.some(tab => tab.id === selected) ? selected : mainPageTabs[0]?.id;
   if (!activeTab) {
@@ -10,6 +11,6 @@ export default function MainTabs() {
   }
   return <>
     <MainPageToolbar activeTabId={activeTab} onSelectTab={select} />
-    <MainTabContent id={activeTab} />
+    <MainTabContent id={activeTab} activeWorkspace={activeWorkspace} isGuest={isGuest} />
   </>;
 }
