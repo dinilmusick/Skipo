@@ -1,4 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../scaffolds/vite/src/backend/ecosystem/appIdentity_Pure', () => ({
+  appId: 'my-app',
+  appRegistrationStatus: 'approved',
+  deploymentId: null,
+  oauthClientId: null,
+  workspaceEnvironment: (env = {}) => ({ ...env, WORKSPACE_APP_ID: 'my-app' }),
+}));
 import { WorkspaceServiceFacade, StorageServiceFacade } from '@ultrst-armada/kloks/backend/krnl-services';
 import { fetchHandler } from '../scaffolds/vite/src/backend/adapters/httpsAdapter.js';
 import { DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth';
