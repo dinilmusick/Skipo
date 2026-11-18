@@ -371,6 +371,24 @@ def test_project(root: Path) -> int:
     return 0
 
 def main() -> int:
+    if sys.argv[1:3] == ["update", "--pages"] or (sys.argv[1:2] == ["repair"] and sys.argv[2:3] in (["auth"], ["login"], ["workspace"], ["main"])):
+        from skipo_pages import compose_page
+        page_parser = argparse.ArgumentParser(prog="skipo " + " ".join(sys.argv[1:3]))
+        page_parser.add_argument("target", nargs="?", type=Path, default=Path.cwd())
+        page_parser.add_argument("--plan", action="store_true")
+        options = page_parser.parse_args(sys.argv[3:])
+        root = options.target.resolve()
+        pages = ["auth", "workspace", "main"] if sys.argv[1] == "update" else [sys.argv[2]]
+        try:
+            for page in pages:
+                result = compose_page(root, "auth" if page == "login" else page, apply=not options.plan)
+                print(json.dumps(result))
+                if not result["ok"]:
+                    return 1
+            return 0
+        except (ValueError, OSError) as exc:
+            print(json.dumps({"ok": False, "error": str(exc)}))
+            return 1
     parser=argparse.ArgumentParser(prog="skipo",description="Skipo deterministic application builder and composition framework.")
     sub=parser.add_subparsers(dest="command",required=True)
     p=sub.add_parser("create")
