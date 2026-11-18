@@ -56,7 +56,8 @@ def plan_files(root, page, title=None):
     app_id = json.loads((root / "package.json").read_text()).get("name", "my-app")
     config = root / ".skipo/pages.json"
     if config.exists():
-        if json.loads(config.read_text()) != {"schemaVersion": 1, "layout": "integrated"}:
+        descriptor = json.loads(config.read_text())
+        if descriptor.get("schemaVersion") != 1 or descriptor.get("layout") != "integrated":
             raise ValueError("Unsupported .skipo/pages.json")
         names = {"auth": "src/frontend/components/skipo/pages/auth.tsx",
                  "workspace": "src/frontend/components/skipo/pages/workspace.tsx",
@@ -67,6 +68,8 @@ def plan_files(root, page, title=None):
             raise ValueError(f"Refusing symlinked project path: {name}")
         value = (SOURCE / name).read_text()
         writes = {} if target.is_file() and target.read_text() == value else {target: value}
+        from skipo_page_bindings import repair_bindings
+        repair_bindings(root, page, descriptor.get("bindings", []), writes)
         plan_tab(root, title, writes)
         return writes
     managed = GROUPS[page]
