@@ -311,3 +311,18 @@ def test_extension_policy_rejects_unknown_paths_and_frontend_exceptions(tmp_path
         assert preview.returncode != 0
         assert "Only" in preview.stdout
         assert not (target / "src/frontend/App.tsx").exists()
+
+
+
+def test_canonical_main_tabs_receive_authenticated_workspace_id(tmp_path):
+    target = app(tmp_path)
+    result = invoke("add", "main", "tab", "Example", str(target))
+    assert result.returncode == 0, result.stdout + result.stderr
+    shell = (target / "src/frontend/pages/main/page.tsx").read_text()
+    tab_shell = (target / "src/frontend/pages/main/MainTabs.tsx").read_text()
+    registry = (target / "src/frontend/pages/main/tabRegistry.tsx").read_text()
+    assert "<MainTabs activeWorkspace={activeWorkspace} isGuest={isGuest} />" in shell
+    assert "<MainTabContent id={activeTab} activeWorkspace={activeWorkspace} isGuest={isGuest} />" in tab_shell
+    assert "workspaceId={activeWorkspace?.id}" in registry
+    assert "activeWorkspace={activeWorkspace}" in registry
+    assert json.loads(invoke("repair", "main", str(target)).stdout)["noop"] is True
