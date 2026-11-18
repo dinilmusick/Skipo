@@ -93,7 +93,8 @@ def sync_identity_artifact(root: Path) -> dict[str, Any]:
         f"export const oauthClientId: string | null = {json.dumps(oauth_client_id)};\n"
         "export function workspaceEnvironment(env?: Record<string, unknown>) {\n"
         "  const { WORKSPACE_APP_ID: _untrustedAppId, SKIPO_DEPLOYMENT_ID: _untrustedDeploymentId, LUTH_OAUTH_CLIENT_ID: _untrustedOauthClientId, ...safeEnv } = env ?? {};\n"
-        "  return { ...safeEnv, ...(appIdentityAuthorityVerified && appId ? { WORKSPACE_APP_ID: appId } : {}), ...(appIdentityAuthorityVerified && deploymentId ? { SKIPO_DEPLOYMENT_ID: deploymentId } : {}), ...(appIdentityAuthorityVerified && oauthClientId ? { LUTH_OAUTH_CLIENT_ID: oauthClientId } : {}) };\n"
+        "  // WORKSPACE_APP_ID is a routing/reference value only; Luth and the target registry remain the authority.\n"
+        "  return { ...safeEnv, ...(appId ? { WORKSPACE_APP_ID: appId } : {}), ...(appIdentityAuthorityVerified && deploymentId ? { SKIPO_DEPLOYMENT_ID: deploymentId } : {}), ...(appIdentityAuthorityVerified && oauthClientId ? { LUTH_OAUTH_CLIENT_ID: oauthClientId } : {}) };\n"
         "}\n"
     )
     identity_file = Path(root) / "src" / "backend" / "ecosystem" / "appIdentity_Pure.ts"
