@@ -27,8 +27,8 @@ importers:
         specifier: 0.5.26
         version: 0.5.26(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/react@19.3.0)(cactus-needle@0.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
       '@ultrst-armada/kloks':
-        specifier: 2.2.3
-        version: 2.2.3(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@neondatabase/serverless@1.2.1)(@types/node@22.20.5)(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.28(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(ts-morph@25.0.1)(ws@8.22.0))(cactus-needle@0.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
+        specifier: 2.2.4
+        version: 2.2.4(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@neondatabase/serverless@1.2.1)(@types/node@22.20.5)(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.28(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(ts-morph@25.0.1)(ws@8.22.0))(cactus-needle@0.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
       '@ultrst-armada/krnl':
         specifier: ^1.0.28
         version: 1.0.28(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(ts-morph@25.0.1)(ws@8.22.0)
@@ -519,6 +519,12 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@jitl/quickjs-ffi-types@0.32.0':
+    resolution: {integrity: sha512-v9T+GQpmk43VDJ7d72sf0Nexhk+ArvtUihW27dy7lqAl0zBObFKtSBBIm5RBjwIhE8VwsPPm9PNuvPvNqLWUEg==}
+
+  '@jitl/quickjs-wasmfile-release-sync@0.32.0':
+    resolution: {integrity: sha512-BKNDI/TPBfGlLNGYpLrhcDGXmIk4xHm4MRAisOBnOzpXVn9HZWsfmMAc9WMBrAHjvvds6HOikKeaOBKdPdpVrg==}
+
   '@jridgewell/sourcemap-codec@1.6.0':
     resolution: {integrity: sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw==}
 
@@ -815,8 +821,8 @@ packages:
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
 
-  '@ultrst-armada/kloks@2.2.3':
-    resolution: {integrity: sha512-Xmmi/4wFXsXg821IJAHJbkgSn9Hnl3I6v2L0h/1Q2YwkaVTT2XYjLVkrCoH4cRmy9JCBx6nvvMx/aPEQYZ3inA==}
+  '@ultrst-armada/kloks@2.2.4':
+    resolution: {integrity: sha512-atpdsJ/DuALW38pKJIk//RaExeTFLA6byiIUiCDP4mi1YFJ/jyQ5VQ2k5nO/Ydv7gTY0aF/CukC15vV8044wKQ==}
     peerDependencies:
       '@aws-sdk/client-s3': ^3.1164.0
       '@aws-sdk/lib-storage': ^3.1164.0
@@ -1221,6 +1227,9 @@ packages:
 
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
+
+  quickjs-emscripten-core@0.32.0:
+    resolution: {integrity: sha512-QFnPfjFey8EqknSrSxe1hZrf1/8z7/6s1QzGOmKo6++02r7QRRX7ZoyNaZh7JuVjWsVW87KnQrbZqnHkOAzUyg==}
 
   react-dom@19.3.0:
     resolution: {integrity: sha512-JDk8dgif51OjFoDE70+OT9ICyYr+69HlmihNwp1+Nsfbna3t5sIiCa9ZJktDmQ4/1b/rn26hIAR2uYXDMr5r0Q==}
@@ -1884,6 +1893,12 @@ snapshots:
   '@img/sharp-win32-x64@0.35.5':
     optional: true
 
+  '@jitl/quickjs-ffi-types@0.32.0': {}
+
+  '@jitl/quickjs-wasmfile-release-sync@0.32.0':
+    dependencies:
+      '@jitl/quickjs-ffi-types': 0.32.0
+
   '@jridgewell/sourcemap-codec@1.6.0': {}
 
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
@@ -2135,11 +2150,13 @@ snapshots:
       - immer
       - use-sync-external-store
 
-  '@ultrst-armada/kloks@2.2.3(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@neondatabase/serverless@1.2.1)(@types/node@22.20.5)(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.28(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(ts-morph@25.0.1)(ws@8.22.0))(cactus-needle@0.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
+  '@ultrst-armada/kloks@2.2.4(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@neondatabase/serverless@1.2.1)(@types/node@22.20.5)(@types/react@19.3.0)(@ultrst-armada/krnl@1.0.28(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(@types/node@22.20.5)(cactus-needle@0.3.0)(esbuild@0.28.2)(ts-morph@25.0.1)(ws@8.22.0))(cactus-needle@0.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))':
     dependencies:
       '@dinilmusick/gutts': 2.2.2(@aws-sdk/client-s3@3.1164.0)(@huggingface/transformers@4.3.2(@types/node@22.20.5))(cactus-needle@0.3.0)
+      '@jitl/quickjs-wasmfile-release-sync': 0.32.0
       '@types/node': 22.20.5
       '@webcontainer/api': 1.6.4
+      quickjs-emscripten-core: 0.32.0
       ws: 8.22.0
       zod: 3.25.76
       zustand: 5.0.15(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
@@ -2578,6 +2595,10 @@ snapshots:
 
   queue-microtask@1.2.3:
     optional: true
+
+  quickjs-emscripten-core@0.32.0:
+    dependencies:
+      '@jitl/quickjs-ffi-types': 0.32.0
 
   react-dom@19.3.0(react@19.3.0):
     dependencies:
