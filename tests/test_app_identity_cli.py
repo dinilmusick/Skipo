@@ -1,5 +1,7 @@
 import json
 import sys
+import importlib.util
+from types import SimpleNamespace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -108,3 +110,47 @@ def test_invalid_deployment_id_is_rejected_without_replacing_app_id(tmp_path):
         assert "deployment_id" in str(exc)
     else:
         raise AssertionError("invalid deployment identity must be rejected")
+
+def test_real_cli_create_and_two_repairs_preserve_all_identity_dimensions(tmp_path, monkeypatch, capsys):
+    scripts_dir = Path(__file__).resolve().parents[1] / "scripts"
+    spec = importlib.util.spec_from_file_location("skipo_cli_identity_test", scripts_dir / "skipo_cli.py")
+    cli = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(cli)
+
+    scaffold = tmp_path / "scaffolds" / "vite"
+    (scaffold / "src/backend/ecosystem").mkdir(parents=True)
+    (scaffold / "src/backend/ecosystem/appIdentity_Pure.ts").write_text("export const appId = 'my-app';\n")
+    (scaffold / "package.json").write_text('{"name":"my-app"}\n')
+    cli.SCAFFOLDS = tmp_path / "scaffolds"
+    monkeypatch.setattr(cli, "capability_adopt", lambda _root: None)
+    monkeypatch.setattr(cli, "capability_compose", lambda *_args, **_kwargs: {"ok": True})
+    monkeypatch.setattr(cli, "assess_architecture", lambda _root: {"blocked": False})
+    monkeypatch.setattr(cli, "reconcile_transaction", lambda *_args, **_kwargs: {"ok": True})
+    monkeypatch.setitem(sys.modules, "skipo_canonical_shell", SimpleNamespace(
+        reconcile_shell=lambda _root, apply: {"ok": apply}
+    ))
+
+    target = tmp_path / "generated-app"
+    assert cli.create_project("Generated App", target, "vite", False) == 0
+    capsys.readouterr()
+    manifest_path = target / ".skipo/project.json"
+    first = json.loads(manifest_path.read_text(encoding="utf-8"))
+    app_id = first["app_id"]
+
+    first["app_url"] = "https://first.example"
+    manifest_path.write_text(json.dumps(first), encoding="utf-8")
+    assert cli.repair_project(target, apply=True) == 0
+    capsys.readouterr()
+    second = json.loads(manifest_path.read_text(encoding="utf-8"))
+    second["app_url"] = "https://second.example"
+    manifest_path.write_text(json.dumps(second), encoding="utf-8")
+    assert cli.repair_project(target, apply=True) == 0
+    capsys.readouterr()
+
+    final = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert final["app_id"] == app_id
+    assert final["app_identity"]["registration_status"] == "pending_enrollment"
+    assert final["deployment_id"] is None
+    assert final["oauth_client_id"] is None
+    assert json.loads((target / ".skipo/enrollment-request.json").read_text())["app_id"] == app_id
