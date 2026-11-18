@@ -50,6 +50,8 @@ def inspect_identity(root: Path) -> dict[str, Any]:
                 "authority_verified": False, "errors": errors}
     # A local value alone is never proof that the user owns this app_id.
     return {"ok": True, "status": "registry_confirmation_required", "app_id": app_id,
+            "deployment_id": project.get("deployment_id"),
+            "oauth_client_id": project.get("oauth_client_id"),
             "authority_verified": False, "errors": [],
             "next_action": "Verify app registration and deployment control in the canonical Neon catalog; do not trust this local value as an authorization grant."}
 
@@ -111,4 +113,10 @@ def sync_identity_artifact(root: Path) -> dict[str, Any]:
 
 def unchanged_identity(before: dict[str, Any], after: dict[str, Any]) -> bool:
     """A repair cannot silently change the canonical application reference."""
-    return before.get("app_id") == after.get("app_id") and after.get("status") != "invalid_identity"
+    # Maintenance must not rotate a registered deployment or OAuth client even
+    # when the stable application ID remains unchanged. Identity references are
+    # registry-owned and may only change through an explicit enrollment flow.
+    return (
+        after.get("status") not in {"invalid_identity", "invalid_manifest", "manifest_missing"}
+        and all(before.get(key) == after.get(key) for key in ("app_id", *ROLE_KEYS))
+    )
