@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
     handle: vi.fn(async (_request: Request, _env?: unknown) => null as Response | null),
   },
   proxyLuthAuthRequest: vi.fn(async (_request: Request) => null as Response | null),
-  authenticateLuthRequest: vi.fn(async (request: Request) => {
+  authenticateLuthRequest: vi.fn(async (request: Request): Promise<{ request?: Request; status?: number; error?: string }> => {
     const headers = new Headers(request.headers);
     headers.set('x-user-id', 'owner-1');
     return { request: new Request(request, { headers }) };
