@@ -106,6 +106,10 @@ requested version, and active grant. A withdrawn publication or revoked grant
 must fail closed immediately. Do not infer authorization from discovery
 results, cached descriptors, deployment leases or caller-supplied user IDs.
 
+The migration explicitly drops the earlier all-history `workflow_grants_scope_unique`
+constraint before creating the active-only partial index, so re-applying over
+an existing first-draft N5 schema still permits auditable re-grants.
+
 The isolated Neon test fixture is
 `db/tests/004_workflow_publication_grants.test.sql`. Run it only after
 applying the migration on the approved isolated development branch. It verifies
