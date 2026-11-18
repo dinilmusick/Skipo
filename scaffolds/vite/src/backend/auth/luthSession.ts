@@ -59,7 +59,7 @@ export async function proxyLuthAuthRequest(request: Request): Promise<Response |
 
 /** Verify the canonical Luth session for external HTTP and MCP transports. */
 export async function getLuthSession(request: Request) {
-  const resolvedAppId = request.headers.get('x-app-id') || configuredAppId;
+  const resolvedAppId = configuredAppId;
   if (!resolvedAppId) return null;
   const headers = new Headers({ 'x-app-id': resolvedAppId });
   for (const name of ['authorization', 'origin']) {
@@ -103,7 +103,7 @@ export async function authenticateLuthRequest(request: Request): Promise<{
   if (!authorization && !cookie) return { status: 401, error: 'A verified Luth session is required.' };
 
   try {
-    const resolvedAppId = request.headers.get('x-app-id') || configuredAppId;
+    const resolvedAppId = configuredAppId;
     if (!resolvedAppId) return { status: 503, error: 'Application enrollment is required before Luth authentication.' };
     const headers = new Headers({ 'x-app-id': resolvedAppId });
     if (authorization) headers.set('authorization', authorization);
@@ -123,6 +123,12 @@ export async function authenticateLuthRequest(request: Request): Promise<{
     }
 
     const forwarded = new Headers(request.headers);
+    // Caller-provided identity metadata is untrusted even when Luth omits
+    // optional email/session fields. Never forward a forged header unchanged.
+    for (const name of ['x-app-id', 'x-user-id', 'x-user-email', 'x-session-id', 'x-user-role']) {
+      forwarded.delete(name);
+    }
+    forwarded.set('x-app-id', configuredAppId);
     forwarded.set('x-user-id', session.user.id);
     if (session.user.email) forwarded.set('x-user-email', session.user.email);
     if (session.session?.id) forwarded.set('x-session-id', session.session.id);
