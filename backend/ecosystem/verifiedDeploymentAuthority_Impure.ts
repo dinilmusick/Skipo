@@ -143,5 +143,15 @@ export async function revokeVerifiedDeployment(
       AND verification_state <> 'revoked'
     RETURNING deployment_id::text
   `, [verified.appId, verified.deploymentId]);
-  return row?.deployment_id === verified.deploymentId;
+  if (row?.deployment_id === verified.deploymentId) return true;
+  // Repeating an approved revocation is idempotent, but only for the same
+  // canonical app and deployment identity. Never revive a revoked instance.
+  const [alreadyRevoked] = await authorityQuery<{ deployment_id: string }>(`
+    SELECT deployment_id::text
+    FROM skipo_ecosystem.deployments
+    WHERE app_id = $1 AND deployment_id = $2::uuid
+      AND verification_state = 'revoked'
+    LIMIT 1
+  `, [verified.appId, verified.deploymentId]);
+  return alreadyRevoked?.deployment_id === verified.deploymentId;
 }
