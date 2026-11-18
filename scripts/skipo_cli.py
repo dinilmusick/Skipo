@@ -95,6 +95,14 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
                           "error": "Canonical auth generation failed",
                           "capability": canonical_auth}, indent=2))
         return 1
+    # Fresh apps immediately satisfy the same strict shell contract enforced
+    # during later updates. No consumer-owned code is allowed outside tabs.
+    from skipo_canonical_shell import reconcile_shell
+    shell = reconcile_shell(target, apply=True)
+    if not shell.get("ok", False):
+        print(json.dumps({"ok": False, "operation": "create", "error":
+                          "Canonical shell reconciliation failed", "shell": shell}, indent=2))
+        return 1
     print(json.dumps({"ok":True,"operation":"create","name":name,"framework":framework,"target":str(target),"skipo_version":VERSION}))
     return 0
 
