@@ -19,8 +19,8 @@ export function validatedDeploymentOrigin(value: unknown): string {
   const hostname = parsed.hostname;
   if (parsed.protocol !== 'https:' || parsed.username || parsed.password ||
       parsed.port || parsed.pathname !== '/' || parsed.search || parsed.hash ||
-      !hostname.includes('.') || /^(?:\\d+\\.){3}\\d+$/.test(hostname) ||
-      /\\.(?:localhost|local|internal)\\.?$/.test(hostname)) {
+      !hostname.includes('.') || /^(?:\d+\.){3}\d+$/.test(hostname) ||
+      /\.(?:localhost|local|internal)\.?$/.test(hostname)) {
     throw new Error('Verified deployment target must be a public HTTPS DNS origin.');
   }
   return parsed.origin;
