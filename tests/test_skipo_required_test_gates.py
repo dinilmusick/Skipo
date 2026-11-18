@@ -50,6 +50,10 @@ def test_missing_gate_fails_without_executing_anything(tmp_path, monkeypatch, ca
     "printf 'ok'",
     "skipo test .",
     "python scripts/skipo_cli.py test .",
+    "npm test",
+    "npm run test",
+    "pnpm test",
+    "yarn test",
 ])
 def test_recursive_or_placeholder_test_script_fails_closed(tmp_path, monkeypatch, capsys, placeholder):
     root = application(tmp_path, scripts={**SCRIPTS, "test": placeholder})
@@ -96,3 +100,12 @@ def test_non_object_package_manifest_fails_cleanly(tmp_path, capsys):
     (root / "package.json").write_text("[]", encoding="utf-8")
     assert skipo_cli.test_project(root) == 2
     assert json.loads(capsys.readouterr().out)["error"] == "package.json must be an object"
+
+
+def test_delegating_to_distinct_test_script_is_allowed(tmp_path, monkeypatch):
+    root = application(tmp_path, scripts={**SCRIPTS, "test": "pnpm run test:unit"})
+    observed = []
+    monkeypatch.setattr(skipo_cli, "run", lambda command, _cwd: observed.append(command[-1]) or 0)
+    monkeypatch.setattr(skipo_cli, "verify_project", lambda _root: 0)
+    assert skipo_cli.test_project(root) == 0
+    assert observed == ["typecheck", "lint", "test", "build"]
