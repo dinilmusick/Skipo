@@ -4,6 +4,15 @@ vi.mock('@ultrst-armada/kloks/auth', () => ({
   DEFAULT_LUTH_URL: 'https://luth.example.test',
 }));
 
+vi.mock('../scaffolds/vite/src/backend/ecosystem/appIdentity_Pure', () => ({
+  appId: 'aiko',
+  appRegistrationStatus: 'registry_confirmation_required',
+  appIdentityAuthorityVerified: false,
+  deploymentId: null,
+  oauthClientId: null,
+  workspaceEnvironment: (env: Record<string, unknown> = {}) => env,
+}));
+
 import { authenticateLuthRequest, proxyLuthAuthRequest } from '../scaffolds/vite/src/backend/auth/luthSession';
 
 const originalFetch = globalThis.fetch;
@@ -21,15 +30,20 @@ describe('Skipo Vite canonical Luth boundary', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('uses verified Luth identity instead of caller-controlled identity headers', async () => {
-    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({
-      authenticated: true,
-      user: { id: 'verified-user', email: 'verified@example.test' },
-    }), { status: 200 })) as typeof fetch;
+  it('uses configured app identity and verified Luth principal instead of caller-controlled headers', async () => {
+    const upstreamAppIds: string[] = [];
+    globalThis.fetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      upstreamAppIds.push(new Headers(init?.headers).get('x-app-id') || '');
+      return new Response(JSON.stringify({
+        authenticated: true,
+        user: { id: 'verified-user', email: 'verified@example.test' },
+      }), { status: 200 });
+    }) as typeof fetch;
 
     const request = new Request('https://app.example.test/api/workspaces', {
       headers: {
         authorization: 'Bearer luth-session-token',
+        'x-app-id': 'attacker-app',
         'x-user-id': 'attacker-user',
         'x-user-role': 'admin',
       },
@@ -37,6 +51,8 @@ describe('Skipo Vite canonical Luth boundary', () => {
     const result = await authenticateLuthRequest(request);
     expect(result.status).toBeUndefined();
     const headers = new Headers(result.request?.headers);
+    expect(upstreamAppIds).toEqual(['aiko']);
+    expect(headers.get('x-app-id')).toBe('aiko');
     expect(headers.get('x-user-id')).toBe('verified-user');
     expect(headers.get('x-user-email')).toBe('verified@example.test');
     expect(headers.get('x-user-role')).toBe('user');
@@ -66,12 +82,12 @@ describe('Skipo Vite canonical Luth boundary', () => {
 
     const request = new Request('https://app.example.test/api/auth/login', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', origin: 'https://app.example.test' },
+      headers: { 'content-type': 'application/json', origin: 'https://app.example.test', 'x-app-id': 'attacker-app' },
       body: JSON.stringify({ email: 'user@example.test', password: 'not-real' }),
     });
     const response = await proxyLuthAuthRequest(request);
     expect(target).toBe('https://luth.example.test/api/auth/sign-in/email');
-    expect(headers?.get('x-app-id')).toBe('app.example.test');
+    expect(headers?.get('x-app-id')).toBe('aiko');
     expect(response?.status).toBe(200);
     expect(response?.headers.get('set-auth-token')).toBe('luth-token');
   });
