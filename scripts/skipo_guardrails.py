@@ -336,14 +336,18 @@ def _decision(timeout: int, on_timeout: str = "clean") -> str:
 
 def clean(root: Path, *, timeout: int = 60, on_timeout: str = "clean",
           approve: bool = False, plan_only: bool = False,
-          show_diff: bool = False) -> dict[str, Any]:
+          show_diff: bool = False, preview: dict[str, Any] | None = None,
+          json_output: bool = False) -> dict[str, Any]:
     """Warn, allow fixes/cancel, then apply the existing reversible shell repair."""
     root = root.resolve()
     try:
-        preview = clean_preview(root, show_diff=show_diff)
+        preview = preview if preview is not None else clean_preview(root, show_diff=show_diff)
     except (ValueError, OSError) as exc:
-        return {"ok": False, "applied": False, "operation": "clean",
-                "error": str(exc), "decision": "blocked"}
+        failure = {"ok": False, "applied": False, "operation": "clean",
+                   "error": str(exc), "decision": "blocked"}
+        print_clean_preview(failure, json_output=json_output)
+        return failure
+    print_clean_preview(preview, json_output=json_output)
     preview["decision"] = "pending"
     if plan_only or not preview["actions"]:
         preview["decision"] = "planned" if plan_only else "noop"
