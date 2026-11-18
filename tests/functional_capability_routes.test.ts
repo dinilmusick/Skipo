@@ -1,4 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../scaffolds/vite/src/backend/ecosystem/appIdentity_Pure', () => ({
+  appId: 'aiko',
+  appRegistrationStatus: 'registry_confirmation_required',
+  appIdentityAuthorityVerified: false,
+  deploymentId: null,
+  oauthClientId: null,
+  workspaceEnvironment: (env: Record<string, unknown> = {}) => {
+    const { WORKSPACE_APP_ID: _untrustedAppId, SKIPO_DEPLOYMENT_ID: _untrustedDeploymentId,
+      LUTH_OAUTH_CLIENT_ID: _untrustedOauthClientId, ...safeEnv } = env;
+    return { ...safeEnv, WORKSPACE_APP_ID: 'aiko' };
+  },
+}));
 import { WorkspaceServiceFacade, StorageServiceFacade } from '@ultrst-armada/kloks/backend/krnl-services';
 import { fetchHandler } from '../scaffolds/vite/src/backend/adapters/httpsAdapter.js';
 import { DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth';
@@ -43,7 +56,7 @@ describe('actual Vite Fetch ingress to canonical Kloks', () => {
     expect(get.status).toBe(200);
     expect((await get.json()).workspaces[0].name).toBe('Real workspace');
     expect(execute).toHaveBeenNthCalledWith(1, 'listWorkspaces', {
-      userId: 'verified-luth-user', env: { APP_URL: 'http://localhost:3000', WORKSPACE_APP_ID: 'my-app' },
+      userId: 'verified-luth-user', env: { APP_URL: 'http://localhost:3000', WORKSPACE_APP_ID: 'aiko' },
     });
 
     const post = await fetchHandler(new Request('http://localhost:3000/api/auth/workspaces', {
@@ -56,7 +69,7 @@ describe('actual Vite Fetch ingress to canonical Kloks', () => {
     expect(execute).toHaveBeenNthCalledWith(2, 'createWorkspace', {
       userId: 'verified-luth-user',
       workspace: { name: 'Created', storageProvider: 'local_fs' },
-      env: { WORKSPACE_APP_ID: 'my-app' },
+      env: { WORKSPACE_APP_ID: 'aiko' },
     });
   });
 
@@ -78,7 +91,7 @@ describe('actual Vite Fetch ingress to canonical Kloks', () => {
       body: JSON.stringify({ operation: 'getConnections', input: { userId: 'attacker' } }),
     }));
     expect(connections.status).toBe(200);
-    expect(execute).toHaveBeenCalledWith('getConnections', { userId: 'verified-luth-user', env: { WORKSPACE_APP_ID: 'my-app' } });
+    expect(execute).toHaveBeenCalledWith('getConnections', { userId: 'verified-luth-user', env: { WORKSPACE_APP_ID: 'aiko' } });
   });
 });
 
