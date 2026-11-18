@@ -171,4 +171,25 @@ describe('proof-qualified current deployment capability selection', () => {
       forged, 'aiko', ping.id, 'production',
     )).rejects.toThrow(/invalid capability descriptor/i);
   });
+  it('rejects fabricated descriptor publication without a stable deployment and matching callable method', () => {
+    expect(() => createEcosystemRuntime({
+      appId: 'aiko',
+      capabilities: { workspaceList: async () => [] },
+      capabilityDescriptors: [{ ...ping, id: 'workspaceList' }],
+      authenticate: async () => 'user-1',
+    })).toThrow(/stable deployment identity/i);
+    expect(() => createEcosystemRuntime({
+      appId: 'aiko', deploymentId: deploymentA,
+      capabilities: { workspaceList: async () => [] },
+      capabilityDescriptors: [ping],
+      authenticate: async () => 'user-1',
+    })).toThrow(/registered callable capabilities/i);
+    expect(() => createEcosystemRuntime({
+      appId: 'aiko', deploymentId: deploymentA,
+      capabilities: { workspaceList: async () => [] },
+      capabilityDescriptors: [{ ...ping, id: 'workspaceList' }],
+      authenticate: async () => 'user-1',
+    })).not.toThrow();
+  });
+
 });
