@@ -23,7 +23,7 @@ export default function MainPage({ isGuest, activeWorkspace, onSwitchWorkspace }
           {showSettings ? 'Back to workspace' : 'Settings'}
         </BaseButton>
       </header>
-      <main>{showSettings ? <SettingsPage activeWorkspaceName={activeWorkspace?.title || (isGuest ? 'Guest' : undefined)} /> : <MainTabs />}</main>
+      <main>{showSettings ? <SettingsPage activeWorkspaceName={activeWorkspace?.title || (isGuest ? 'Guest' : undefined)} /> : <MainTabs activeWorkspace={activeWorkspace} isGuest={isGuest} />}</main>
     </div>
   );
 }
