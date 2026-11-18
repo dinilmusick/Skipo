@@ -2,7 +2,8 @@ import * as appIdentity from '../ecosystem/appIdentity_Pure.js';
 import { DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth';
 function getConfiguredAppId(): string | null {
   const candidate = appIdentity.appId;
-  return appIdentity.appIdentityAuthorityVerified === true &&
+  const authorityVerified: boolean = appIdentity.appIdentityAuthorityVerified;
+  return authorityVerified &&
     typeof candidate === 'string' && candidate.trim() ? candidate : null;
 }
 
