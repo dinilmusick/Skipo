@@ -43,6 +43,24 @@ def ensure_app_identity(root: Path) -> dict[str, Any]:
     })
     manifest["app_identity"] = identity
 
+    enrollment_path = root / ".skipo" / "enrollment-request.json"
+    if not approved:
+        if enrollment_path.exists():
+            try:
+                request = json.loads(enrollment_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                raise ValueError("Existing enrollment request is unreadable; refusing to replace it.") from exc
+            if request.get("app_id") != app_id:
+                raise ValueError("Existing enrollment request belongs to a different app_id.")
+        else:
+            enrollment_path.write_text(json.dumps({
+                "app_id": app_id,
+                "request_type": "application_enrollment",
+                "status": "pending",
+                "requires_ecosystem_admin_approval": True,
+                "created_by": "skipo-cli",
+            }, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+
     project_file.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     identity_file = root / "src" / "backend" / "ecosystem" / "appIdentity_Pure.ts"
     identity_file.parent.mkdir(parents=True, exist_ok=True)
@@ -55,4 +73,8 @@ def ensure_app_identity(root: Path) -> dict[str, Any]:
         "}\n",
         encoding="utf-8",
     )
-    return {"app_id": app_id, "registration_status": identity["registration_status"]}
+    return {
+        "app_id": app_id,
+        "registration_status": identity["registration_status"],
+        "enrollment_request": ".skipo/enrollment-request.json" if not approved else None,
+    }
