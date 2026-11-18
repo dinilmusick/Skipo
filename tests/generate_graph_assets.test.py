@@ -122,17 +122,20 @@ class GraphAssetGeneratorTests(unittest.TestCase):
         self.assertFalse((target / "graph-assets.manifest.json").exists())
 
     def test_symlinked_destination_cannot_escape_root(self):
-        other = self.root / "outside"
-        other.mkdir()
-        tab_parent = self.root / "src/frontend/pages/main"
-        tab_parent.mkdir(parents=True)
+        # A sibling of the application is genuinely outside the trusted root.
+        other = Path(tempfile.mkdtemp(prefix="skipo_graph_external_"))
         try:
-            (tab_parent / "tabs").symlink_to(other, target_is_directory=True)
-        except (OSError, NotImplementedError):
-            self.skipTest("Symlinks unsupported")
-        with self.assertRaisesRegex(ValueError, "escapes the application root"):
-            MODULE.generate(self.manifest, self.root, "Garden", "GardenGraph")
-        self.assertFalse((other / "Garden").exists())
+            tab_parent = self.root / "src/frontend/pages/main"
+            tab_parent.mkdir(parents=True)
+            try:
+                (tab_parent / "tabs").symlink_to(other, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("Symlinks unsupported")
+            with self.assertRaisesRegex(ValueError, "escapes the application root"):
+                MODULE.generate(self.manifest, self.root, "Garden", "GardenGraph")
+            self.assertFalse((other / "Garden").exists())
+        finally:
+            shutil.rmtree(other, ignore_errors=True)
 
 
 if __name__ == "__main__":
