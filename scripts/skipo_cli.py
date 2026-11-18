@@ -42,7 +42,7 @@ from skipo_environment_contract import (
 from skipo_capabilities import retire_known_duplicates
 from skipo_lifecycle import assess as assess_architecture, independent_verify, transaction_verify
 from skipo_reconciliation import reconcile as reconcile_transaction
-from skipo_app_identity import ensure_app_identity
+from skipo_app_identity import ensure_app_identity, inspect_app_identity
 
 def run(cmd: list[str], cwd: Path) -> int:
     return subprocess.run(cmd, cwd=str(cwd)).returncode
@@ -331,7 +331,15 @@ def verify_project(root: Path) -> int:
         }],
     }
     independent = independent_verify(root, VERSION)
+    app_identity = inspect_app_identity(root)
     diagnostics = list(legacy.get("diagnostics", []))
+    if app_identity and not app_identity.get("ok"):
+        diagnostics.append({
+            "code": "SKIPO_APP_ENROLLMENT_PENDING",
+            "status": "unresolved",
+            "message": "Application identity requires ecosystem-admin enrollment before certification.",
+            "path": ".skipo/project.json",
+        })
     architecture = independent.get("architecture", {})
     for finding in architecture.get("policy", {}).get("diagnostics", []):
         if finding.get("state") != "compliant":
@@ -381,8 +389,9 @@ def verify_project(root: Path) -> int:
                     "path": action["path"],
                 })
     ok = bool(legacy.get("ok") and independent.get("ok")
-              and shell.get("ok", False) and shell.get("noop", False))
-    payload = {"operation": "verify", "ok": ok,
+              and shell.get("ok", False) and shell.get("noop", False)
+              and (app_identity is None or app_identity.get("ok")))
+    payload = {"operation": "verify", "ok": ok, "app_identity": app_identity,
                "status": legacy.get("status", "clean") if ok else (
                    legacy.get("status") if not legacy.get("ok") else "unresolved"),
                "diagnostics": diagnostics, "diagnostic_count": len(diagnostics),
