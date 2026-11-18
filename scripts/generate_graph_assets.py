@@ -85,7 +85,11 @@ def generate(manifest_path: Path, root: Path, tab: str, interface: str) -> list[
     # cannot be overwritten by a framework upgrade.
     snapshots: dict[Path, str | None] = {}
     for file in (interface_file, tab_file, metadata):
-        if file.exists() or file.is_symlink():
+        # A symlinked leaf could otherwise rewrite an unrelated application
+        # file or escape the project even when the parent directory is safe.
+        if file.is_symlink():
+            raise ValueError(f"Refusing to overwrite a symlinked graph asset: {file}")
+        if file.exists():
             if not file.is_file():
                 raise ValueError(f"Graph asset target is not a regular file: {file}")
             snapshots[file] = file.read_text(encoding="utf-8")
