@@ -158,10 +158,21 @@ def validate_repository(root: Path) -> list[str]:
     vite_adapter = root / "scaffolds/vite/src/backend/adapters/httpsAdapter.ts"
     if vite_adapter.is_file():
         source = vite_adapter.read_text(encoding="utf-8")
-        if "authenticateLuthRequest" not in source or "universalFetch" not in source:
-            errors.append("Vite Node adapter must delegate shared Luth auth routes to the Fetch entry and protect legacy routes")
+        if "fetch as fetchHandler" not in source or "../app.js" not in source:
+            errors.append("Vite Node adapter must delegate directly to the canonical Fetch entrypoint")
+        if "authenticateLuthRequest" in source or "universalFetch" in source:
+            errors.append("Vite application routes must be owned by the canonical Fetch entrypoint, not the legacy adapter")
         if "DepmBackend.services.auth.loginUser" in source or "sess::" in source:
             errors.append("Vite API adapter contains legacy local authentication")
+
+    vite_app = root / "scaffolds/vite/src/app.ts"
+    if vite_app.is_file():
+        source = vite_app.read_text(encoding="utf-8")
+        for marker in ("authenticateLuthRequest(request)", "headers.get('x-user-id')",
+                       "proxyLuthAuthRequest(request)", "externalInterfaces.mcp(request)",
+                       "externalInterfaces.http(request)"):
+            if marker not in source:
+                errors.append(f"Canonical Vite Fetch entrypoint missing protected route marker: {marker}")
 
     framework = "vite"
     frontend = root / "scaffolds" / framework / "src" / "frontend"
