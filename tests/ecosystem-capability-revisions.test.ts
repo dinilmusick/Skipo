@@ -251,4 +251,53 @@ describe('proof-qualified current deployment capability selection', () => {
     expect(migration).toContain('static capability revision history is immutable');
   });
 
+  it('blocks verified facade operations on the legacy ticket-only execution route', async () => {
+    const executed = vi.fn(async () => 'private-output');
+    const query = vi.fn(async () => [{
+      caller_app: 'kone', user_id: 'user-1', capability: 'workspaceList', params: {},
+    }]) as unknown as Query;
+    const runtime = createEcosystemRuntime({
+      appId: 'aiko', deploymentId: deploymentA,
+      capabilities: { workspaceList: executed },
+      capabilityDescriptors: [{ ...ping, id: 'workspaceList' }],
+      backendFacadeOperations: registeredFacade,
+      authenticate: async () => 'user-1',
+      query: () => query,
+    });
+    const request = new Request('https://aiko.example/api/ecosystem/invoke', {
+      method: 'POST',
+      headers: { 'x-skipo-invocation': '36f3149f-1243-4a14-8641-dad57e3e6f83' },
+    });
+    const response = await runtime.handle(request, {
+      APP_URL: 'https://aiko.example', SYSTEM_DATABASE_URL: 'unused',
+    });
+    expect(response?.status).toBe(403);
+    expect(await response?.json()).toEqual({ error: 'AUTHENTICATED_FACADE_ROUTE_REQUIRED' });
+    expect(executed).not.toHaveBeenCalled();
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves explicitly unadvertised legacy calls during the compatibility window', async () => {
+    const legacy = vi.fn(async () => 'legacy-output');
+    const query = vi.fn(async () => [{
+      caller_app: 'kone', user_id: 'user-1', capability: 'legacyPing', params: {},
+    }]) as unknown as Query;
+    const runtime = createEcosystemRuntime({
+      appId: 'aiko', deploymentId: deploymentA,
+      capabilities: { legacyPing: legacy, workspaceList: async () => [] },
+      capabilityDescriptors: [{ ...ping, id: 'workspaceList' }],
+      backendFacadeOperations: registeredFacade,
+      authenticate: async () => 'user-1',
+      query: () => query,
+    });
+    const response = await runtime.handle(
+      new Request('https://aiko.example/api/ecosystem/invoke', {
+        method: 'POST', headers: { 'x-skipo-invocation': deploymentA },
+      }), { APP_URL: 'https://aiko.example', SYSTEM_DATABASE_URL: 'unused' },
+    );
+    expect(response?.status).toBe(200);
+    expect(await response?.json()).toEqual({ output: 'legacy-output' });
+    expect(legacy).toHaveBeenCalledTimes(1);
+  });
+
 });
