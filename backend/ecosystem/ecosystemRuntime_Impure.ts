@@ -1,6 +1,7 @@
 import {
-  consumeInvocation, createInvocation, findDeployment, refreshDeployment, refreshDeploymentById, systemQuery,
-  type EcosystemEnv, type Query,
+  consumeInvocation, createInvocation, findDeployment, refreshDeployment, refreshDeploymentById,
+  publishDeploymentCapabilityRevision, normalizeStaticCapabilityDescriptors,
+  type EcosystemEnv, type Query, type StaticCapabilityDescriptor, systemQuery,
 } from './deploymentStore_Impure.js';
 
 const invocationPath = '/api/ecosystem/invoke';
@@ -28,6 +29,8 @@ export function createEcosystemRuntime(options: {
   appId: string;
   /** Persistent deployment UUID, provisioned by an approved control plane. */
   deploymentId?: string;
+  /** Static public metadata only; never include user workflows or session-bound endpoints. */
+  capabilityDescriptors?: readonly StaticCapabilityDescriptor[];
   capabilities: Record<string, Capability>;
   serviceCapabilities?: Record<string, (params: unknown, context: {
     callerApp: string; env: EcosystemEnv;
@@ -40,6 +43,8 @@ export function createEcosystemRuntime(options: {
   const methods = new Map(Object.entries(options.capabilities));
   const serviceMethods = new Map(Object.entries(options.serviceCapabilities ?? {}));
   const capabilities = [...new Set([...methods.keys(), ...serviceMethods.keys()])].sort();
+  const capabilityDescriptors = options.capabilityDescriptors === undefined
+    ? undefined : normalizeStaticCapabilityDescriptors(options.capabilityDescriptors);
   if (!appPattern.test(appId) || capabilities.some(name => !capabilityPattern.test(name)) ||
       capabilities.length !== methods.size + serviceMethods.size) {
     throw new Error('Invalid ecosystem application or capability identifier.');
@@ -67,6 +72,9 @@ export function createEcosystemRuntime(options: {
       if (options.deploymentId) {
         await refreshDeploymentById(query(env), appId, options.deploymentId,
           deploymentOrigin(env.APP_URL), capabilities);
+        if (capabilityDescriptors !== undefined) {
+          await publishDeploymentCapabilityRevision(query(env), options.deploymentId, capabilityDescriptors);
+        }
       } else {
         await refreshDeployment(query(env), appId, deploymentOrigin(env.APP_URL), capabilities);
       }

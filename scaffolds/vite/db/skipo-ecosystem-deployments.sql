@@ -27,16 +27,15 @@ ALTER TABLE skipo_ecosystem.deployments
 CREATE UNIQUE INDEX IF NOT EXISTS deployments_by_immutable_id
   ON skipo_ecosystem.deployments (deployment_id);
 
--- Existing and legacy-heartbeat rows stay unclassified until an owner proves their environment.
+-- Old URL-only heartbeat rows remain unclassified until proof of deployment control.
+-- This is intentionally idempotent across preview-era migration retries.
 ALTER TABLE skipo_ecosystem.deployments
   ALTER COLUMN environment SET DEFAULT 'unclassified';
 
--- Remove the preview-era CHECK before reclassifying rows to unclassified.
+-- The old preview-only CHECK must be removed before unclassified rows are backfilled.
 ALTER TABLE skipo_ecosystem.deployments
   DROP CONSTRAINT IF EXISTS deployments_environment_check;
 
--- Reclassify rows created under the earlier inferred-preview default when no
--- deployment-control proof exists. Preserve explicitly verified rows.
 UPDATE skipo_ecosystem.deployments
 SET environment = 'unclassified'
 WHERE environment = 'preview'
@@ -128,6 +127,23 @@ CREATE TRIGGER deployments_identity_immutable
 
 -- No existing registration is classified verified without deployment-control proof.
 -- Verification status/lease are reserved for separately authorized registry writers.
+
+
+-- Immutable, per-deployment snapshots of static callable capability metadata.
+-- Never store user workflow definitions, session URLs, bearer material or secrets here.
+CREATE TABLE IF NOT EXISTS skipo_ecosystem.deployment_capability_revisions (
+  deployment_id uuid NOT NULL
+    REFERENCES skipo_ecosystem.deployments(deployment_id) ON DELETE CASCADE,
+  revision bigint NOT NULL CHECK (revision > 0),
+  descriptors jsonb NOT NULL
+    CHECK (jsonb_typeof(descriptors) = 'array' AND jsonb_array_length(descriptors) <= 256),
+  published_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  PRIMARY KEY (deployment_id, revision)
+);
+
+CREATE INDEX IF NOT EXISTS deployment_capability_revisions_latest
+  ON skipo_ecosystem.deployment_capability_revisions
+    (deployment_id, revision DESC);
 
 CREATE TABLE IF NOT EXISTS skipo_ecosystem.invocations (
   id uuid PRIMARY KEY,
