@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  refreshDeployment, refreshDeploymentById, type Query,
+  refreshDeployment, refreshDeploymentById, validatedDeploymentOrigin, type Query,
 } from '../backend/ecosystem/deploymentStore_Impure.js';
 import { createEcosystemRuntime } from '../backend/ecosystem/ecosystemRuntime_Impure.js';
 
@@ -62,6 +62,16 @@ describe('canonical ULTRST deployment identity', () => {
       appId: 'aiko', deploymentId: 'https://fake.example', capabilities: {},
       authenticate: async () => null,
     })).toThrow('Invalid ecosystem deployment identity');
+  });
+
+  it('rejects untrusted public target origins before database registration', () => {
+    expect(validatedDeploymentOrigin('https://service.example')).toBe('https://service.example');
+    for (const unsafe of [
+      'http://service.example', 'https://127.0.0.1', 'https://admin:pw@service.example',
+      'https://service.local', 'https://service.example/private', 'https://service.example?x=1',
+    ]) {
+      expect(() => validatedDeploymentOrigin(unsafe), unsafe).toThrow(/public HTTPS DNS origin/);
+    }
   });
 
   it('keeps generated Vite application runtime and database migration in sync', () => {
