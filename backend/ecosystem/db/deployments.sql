@@ -31,6 +31,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS deployments_by_immutable_id
 ALTER TABLE skipo_ecosystem.deployments
   ALTER COLUMN environment SET DEFAULT 'unclassified';
 
+-- Replace the original four-state constraint before reclassifying legacy
+-- preview rows; otherwise the old CHECK rejects the unclassified backfill.
+-- This is safe on repeat runs when the five-state constraint is already present.
+ALTER TABLE skipo_ecosystem.deployments
+  DROP CONSTRAINT IF EXISTS deployments_environment_check;
+
 -- Reclassify rows created under the earlier inferred-preview default when no
 -- deployment-control proof exists. Preserve explicitly verified rows.
 UPDATE skipo_ecosystem.deployments
@@ -38,10 +44,6 @@ SET environment = 'unclassified'
 WHERE environment = 'preview'
   AND verification_state = 'unverified'
   AND verification_proof_digest IS NULL;
-
--- Replace the original four-state constraint on repeat runs as well.
-ALTER TABLE skipo_ecosystem.deployments
-  DROP CONSTRAINT IF EXISTS deployments_environment_check;
 
 -- Re-runnable on existing databases without breaking the old composite PK.
 DO $deployment_identity$
