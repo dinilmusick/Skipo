@@ -19,7 +19,7 @@ jobs:
       github.event_name == 'push' ||
       (github.event_name == 'issues' &&
        github.event.issue.user.login == 'dinilmusick' &&
-       github.event.issue.title == '[skipo-publish] 1.2.0')
+       github.event.issue.title == '[skipo-publish] 1.3.0')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -44,7 +44,7 @@ jobs:
           ISSUE_COMMIT_SHA: ${{ github.event.issue.body }}
         run: |
           if [[ "$GITHUB_EVENT_NAME" == "issues" ]]; then
-            TAG_VERSION="1.2.0"
+            TAG_VERSION="1.3.0"
             [[ "$ISSUE_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "Issue body must contain only the main commit SHA"; exit 1; }
             test "$ISSUE_COMMIT_SHA" = "$(git rev-parse HEAD)"
           else
