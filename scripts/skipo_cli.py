@@ -121,6 +121,9 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
         print(json.dumps({"ok": False, "operation": "create", "error":
                           "Canonical shell reconciliation failed", "shell": shell}, indent=2))
         return 1
+    # Shell reconciliation owns the generated scaffold files; reapply the
+    # project-owned identity last so a repair cannot restore a shared placeholder.
+    identity = ensure_app_identity(target)
     print(json.dumps({"ok":True,"operation":"create","name":name,"framework":framework,"target":str(target),"skipo_version":VERSION,"identity":identity,"enrollment_required":identity["registration_status"] != "approved"}))
     return 0
 
@@ -245,8 +248,9 @@ def update_project(root: Path) -> int:
             identity = ensure_app_identity(root)
             payload = reconcile_transaction(
                 root, True, VERSION, with_environment=True,
-                verify_hook=lambda target: transaction_verify(target, VERSION),
+                verify_hook=lambda target: (ensure_app_identity(target), transaction_verify(target, VERSION))[1],
             )
+            identity = ensure_app_identity(root)
             payload["operation"] = "update"
             payload["identity"] = identity
             payload["next_stage"] = "sync" if payload.get("ok") else "diagnose"
@@ -311,8 +315,10 @@ def repair_project(root: Path, apply: bool) -> int:
             }
             payload = reconcile_transaction(
                 root, apply, VERSION, with_environment=True,
-                verify_hook=lambda target: transaction_verify(target, VERSION),
+                verify_hook=lambda target: ((ensure_app_identity(target) if apply else None), transaction_verify(target, VERSION))[1],
             )
+            if apply:
+                identity = ensure_app_identity(root)
             payload["identity"] = identity
     except (ValueError, OSError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
