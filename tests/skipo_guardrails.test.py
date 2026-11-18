@@ -124,6 +124,25 @@ class GuardrailTests(unittest.TestCase):
             self.assertEqual(constraints["status"], "pass")
             self.assertEqual(constraints["findings"], [])
 
+    def test_check_rejects_failed_section_without_individual_error_findings(self):
+        """A category status of FAIL is independently sufficient to fail check."""
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.project(root)
+            failed = guard._section("constraints", [], status="fail", details={
+                "aspects": [], "overall_passed": False, "total_errors": 0
+            })
+            with patch.object(guard, "_architecture", return_value=[failed]):
+                with patch.object(guard, "_tool_section", side_effect=(
+                        lambda root, category, command: guard._section(category, []))):
+                    with patch.object(guard, "_code_syntax",
+                                      return_value=guard._section("syntax", [])):
+                        report = guard.check(root)
+            self.assertFalse(report["ok"])
+            self.assertEqual(report["total_errors"], 0)
+            self.assertEqual(report["summary"]["failed"], ["constraints"])
+            self.assertFalse(report["summary"]["complete"])
+
     def test_timeout_chooses_aggressive_clean(self):
         self.assertEqual(guard._decision(0), "clean")
         self.assertEqual(guard._decision(0, "cancel"), "cancel")
