@@ -289,7 +289,10 @@ def repair_project(root: Path, apply: bool) -> int:
                        "errors": ["Architectural preflight blocked mutation"],
                        "architecture": architecture}
         else:
-            identity = ensure_app_identity(root)
+            identity = ensure_app_identity(root) if apply else {
+                "app_id": manifest(root).get("app_id"),
+                "registration_status": (manifest(root).get("app_identity") or {}).get("registration_status", "pending_enrollment"),
+            }
             payload = reconcile_transaction(
                 root, apply, VERSION, with_environment=True,
                 verify_hook=lambda target: transaction_verify(target, VERSION),
