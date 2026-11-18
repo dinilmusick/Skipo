@@ -108,3 +108,62 @@ def test_offline_verify_rejects_missing_canonical_app_id(tmp_path, capsys):
     assert report["ok"] is False
     assert any(item["code"] == "SKIPO_APP_REGISTRY_ENROLLMENT_REQUIRED"
                for item in report["diagnostics"])
+
+
+def test_forced_create_preserves_existing_registered_identity_and_role_references(tmp_path, capsys):
+    scaffold_root = tmp_path / "scaffolds"
+    scaffold = scaffold_root / "vite"
+    scaffold.mkdir(parents=True)
+    (scaffold / "package.json").write_text('{"name":"my-app"}\n', encoding="utf-8")
+    (scaffold / "vite.config.ts").write_text("export default {};\n", encoding="utf-8")
+
+    target = tmp_path / "existing-app"
+    target.mkdir()
+    make_manifest(
+        target,
+        app_id="aiko",
+        deployment_id="d290f1ee-6c54-4b01-90e6-d701748f0851",
+        oauth_client_id="luth-aiko-web",
+        app_identity_version=1,
+        registration_status="verified",
+    )
+    (target / "existing-user-file.ts").write_text("export const retained = true;\n", encoding="utf-8")
+
+    with patch.object(cli, "SCAFFOLDS", scaffold_root), \
+         patch.object(cli, "capability_adopt", return_value={"ok": True}), \
+         patch.object(cli, "capability_compose", return_value={"ok": True}), \
+         patch("skipo_canonical_shell.reconcile_shell", return_value={"ok": True}):
+        assert cli.create_project("Aiko Refreshed", target, "vite", True) == 0
+
+    capsys.readouterr()
+    manifest = json.loads((target / ".skipo/project.json").read_text(encoding="utf-8"))
+    assert manifest["app_id"] == "aiko"
+    assert manifest["deployment_id"] == "d290f1ee-6c54-4b01-90e6-d701748f0851"
+    assert manifest["oauth_client_id"] == "luth-aiko-web"
+    assert manifest["app_identity_version"] == 1
+    assert manifest["registration_status"] == "verified"
+    generated = (target / "src/backend/ecosystem/appIdentity_Pure.ts").read_text(encoding="utf-8")
+    assert "export const appId: string | null = \\"aiko\\";" in generated
+    assert "appIdentityAuthorityVerified = false" in generated
+    assert "WORKSPACE_APP_ID: appId" in generated
+    assert (target / "existing-user-file.ts").exists() is False
+    assert identity.inspect_identity(target)["app_id"] == "aiko"
+
+
+def test_generated_identity_module_exports_runtime_contract_without_local_trust(tmp_path):
+    make_manifest(
+        tmp_path,
+        app_id=None,
+        deployment_id=None,
+        oauth_client_id=None,
+    )
+    identity.initialize_unenrolled_identity(tmp_path)
+    generated = (tmp_path / "src/backend/ecosystem/appIdentity_Pure.ts").read_text(encoding="utf-8")
+    assert "export const appId: string | null = null;" in generated
+    assert "export const appRegistrationStatus" in generated
+    assert "export const appIdentityAuthorityVerified = false as const" in generated
+    assert "export const deploymentId: string | null = null;" in generated
+    assert "export const oauthClientId: string | null = null;" in generated
+    assert "WORKSPACE_APP_ID: appId" in generated
+    assert "appIdentityAuthorityVerified && appId" in generated
+    assert "LUTH_OAUTH_CLIENT_ID: oauthClientId" in generated
