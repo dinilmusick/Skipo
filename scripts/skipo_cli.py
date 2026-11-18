@@ -95,7 +95,7 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
     d = target / ".skipo"
     d.mkdir(exist_ok=True)
     project_manifest = {"framework":"skipo","scaffold":framework,"skipo_version":VERSION,"generated_by":"skipo"}
-    for key in ("app_id", "app_identity"):
+    for key in ("app_id", "app_identity", "deployment_id", "oauth_client_id"):
         if key in existing_manifest:
             project_manifest[key] = existing_manifest[key]
     (d / "project.json").write_text(
