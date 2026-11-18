@@ -92,6 +92,8 @@ jobs:
         env:
           APP_URL: https://skipo-ci.example.test
         run: pnpm run build
+      - name: Verify all four gates through the public Skipo test CLI
+        run: python3 scripts/skipo_cli.py test "$RUNNER_TEMP/skipo-application"
       - name: Open the generated application and named tab in Chromium
         run: |
           python -m pip install selenium==4.29.0
