@@ -124,7 +124,21 @@ class GuardrailTests(unittest.TestCase):
     def test_full_check_exposes_all_real_validator_aspects(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
-            self.project(root)
+            (root / "src/frontend/components").mkdir(parents=True)
+            (root / "src/backend").mkdir(parents=True)
+            (root / "src/frontend/index.ts").write_text("export const a = 1;\n")
+            (root / "src/backend/index.ts").write_text("export const b = 2;\n")
+            (root / "package-lock.json").write_text('{"name":"test-app","lockfileVersion":3,"packages":{}}')
+            (root / "sanity.js").write_text("export const ok = true;\n")
+            (root / "package.json").write_text(json.dumps({"name":"test-app","scripts":{
+                "lint":"node --check sanity.js", "typecheck":"node --check sanity.js"}}))
+            (root / ".env.example").write_text("SYSTEM_DATABASE_URL=postgresql://localhost/db\nAPP_URL=http://localhost:3000\n")
+            (root / ".skipo").mkdir()
+            (root / ".skipo/project.json").write_text('{"framework":"skipo","skipo_version":"1.3.0"}')
+            (root / ".skipo/capabilities.json").write_text('{"schemaVersion":1,"installed":{},"generated":[]}')
+            (root / ".skipo/dependencies.json").write_text("{}")
+            (root / ".skipo/migration-state.json").write_text(
+                '{"schemaVersion":1,"applied":["1.1.0-capability-composition"],"pending":[]}')
             report = guard.check(root)
             self.assertEqual(report["profile"], "application", report)
             self.assertEqual(len(report["aspects"]), 26,
