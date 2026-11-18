@@ -74,7 +74,7 @@ const descriptorKeys = new Set([
 
 function assertSafeDescriptorValue(value: unknown): void {
   if (typeof value === 'string') {
-    if (/(?:https?:\/\/|wss?:\/\/|postgres(?:ql)?:\/\/|bearer\s+\S+|eyJ[A-Za-z0-9_-]{10,}[.][A-Za-z0-9_-]{10,}[.])/i.test(value)) {
+    if (/(?:[a-z][a-z0-9+.-]*:\/\/|bearer\s+\S+|eyJ[A-Za-z0-9_-]{10,}[.][A-Za-z0-9_-]{10,}[.]|-----BEGIN [A-Z ]*PRIVATE KEY-----|(?:api|client|private)[_-]?(?:key|secret)\s*[:=]\s*\S+)/i.test(value)) {
       throw new Error('Static capability descriptors cannot contain endpoint URLs, bearer tokens or secret material.');
     }
     return;
