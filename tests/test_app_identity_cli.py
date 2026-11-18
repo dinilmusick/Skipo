@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from skipo_app_identity import ensure_app_identity
+from skipo_app_identity import ensure_app_identity, inspect_app_identity
 
 
 def make_project(root: Path, extra=None):
@@ -44,13 +44,16 @@ def test_url_changes_do_not_change_permanent_app_identity(tmp_path):
 def test_existing_approved_identity_is_preserved(tmp_path):
     manifest_path = make_project(tmp_path, {
         "app_id": "aiko",
-        "app_identity": {"app_id": "aiko", "registration_status": "approved"},
+        "app_identity": {"app_id": "aiko", "registration_status": "approved", "approval_reference": "registry:apps/aiko"},
     })
     result = ensure_app_identity(tmp_path)
     stored = json.loads(manifest_path.read_text(encoding="utf-8"))
 
     assert result == {"app_id": "aiko", "registration_status": "approved", "enrollment_request": None}
     assert stored["app_identity"]["registration_status"] == "approved"
+    report = inspect_app_identity(tmp_path)
+    assert report["ok"] is True
+    assert report["registry_trust_verified"] is False
 
 
 def test_invalid_existing_identity_is_never_silently_replaced(tmp_path):
