@@ -19,13 +19,17 @@ CREATE INDEX IF NOT EXISTS deployments_by_refresh
 -- Application IDs come ONLY from public."ultrst-apps"; deployments never mint apps.
 ALTER TABLE skipo_ecosystem.deployments
   ADD COLUMN IF NOT EXISTS deployment_id uuid NOT NULL DEFAULT gen_random_uuid(),
-  ADD COLUMN IF NOT EXISTS environment text NOT NULL DEFAULT 'preview',
+  ADD COLUMN IF NOT EXISTS environment text NOT NULL DEFAULT 'unclassified',
   ADD COLUMN IF NOT EXISTS verification_state text NOT NULL DEFAULT 'unverified',
   ADD COLUMN IF NOT EXISTS verification_proof_digest text,
   ADD COLUMN IF NOT EXISTS lease_expires_at timestamptz;
 
 CREATE UNIQUE INDEX IF NOT EXISTS deployments_by_immutable_id
   ON skipo_ecosystem.deployments (deployment_id);
+
+-- Existing and legacy-heartbeat rows stay unclassified until an owner proves their environment.
+ALTER TABLE skipo_ecosystem.deployments
+  ALTER COLUMN environment SET DEFAULT 'unclassified';
 
 -- Re-runnable on existing databases without breaking the old composite PK.
 DO $deployment_identity$
@@ -45,7 +49,7 @@ BEGIN
   ) THEN
     ALTER TABLE skipo_ecosystem.deployments
       ADD CONSTRAINT deployments_environment_check CHECK
-      (environment IN ('development','preview','staging','production'));
+      (environment IN ('unclassified','development','preview','staging','production'));
   END IF;
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint WHERE conrelid='skipo_ecosystem.deployments'::regclass
