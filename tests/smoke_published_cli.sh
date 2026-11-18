@@ -80,6 +80,15 @@ echo '// app-owned edit' >> "$tab"
 sed -i '/const authProxy = await proxyLuthAuthRequest(request);/d' "$app/src/app.ts"
 "$cli" add auth "$app"
 grep -Fq 'const authProxy = await proxyLuthAuthRequest(request);' "$app/src/app.ts"
+# A conflicting app-owned registry file must leave the pending route repair untouched.
+printf 'export const localAuthBridge = 1;\n' > "$app/src/libraries/skipo/auth.ts"
+sed -i '/const authProxy = await proxyLuthAuthRequest(request);/d' "$app/src/app.ts"
+if "$cli" add auth "$app"; then echo "Expected an app-owned conflict"; exit 1; fi
+if grep -Fq 'const authProxy = await proxyLuthAuthRequest(request);' "$app/src/app.ts"; then
+  echo "A rejected page operation modified its target"; exit 1
+fi
+rm "$app/src/libraries/skipo/auth.ts"
+"$cli" add auth "$app"
 before="$(git diff --no-index /dev/null "$tab" || true)"
 "$cli" add main tab "Mixer" "$app"
 test "$(find "$app/src/frontend/pages/main/tabs" -name page.tsx | wc -l)" -eq 1

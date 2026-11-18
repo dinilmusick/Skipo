@@ -425,11 +425,9 @@ def main() -> int:
     if a.command == "add" and items and (target / "vite.config.ts").is_file():
         page = "auth" if items[0] == "login" else items[0]
         if page in {"auth", "workspace", "main"} and (len(items) == 1 or items[:2] == ["main", "tab"]):
-            from skipo_pages import add
+            from skipo_pages import compose_page
             try:
-                paths = add(target, page, items[2] if len(items) == 3 else None, apply=not a.plan)
-                result = capability_compose(target, [page], apply=not a.plan) if page != "main" else {"ok": True}
-                result["page_paths"] = paths
+                result = compose_page(target, page, items[2] if len(items) == 3 else None, apply=not a.plan)
                 print(json.dumps(result, indent=2))
                 return 0 if result["ok"] else 1
             except (ValueError, OSError) as exc:
