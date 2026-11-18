@@ -58,8 +58,8 @@ def plan_files(root, page, title=None):
     if config.exists():
         if json.loads(config.read_text()) != {"schemaVersion": 1, "layout": "integrated"}:
             raise ValueError("Unsupported .skipo/pages.json")
-        names = {"auth": "src/frontend/skipo/pages/auth.tsx",
-                 "workspace": "src/frontend/skipo/pages/workspace.tsx",
+        names = {"auth": "src/frontend/components/skipo/pages/auth.tsx",
+                 "workspace": "src/frontend/components/skipo/pages/workspace.tsx",
                  "main": "src/frontend/pages/main/tabRegistry.tsx"}
         name = names[page]
         target = root / name
