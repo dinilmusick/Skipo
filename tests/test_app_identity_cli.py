@@ -1,6 +1,7 @@
 import json
 import sys
 import importlib.util
+import uuid
 from types import SimpleNamespace
 from pathlib import Path
 
@@ -16,27 +17,34 @@ def make_project(root: Path, extra=None):
     return manifest_dir / "project.json"
 
 
-def test_identity_is_persisted_and_repairs_are_idempotent(tmp_path):
+def test_identity_is_not_minted_locally_and_enrollment_request_is_idempotent(tmp_path):
     manifest_path = make_project(tmp_path)
     first = ensure_app_identity(tmp_path)
+    first_request = json.loads((tmp_path / ".skipo/enrollment-request.json").read_text(encoding="utf-8"))
     second = ensure_app_identity(tmp_path)
+    second_request = json.loads((tmp_path / ".skipo/enrollment-request.json").read_text(encoding="utf-8"))
     stored = json.loads(manifest_path.read_text(encoding="utf-8"))
     generated = (tmp_path / "src/backend/ecosystem/appIdentity_Pure.ts").read_text(encoding="utf-8")
 
-    assert first["app_id"] == second["app_id"] == stored["app_id"]
-    assert first["registration_status"] == "pending_enrollment"
+    assert first["app_id"] is None
+    assert second["app_id"] is None
+    assert stored["app_id"] if "app_id" in stored else None is None
+    assert first["registration_status"] == second["registration_status"] == "pending_enrollment"
+    assert first_request["request_id"] == second_request["request_id"]
+    assert first_request["app_id"] is None
+    assert str(uuid.UUID(first_request["request_id"])) == first_request["request_id"]
+    assert first["enrollment_request_id"] == first_request["request_id"]
     assert stored["deployment_id"] is None
     assert stored["oauth_client_id"] is None
     assert inspect_app_identity(tmp_path)["enrollment_required"] is True
-    enrollment = json.loads((tmp_path / ".skipo/enrollment-request.json").read_text(encoding="utf-8"))
-    assert enrollment["app_id"] == first["app_id"]
-    assert enrollment["requires_ecosystem_admin_approval"] is True
-    assert generated.count(first["app_id"]) == 1
+    assert inspect_app_identity(tmp_path)["registry_trust_verified"] is False
+    assert generated.count("export const appId = '';") == 1
+    assert "app- " not in generated
     assert "WORKSPACE_APP_ID: appId" in generated
     assert "my-app" not in generated
 
 
-def test_url_changes_do_not_change_permanent_app_identity(tmp_path):
+def test_url_changes_do_not_mint_or_change_permanent_app_identity(tmp_path):
     manifest_path = make_project(tmp_path, {
         "app_url": "https://first.example",
         "deployment_id": "d290f1ee-6c54-4b01-90e6-d701748f0851",
@@ -48,33 +56,40 @@ def test_url_changes_do_not_change_permanent_app_identity(tmp_path):
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
     second = ensure_app_identity(tmp_path)
-    assert second["app_id"] == first["app_id"]
+    assert first["app_id"] is None
+    assert second["app_id"] is None
     updated = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert updated.get("app_id") is None
     assert updated["deployment_id"] == "d290f1ee-6c54-4b01-90e6-d701748f0851"
     assert updated["oauth_client_id"] == "luth-aiko-web"
 
 
-def test_existing_approved_identity_is_preserved(tmp_path):
+def test_local_approval_markers_cannot_authorize_an_application(tmp_path):
     manifest_path = make_project(tmp_path, {
         "app_id": "aiko",
-        "app_identity": {"app_id": "aiko", "registration_status": "approved", "approval_reference": "registry:apps/aiko"},
+        "app_identity": {"app_id": "aiko", "registration_status": "approved",
+                         "approval_reference": "registry:apps/aiko"},
         "deployment_id": "d290f1ee-6c54-4b01-90e6-d701748f0851",
         "oauth_client_id": "luth-aiko-web",
     })
     result = ensure_app_identity(tmp_path)
     stored = json.loads(manifest_path.read_text(encoding="utf-8"))
+    report = inspect_app_identity(tmp_path)
 
     assert result == {
         "app_id": "aiko",
         "deployment_id": "d290f1ee-6c54-4b01-90e6-d701748f0851",
         "oauth_client_id": "luth-aiko-web",
-        "registration_status": "approved",
-        "enrollment_request": None,
+        "registration_status": "pending_enrollment",
+        "enrollment_request_id": result["enrollment_request_id"],
+        "enrollment_request": ".skipo/enrollment-request.json",
     }
-    assert stored["app_identity"]["registration_status"] == "approved"
-    report = inspect_app_identity(tmp_path)
-    assert report["ok"] is True
+    assert str(uuid.UUID(result["enrollment_request_id"])) == result["enrollment_request_id"]
+    assert stored["app_identity"]["registration_status"] == "pending_enrollment"
+    assert "approval_reference" not in stored["app_identity"]
+    assert report["ok"] is False
     assert report["registry_trust_verified"] is False
+    assert report["enrollment_required"] is True
     assert report["deployment_id"] == "d290f1ee-6c54-4b01-90e6-d701748f0851"
     assert report["oauth_client_id"] == "luth-aiko-web"
 
@@ -87,6 +102,7 @@ def test_invalid_existing_identity_is_never_silently_replaced(tmp_path):
         assert "invalid" in str(exc)
     else:
         raise AssertionError("invalid permanent app identity must be rejected")
+
 
 def test_deployment_and_oauth_client_ids_are_distinct_and_preserved(tmp_path):
     manifest_path = make_project(tmp_path, {
@@ -101,7 +117,9 @@ def test_deployment_and_oauth_client_ids_are_distinct_and_preserved(tmp_path):
     assert manifest["app_id"] == "aiko"
     assert manifest["deployment_id"] == "d290f1ee-6c54-4b01-90e6-d701748f0851"
     assert manifest["oauth_client_id"] == "luth-aiko-web"
+    assert result["app_id"] == "aiko"
     assert result["app_id"] != result["deployment_id"]
+    assert generated.count("export const appId = \"aiko\" as const;") == 1
     assert "export const deploymentId" in generated
     assert "export const oauthClientId" in generated
 
@@ -115,7 +133,8 @@ def test_invalid_deployment_id_is_rejected_without_replacing_app_id(tmp_path):
     else:
         raise AssertionError("invalid deployment identity must be rejected")
 
-def test_real_cli_create_and_two_repairs_preserve_all_identity_dimensions(tmp_path, monkeypatch, capsys):
+
+def test_real_cli_create_and_two_repairs_keep_identity_unassigned_until_registry_enrollment(tmp_path, monkeypatch, capsys):
     scripts_dir = Path(__file__).resolve().parents[1] / "scripts"
     spec = importlib.util.spec_from_file_location("skipo_cli_identity_test", scripts_dir / "skipo_cli.py")
     cli = importlib.util.module_from_spec(spec)
@@ -132,20 +151,15 @@ def test_real_cli_create_and_two_repairs_preserve_all_identity_dimensions(tmp_pa
     monkeypatch.setattr(cli, "assess_architecture", lambda _root: {"blocked": False})
     monkeypatch.setattr(cli, "transaction_verify", lambda _root, _version: {"ok": True})
 
-    def rewrite_shell(root, apply):
-        if apply:
-            (root / "src/backend/ecosystem/appIdentity_Pure.ts").write_text("export const appId = 'my-app';\\n")
-        return {"ok": apply}
-
     def reconcile(root, apply, _version, with_environment, verify_hook):
         if apply:
-            (root / "src/backend/ecosystem/appIdentity_Pure.ts").write_text("export const appId = 'my-app';\\n")
+            (root / "src/backend/ecosystem/appIdentity_Pure.ts").write_text("export const appId = 'my-app';\n")
             return verify_hook(root)
         return {"ok": True}
 
     monkeypatch.setattr(cli, "reconcile_transaction", reconcile)
     monkeypatch.setitem(sys.modules, "skipo_canonical_shell", SimpleNamespace(
-        reconcile_shell=rewrite_shell
+        reconcile_shell=lambda root, apply: {"ok": apply}
     ))
 
     target = tmp_path / "generated-app"
@@ -153,7 +167,7 @@ def test_real_cli_create_and_two_repairs_preserve_all_identity_dimensions(tmp_pa
     capsys.readouterr()
     manifest_path = target / ".skipo/project.json"
     first = json.loads(manifest_path.read_text(encoding="utf-8"))
-    app_id = first["app_id"]
+    assert first.get("app_id") is None
 
     first["app_url"] = "https://first.example"
     manifest_path.write_text(json.dumps(first), encoding="utf-8")
@@ -166,11 +180,13 @@ def test_real_cli_create_and_two_repairs_preserve_all_identity_dimensions(tmp_pa
     capsys.readouterr()
 
     final = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert final["app_id"] == app_id
+    assert final.get("app_id") is None
     assert final["app_identity"]["registration_status"] == "pending_enrollment"
     assert final["deployment_id"] is None
     assert final["oauth_client_id"] is None
     generated_identity = (target / "src/backend/ecosystem/appIdentity_Pure.ts").read_text(encoding="utf-8")
-    assert app_id in generated_identity
+    assert "export const appId = ''; " .strip() in generated_identity
     assert "my-app" not in generated_identity
-    assert json.loads((target / ".skipo/enrollment-request.json").read_text())["app_id"] == app_id
+    enrollment = json.loads((target / ".skipo/enrollment-request.json").read_text(encoding="utf-8"))
+    assert enrollment["app_id"] is None
+    assert enrollment["request_id"] == final.get("app_identity", {}).get("enrollment_request_id", enrollment["request_id"])
