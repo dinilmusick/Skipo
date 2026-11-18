@@ -37,7 +37,7 @@ Confirm the concrete branch ID via Neon `list_branches` and confirm it is **not*
 | Replay `br-icy-math-aeaz1vu2` before temporary test | 26 tables; 11 catalog apps, 1 unverified/unclassified deployment; zero clients, codes, capability revisions, publications or grants |
 | Existing legacy routing | 1 Luth route, 1 SRKL route; both preserved |
 | Legacy origins | 14 total, 5 production and 9 nonproduction; all current origin app IDs match catalog IDs, but matching is **not** proof of registration ownership |
-| Source migration replay | 53 statements parsed from Skipo #198, Luth #4 and Luth #18 applied successfully with transaction savepoint rollback |
+| Source migration replay | 53 statements parsed from Skipo #198, Luth #4 and Luth #18 were each replayed **twice** (106 statements total) in one transaction/savepoint; three snapshots (before, after first, after second) each showed 11 apps, 1 deployment, 0 OAuth clients/grants/publications |
 | Defect reproduction before guard | Changing the `app_id` of an unreferenced synthetic catalog app **succeeded**; test fixture rolled back |
 | Forward guard | Check validated; invalid proof/lease rejected; verified fixture with structural proof and lease accepted; immutable app ID rejected |
 | Double application | Exactly 1 trigger and 1 validated constraint; 11 apps and 1 deployment preserved |
