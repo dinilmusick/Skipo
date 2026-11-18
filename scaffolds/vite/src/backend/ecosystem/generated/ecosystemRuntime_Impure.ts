@@ -25,12 +25,50 @@ function deploymentOrigin(input: unknown): string {
   return url.origin;
 }
 
+/** Exact registered BackendRegistry handler and live BackendFacade service inventory. */
+export interface BackendFacadeOperationSource {
+  facade: { services: Record<string, unknown> };
+  registry: {
+    getCommand: (domain: string, operation: string) => { handler?: unknown } | undefined;
+    getQuery: (domain: string, operation: string) => { handler?: unknown } | undefined;
+  };
+}
+
+/** A manually supplied descriptor alone cannot attest that its operation exists. */
+export function verifyRegisteredBackendFacadeOperations(
+  source: BackendFacadeOperationSource | undefined,
+  descriptors: readonly StaticCapabilityDescriptor[],
+): void {
+  if (!source?.facade?.services ||
+      typeof source.registry?.getCommand !== 'function' ||
+      typeof source.registry?.getQuery !== 'function') {
+    throw new Error('Static publication requires a real BackendFacade and BackendRegistry.');
+  }
+  for (const descriptor of descriptors) {
+    const { serviceId, operationId } = descriptor.invocation;
+    const services = source.facade.services;
+    const service = Object.prototype.hasOwnProperty.call(services, serviceId)
+      ? services[serviceId] : undefined;
+    if (!service || typeof service !== 'object' ||
+        typeof (service as { execute?: unknown }).execute !== 'function') {
+      throw new Error('Static capability service is not installed on BackendFacade.');
+    }
+    const registered = source.registry.getCommand(serviceId, operationId)
+      ?? source.registry.getQuery(serviceId, operationId);
+    if (!registered || typeof registered.handler !== 'function') {
+      throw new Error('Static capability operation is not registered in BackendRegistry.');
+    }
+  }
+}
+
 export function createEcosystemRuntime(options: {
   appId: string;
   /** Persistent deployment UUID, provisioned by an approved control plane. */
   deploymentId?: string;
   /** Static public metadata only; never include user workflows or session-bound endpoints. */
   capabilityDescriptors?: readonly StaticCapabilityDescriptor[];
+  /** Real Kloks BackendFacade and BackendRegistry used to prove operation provenance. */
+  backendFacadeOperations?: BackendFacadeOperationSource;
   capabilities: Record<string, Capability>;
   serviceCapabilities?: Record<string, (params: unknown, context: {
     callerApp: string; env: EcosystemEnv;
@@ -63,6 +101,7 @@ export function createEcosystemRuntime(options: {
       !methods.has(descriptor.id) && !serviceMethods.has(descriptor.id))) {
       throw new Error('Static capability descriptors must reference registered callable capabilities.');
     }
+    verifyRegisteredBackendFacadeOperations(options.backendFacadeOperations, capabilityDescriptors);
   }
   const query = options.query ?? systemQuery;
   const send = options.send ?? globalThis.fetch;
