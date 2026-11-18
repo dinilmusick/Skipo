@@ -15,7 +15,8 @@ export function workspaceEnvironment(env?: Record<string, unknown>) {
   } = env ?? {};
   return {
     ...safeEnv,
-    ...(appIdentityAuthorityVerified && appId ? { WORKSPACE_APP_ID: appId } : {}),
+    // Reference only; Luth and target-side registry checks remain authoritative.
+    ...(appId ? { WORKSPACE_APP_ID: appId } : {}),
     ...(appIdentityAuthorityVerified && deploymentId ? { SKIPO_DEPLOYMENT_ID: deploymentId } : {}),
     ...(appIdentityAuthorityVerified && oauthClientId ? { LUTH_OAUTH_CLIENT_ID: oauthClientId } : {}),
   };
