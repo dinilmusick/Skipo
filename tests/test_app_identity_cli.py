@@ -23,6 +23,9 @@ def test_identity_is_persisted_and_repairs_are_idempotent(tmp_path):
 
     assert first["app_id"] == second["app_id"] == stored["app_id"]
     assert first["registration_status"] == "pending_enrollment"
+    assert stored["deployment_id"] is None
+    assert stored["oauth_client_id"] is None
+    assert inspect_app_identity(tmp_path)["enrollment_required"] is True
     enrollment = json.loads((tmp_path / ".skipo/enrollment-request.json").read_text(encoding="utf-8"))
     assert enrollment["app_id"] == first["app_id"]
     assert enrollment["requires_ecosystem_admin_approval"] is True
@@ -34,7 +37,11 @@ def test_identity_is_persisted_and_repairs_are_idempotent(tmp_path):
 
 
 def test_url_changes_do_not_change_permanent_app_identity(tmp_path):
-    manifest_path = make_project(tmp_path, {"app_url": "https://first.example"})
+    manifest_path = make_project(tmp_path, {
+        "app_url": "https://first.example",
+        "deployment_id": "d290f1ee-6c54-4b01-90e6-d701748f0851",
+        "oauth_client_id": "luth-aiko-web",
+    })
     first = ensure_app_identity(tmp_path)
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["app_url"] = "https://second.example"
@@ -42,6 +49,9 @@ def test_url_changes_do_not_change_permanent_app_identity(tmp_path):
 
     second = ensure_app_identity(tmp_path)
     assert second["app_id"] == first["app_id"]
+    updated = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert updated["deployment_id"] == "d290f1ee-6c54-4b01-90e6-d701748f0851"
+    assert updated["oauth_client_id"] == "luth-aiko-web"
 
 
 def test_existing_approved_identity_is_preserved(tmp_path):
