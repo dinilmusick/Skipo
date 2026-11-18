@@ -126,6 +126,7 @@ def _safe_lint_command(root: Path) -> list[str] | None:
 def _code_syntax(root: Path) -> dict[str, Any]:
     findings: list[dict[str, Any]] = []
     checked = 0
+    missing_js_parser = False
     node = shutil.which("node")
     for base, directories, files in os.walk(root, followlinks=False):
         directories[:] = [d for d in directories if d not in SKIP and not (Path(base) / d).is_symlink()]
@@ -142,6 +143,8 @@ def _code_syntax(root: Path) -> dict[str, Any]:
                 except (SyntaxError, UnicodeError, OSError) as exc:
                     findings.append(_finding("syntax", "PYTHON_SYNTAX", str(exc), path=relative,
                                              line=getattr(exc, "lineno", None)))
+            elif path.suffix in (".js", ".mjs", ".cjs") and not node:
+                missing_js_parser = True
             elif path.suffix in (".js", ".mjs", ".cjs") and node:
                 run = _run([node, "--check", str(path)], root, limit=20)
                 checked += 1
@@ -155,8 +158,12 @@ def _code_syntax(root: Path) -> dict[str, Any]:
                     checked += 1
                 except (ValueError, UnicodeError, OSError) as exc:
                     findings.append(_finding("syntax", "JSON_SYNTAX", str(exc), path=relative))
-    return _section("syntax", findings, details={"files_checked": checked,
-        "typescript": "TypeScript and TSX parsing is handled by typecheck"})
+    if missing_js_parser:
+        findings.append(_finding("syntax", "SKIPO_NODE_MISSING",
+            "Node.js is required to validate JavaScript syntax"))
+    return _section("syntax", findings, status="blocked" if missing_js_parser else None,
+        details={"files_checked": checked,
+                 "typescript": "TypeScript and TSX parsing is handled by typecheck"})
 
 
 def _architecture(root: Path) -> list[dict[str, Any]]:
@@ -270,10 +277,11 @@ def check(root: Path) -> dict[str, Any]:
     errors = sum(sum(x["severity"] == "error" for x in section["findings"]) for section in sections)
     warnings = sum(sum(x["severity"] == "warning" for x in section["findings"]) for section in sections)
     incomplete = [section["category"] for section in sections if section["status"] == "blocked"]
-    return {"ok": errors == 0 and not incomplete, "operation": "check", "root": str(root),
+    not_run = [s["category"] for s in sections if s["status"] == "not-run"]
+    return {"ok": errors == 0 and not incomplete and not not_run, "operation": "check", "root": str(root),
             "schemaVersion": 1, "sections": sections,
             "summary": {"errors": errors, "warnings": warnings, "blocked": incomplete,
-                        "not_run": [s["category"] for s in sections if s["status"] == "not-run"]},
+                        "not_run": not_run, "complete": not incomplete and not not_run},
             "note": "Source is not modified. Tests and builds are separate commands; TypeScript syntax requires typecheck."}
 
 
