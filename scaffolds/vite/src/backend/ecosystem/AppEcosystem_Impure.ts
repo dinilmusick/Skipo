@@ -5,11 +5,9 @@ import { appId, appIdentityAuthorityVerified } from './appIdentity_Pure.js';
 
 const invocationPath = '/api/ecosystem/invoke';
 const enrollmentRequiredRuntime = {
-  // Keep the same lifecycle API as enrolled runtimes, but never start a
-  // deployment heartbeat or attempt registry access while enrollment is pending.
-  heartbeat: async (_env: Record<string, unknown>, _force = false): Promise<void> => undefined,
-  start: async (_env: Record<string, unknown>): Promise<void> => undefined,
   observe: async (_env: Record<string, unknown>) => undefined,
+  heartbeat: async (_env: Record<string, unknown>, _scheduled = false) => undefined,
+  start: async (_env: Record<string, unknown>) => undefined,
   handle: async (request: Request, _env?: Record<string, unknown>): Promise<Response | null> => {
     if (new URL(request.url).pathname !== invocationPath) return null;
     return Response.json({ error: 'APP_ENROLLMENT_REQUIRED' }, {
