@@ -325,9 +325,9 @@ def test_canonical_main_tabs_receive_authenticated_workspace_id(tmp_path):
     # Keep checking the contract when canonical shell components gain more props.
     # Exact JSX-element assertions are brittle and rejected the correctly wired
     # currentUser / workspace actions before downstream checks could run.
-    main_tabs = re.search(r"<MainTabs\\b[^>]*?/>", shell, re.DOTALL)
+    main_tabs = re.search(r"<MainTabs[^>]*?/>", shell, re.DOTALL)
     assert main_tabs is not None
-    tab_content = re.search(r"<MainTabContent\\b[^>]*?/>", tab_shell, re.DOTALL)
+    tab_content = re.search(r"<MainTabContent[^>]*?/>", tab_shell, re.DOTALL)
     assert tab_content is not None
     for prop in (
         "activeWorkspace={activeWorkspace}",
