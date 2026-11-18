@@ -1,7 +1,9 @@
 """Persistent Skipo application identity for generated Vite projects.
 
-An app ID identifies the logical application; it is not proof of registration.
-Only an explicit registry approval in the project manifest can mark it approved.
+The canonical app_id is assigned by the ecosystem registry, never minted by a
+local CLI. A local project manifest or approval reference is not registration
+proof. Until a trusted registry enrollment is completed, runtime access stays
+pending and fail-closed.
 """
 from __future__ import annotations
 
@@ -12,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 APP_ID_PATTERN = re.compile(r"^[a-z][a-z0-9-]{0,62}$")
+UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$", re.I)
 
 
 def ensure_app_identity(root: Path) -> dict[str, Any]:
@@ -25,17 +28,15 @@ def ensure_app_identity(root: Path) -> dict[str, Any]:
     if not isinstance(manifest, dict):
         raise ValueError("Skipo project manifest must contain a JSON object.")
 
+    # A local app_id is only a candidate/reference. The ecosystem registry is
+    # the sole issuer and verifier; never fill a missing ID with a random UUID.
     app_id = manifest.get("app_id")
-    if app_id is None:
-        app_id = "app-" + uuid.uuid4().hex
-        manifest["app_id"] = app_id
-    if not isinstance(app_id, str) or not APP_ID_PATTERN.fullmatch(app_id):
+    if app_id is not None and (not isinstance(app_id, str) or not APP_ID_PATTERN.fullmatch(app_id)):
         raise ValueError("Existing app_id is invalid; refusing to silently replace a permanent identity.")
 
     deployment_id = manifest.get("deployment_id")
     if deployment_id is not None and (
-        not isinstance(deployment_id, str) or
-        not re.fullmatch(r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}", deployment_id, re.I)
+        not isinstance(deployment_id, str) or not UUID_PATTERN.fullmatch(deployment_id)
     ):
         raise ValueError("Existing deployment_id must be a registry-provisioned UUID.")
     oauth_client_id = manifest.get("oauth_client_id")
@@ -46,42 +47,61 @@ def ensure_app_identity(root: Path) -> dict[str, Any]:
     manifest.setdefault("deployment_id", None)
     manifest.setdefault("oauth_client_id", None)
 
+    # This local file can request enrollment, but cannot grant it. Ignore and
+    # remove prior editable approval markers so repairs cannot re-enable them.
     identity = manifest.get("app_identity")
     if not isinstance(identity, dict):
         identity = {}
-    approved = identity.get("registration_status") == "approved" and bool(identity.get("approval_reference"))
+    identity.pop("approval_reference", None)
     identity.update({
         "app_id": app_id,
-        "registration_status": "approved" if approved else "pending_enrollment",
+        "registration_status": "pending_enrollment",
         "identity_version": 1,
     })
     manifest["app_identity"] = identity
 
     enrollment_path = root / ".skipo" / "enrollment-request.json"
-    if not approved:
-        if enrollment_path.exists():
-            try:
-                request = json.loads(enrollment_path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError) as exc:
-                raise ValueError("Existing enrollment request is unreadable; refusing to replace it.") from exc
-            if request.get("app_id") != app_id:
-                raise ValueError("Existing enrollment request belongs to a different app_id.")
-        else:
-            enrollment_path.write_text(json.dumps({
-                "app_id": app_id,
-                "request_type": "application_enrollment",
-                "status": "pending",
-                "requires_ecosystem_admin_approval": True,
-                "created_by": "skipo-cli",
-            }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if enrollment_path.exists():
+        try:
+            request = json.loads(enrollment_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError("Existing enrollment request is unreadable; refusing to replace it.") from exc
+        if not isinstance(request, dict) or request.get("app_id") != app_id:
+            raise ValueError("Existing enrollment request belongs to a different app_id.")
+        request_id = request.get("request_id")
+        if request_id is not None and (
+            not isinstance(request_id, str) or not UUID_PATTERN.fullmatch(request_id)
+        ):
+            raise ValueError("Existing enrollment request ID is invalid; refusing to replace it.")
+        if request_id is None:
+            request_id = str(uuid.uuid4())
+    else:
+        request_id = str(uuid.uuid4())
+        request = {}
+
+    # Keep request identity separate from the registry-issued app identity.
+    request.update({
+        "request_id": request_id,
+        "app_id": app_id,
+        "request_type": "application_enrollment",
+        "status": "pending",
+        "requires_ecosystem_admin_approval": True,
+        "created_by": "skipo-cli",
+    })
+    enrollment_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
     project_file.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     identity_file = root / "src" / "backend" / "ecosystem" / "appIdentity_Pure.ts"
     identity_file.parent.mkdir(parents=True, exist_ok=True)
+    # Empty appId means no registry-issued identity has been supplied. The
+    # generated runtime remains pending and refuses cross-app registration.
     identity_file.write_text(
         "// Generated by Skipo from .skipo/project.json; never derive identity from APP_URL.\n"
-        f"export const appId = {json.dumps(app_id)} as const;\n"
-        f"export const appRegistrationStatus = {json.dumps(identity['registration_status'])} as const;\n"
+        f"export const appId = {json.dumps(app_id or '')} as const;\n"
+        "export const appRegistrationStatus = 'pending_enrollment' as const;\n"
         f"export const deploymentId = {json.dumps(deployment_id)} as string | null;\n"
         f"export const oauthClientId = {json.dumps(oauth_client_id)} as string | null;\n"
         "export function workspaceEnvironment(env?: Record<string, unknown>) {\n"
@@ -93,36 +113,55 @@ def ensure_app_identity(root: Path) -> dict[str, Any]:
         "app_id": app_id,
         "deployment_id": deployment_id,
         "oauth_client_id": oauth_client_id,
-        "registration_status": identity["registration_status"],
-        "enrollment_request": ".skipo/enrollment-request.json" if not approved else None,
+        "registration_status": "pending_enrollment",
+        "enrollment_request_id": request_id,
+        "enrollment_request": ".skipo/enrollment-request.json",
     }
 
-    
+
 def inspect_app_identity(root: Path) -> dict[str, Any] | None:
-    """Read identity without mutation; pending enrollment is not certification."""
+    """Read identity without mutation; local metadata never proves registry trust."""
     project_file = root / ".skipo" / "project.json"
     if not project_file.is_file():
         return None
     try:
         manifest = json.loads(project_file.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {"ok": False, "status": "invalid_manifest", "enrollment_required": True}
+        return {"ok": False, "status": "invalid_manifest", "enrollment_required": True,
+                "registry_trust_verified": False}
     if not isinstance(manifest, dict):
-        return {"ok": False, "status": "invalid_manifest", "enrollment_required": True}
+        return {"ok": False, "status": "invalid_manifest", "enrollment_required": True,
+                "registry_trust_verified": False}
+
     app_id = manifest.get("app_id")
-    if not isinstance(app_id, str) or not APP_ID_PATTERN.fullmatch(app_id):
-        return {"ok": False, "status": "missing_or_invalid_app_id", "enrollment_required": True}
+    if app_id is not None and (not isinstance(app_id, str) or not APP_ID_PATTERN.fullmatch(app_id)):
+        return {"ok": False, "status": "missing_or_invalid_app_id", "enrollment_required": True,
+                "registry_trust_verified": False}
+
+    request_path = root / ".skipo" / "enrollment-request.json"
+    request_id = None
+    if request_path.is_file():
+        try:
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            if isinstance(request, dict) and request.get("app_id") == app_id:
+                candidate = request.get("request_id")
+                if isinstance(candidate, str) and UUID_PATTERN.fullmatch(candidate):
+                    request_id = candidate
+        except (OSError, json.JSONDecodeError):
+            pass
+
     identity = manifest.get("app_identity")
     identity = identity if isinstance(identity, dict) else {}
-    approved = identity.get("registration_status") == "approved" and bool(identity.get("approval_reference"))
-    request_path = root / ".skipo" / "enrollment-request.json"
+    # Even forged local "approved" flags and references are deliberately
+    # ignored; only a trusted registry lookup can ever establish that state.
     return {
-        "ok": approved,
+        "ok": False,
         "app_id": app_id,
         "deployment_id": manifest.get("deployment_id"),
         "oauth_client_id": manifest.get("oauth_client_id"),
-        "status": "approval_reference_present" if approved else "pending_enrollment",
-        "enrollment_required": not approved,
+        "status": "pending_enrollment",
+        "enrollment_required": True,
         "enrollment_request": ".skipo/enrollment-request.json" if request_path.is_file() else None,
+        "enrollment_request_id": request_id,
         "registry_trust_verified": False,
     }
