@@ -43,6 +43,8 @@ def inspect_identity(root: Path) -> dict[str, Any]:
             errors.append(key + " must be a non-empty identifier when present")
         elif isinstance(value, str) and value == app_id:
             errors.append(key + " must not equal the canonical app_id")
+    if all(isinstance(project.get(key), str) for key in ROLE_KEYS) and project[ROLE_KEYS[0]] == project[ROLE_KEYS[1]]:
+        errors.append("deployment_id and oauth_client_id must be distinct identity roles")
     if errors:
         return {"ok": False, "status": "invalid_identity", "app_id": app_id,
                 "authority_verified": False, "errors": errors}
