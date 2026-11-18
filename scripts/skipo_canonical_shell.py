@@ -64,6 +64,29 @@ CANONICAL_CONFIG = (
 )
 DESCRIPTOR = ".skipo/pages.json"
 
+# Custom application backend entrypoints are explicit exceptions to standard
+# source recreation. Only these two entrypoints may be app-owned; identity,
+# storage, shared facades and frontend shell remain exclusively Skipo-owned.
+EXTENSIBLE_BACKEND = frozenset({"src/app.ts", "server.ts"})
+
+
+def _backend_extensions(pkg: dict) -> frozenset[str]:
+    settings = pkg.get("skipo", {})
+    if not isinstance(settings, dict):
+        raise UnsafeShellRepair("skipo package configuration must be an object")
+    names = settings.get("backendExtensions", [])
+    if not isinstance(names, list) or any(not isinstance(p, str) for p in names):
+        raise UnsafeShellRepair("skipo.backendExtensions must be a list of canonical paths")
+    if len(names) != len(set(names)):
+        raise UnsafeShellRepair("Duplicate skipo.backendExtensions are not permitted")
+    invalid = set(names) - EXTENSIBLE_BACKEND
+    if invalid:
+        raise UnsafeShellRepair(
+            f"Only {', '.join(sorted(EXTENSIBLE_BACKEND))} can be declared as backend extensions"
+        )
+    return frozenset(names)
+
+
 
 class UnsafeShellRepair(ValueError):
     pass
@@ -201,6 +224,17 @@ def _desired(root: Path, title: str | None = None) -> dict[str, bytes]:
         if src.suffix in {".ts", ".tsx", ".js", ".mjs", ".json", ".html", ".toml", ".sql", ".css"}:
             raw = raw.decode("utf-8").replace("MyApp", name).replace("my-app", name).encode("utf-8")
         desired[relative] = raw
+
+    # Consumer backends are allowed to extend the backend only via declared
+    # entrypoints. All other canonical backend files are still overwritten.
+    # Missing declared entries receive the standard implementation on create.
+    for relative in _backend_extensions(pkg):
+        path = _checked(root, relative)
+        if path.exists():
+            if not path.is_file():
+                raise UnsafeShellRepair(f"Backend extension must be a regular file: {relative}")
+            desired[relative] = path.read_bytes()
+
     desired[DESCRIPTOR] = (
         json.dumps({"schemaVersion": 2, "layout": "canonical",
                     "customCodeRoot": "src/frontend/pages/main/tabs"},
@@ -272,7 +306,9 @@ def plan_shell(root: Path, title: str | None = None) -> dict:
                        for name, spec in FULL_STACK.items()},
             "ownership": {"managed": "canonical frontend outside tabs, shared client and defined backend adapters",
                           "custom_frontend": "src/frontend/pages/main/tabs/**",
-                          "custom_backend": "src/backend/** except canonical backend adapter paths"}}
+                          "custom_backend": "src/backend/** except canonical backend adapter paths",
+                          "declared_backend_entries": sorted(_backend_extensions(
+                              json.loads(_checked(root, "package.json").read_text(encoding="utf-8"))))}}
 
 
 def _atomic_write(path: Path, data: bytes, mode: int | None = None) -> None:
