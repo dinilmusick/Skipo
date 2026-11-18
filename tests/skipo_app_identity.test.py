@@ -187,3 +187,41 @@ def test_published_skipo_entrypoint_routes_identity_to_framework_cli(tmp_path):
     assert report["app_id"] == "aiko"
     assert report["status"] == "registry_confirmation_required"
     assert report["authority_verified"] is False
+
+
+def test_browser_luth_client_receives_reference_only_and_preserves_real_app_id(tmp_path):
+    make_manifest(
+        tmp_path,
+        app_id="aiko",
+        deployment_id="deployment-private-role",
+        oauth_client_id="oauth-private-role",
+        registration_status="verified",
+    )
+    identity.sync_identity_artifact(tmp_path)
+    browser_file = tmp_path / "src/libraries/client/appIdentity_Pure.ts"
+    browser = browser_file.read_text(encoding="utf-8")
+    assert 'export const appId: string | null = "aiko";' in browser
+    assert "deployment-private-role" not in browser
+    assert "oauth-private-role" not in browser
+    assert "authorityVerified" not in browser
+    assert "secret" not in browser.lower()
+
+    # Repeated repairs and unrelated APP_URL moves do not change the reference.
+    (tmp_path / ".env").write_text("APP_URL=https://new.example", encoding="utf-8")
+    identity.sync_identity_artifact(tmp_path)
+    assert browser_file.read_text(encoding="utf-8") == browser
+
+
+def test_unenrolled_browser_identity_is_null_and_luth_never_auto_registers(tmp_path):
+    make_manifest(tmp_path, app_id=None)
+    identity.initialize_unenrolled_identity(tmp_path)
+    browser = (tmp_path / "src/libraries/client/appIdentity_Pure.ts").read_text(encoding="utf-8")
+    assert "export const appId: string | null = null;" in browser
+
+    source = (Path(__file__).resolve().parents[1] /
+              "scaffolds/vite/src/libraries/client/luthAuthClient.ts").read_text(encoding="utf-8")
+    assert "import { appId } from './appIdentity_Pure.js'" in source
+    assert "&& SKIPO_APPLICATION_ID" in source
+    assert "autoRegister: false" in source
+    assert "autoRegister: true" not in source
+    assert "SKIPO_APPLICATION_ID = 'my-app'" not in source
