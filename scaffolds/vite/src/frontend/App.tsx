@@ -15,7 +15,7 @@ function AuthenticatedApplication({ auth }: { auth: UseLuthAuthResult }) {
       <UiSessionControls request={luthFetch} />
       {!workspace ? (
       <WorkspacesPage
-        currentUser={auth.user ? { id: auth.user.id, email: auth.user.email, name: auth.user.name } : null}
+        currentUser={auth.user ? { id: auth.user.id, email: auth.user.email, name: auth.user.name || undefined } : null}
         onSelectWorkspace={setWorkspace}
         onLogout={() => { void auth.signOut(); }}
       />
