@@ -26,6 +26,32 @@ export async function refreshDeployment(query: Query, app: string, url: string, 
   `, [app, url, capabilities]);
 }
 
+/**
+ * Stable-ID refresh is opt-in during the migration. Legacy (app_id, URL)
+ * registrations still work, but cannot silently take ownership of a stable ID.
+ * A deployment is always tied to its canonical app_id.
+ */
+export async function refreshDeploymentById(
+  query: Query, app: string, deploymentId: string, url: string, capabilities: string[],
+) {
+  if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(deploymentId)) {
+    throw new Error('Deployment identity must be a UUID.');
+  }
+  const updated = await query<{ deployment_id: string }>(`
+    INSERT INTO skipo_ecosystem.deployments (deployment_id, app_id, app_url, capabilities)
+    VALUES ($1::uuid, $2, $3, $4::text[])
+    ON CONFLICT (deployment_id) DO UPDATE SET
+      app_url = EXCLUDED.app_url,
+      last_refresh_at = GREATEST(deployments.last_refresh_at, EXCLUDED.last_refresh_at),
+      capabilities = EXCLUDED.capabilities
+    WHERE deployments.app_id = EXCLUDED.app_id
+    RETURNING deployment_id
+  `, [deploymentId, app, url, capabilities]);
+  if (updated.length !== 1) {
+    throw new Error('Deployment identity is already bound to another application.');
+  }
+}
+
 export async function findDeployment(query: Query, app: string, capability: string) {
   const [row] = await query<{ app_url: string }>(`
     SELECT app_url FROM skipo_ecosystem.deployments
