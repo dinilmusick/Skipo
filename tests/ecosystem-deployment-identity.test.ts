@@ -94,6 +94,11 @@ describe('canonical ULTRST deployment identity', () => {
     expect(sql).toContain('workflow grant revocation is permanent');
     expect(sql).toContain('workflow_grants_one_active_scope');
     expect(sql).toContain('DROP CONSTRAINT IF EXISTS workflow_grants_scope_unique');
+    const fixture = readFileSync(new URL('../db/tests/004_workflow_publication_grants.test.sql', import.meta.url), 'utf8');
+    expect(fixture).toContain('duplicate publication version was accepted');
+    expect(fixture).toContain('non-owner grantor was accepted');
+    expect(fixture).toContain('non-owner grant revocation was accepted');
+    expect(fixture).toContain('workflow_registry_test_rollback_fixtures');
     expect(sql).toContain("WHERE grant_state = 'active'");
   });
 });
