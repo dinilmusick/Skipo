@@ -16,11 +16,9 @@ jobs:
           persist-credentials: false
       - name: Assert exact Skipo checkout and locked dependency identity
         shell: bash
-        env:
-          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
           sha256sum package.json packages/skipo/package.json pnpm-lock.yaml
       - uses: pnpm/action-setup@v4
         with:
@@ -80,11 +78,9 @@ jobs:
           persist-credentials: false
       - name: Assert exact Skipo checkout and locked dependency identity
         shell: bash
-        env:
-          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
           sha256sum package.json packages/skipo/package.json pnpm-lock.yaml
       - uses: pnpm/action-setup@v4
         with:
