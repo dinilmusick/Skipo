@@ -66,7 +66,7 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
         print(json.dumps({"ok": False, "error": f"Target is not empty: {target}"})); return 2
     target.mkdir(parents=True, exist_ok=True)
     for item in source.iterdir():
-        if item.name in {".git", ".skipo"}:
+        if item.name in {".git", ".skipo", ".npmignore"}:
             continue
         dest = target / item.name
         if dest.exists() and force:
