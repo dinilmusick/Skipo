@@ -184,10 +184,10 @@ def validate_repository(root: Path) -> list[str]:
             errors.append("Generic scaffold generator contains stale Krnl package baseline")
         if re.search(r"\bAuthServiceFacade\b", source):
             errors.append("Generic scaffold generator must not generate the legacy Kloks auth facade")
-        for marker in ("FloksLuthAuthPage", "requireLuthSession", "DEFAULT_LUTH_URL", "LuthAuthPage"):
+        for marker in ("FloksLuthOidcGate", "requireLuthSession", "DEFAULT_LUTH_URL", "LuthOidcGate", "createCanonicalApplicationOAuthBff"):
             if marker not in source:
                 errors.append(f"Generic scaffold generator missing canonical auth output: {marker}")
-        if "@ultrst-armada/kloks/auth" not in source or "@dinilmusick/gutts/auth" in source:
+        if "@ultrst-armada/kloks/auth" not in source or "@ultrst-armada/kloks/backend/auth" not in source or "@dinilmusick/gutts/auth" in source:
             errors.append("Generic scaffold generator must consume the public Kloks auth API")
         if re.search(r"client\.signInWithEmail|client\.signUpWithEmail|client\.signInWithGoogle", source):
             errors.append("Generic scaffold generator must delegate login lifecycle to Floks")
