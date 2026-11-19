@@ -58,19 +58,91 @@ def manifest(root: Path) -> dict[str, Any]:
 def is_project(root: Path) -> bool:
     return (root / ".skipo" / "project.json").exists() or (root / "package.json").exists()
 
+def _create_error(message: str, *, code: str = "SKIPO_CREATE_INVALID", target: Path | None = None) -> int:
+    """Reject before mutation; every creation error is machine-readable."""
+    print(json.dumps({"ok": False, "operation": "create", "applied": False,
+                      "code": code, "target": str(target) if target else None, "error": message}))
+    return 2
+
+
 def create_project(name: str, target: Path, framework: str, force: bool) -> int:
+    """Create into a sibling staging directory and publish only on success.
+
+    Existing project ownership always takes precedence over --force. Updating
+    previously created apps belongs to the canonical transactional reconciler.
+    """
+    import re
+    import tempfile
+
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,63}", name):
+        return _create_error("Application name must start with a letter and contain only letters, numbers, _ or - (max 64 characters).", target=target)
+    if ".." in target.parts or target == target.parent:
+        return _create_error("Target paths may not contain traversal or point to a filesystem root.", code="SKIPO_CREATE_UNSAFE_TARGET", target=target)
+    # Do not resolve a user-supplied target before this test: resolving would
+    # erase symlink traversal evidence and could redirect writes elsewhere.
+    for component in (target, *target.parents):
+        if component.is_symlink():
+            return _create_error(f"Symlink component is not an authorized create target: {component}", code="SKIPO_CREATE_SYMLINK", target=target)
     source = SCAFFOLDS / framework
     if not source.is_dir():
-        print(json.dumps({"ok": False, "error": f"Unknown scaffold: {framework}"})); return 2
-    if target.exists() and any(target.iterdir()) and not force:
-        print(json.dumps({"ok": False, "error": f"Target is not empty: {target}"})); return 2
+        return _create_error(f"Unknown scaffold: {framework}", target=target)
+    if not target.parent.is_dir():
+        return _create_error(f"Target parent must already exist: {target.parent}", target=target)
+    try:
+        existing_empty = target.exists()
+        if existing_empty:
+            if not target.is_dir():
+                return _create_error("Target exists and is not a directory.", code="SKIPO_CREATE_CONFLICT", target=target)
+            if any(target.iterdir()):
+                return _create_error(
+                    "Existing project files are protected, including with --force. Use skipo plan and skipo update for transactional maintenance.",
+                    code="SKIPO_CREATE_EXISTING_PROJECT", target=target,
+                )
+    except OSError as exc:
+        return _create_error(f"Cannot inspect target safely: {exc}", target=target)
+
+    staging: Path | None = None
+    removed_empty_target = False
+    published = False
+    try:
+        staging = Path(tempfile.mkdtemp(prefix=f".{target.name}.skipo-stage-", dir=str(target.parent)))
+        result = _populate_create_project(name, staging, framework)
+        if result != 0:
+            return result
+        # Protect against concurrent target creation during generation.
+        for component in (target, *target.parents):
+            if component.is_symlink():
+                return _create_error("Symlink target appeared during creation; refusing publish.",
+                                     code="SKIPO_CREATE_SYMLINK", target=target)
+        if target.exists():
+            if not existing_empty or not target.is_dir() or any(target.iterdir()):
+                return _create_error("Target changed while generating; refusing to overwrite.",
+                                     code="SKIPO_CREATE_CONCURRENT_CHANGE", target=target)
+            target.rmdir()
+            removed_empty_target = True
+        staging.rename(target)
+        published = True
+        print(json.dumps({"ok": True, "operation": "create", "name": name,
+                          "framework": framework, "target": str(target),
+                          "skipo_version": VERSION, "applied": True}))
+        return 0
+    except (OSError, ValueError, KeyError) as exc:
+        return _create_error(f"Staged creation failed without publishing a project: {exc}",
+                             code="SKIPO_CREATE_ROLLED_BACK", target=target)
+    finally:
+        if not published and removed_empty_target and not target.exists():
+            target.mkdir(exist_ok=True)
+        if staging is not None and staging.exists():
+            shutil.rmtree(staging)
+
+
+def _populate_create_project(name: str, target: Path, framework: str) -> int:
+    source = SCAFFOLDS / framework
     target.mkdir(parents=True, exist_ok=True)
     for item in source.iterdir():
-        if item.name in {".git", ".skipo"}:
+        if item.name in {".git", ".skipo", ".npmignore"}:
             continue
         dest = target / item.name
-        if dest.exists() and force:
-            shutil.rmtree(dest) if dest.is_dir() else dest.unlink()
         shutil.copytree(item, dest) if item.is_dir() else shutil.copy2(item, dest)
     for p in target.rglob("*"):
         if p.is_file() and p.suffix in {".json",".md",".ts",".tsx",".js",".mjs",".toml",".yml",".yaml"}:
@@ -125,7 +197,6 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
         print(json.dumps({"ok": False, "operation": "create",
                           "error": f"Cannot attest new scaffold state: {exc}"}))
         return 1
-    print(json.dumps({"ok":True,"operation":"create","name":name,"framework":framework,"target":str(target),"skipo_version":VERSION}))
     return 0
 
 def inspect_project(root: Path) -> int:
@@ -523,7 +594,7 @@ def main() -> int:
 
     a=parser.parse_args()
     if a.command=="create":
-        return create_project(a.name,Path(a.target or a.name).resolve(),a.framework,a.force)
+        return create_project(a.name,Path(a.target or a.name).absolute(),a.framework,a.force)
     if a.command == "inspect":
         return inspect_project(Path(a.target).resolve())
     if a.command == "check":
