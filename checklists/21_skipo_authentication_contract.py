@@ -174,8 +174,8 @@ def validate_repository(root: Path) -> list[str]:
     client = root / "scaffolds" / framework / "src" / "libraries" / "client" / "luthAuthClient.ts"
     if client.is_file():
         source = client.read_text(encoding="utf-8")
-        if "getAuthHeaders()" not in source or "@ultrst-armada/kloks/auth" not in source or "@dinilmusick/gutts/auth" in source or "VITE_LUTH_URL" in source or "NEXT_PUBLIC_LUTH_URL" in source:
-            errors.append(f"{framework} client must use the public Kloks Luth bearer client without per-app auth URL env vars")
+        if "createApplicationAuthClient" not in source or "@ultrst-armada/kloks/auth" not in source or "@dinilmusick/gutts/auth" in source or "getAuthHeaders()" in source or "VITE_LUTH_URL" in source or "NEXT_PUBLIC_LUTH_URL" in source:
+            errors.append(f"{framework} client must use the public Kloks first-party OAuth client without bearer/session token injection")
 
     generator = root / "scripts/scaffold_app_structure.py"
     if generator.is_file():
