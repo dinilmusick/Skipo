@@ -9,7 +9,8 @@ function stubLuthSession(userId: string) {
   const originalFetch = globalThis.fetch;
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     if (String(input).startsWith(`${DEFAULT_LUTH_URL}/api/session`)) {
-      expect(new Headers(init?.headers).get('cookie')).toContain('luth-session=valid');
+      expect(new Headers(init?.headers).get('authorization')).toBe('Bearer canonical-machine-test');
+      expect(new Headers(init?.headers).has('cookie')).toBe(false);
       return Response.json({
         authenticated: true,
         user: { id: userId, email: 'user@example.invalid' },
@@ -38,7 +39,7 @@ describe('actual Vite Fetch ingress to canonical Kloks', () => {
       .mockResolvedValueOnce({ success: true, workspace: { id: 'ws-2', name: 'Created' } } as never);
 
     const get = await fetchHandler(new Request('http://localhost:3000/api/auth/workspaces', {
-      headers: { cookie: 'luth-session=valid', 'x-user-id': 'attacker' },
+      headers: { authorization: 'Bearer canonical-machine-test', 'x-user-id': 'attacker' },
     }), { APP_URL: 'http://localhost:3000' });
     expect(get.status).toBe(200);
     expect((await get.json()).workspaces[0].name).toBe('Real workspace');
@@ -48,7 +49,7 @@ describe('actual Vite Fetch ingress to canonical Kloks', () => {
 
     const post = await fetchHandler(new Request('http://localhost:3000/api/auth/workspaces', {
       method: 'POST',
-      headers: { cookie: 'luth-session=valid', 'content-type': 'application/json' },
+      headers: { authorization: 'Bearer canonical-machine-test', 'content-type': 'application/json' },
       body: JSON.stringify({ name: 'Created', userId: 'attacker', storageProvider: 'local_fs' }),
     }));
     expect(post.status).toBe(201);
@@ -66,7 +67,7 @@ describe('actual Vite Fetch ingress to canonical Kloks', () => {
       .mockResolvedValue({ connections: [] } as never);
     const forbidden = await fetchHandler(new Request('http://localhost:3000/api/auth/storage/invoke', {
       method: 'POST',
-      headers: { cookie: 'luth-session=valid', 'content-type': 'application/json' },
+      headers: { authorization: 'Bearer canonical-machine-test', 'content-type': 'application/json' },
       body: JSON.stringify({ operation: 'getConnectionsWithSecrets', input: {} }),
     }));
     expect(forbidden.status).toBe(400);
@@ -74,7 +75,7 @@ describe('actual Vite Fetch ingress to canonical Kloks', () => {
 
     const connections = await fetchHandler(new Request('http://localhost:3000/api/auth/storage/invoke', {
       method: 'POST',
-      headers: { cookie: 'luth-session=valid', 'content-type': 'application/json' },
+      headers: { authorization: 'Bearer canonical-machine-test', 'content-type': 'application/json' },
       body: JSON.stringify({ operation: 'getConnections', input: { userId: 'attacker' } }),
     }));
     expect(connections.status).toBe(200);
@@ -91,7 +92,7 @@ describe('Google Drive OAuth boundary over actual Vite ingress', () => {
       nonce: 'abcdefghijklmnopqrstuvwx12345678', state: 'signed',
     } as never);
     const response = await fetchHandler(new Request('http://localhost:3000/api/auth/storage/invoke', {
-      method: 'POST', headers: { cookie: 'luth-session=valid', 'content-type': 'application/json' },
+      method: 'POST', headers: { authorization: 'Bearer canonical-machine-test', 'content-type': 'application/json' },
       body: JSON.stringify({ operation: 'createGoogleDriveAuthorizationRequest', input: {
         callbackOrigin: 'http://localhost:3000', returnTo: 'http://localhost:3000/',
       } }),
@@ -111,7 +112,7 @@ describe('Google Drive OAuth boundary over actual Vite ingress', () => {
       .mockResolvedValueOnce({ userId: 'verified-luth-user', returnTo: 'http://localhost:3000/' } as never)
       .mockResolvedValueOnce({ id: 'connection-1' } as never);
     const response = await fetchHandler(new Request('http://localhost:3000/api/auth/storage/google-drive/callback?state=signed&code=code-1', {
-      headers: { cookie: 'luth-session=valid; skipo_google_drive_nonce=abcdefghijklmnopqrstuvwx12345678' },
+      headers: { authorization: 'Bearer canonical-machine-test', cookie: 'skipo_google_drive_nonce=abcdefghijklmnopqrstuvwx12345678' },
     }));
     expect(response.status).toBe(303);
     expect(response.headers.get('location')).toContain('googleDriveConnectionId=connection-1');
@@ -129,7 +130,7 @@ describe('Google Drive OAuth boundary over actual Vite ingress', () => {
     const execute = vi.spyOn(StorageServiceFacade, 'execute')
       .mockResolvedValue({ userId: 'someone-else', returnTo: 'http://localhost:3000/' } as never);
     const response = await fetchHandler(new Request('http://localhost:3000/api/auth/storage/google-drive/callback?state=signed&code=code-1', {
-      headers: { cookie: 'luth-session=valid; skipo_google_drive_nonce=abcdefghijklmnopqrstuvwx12345678' },
+      headers: { authorization: 'Bearer canonical-machine-test', cookie: 'skipo_google_drive_nonce=abcdefghijklmnopqrstuvwx12345678' },
     }));
     expect(response.status).toBe(400);
     expect(execute).toHaveBeenCalledTimes(1);
