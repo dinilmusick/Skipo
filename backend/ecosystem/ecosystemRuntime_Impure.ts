@@ -2,6 +2,7 @@ import {
   consumeInvocation, createInvocation, findDeployment, refreshDeployment, refreshDeploymentById,
   publishDeploymentCapabilityRevision, normalizeStaticCapabilityDescriptors,
   type EcosystemEnv, type Query, type StaticCapabilityDescriptor, systemQuery,
+  validatedDeploymentOrigin,
 } from './deploymentStore_Impure.js';
 import {
   handleDeploymentProof, type DeploymentEnvironment,
@@ -18,14 +19,7 @@ type Capability = (params: unknown, context: {
 type RemoteApps = Record<string, Record<string, (params: unknown) => Promise<unknown>>>;
 
 function deploymentOrigin(input: unknown): string {
-  const url = new URL(typeof input === 'string' ? input.trim() : '');
-  const host = url.hostname;
-  if (url.protocol !== 'https:' || url.username || url.password || url.port ||
-      url.pathname !== '/' || url.search || url.hash || !host.includes('.') ||
-      /^(?:\d+\.){3}\d+$/.test(host) || /\.(?:localhost|local|internal)\.?$/.test(host)) {
-    throw new Error('Ecosystem APP_URL must be an HTTPS origin with a DNS name.');
-  }
-  return url.origin;
+  return validatedDeploymentOrigin(input);
 }
 
 /**

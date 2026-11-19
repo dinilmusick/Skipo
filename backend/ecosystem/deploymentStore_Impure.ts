@@ -16,11 +16,16 @@ export function systemQuery(env: EcosystemEnv): Query {
 /** Refuse non-HTTPS, private or non-origin URLs returned by an external registry. */
 export function validatedDeploymentOrigin(value: unknown): string {
   const parsed = new URL(typeof value === 'string' ? value.trim() : '');
-  const hostname = parsed.hostname;
+  const hostname = parsed.hostname.toLowerCase();
+  // URL() canonicalizes dotted IPv4 abbreviations but leaves a trailing dot
+  // on localhost and brackets on IPv6. Never accept those as public DNS names.
+  const nonPublicName = /^(?:localhost|localdomain)$/.test(hostname) ||
+    /\.(?:localhost|localdomain|local|internal|lan|home\.arpa)$/.test(hostname);
   if (parsed.protocol !== 'https:' || parsed.username || parsed.password ||
       parsed.port || parsed.pathname !== '/' || parsed.search || parsed.hash ||
-      !hostname.includes('.') || /^(?:\d+\.){3}\d+$/.test(hostname) ||
-      /\.(?:localhost|local|internal)\.?$/.test(hostname)) {
+      !hostname.includes('.') || hostname.endsWith('.') ||
+      hostname.includes('..') || /[\[\]:]/.test(hostname) ||
+      /^(?:\d+\.){3}\d+$/.test(hostname) || nonPublicName) {
     throw new Error('Verified deployment target must be a public HTTPS DNS origin.');
   }
   return parsed.origin;
