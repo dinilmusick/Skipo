@@ -28,38 +28,93 @@ function deploymentOrigin(input: unknown): string {
   return url.origin;
 }
 
-/** Exact registered BackendRegistry handler and live BackendFacade service inventory. */
+/**
+ * Match the actual Skipo BackendFacade API (getService/listCapabilities and a
+ * private Map) as well as compatibility facade inventories. No metadata-only
+ * descriptor is proof that an operation is installed or callable.
+ */
 export interface BackendFacadeOperationSource {
-  facade: { services: Record<string, unknown> };
+  facade: {
+    /** Canonical Skipo BackendFacade lookup; may throw if a service is missing. */
+    getService?: (serviceId: string) => unknown;
+    listCapabilities?: () => readonly {
+      serviceId: string;
+      invocation: { operation: string };
+    }[];
+    /** Transitional Kloks/consumer inventory; supports Map and plain record. */
+    services?: ReadonlyMap<string, unknown> | Record<string, unknown>;
+  };
   registry: {
-    getCommand: (domain: string, operation: string) => { handler?: unknown } | undefined;
-    getQuery: (domain: string, operation: string) => { handler?: unknown } | undefined;
+    getCommand: (domain: string, operation: string) =>
+      { handler?: unknown; domain?: string; name?: string } | undefined;
+    getQuery: (domain: string, operation: string) =>
+      { handler?: unknown; domain?: string; name?: string } | undefined;
   };
 }
 
-/** A manually supplied descriptor alone cannot attest that its operation exists. */
+function installedBackendService(
+  facade: BackendFacadeOperationSource['facade'], serviceId: string,
+): unknown {
+  // Real Skipo BackendFacade stores services in a private Map and exposes
+  // getService(). Never infer service ownership from a public display name.
+  if (typeof facade.getService === 'function') {
+    try { return facade.getService(serviceId); } catch { return undefined; }
+  }
+  const services = facade.services;
+  if (services instanceof Map) return services.get(serviceId);
+  return services && Object.prototype.hasOwnProperty.call(services, serviceId)
+    ? (services as Record<string, unknown>)[serviceId] : undefined;
+}
+
+function validRegisteredOperation(
+  entry: { handler?: unknown; domain?: string; name?: string } | undefined,
+  domain: string, operation: string,
+): boolean {
+  return !!entry && typeof entry.handler === 'function' &&
+    (entry.domain === undefined || entry.domain === domain) &&
+    (entry.name === undefined || entry.name === operation);
+}
+
+/** Verify exact runtime service + executing handler provenance on every publication. */
 export function verifyRegisteredBackendFacadeOperations(
   source: BackendFacadeOperationSource | undefined,
   descriptors: readonly StaticCapabilityDescriptor[],
 ): void {
-  if (!source?.facade?.services ||
+  if (!source?.facade ||
+      (typeof source.facade.getService !== 'function' &&
+        !source.facade.services) ||
       typeof source.registry?.getCommand !== 'function' ||
       typeof source.registry?.getQuery !== 'function') {
     throw new Error('Static publication requires a real BackendFacade and BackendRegistry.');
   }
+  const facade = source.facade;
   for (const descriptor of descriptors) {
     const { serviceId, operationId } = descriptor.invocation;
-    const services = source.facade.services;
-    const service = Object.prototype.hasOwnProperty.call(services, serviceId)
-      ? services[serviceId] : undefined;
+    const service = installedBackendService(facade, serviceId);
     if (!service || typeof service !== 'object' ||
-        typeof (service as { execute?: unknown }).execute !== 'function') {
+        ('id' in service && service.id !== serviceId) ||
+        (typeof (service as { execute?: unknown }).execute !== 'function' &&
+          typeof (service as { call?: unknown }).call !== 'function')) {
       throw new Error('Static capability service is not installed on BackendFacade.');
     }
-    const registered = source.registry.getCommand(serviceId, operationId)
-      ?? source.registry.getQuery(serviceId, operationId);
-    if (!registered || typeof registered.handler !== 'function') {
-      throw new Error('Static capability operation is not registered in BackendRegistry.');
+    // No fallback from a malformed command to a different query operation:
+    // the exact live registry domain, name and callable handler must match.
+    const command = source.registry.getCommand(serviceId, operationId);
+    const query = source.registry.getQuery(serviceId, operationId);
+    const matches = Number(validRegisteredOperation(command, serviceId, operationId)) +
+      Number(validRegisteredOperation(query, serviceId, operationId));
+    if (matches !== 1) {
+      throw new Error('Static capability operation is not uniquely registered in BackendRegistry.');
+    }
+    // If canonical facade metadata exists, do not advertise an operation that
+    // its own service namespace does not expose.
+    if (typeof facade.listCapabilities === 'function') {
+      const catalog = facade.listCapabilities();
+      if (!Array.isArray(catalog) ||
+          !catalog.some(item => item?.serviceId === serviceId &&
+            item?.invocation?.operation === operationId)) {
+        throw new Error('Static capability operation is absent from BackendFacade capability catalog.');
+      }
     }
   }
 }

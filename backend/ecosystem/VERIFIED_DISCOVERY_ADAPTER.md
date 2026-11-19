@@ -101,3 +101,33 @@ UUID and rejects a row bound to another instance. Never silently substitute
 a deployment with the same app ID or capability revision. Expired, revoked,
 retired or missing exact targets must fail closed. Revalidate immediately
 before the separate Kloks target-side invocation and output authorization.
+
+## Canonical BackendFacade and BackendRegistry service provenance
+
+The backend runtime's `verifyRegisteredBackendFacadeOperations` accepts the
+real Skipo `BackendFacade` (`getService()` and `listCapabilities()`) and
+a real Kloks `BackendRegistry` (`getCommand()`/`getQuery()`). The real
+facade stores services in a **private Map**, not a public object. Compatibility
+inventory inputs may also use a Map or service record, but no descriptor may
+pass with only a display name or metadata. Published operations require an
+executable installed service, an unambiguous registry handler with matching
+domain/operation, and (when exposed) the facade's own capability catalog entry.
+The handler is rechecked at every heartbeat so removal publishes a complete
+withdrawal snapshot.
+
+**Integration example (server-side only):**
+
+```ts
+const facadeOperations = {
+  facade: actualBackendFacade,  // installed service facade, not metadata
+  registry: actualKloksBackendRegistry, // registered command/query handler
+};
+verifyRegisteredBackendFacadeOperations(facadeOperations, descriptors);
+```
+
+The generated app's `AppBackend.backendFacade` must register its real services
+and the Kloks registry must register their actual operations before supplying
+these references. An empty default facade, hand-authored descriptor, static
+application manifest or manually supplied function is insufficient. Existing
+`AppBackend` composition is not automatically enrolled by the registry
+library; application wiring is owned by the appropriate consumer.
