@@ -1,4 +1,4 @@
-import { createApplicationAuthClient } from '@dinilmusick/gutts/auth';
+import { createApplicationAuthClient } from '@ultrst-armada/kloks/auth';
 
 export const SKIPO_ECOSYSTEM_ID = 'ultrst-armada';
 export const SKIPO_APPLICATION_ID = 'my-app';
