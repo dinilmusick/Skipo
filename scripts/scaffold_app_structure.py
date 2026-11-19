@@ -433,18 +433,40 @@ export {{ default }} from './{pascal}Backend.js';
 
     luth_auth_facade_file = target_root / "src" / "backend" / "LuthAuthServiceFacade.ts"
     if not luth_auth_facade_file.exists():
-        luth_auth_facade_source = SKIPO_ROOT / "src" / "backend" / "LuthAuthServiceFacade.ts"
-        if luth_auth_facade_source.is_file():
-            luth_auth_facade_file.write_text(luth_auth_facade_source.read_text(encoding="utf-8"), encoding="utf-8")
-        else:
-            luth_auth_facade_file.write_text(
-                "import { getLuthSession, proxyLuthAuthRequest } from './auth/luthSession.js';\\n"
-                "export const LuthAuthServiceFacade = { id: 'auth', name: 'Luth Authentication', version: '1.0.0', "
-                "getSession: getLuthSession, getCurrentUser: async (request: Request) => (await getLuthSession(request))?.user ?? null, "
-                "proxyRequest: proxyLuthAuthRequest };\\n"
-                "export default LuthAuthServiceFacade;\\n",
-                encoding="utf-8",
-            )
+        luth_auth_facade_file.write_text("""import { getLuthSession } from './auth/luthSession.js';
+
+type AppEnv = Record<string, unknown>;
+
+/** Thin application integration only; Kloks owns session validation.
+ * Browser passwords, Luth cookies and OAuth grants never cross this facade. */
+export const LuthAuthServiceFacade = {
+  id: 'auth',
+  name: 'Luth Authentication',
+  version: '2.0.0',
+  getSession(request: Request, env: AppEnv = {}) {
+    return getLuthSession(request, env);
+  },
+  async getCurrentUser(request: Request, env: AppEnv = {}) {
+    return (await getLuthSession(request, env))?.user ?? null;
+  },
+  async proxyRequest(_request: Request) {
+    return Response.json({ error: 'LEGACY_AUTH_PROXY_DISABLED' }, {
+      status: 410, headers: { 'cache-control': 'no-store' },
+    });
+  },
+  async execute(operation: string, input?: { request?: Request; env?: AppEnv }) {
+    const request = input?.request;
+    if (!(request instanceof Request)) {
+      throw new Error('Luth auth operation requires a Web Request.');
+    }
+    if (operation === 'getSession') return this.getSession(request, input?.env);
+    if (operation === 'getCurrentUser') return this.getCurrentUser(request, input?.env);
+    if (operation === 'proxyRequest') return this.proxyRequest(request);
+    throw new Error('Unsupported Luth auth operation.');
+  },
+};
+export default LuthAuthServiceFacade;
+""", encoding="utf-8")
         created.append(luth_auth_facade_file)
 
     # 3. Canonical Skipo frontend page contract + component facade
