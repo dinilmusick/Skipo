@@ -1,5 +1,6 @@
-import { LuthAuthPage, type LuthAuthPageProps } from '@ultrst-armada/floks/auth';
+import { LuthOidcGate, type LuthOidcGateProps } from '@ultrst-armada/floks/auth';
 
-export function AuthPage(props: Omit<LuthAuthPageProps, 'ecosystemId'>) {
-  return <LuthAuthPage {...props} ecosystemId="ultrst-armada" />;
+/** Generated apps always authenticate through the shared Kloks/Luth BFF. */
+export function AuthPage(props: LuthOidcGateProps) {
+  return <LuthOidcGate {...props} />;
 }
