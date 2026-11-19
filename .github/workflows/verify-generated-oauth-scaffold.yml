@@ -1,8 +1,14 @@
 name: Verify canonical OAuth app scaffolds
 on:
   push:
-    branches:
-      - fix/canonical-oauth-bff-scaffold-20261119
+    branches: [main]
+    paths:
+      - 'scripts/scaffold_app_structure.py'
+      - 'scripts/generate_provider_packaging.py'
+      - 'checklists/21_skipo_authentication_contract.py'
+      - 'tests/authentication_scaffold.test.py'
+      - 'tests/scaffold_regression.py'
+      - '.github/workflows/verify-generated-oauth-scaffold.yml'
   pull_request:
     paths:
       - 'scripts/scaffold_app_structure.py'
