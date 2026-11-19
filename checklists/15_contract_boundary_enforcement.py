@@ -96,6 +96,7 @@ VALID_KLOKS_SUBPATHS = {
     "audio-midi",
     "services",
     "backend",
+    "backend/auth",
     "backend/client",
     "backend/krnl-services",
     "orchestrations",
