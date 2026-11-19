@@ -10,7 +10,9 @@ import { fileURLToPath } from "node:url";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const full = process.argv.includes("--full");
-const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+const npmCli = join(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
+const npm = process.platform === "win32" ? process.execPath : "npm";
+const npmPrefix = process.platform === "win32" ? [npmCli] : [];
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const rootVersion = JSON.parse(readFileSync(join(repo, "package.json"), "utf8")).version;
 const pkgVersion = JSON.parse(readFileSync(join(repo, "packages", "skipo", "package.json"), "utf8")).version;
@@ -45,12 +47,12 @@ try {
   mkdirSync(consumer);
   mkdirSync(externalCwd);
 
-  run(npm, ["pack", "--pack-destination", archiveDir], join(repo, "packages", "skipo"));
+  run(npm, [...npmPrefix, "pack", "--pack-destination", archiveDir], join(repo, "packages", "skipo"));
   const archives = readdirSync(archiveDir).filter((name) => name.endsWith(".tgz"));
   assert.equal(archives.length, 1, "Exactly one packed candidate is required");
   const archive = join(archiveDir, archives[0]);
   const archiveHash = digest(archive);
-  run(npm, ["install", "--no-audit", "--no-fund", "--prefix", consumer, archive], externalCwd);
+  run(npm, [...npmPrefix, "install", "--no-audit", "--no-fund", "--prefix", consumer, archive], externalCwd);
   const cli = join(consumer, "node_modules", "@ultrst-armada", "skipo", "bin", "skipo.js");
   assert.ok(existsSync(cli), "Real installed package must contain the executable");
   const skipo = (args, cwd = externalCwd, options = {}) =>
