@@ -2,9 +2,61 @@
 
 Status: **review candidate, not live cross-application certification**. This branch restores the managed Floks AppShell mounting point and adds Luth/Kloks-scoped Agent Chat and graph hosts. It does not introduce a browser authorization service, an agent scheduler, or a competing graph engine.
 
-## Binding an application
+## Generated AppShell: automatic, fail-closed host discovery
 
-The generated `App` accepts `universalUi={{agentChat, graph}}`. Both bindings are optional: without them guest / non-Aiko applications render their regular tabs and settings, and the chat launcher has no invoker. A generated application may import:
+Generated Vite `<App />` now checks the **same-origin owning application** endpoint
+`GET /api/ultrst/ui/available?workspaceId=<selected-workspace-id>`, using the
+canonical `luthFetch` credentials. This route is deliberately NOT installed by
+Skipo's generic scaffold: the owning application / Kloks runtime must implement
+it with request-time Luth verification and caller-authorized capability lookup.
+A missing route (404/204), rejection, malformed response or mismatched identity
+leaves both optional UI surfaces unbound. No browser-provided identity is an
+authorization grant.
+
+Example **server-authorized** JSON projection:
+
+```json
+{
+  "principalId": "verified-luth-user",
+  "workspaceId": "selected-source-workspace",
+  "applicationId": "canonical-skipo-application-id",
+  "scopeKey": "nonsecret-app-session-workspace-grant-deployment-revision",
+  "targets": [
+    {"id": "stable-app-agent-id", "kind": "app", "name": "App Agent"},
+    {"id": "stable-workflow-agent-id", "kind": "workflow", "name": "Workflow Agent"}
+  ],
+  "appAgentId": "stable-app-agent-id",
+  "graphEnabled": true,
+  "cancelEnabled": true
+}
+```
+
+If `targets` is empty Agent Chat stays disabled; if `graphEnabled` is false
+the graph chunk is not loaded. `cancelEnabled` must only be true if a real
+remote cancellation service is installed; the client never fabricates an
+acknowledgment. Scope refresh occurs on initial workspace selection, reconnect,
+focus, and a 15-second fallback poll. Unchanged grants/targets preserve the
+running graph's runtime object; changes rotate the scope and close old UI.
+
+When enabled, the presentation adapters call these **app-owned** endpoints
+(authenticated by Luth and reauthorized through Kloks on each request):
+
+| Method | Path | Function |
+| --- | --- | --- |
+| GET | `/api/ultrst/ui/available` | Caller-authorized directory and revision |
+| POST | `/api/ultrst/ui/agent-invoke` | Typed agent invocation / continuation |
+| POST | `/api/ultrst/ui/agent-cancel` | Caller-owned remote cancellation (when advertised) |
+| GET/POST/DELETE | `/api/ultrst/ui/flows` | Caller/workspace-owned flow persistence |
+| GET | `/api/ultrst/ui/authorized-nodes` | Caller-scoped exact-version remote node definitions |
+| POST | `/api/ultrst/ui/execute-remote` | Kloks-revalidated remote graph execution |
+
+A migrated application's frontend may still pass an explicit `universalUi`
+host prop when it has an existing trusted integration. Automatic discovery
+does not replace server-side authorization or create new execution services.
+
+## Binding an application (optional explicit host)
+
+The generated `App` accepts `universalUi={{agentChat, graph}}` as an **optional override**. With neither an explicit nor a valid auto-discovered host, guest / non-Aiko applications render their regular tabs and settings, and the chat launcher has no invoker. A generated application may import:
 
 - `createAuthenticatedAgentChatHttpHost` from `src/frontend/pages/main/agentChatHttpHost.ts`
 - `createAuthenticatedFodGraphHttpRuntime` from `src/frontend/pages/main/fodGraphHttpHost.ts`
