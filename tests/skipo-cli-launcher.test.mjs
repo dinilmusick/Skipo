@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -59,7 +59,7 @@ test("launched Python forwards arguments and arbitrary consumer working director
   const result = run(executable, cwd, ["inspect", "some project"]);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /args=inspect\|some project/);
-  assert.ok(result.stdout.includes("cwd=" + cwd), result.stdout);
+  assert.ok(result.stdout.includes("cwd=" + realpathSync(cwd)), result.stdout);
 });
 
 test("launched Python preserves nonzero command status", { skip: !python }, (t) => {
