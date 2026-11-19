@@ -1,7 +1,7 @@
 import { ecosystem } from '../ecosystem/AppEcosystem_Impure.js';
 import { handleUiSessionRequest } from '@ultrst-armada/kloks/backend/ui-session';
 import { authenticateLuthRequest } from '../auth/luthSession.js';
-import { verifyApplicationOAuthSession } from '../auth/applicationOAuthBff.js';
+import { handleApplicationOAuth, verifyApplicationOAuthSession } from '../auth/applicationOAuthBff.js';
 import { fetch as universalFetch } from '../../app.js';
 import {
   listWorkspaces, createWorkspace, invokeStorage, completeGoogleDriveOAuth,
@@ -29,6 +29,12 @@ function oauthNonceCookie(nonce: string, origin: string, clear = false): string 
 
 
 export async function fetchHandler(request: Request, env: Env = {}): Promise<Response> {
+  // OAuth callbacks must reach the canonical Kloks BFF before any application
+  // middleware or general capability handler can require an existing session.
+  if (new URL(request.url).pathname.startsWith('/api/auth/oidc/')) {
+    const response = await handleApplicationOAuth(request, env);
+    if (response) return response;
+  }
   await ecosystem.observe(env);
   const invocation = await ecosystem.handle(request, env);
   if (invocation) return invocation;
