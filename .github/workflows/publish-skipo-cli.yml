@@ -4,8 +4,17 @@ on:
   push:
     tags:
       - "skipo-v*"
-  issues:
-    types: [opened]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Explicitly approve a new, unused Skipo version (false = verification only)"
+        type: boolean
+        required: true
+        default: false
+      version:
+        description: "Exact version to validate and optionally publish"
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -13,13 +22,11 @@ permissions:
 
 jobs:
   publish:
-    # Issue trigger is intentionally exact and owner-only; no arbitrary ref,
-    # package name, command or version comes from an issue body.
+    # A tag push is an audit trigger; new npm publication requires explicit
+    # publish=true in a manual dispatch on main. No issue-body execution path.
     if: >-
       github.event_name == 'push' ||
-      (github.event_name == 'issues' &&
-       github.event.issue.user.login == 'dinilmusick' &&
-       github.event.issue.title == '[skipo-publish] 1.3.0')
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -40,31 +47,67 @@ jobs:
       - name: Verify exact checked-out release commit and matching package versions
         id: release
         shell: bash
-        env:
-          ISSUE_COMMIT_SHA: ${{ github.event.issue.body }}
         run: |
-          if [[ "$GITHUB_EVENT_NAME" == "issues" ]]; then
-            TAG_VERSION="1.3.0"
-            [[ "$ISSUE_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "Issue body must contain only the main commit SHA"; exit 1; }
-            test "$ISSUE_COMMIT_SHA" = "$(git rev-parse HEAD)"
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA" || { echo "Checkout does not match triggering commit"; exit 1; }
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            TAG_VERSION="$(node -e 'const fs=require("node:fs"); const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, "utf8")); process.stdout.write(String(event.inputs?.version || ""));')"
           else
+            [[ "$GITHUB_REF" == refs/tags/skipo-v* ]] || { echo "Only Skipo release tags are valid"; exit 1; }
             TAG_VERSION="${GITHUB_REF_NAME#skipo-v}"
           fi
+          [[ "$TAG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]] || { echo "Invalid release version"; exit 1; }
           SKIPO_VERSION="$(node -p "require('./packages/skipo/package.json').version")"
           ROOT_VERSION="$(node -p "require('./package.json').version")"
           test "$TAG_VERSION" = "$SKIPO_VERSION"
           test "$TAG_VERSION" = "$ROOT_VERSION"
           echo "version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Pack Skipo
+      - name: Pack actual release candidate
         working-directory: packages/skipo
-        run: npm pack --dry-run
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/skipo-release"
+          npm pack --pack-destination "$RUNNER_TEMP/skipo-release"
+          sha256sum "$RUNNER_TEMP/skipo-release"/*.tgz
 
-      - name: Publish @ultrst-armada/skipo
+      - name: Check npm version uniqueness (fail closed on registry errors)
+        id: registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          SKIPO_RELEASE_VERSION="$(node -p "require('./packages/skipo/package.json').version")"
+          if npm view "@ultrst-armada/skipo@${SKIPO_RELEASE_VERSION}" version --registry=https://registry.npmjs.org/ > "$RUNNER_TEMP/npm-version.out" 2> "$RUNNER_TEMP/npm-version.err"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::@ultrst-armada/skipo@${SKIPO_RELEASE_VERSION} is immutable and already published; no publish will be attempted."
+          elif grep -Eq 'E404|404 Not Found' "$RUNNER_TEMP/npm-version.err"; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Registry lookup failed for a reason other than a missing version; aborting publication." >&2
+            cat "$RUNNER_TEMP/npm-version.err" >&2
+            exit 1
+          fi
+
+      - name: Publish a unique version only after explicit manual approval
+        if: >-
+          github.event_name == 'workflow_dispatch' &&
+          inputs.publish &&
+          steps.registry.outputs.exists == 'false'
         working-directory: packages/skipo
-        run: npm publish --access public
+        run: |
+          set -euo pipefail
+          archive="$(find "$RUNNER_TEMP/skipo-release" -maxdepth 1 -name '*.tgz' -print -quit)"
+          test -n "$archive"
+          npm publish "$archive" --provenance --access public
+
+      - name: Do not misrepresent an existing version as this commit's release
+        if: steps.registry.outputs.exists == 'true'
+        run: echo "::warning::Existing npm version is only being checked as a historical registry artifact; this source commit was not published."
 
       - name: Independently verify the actual public npm consumer artifact
+        if: >-
+          steps.registry.outputs.exists == 'true' ||
+          (github.event_name == 'workflow_dispatch' && inputs.publish)
         env:
           SKIPO_REGISTRY_VERSION: ${{ steps.release.outputs.version }}
         run: bash tests/smoke_published_cli.sh

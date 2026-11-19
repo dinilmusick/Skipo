@@ -11,6 +11,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact Skipo checkout and locked dependency identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          sha256sum package.json packages/skipo/package.json pnpm-lock.yaml
       - uses: pnpm/action-setup@v4
         with:
           version: 10.33.0
@@ -22,6 +31,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pnpm install --frozen-lockfile
+      - name: Guard explicit Skipo publishing authority and immutable version
+        run: node scripts/verify-publish-workflow.mjs
       - run: python checklists/test_lockfile_contract.py
       - run: python -m pip install pytest
       - run: python -m pytest -q --import-mode=importlib tests/linked_dependencies.test.py
@@ -56,12 +67,37 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm build
       - run: pnpm validate
+      - name: Verify public Skipo npm archive and first unused patch version
+        run: node scripts/verify-public-npm-artifact.mjs packages/skipo/package.json
+      - name: Pack independently verifiable Skipo release candidate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/release-evidence
+          (cd packages/skipo && npm pack --pack-destination "$GITHUB_WORKSPACE/artifacts/release-evidence")
+          sha256sum artifacts/release-evidence/*.tgz > artifacts/release-evidence/candidate-sha256.txt
+      - name: Upload Skipo published-archive and candidate evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: skipo-npm-release-artifact-evidence
+          path: artifacts/release-evidence/
+          retention-days: 14
+          if-no-files-found: warn
 
   generated-applications:
     name: Generated Vite install / test / build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact Skipo checkout and locked dependency identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          sha256sum package.json packages/skipo/package.json pnpm-lock.yaml
       - uses: pnpm/action-setup@v4
         with:
           version: 10.33.0
