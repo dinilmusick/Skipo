@@ -25,8 +25,16 @@ jobs:
         run: |
           set -euo pipefail
           npm view @dinilmusick/gutts@2.2.3 version
-          npm view @ultrst-armada/kloks@2.2.5 version
-          npm view @ultrst-armada/floks@2.0.9 version
+          missing=0
+          for package in '@ultrst-armada/floks@2.0.9' '@ultrst-armada/kloks@2.2.5'; do
+            if npm view "$package" version --fetch-retries=1; then
+              echo "Verified registry metadata: $package"
+            else
+              echo "::error::Unpublished or inaccessible canonical npm package: $package"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then exit 42; fi
           pnpm install --lockfile-only --no-frozen-lockfile
           pnpm install --frozen-lockfile
           node --input-type=module <<'NODE'
