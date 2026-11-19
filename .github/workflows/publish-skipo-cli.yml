@@ -65,7 +65,11 @@ jobs:
 
       - name: Pack actual release candidate
         working-directory: packages/skipo
-        run: npm pack --pack-destination "$RUNNER_TEMP"
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/skipo-release"
+          npm pack --pack-destination "$RUNNER_TEMP/skipo-release"
+          sha256sum "$RUNNER_TEMP/skipo-release"/*.tgz
 
       - name: Check npm version uniqueness (fail closed on registry errors)
         id: registry
@@ -90,7 +94,11 @@ jobs:
           inputs.publish &&
           steps.registry.outputs.exists == 'false'
         working-directory: packages/skipo
-        run: npm publish --provenance --access public
+        run: |
+          set -euo pipefail
+          archive="$(find "$RUNNER_TEMP/skipo-release" -maxdepth 1 -name '*.tgz' -print -quit)"
+          test -n "$archive"
+          npm publish "$archive" --provenance --access public
 
       - name: Do not misrepresent an existing version as this commit's release
         if: steps.registry.outputs.exists == 'true'
