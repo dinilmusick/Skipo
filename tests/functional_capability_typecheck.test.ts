@@ -44,6 +44,6 @@ describe('Vite generated functional capability source', () => {
       jsx: 'automatic',
     });
     expect(output.outputFiles.some(file => file.text.includes('WorkspaceGate'))).toBe(true);
-    expect(output.outputFiles.some(file => file.text.includes('LuthAuthPage'))).toBe(true);
+    expect(output.outputFiles.some(file => file.text.includes('LuthOidcGate'))).toBe(true);
   });
 });
