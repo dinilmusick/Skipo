@@ -6,29 +6,29 @@
       "kind": "capability",
       "description": "Canonical Luth authentication and Floks auth surface.",
       "dependencies": {
-        "@ultrst-armada/floks": "2.0.8",
-        "@ultrst-armada/kloks": "2.2.4"
+        "@ultrst-armada/floks": "2.0.9",
+        "@ultrst-armada/kloks": "2.2.5"
       },
       "providers": [
         {
           "package": "@ultrst-armada/floks",
           "surface": "auth",
-          "symbol": "LuthAuthPage"
+          "symbol": "LuthOidcGate"
         },
         {
           "package": "@ultrst-armada/kloks",
-          "surface": "backend/krnl-services",
-          "symbol": "AuthServiceFacade"
+          "surface": "auth",
+          "symbol": "createApplicationAuthClient"
         }
       ],
       "generated": [
         {
           "path": "src/libraries/skipo/auth.ts",
-          "content": "export { LuthAuthPage } from '@ultrst-armada/floks/auth';\nexport { AuthServiceFacade } from '@ultrst-armada/kloks/backend/krnl-services';\n"
+          "content": "export { LuthOidcGate } from '@ultrst-armada/floks/auth';\nexport { createApplicationAuthClient } from '@ultrst-armada/kloks/auth';\n"
         },
         {
           "path": "src/frontend/pages/auth/page.tsx",
-          "content": "'use client';\n\nimport { LuthAuthPage } from '@ultrst-armada/floks/auth';\nimport { getSkipoApplicationId } from '../../../libraries/client/luthAuthClient.js';\n\nexport default function AuthPage() {\n  return (\n    <LuthAuthPage\n      ecosystemId=\"ultrst-armada\"\n      applicationId={getSkipoApplicationId()}\n      appName=\"SKIPO APP\"\n      onAuthenticated={() => window.location.assign('/')}\n    />\n  );\n}\n"
+          "content": "'use client';\n\nimport React from 'react';\nimport { LuthOidcGate } from '@ultrst-armada/floks/auth';\n\nexport default function AuthPage() {\n  return <LuthOidcGate appName=\"SKIPO APP\" authenticatedContent={<a href=\"/\">Open application</a>} />;\n}\n"
         }
       ],
       "safeRetire": [
@@ -79,8 +79,8 @@
       "kind": "capability",
       "description": "Canonical workspace selection and workspace service.",
       "dependencies": {
-        "@ultrst-armada/floks": "2.0.8",
-        "@ultrst-armada/kloks": "2.2.4"
+        "@ultrst-armada/floks": "2.0.9",
+        "@ultrst-armada/kloks": "2.2.5"
       },
       "providers": [
         {
@@ -147,7 +147,7 @@
       "kind": "service",
       "description": "Canonical workspace storage service.",
       "dependencies": {
-        "@ultrst-armada/kloks": "2.2.4"
+        "@ultrst-armada/kloks": "2.2.5"
       },
       "providers": [
         {
@@ -197,7 +197,7 @@
       "kind": "service",
       "description": "Canonical MIDI service.",
       "dependencies": {
-        "@ultrst-armada/kloks": "2.2.4"
+        "@ultrst-armada/kloks": "2.2.5"
       },
       "providers": [
         {
@@ -252,7 +252,7 @@
       "kind": "ui",
       "description": "Canonical Floks settings primitive.",
       "dependencies": {
-        "@ultrst-armada/floks": "2.0.8"
+        "@ultrst-armada/floks": "2.0.9"
       },
       "providers": [
         {
@@ -310,7 +310,7 @@
       "kind": "ui",
       "description": "Canonical Floks settings/account surface.",
       "dependencies": {
-        "@ultrst-armada/floks": "2.0.8"
+        "@ultrst-armada/floks": "2.0.9"
       },
       "providers": [
         {
@@ -363,7 +363,7 @@
       "kind": "ui",
       "description": "Canonical Floks application navigation primitives.",
       "dependencies": {
-        "@ultrst-armada/floks": "2.0.8"
+        "@ultrst-armada/floks": "2.0.9"
       },
       "providers": [
         {
@@ -423,7 +423,7 @@
       "kind": "ui",
       "description": "Canonical graph/canvas primitives from Floks.",
       "dependencies": {
-        "@ultrst-armada/floks": "2.0.8"
+        "@ultrst-armada/floks": "2.0.9"
       },
       "providers": [
         {

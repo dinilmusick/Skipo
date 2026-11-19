@@ -79,7 +79,7 @@ def test_update_repairs_dirty_shell_and_protects_custom_tabs(tmp_path):
 
     repaired = invoke("update", "--pages", str(target))
     assert repaired.returncode == 0, repaired.stdout + repaired.stderr
-    assert "LuthAuthPage" in auth.read_text()
+    assert "LuthOidcGate" in auth.read_text()
     assert "MainTabs" in main.read_text()
     assert legacy.exists(), "Application-owned backend service must survive"
     assert stray_script.exists(), "App-specific backend scripts must survive"
@@ -208,14 +208,15 @@ def test_auth_command_repairs_full_stack_and_preserves_custom_backend(tmp_path):
     assert "src/backend/auth/luthSession.ts" in scope["backend"]
     assert "src/frontend/App.tsx" in scope["frontend"]
     assert "@ultrst-armada/kloks/auth" in scope["services"]
-    assert "/api/auth/*" in scope["routes"]
+    assert "/api/auth/oidc/*" in scope["routes"]
     assert legacy_proxy.read_text().startswith("export function localAuthProvider")
 
     actual = invoke("add", "auth", str(target))
     assert actual.returncode == 0, actual.stdout + actual.stderr
     assert "authenticateLuthRequest" in legacy_proxy.read_text()
-    assert "proxyLuthAuthRequest" in (target / "src/app.ts").read_text()
-    assert "LuthAuthPage" in (target / "src/frontend/App.tsx").read_text()
+    assert "handleApplicationOAuth" in (target / "src/app.ts").read_text()
+    assert "proxyLuthAuthRequest" not in (target / "src/app.ts").read_text()
+    assert "LuthOidcGate" in (target / "src/frontend/App.tsx").read_text()
     assert app_service.read_text() == "export const specialWork = () => 42;\n"
 
     again = invoke("add", "auth", str(target))

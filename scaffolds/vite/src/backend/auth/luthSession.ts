@@ -1,69 +1,17 @@
 import { DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth';
-function stripGuestLeaseCookie(cookie: string | null): string | null {
-  if (!cookie) return null;
-  const retained = cookie.split(";").map((part) => part.trim()).filter((part) => !part.startsWith("__Host-skipo_guest="));
-  return retained.length ? retained.join("; ") : null;
-}
-
-const APP_AUTH_PATHS = [
-  '/api/auth/workspaces',
-  '/api/auth/storage/',
-];
-
-function isAppOwnedAuthPath(pathname: string): boolean {
-  return APP_AUTH_PATHS.some((prefix) => pathname === prefix || pathname.startsWith(prefix));
-}
-
-export async function proxyLuthAuthRequest(request: Request): Promise<Response | null> {
-  const url = new URL(request.url);
-  if (!url.pathname.startsWith('/api/auth/') || isAppOwnedAuthPath(url.pathname)) return null;
-  if (url.pathname === '/api/auth/admin/login') {
-    return Response.json({ success: false, error: 'Administrative login is not provided by Luth user authentication.' }, { status: 403 });
-  }
-
-  const targetPath = url.pathname === '/api/auth/login'
-    ? '/api/auth/sign-in/email'
-    : url.pathname === '/api/auth/register'
-      ? '/api/auth/sign-up/email'
-      : url.pathname;
-  const headers = new Headers();
-  for (const name of ['authorization', 'cookie', 'content-type', 'origin', 'user-agent']) {
-    const value = request.headers.get(name);
-    if (value) headers.set(name, value);
-  }
-  const appId = request.headers.get('x-app-id') || url.hostname || 'my-app';
-  headers.set('x-app-id', appId);
-
-  try {
-    const upstream = await fetch(`${DEFAULT_LUTH_URL}${targetPath}${url.search}`, {
-      method: request.method,
-      headers,
-      ...(request.method === 'GET' || request.method === 'HEAD' ? {} : { body: await request.arrayBuffer() }),
-      redirect: 'manual',
-      cache: 'no-store',
-    });
-    const responseHeaders = new Headers();
-    for (const name of ['content-type', 'set-cookie', 'set-auth-token', 'location', 'cache-control']) {
-      const value = upstream.headers.get(name);
-      if (value) responseHeaders.set(name, value);
-    }
-    return new Response(await upstream.arrayBuffer(), { status: upstream.status, headers: responseHeaders });
-  } catch {
-    return Response.json({ success: false, error: 'Canonical Luth authentication service unavailable.' }, { status: 503 });
-  }
-}
+import { SKIPO_APPLICATION_ID } from '../../libraries/client/luthAuthClient.js';
+/** App-origin sessions are verified by the Kloks BFF.
+ * Legacy cross-domain cookie proxying is intentionally not exposed. */
 
 /** Verify the canonical Luth session for external HTTP and MCP transports. */
 export async function getLuthSession(request: Request) {
   const headers = new Headers({
-    'x-app-id': request.headers.get('x-app-id') || new URL(request.url).hostname,
+    // Binding is compiled into the generated app, never caller-supplied.
+    'x-app-id': SKIPO_APPLICATION_ID,
   });
-  for (const name of ['authorization', 'origin']) {
-    const value = request.headers.get(name);
-    if (value) headers.set(name, value);
-  }
-  const cookie = stripGuestLeaseCookie(request.headers.get('cookie'));
-  if (cookie) headers.set('cookie', cookie);
+  const bearer = request.headers.get('authorization');
+  if (!bearer?.startsWith('Bearer ')) return null;
+  headers.set('authorization', bearer);
   try {
     const response = await fetch(`${DEFAULT_LUTH_URL}/api/session`, {
       method: 'GET', headers, cache: 'no-store', redirect: 'manual',
@@ -95,14 +43,13 @@ export async function authenticateLuthRequest(request: Request): Promise<{
   ) return { request };
 
   const authorization = request.headers.get('authorization');
-  const cookie = stripGuestLeaseCookie(request.headers.get('cookie'));
-  if (!authorization && !cookie) return { status: 401, error: 'A verified Luth session is required.' };
+  if (!authorization?.startsWith('Bearer ')) {
+    return { status: 401, error: 'An explicit verified Luth bearer is required for API clients.' };
+  }
 
   try {
-    const appId = request.headers.get('x-app-id') || url.hostname || 'my-app';
-    const headers = new Headers({ 'x-app-id': appId });
-    if (authorization) headers.set('authorization', authorization);
-    if (cookie) headers.set('cookie', cookie);
+    const headers = new Headers({ 'x-app-id': SKIPO_APPLICATION_ID });
+    headers.set('authorization', authorization);
     const response = await fetch(`${DEFAULT_LUTH_URL}/api/session`, {
       headers,
       cache: 'no-store',
@@ -113,11 +60,13 @@ export async function authenticateLuthRequest(request: Request): Promise<{
       user?: { id?: string; email?: string; name?: string };
       session?: { id?: string };
     };
-    if (session.authenticated !== true || !session.user?.id) {
+    if (session.authenticated !== true || !session.user?.id || !session.session?.id) {
       return { status: 401, error: 'Luth session is invalid or expired.' };
     }
 
     const forwarded = new Headers(request.headers);
+    // Caller-supplied identity metadata cannot survive principal admission.
+    for (const key of ['x-user-id', 'x-user-email', 'x-user-role', 'x-session-id']) forwarded.delete(key);
     forwarded.set('x-user-id', session.user.id);
     if (session.user.email) forwarded.set('x-user-email', session.user.email);
     if (session.session?.id) forwarded.set('x-session-id', session.session.id);

@@ -1,6 +1,7 @@
 import { ecosystem } from '../ecosystem/AppEcosystem_Impure.js';
 import { handleUiSessionRequest } from '@ultrst-armada/kloks/backend/ui-session';
 import { authenticateLuthRequest } from '../auth/luthSession.js';
+import { handleApplicationOAuth, verifyApplicationOAuthSession } from '../auth/applicationOAuthBff.js';
 import { fetch as universalFetch } from '../../app.js';
 import {
   listWorkspaces, createWorkspace, invokeStorage, completeGoogleDriveOAuth,
@@ -28,6 +29,12 @@ function oauthNonceCookie(nonce: string, origin: string, clear = false): string 
 
 
 export async function fetchHandler(request: Request, env: Env = {}): Promise<Response> {
+  // OAuth callbacks must reach the canonical Kloks BFF before any application
+  // middleware or general capability handler can require an existing session.
+  if (new URL(request.url).pathname.startsWith('/api/auth/oidc/')) {
+    const response = await handleApplicationOAuth(request, env);
+    if (response) return response;
+  }
   await ecosystem.observe(env);
   const invocation = await ecosystem.handle(request, env);
   if (invocation) return invocation;
@@ -45,9 +52,41 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
     if (sharedResponse.status !== 404) return sharedResponse;
   }
 
-  const auth = await authenticateLuthRequest(request);
-  if (auth.status) return json({ success: false, error: auth.error || 'Authentication required.' }, auth.status);
-  request = auth.request || request;
+  // The canonical app-owned BFF verifies its own first-party opaque cookie
+  // against Luth. No browser-supplied x-user-id or workspace claim is trusted.
+  // Legacy bearer calls remain supported for API-only consumers until migrated.
+  // Authentication is selected by *credential type*, not by whether a
+  // particular provider is provisioned. Missing credentials are 401, while
+  // a real first-party BFF cookie with unavailable verification is 503.
+  // Never forward an application-origin cookie to the Luth domain.
+  const cookies = (request.headers.get('cookie') ?? '').split(';').map(x => x.trim());
+  const hasBffSession = cookies.some(x =>
+    x.startsWith('__Host-ultrst_oidc_session=') || x.startsWith('ultrst_oidc_session='));
+  const bearer = request.headers.get('authorization');
+  if (!hasBffSession && !bearer?.startsWith('Bearer ')) {
+    return json({ success: false, error: 'Verified Luth identity required.' }, 401);
+  }
+  if (hasBffSession) {
+    let principal: { userId: string; sessionId: string } | null;
+    try {
+      principal = await verifyApplicationOAuthSession(request, env);
+    } catch {
+      return json({ success: false, error: 'Canonical application session verification unavailable.' }, 503);
+    }
+    if (!principal) return json({ success: false, error: 'Application session invalid or revoked.' }, 401);
+    const verified = new Headers(request.headers);
+    for (const name of ['x-user-id', 'x-user-email', 'x-session-id', 'x-user-role']) verified.delete(name);
+    verified.set('x-user-id', principal.userId);
+    verified.set('x-session-id', principal.sessionId);
+    verified.set('x-user-role', 'user');
+    request = new Request(request, { headers: verified });
+  } else {
+    // Explicit API bearers continue to use Luth's canonical server-side
+    // validation without any cookie proxy, token issuance, or fallback.
+    const auth = await authenticateLuthRequest(request);
+    if (auth.status) return json({ success: false, error: auth.error || 'Authentication required.' }, auth.status);
+    request = auth.request || request;
+  }
   const userId = request.headers.get('x-user-id');
   const uiSession = await handleUiSessionRequest(request, { appId: 'skipo', principalId: userId || '', env });
   if (uiSession) return uiSession;

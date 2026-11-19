@@ -68,11 +68,11 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
             "dependencies": {
                 "@aws-sdk/client-s3": "^3.1130.0",
                 "@aws-sdk/s3-request-presigner": "^3.1132.0",
-                "@dinilmusick/gutts": "^2.1.1",
+                "@dinilmusick/gutts": "2.2.3",
                 "@neondatabase/serverless": "^1.1.0",
-                "@ultrst-armada/floks": "2.0.6",
+                "@ultrst-armada/floks": "2.0.9",
                 "@ultrst-armada/frnlts": "0.5.23",
-                "@ultrst-armada/kloks": "2.0.5",
+                "@ultrst-armada/kloks": "2.2.5",
                 "@ultrst-armada/krnl": "^1.0.25",
                 "react": "^19.0.1",
                 "react-dom": "^19.0.1",
@@ -164,83 +164,86 @@ export function WorkspaceGate(props: WorkspaceGateProps) {
     if not auth_guard_file.exists():
         auth_guard_file.parent.mkdir(parents=True, exist_ok=True)
         auth_guard_file.write_text("""import { DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth';
+import { createCanonicalApplicationOAuthBff } from '@ultrst-armada/kloks/backend/auth';
 
-export async function getLuthSession(request: Request) {
-  const headers = new Headers({ 'x-app-id': request.headers.get('x-app-id') || new URL(request.url).hostname });
-  for (const name of ['authorization', 'cookie', 'origin']) {
-    const value = request.headers.get(name);
-    if (value) headers.set(name, value);
-  }
-  let response: Response;
-  try {
-    response = await fetch(DEFAULT_LUTH_URL + '/api/session', {
-      method: 'GET', headers, cache: 'no-store', redirect: 'manual',
-    });
-  } catch { return null; }
-  if (!response.ok) return null;
-  const session = await response.json().catch(() => null) as any;
-  if (session?.authenticated !== true || typeof session?.user?.id !== 'string' ||
-      typeof session?.session?.id !== 'string') return null;
-  return session;
+const APPLICATION_ID = '__SKIPO_APPLICATION_ID__';
+type AppEnv = Record<string, unknown>;
+
+/** A registered, exact-callback confidential client is mandatory. No automatic registration. */
+function bff(request: Request, env: AppEnv) {
+  return createCanonicalApplicationOAuthBff(request, env, APPLICATION_ID);
 }
 
-/** Proxy Luth login/session endpoints without embedding provider-specific auth logic. */
-export async function proxyLuthAuthRequest(request: Request): Promise<Response | null> {
-  const url = new URL(request.url);
-  const appOwned = url.pathname === '/api/auth/workspaces' || url.pathname.startsWith('/api/auth/storage/');
-  if (!url.pathname.startsWith('/api/auth/') || appOwned) return null;
-  if (url.pathname === '/api/auth/admin/login') {
-    return Response.json({ success: false, error: 'Administrative login is not provided by Luth user authentication.' }, { status: 403 });
-  }
-  const headers = new Headers({ 'x-app-id': request.headers.get('x-app-id') || url.hostname });
-  for (const name of ['authorization', 'cookie', 'content-type', 'origin', 'user-agent']) {
-    const value = request.headers.get(name);
-    if (value) headers.set(name, value);
-  }
+export async function handleApplicationOAuth(request: Request, env: AppEnv): Promise<Response | null> {
+  if (!new URL(request.url).pathname.startsWith('/api/auth/oidc/')) return null;
   try {
-    const upstream = await fetch(`${DEFAULT_LUTH_URL}${url.pathname}${url.search}`, {
-      method: request.method, headers,
-      ...(request.method === 'GET' || request.method === 'HEAD' ? {} : { body: await request.arrayBuffer() }),
-      redirect: 'manual', cache: 'no-store',
-    });
-    const responseHeaders = new Headers();
-    for (const name of ['content-type', 'set-cookie', 'set-auth-token', 'location', 'cache-control']) {
-      const value = upstream.headers.get(name);
-      if (value) responseHeaders.set(name, value);
-    }
-    return new Response(await upstream.arrayBuffer(), { status: upstream.status, headers: responseHeaders });
+    return await bff(request, env).handle(request);
   } catch {
-    return Response.json({ success: false, error: 'Canonical Luth authentication service unavailable.' }, { status: 503 });
+    return Response.json({ error: 'APPLICATION_OAUTH_UNAVAILABLE' }, {
+      status: 503, headers: { 'cache-control': 'no-store' },
+    });
   }
 }
 
-/** Attach verified identity to a Web Request; caller-supplied identity headers are never trusted. */
-export async function authenticateLuthRequest(request: Request): Promise<{ request?: Request; status?: number; error?: string }> {
-  const pathname = new URL(request.url).pathname;
-  if (!pathname.startsWith('/api/') || request.method === 'OPTIONS' ||
-      pathname === '/health' || pathname === '/api/health' ||
-      pathname === '/api/public/routes' || pathname.startsWith('/api/public/routes/')) return { request };
-  if (!request.headers.get('authorization') && !request.headers.get('cookie')) {
-    return { status: 401, error: 'A verified Luth session is required.' };
+/** Never accept arbitrary user identity or workspace claims from caller headers. */
+export async function getLuthSession(request: Request, env: AppEnv) {
+  const bearer = request.headers.get('authorization');
+  if (bearer && bearer.startsWith('Bearer ')) {
+    // Legacy machine-to-machine bearer clients use Luth's server-side validator.
+    // Do not forward app-scoped browser cookies to Luth: they belong to this origin.
+    let response: Response;
+    try {
+      response = await fetch(DEFAULT_LUTH_URL + '/api/session', {
+        method: 'GET',
+        headers: { authorization: bearer, 'x-app-id': APPLICATION_ID },
+        redirect: 'manual', cache: 'no-store',
+      });
+    } catch { throw new Error('LUTH_IDENTITY_UNAVAILABLE'); }
+    if (response.status === 401 || response.status === 403) return null;
+    if (!response.ok) throw new Error('LUTH_IDENTITY_UNAVAILABLE');
+    const value = await response.json().catch(() => null) as any;
+    return value?.authenticated === true &&
+      typeof value.user?.id === 'string' &&
+      typeof value.session?.id === 'string' ? value : null;
   }
-  const session = await getLuthSession(request);
-  if (!session?.user?.id) return { status: 401, error: 'Luth session is invalid or expired.' };
+  return bff(request, env).getSession(request);
+}
+
+export async function authenticateLuthRequest(
+  request: Request, env: AppEnv,
+): Promise<{ request?: Request; status?: number; error?: string }> {
+  const pathname = new URL(request.url).pathname;
+  if (request.method === 'OPTIONS' ||
+      pathname === '/health' || pathname === '/api/health' ||
+      pathname === '/api/public/routes' ||
+      pathname.startsWith('/api/public/routes/') ||
+      pathname.startsWith('/api/auth/oidc/')) return { request };
+
+  let session: Awaited<ReturnType<typeof getLuthSession>>;
+  try { session = await getLuthSession(request, env); }
+  catch { return { status: 503, error: 'Canonical identity verification unavailable.' }; }
+  if (!session?.user?.id || !session?.session?.id) {
+    return { status: 401, error: 'Verified Luth session required.' };
+  }
   const headers = new Headers(request.headers);
+  for (const field of ['x-user-id', 'x-user-role', 'x-session-id', 'x-user-email']) {
+    headers.delete(field);
+  }
   headers.set('x-user-id', session.user.id);
+  headers.set('x-session-id', session.session.id);
   if (session.user.email) headers.set('x-user-email', String(session.user.email));
-  if (session.session?.id) headers.set('x-session-id', session.session.id);
   headers.set('x-user-role', 'user');
   return { request: new Request(request, { headers }) };
 }
 
-export async function requireLuthSession(request: Request) {
-  const session = await getLuthSession(request);
+export async function requireLuthSession(request: Request, env: AppEnv) {
+  const session = await getLuthSession(request, env);
   if (session) return session;
   throw new Response(JSON.stringify({ error: 'Unauthenticated' }), {
     status: 401, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
   });
 }
-""", encoding="utf-8")
+""".replace("__SKIPO_APPLICATION_ID__", app_name.lower().replace(" ", "-")), encoding="utf-8")
         created.append(auth_guard_file)
 
     # 2b. Canonical Google Drive storage adapter, backed by Kloks.
@@ -430,18 +433,40 @@ export {{ default }} from './{pascal}Backend.js';
 
     luth_auth_facade_file = target_root / "src" / "backend" / "LuthAuthServiceFacade.ts"
     if not luth_auth_facade_file.exists():
-        luth_auth_facade_source = SKIPO_ROOT / "src" / "backend" / "LuthAuthServiceFacade.ts"
-        if luth_auth_facade_source.is_file():
-            luth_auth_facade_file.write_text(luth_auth_facade_source.read_text(encoding="utf-8"), encoding="utf-8")
-        else:
-            luth_auth_facade_file.write_text(
-                "import { getLuthSession, proxyLuthAuthRequest } from './auth/luthSession.js';\\n"
-                "export const LuthAuthServiceFacade = { id: 'auth', name: 'Luth Authentication', version: '1.0.0', "
-                "getSession: getLuthSession, getCurrentUser: async (request: Request) => (await getLuthSession(request))?.user ?? null, "
-                "proxyRequest: proxyLuthAuthRequest };\\n"
-                "export default LuthAuthServiceFacade;\\n",
-                encoding="utf-8",
-            )
+        luth_auth_facade_file.write_text("""import { getLuthSession } from './auth/luthSession.js';
+
+type AppEnv = Record<string, unknown>;
+
+/** Thin application integration only; Kloks owns session validation.
+ * Browser passwords, Luth cookies and OAuth grants never cross this facade. */
+export const LuthAuthServiceFacade = {
+  id: 'auth',
+  name: 'Luth Authentication',
+  version: '2.0.0',
+  getSession(request: Request, env: AppEnv = {}) {
+    return getLuthSession(request, env);
+  },
+  async getCurrentUser(request: Request, env: AppEnv = {}) {
+    return (await getLuthSession(request, env))?.user ?? null;
+  },
+  async proxyRequest(_request: Request) {
+    return Response.json({ error: 'LEGACY_AUTH_PROXY_DISABLED' }, {
+      status: 410, headers: { 'cache-control': 'no-store' },
+    });
+  },
+  async execute(operation: string, input?: { request?: Request; env?: AppEnv }) {
+    const request = input?.request;
+    if (!(request instanceof Request)) {
+      throw new Error('Luth auth operation requires a Web Request.');
+    }
+    if (operation === 'getSession') return this.getSession(request, input?.env);
+    if (operation === 'getCurrentUser') return this.getCurrentUser(request, input?.env);
+    if (operation === 'proxyRequest') return this.proxyRequest(request);
+    throw new Error('Unsupported Luth auth operation.');
+  },
+};
+export default LuthAuthServiceFacade;
+""", encoding="utf-8")
         created.append(luth_auth_facade_file)
 
     # 3. Canonical Skipo frontend page contract + component facade
@@ -508,42 +533,34 @@ export {{ default }} from './{pascal}Backend.js';
         pages_root / "auth" / "LuthAuthPage.tsx": """'use client';
 
 import React from 'react';
-import { LuthAuthPage as FloksLuthAuthPage } from '@ultrst-armada/floks/auth';
+import { LuthOidcGate as FloksLuthOidcGate } from '@ultrst-armada/floks/auth';
 
-export function LuthAuthPage({ applicationId, appName, onAuthenticated, authenticatedContent, onContinueAsGuest }: {
-  applicationId: string;
+/** Presentation only; the verified applicationId is compiled into the server
+ *  BFF adapter, not accepted from a browser prop or redirect parameter. */
+export function LuthAuthPage({ appName, onAuthenticated, authenticatedContent, onContinueAsGuest }: {
+  applicationId?: string;
   appName: string;
   onAuthenticated?: (user: unknown) => void;
   authenticatedContent?: React.ReactNode | ((auth: any) => React.ReactNode);
   onContinueAsGuest?: () => void;
 }) {
-  return <FloksLuthAuthPage ecosystemId="ultrst-armada"
-    applicationId={applicationId} appName={appName}
+  return <FloksLuthOidcGate
+    appName={appName}
     onAuthenticated={onAuthenticated as any}
-    authenticatedContent={authenticatedContent as any}
+    authenticatedContent={authenticatedContent ?? null}
     onContinueAsGuest={onContinueAsGuest} />;
 }
-
 export default LuthAuthPage;
 """,
         pages_root / "auth" / "luthFetch.ts": """'use client';
 
-import { createLuthAuthClient } from '@ultrst-armada/kloks/auth';
-
-const luthClient = createLuthAuthClient({
-  ecosystemId: 'ultrst-armada',
-  applicationId: "__SKIPO_APPLICATION_ID__",
-  autoRegister: true,
-});
-
-/** Attach the canonical Luth bearer token to protected application API requests. */
+/** Browser requests remain first-party; the server owns OAuth PKCE and tokens. */
 export async function luthFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
-  new Headers(luthClient.getAuthHeaders()).forEach((value, key) => headers.set(key, value));
+  headers.delete('authorization');
   return fetch(input, {
-    ...init,
-    headers,
-    credentials: init.credentials ?? 'include',
+    ...init, headers,
+    credentials: 'same-origin',
     cache: init.cache ?? 'no-store',
   });
 }
@@ -772,6 +789,18 @@ createRoot(container).render(<React.StrictMode><App /></React.StrictMode>);
     if not lib_index.exists():
         lib_index.write_text("// Application-specific custom libraries only (never duplicate @ultrst-armada/kloks or @ultrst-armada/floks)\nexport {};\n", encoding="utf-8")
         created.append(lib_index)
+
+    # Canonical environment contract: application-owned database and origin.
+    # OAuth confidential client credentials are injected by the trusted runtime,
+    # not generated, committed, stored in the frontend or written to .env.example.
+    env_example = target_root / ".env.example"
+    if not env_example.exists():
+        env_example.write_text(
+            'SYSTEM_DATABASE_URL="postgres://user:password@db.example.com:5432/postgres?sslmode=require"\\n'
+            'APP_URL="http://localhost:3000"\\n',
+            encoding="utf-8",
+        )
+        created.append(env_example)
 
     created.extend(generate_provider_packaging(target_root, app_name))
     return created

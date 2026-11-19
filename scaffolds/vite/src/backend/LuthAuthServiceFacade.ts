@@ -1,4 +1,4 @@
-import { getLuthSession, proxyLuthAuthRequest } from './auth/luthSession.js';
+import { getLuthSession } from './auth/luthSession.js';
 
 /** Provider-neutral auth facade backed exclusively by canonical Luth sessions. */
 export const LuthAuthServiceFacade = {
@@ -12,8 +12,12 @@ export const LuthAuthServiceFacade = {
     const session = await getLuthSession(request);
     return session?.user ?? null;
   },
-  async proxyRequest(request: Request) {
-    return proxyLuthAuthRequest(request);
+  /** Deliberately fail closed: browser logins use Kloks' OIDC BFF, never a
+   * cross-domain Luth cookie proxy. Kept only to signal migration clearly. */
+  async proxyRequest(_request: Request) {
+    return Response.json({ error: 'LEGACY_AUTH_PROXY_DISABLED' }, {
+      status: 410, headers: { 'cache-control': 'no-store' },
+    });
   },
 };
 

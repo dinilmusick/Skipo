@@ -10,15 +10,19 @@ async function wrappedFetch(url: string, init?: RequestInit): Promise<Response> 
 }
 
 export const apiClient = {
-  async login(email?: string, password?: string, isAdmin: boolean = false) {
+  /** Compatibility entrypoint: credentials must only be collected by Luth.
+   * This starts the first-party BFF flow and deliberately does NOT claim
+   * successful authentication until the callback and session are verified. */
+  async login(_email?: string, _password?: string, isAdmin: boolean = false) {
     if (isAdmin) throw new Error('Administrative authentication is not provided by Luth user login.');
-    await luthAuthClient.signInWithEmail({ email: email || '', password: password || '' });
-    return luthAuthClient.getSession();
+    luthAuthClient.signInWithEmail();
+    return { authenticated: false, redirecting: true };
   },
 
-  async register(data: { name: string; email: string; password: string; role?: string }) {
-    await luthAuthClient.signUpWithEmail({ name: data.name, email: data.email, password: data.password });
-    return luthAuthClient.getSession();
+  /** All registration is hosted by Luth; applications never accept passwords. */
+  async register(_data: { name: string; email: string; password: string; role?: string }) {
+    luthAuthClient.startSignIn();
+    return { authenticated: false, redirecting: true };
   },
 
   async getWorkspaces(_userId?: string) {

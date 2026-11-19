@@ -2,16 +2,16 @@
 
 import { useState } from 'react';
 import { SkipoThemeProvider, BaseButton, type WorkspaceRecord } from '@ultrst-armada/floks/ui';
-import { LuthAuthPage, type UseLuthAuthResult } from '@ultrst-armada/floks/auth';
+import { LuthOidcGate, type ApplicationOidcAuth } from '@ultrst-armada/floks/auth';
 import MainPage from './pages/main/page.js';
 import WorkspacesPage from './pages/menus/workspaces/page.js';
 import { UiSessionControls } from './components/UiSessionControls.js';
-import { getSkipoApplicationId, luthFetch } from '../libraries/client/luthAuthClient.js';
+import { luthFetch } from '../libraries/client/luthAuthClient.js';
 import type { ScopedUniversalUiHost } from './pages/main/universalGraphHost.js';
 import { useAuthorizedUniversalUi } from './pages/main/useAuthorizedUniversalUi.js';
 
 function AuthenticatedApplication({ auth, universalUi }: {
-  auth: UseLuthAuthResult;
+  auth: ApplicationOidcAuth;
   universalUi?: ScopedUniversalUiHost;
 }) {
   // Workspace selection belongs to the authenticated principal. A principal
@@ -52,8 +52,7 @@ export function App({universalUi}: {universalUi?: ScopedUniversalUiHost} = {}) {
     <SkipoThemeProvider defaultTheme="dark">
       {isGuest ? <MainPage isGuest /> : (
         <>
-          <LuthAuthPage ecosystemId="ultrst-armada"
-            applicationId={getSkipoApplicationId()}
+          <LuthOidcGate
             appName="SKIPO APP"
             authenticatedContent={auth => <AuthenticatedApplication auth={auth} universalUi={universalUi} />}
           />

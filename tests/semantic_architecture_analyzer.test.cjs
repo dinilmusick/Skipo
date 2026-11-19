@@ -122,13 +122,12 @@ test('attested backend-only generated bridge is allowed but forged changes and f
   assert.ok(!trusted.findings.some(f => f.ruleId === 'SEM102' && f.file === relative),
     JSON.stringify(trusted.findings));
 
-  fs.writeFileSync(target, content + '\n// app-owned modification');
+  fs.writeFileSync(target, content + "\nimport { BackendFacade } from '@ultrst-armada/kloks/backend';\n");
   const tampered = analyzeProject(root);
   assert.ok(tampered.findings.some(f => f.ruleId === 'SEM102' && f.file === relative));
 
-  fs.writeFileSync(target, content);
   fs.writeFileSync(path.join(root, 'src/frontend/useBridge.ts'),
-    "import { AuthServiceFacade } from '../libraries/skipo/auth'; export { AuthServiceFacade };\n");
+    "import { BackendFacade } from '../libraries/skipo/auth'; export { BackendFacade };\n");
   const exposed = analyzeProject(root);
   assert.ok(exposed.findings.some(f => f.ruleId === 'SEM109' && f.file === 'src/frontend/useBridge.ts'),
     JSON.stringify(exposed.findings));
