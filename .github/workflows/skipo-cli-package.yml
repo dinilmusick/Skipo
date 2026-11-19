@@ -1,0 +1,52 @@
+name: Skipo packaged CLI and generated consumer
+
+on:
+  pull_request:
+    paths:
+      - "packages/skipo/bin/**"
+      - "scripts/skipo_cli.py"
+      - "tests/skipo-cli-launcher.test.mjs"
+      - "tests/verify-skipo-packed-cli.mjs"
+      - ".github/workflows/skipo-cli-package.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installed-cli-matrix:
+    name: Installed CLI matrix
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Test Python discovery, exit status and CLI version
+        run: node --test tests/skipo-cli-launcher.test.mjs
+      - name: Pack actual npm archive and run installed CLI outside checkout
+        run: node tests/verify-skipo-packed-cli.mjs
+
+  generated-vite-consumer:
+    name: Frozen installed-package Vite consumer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - name: Pack and verify generated Vite app with frozen lockfile
+        run: node tests/verify-skipo-packed-cli.mjs --full
