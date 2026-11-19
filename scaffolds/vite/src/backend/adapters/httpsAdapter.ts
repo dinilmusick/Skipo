@@ -1,6 +1,7 @@
 import { ecosystem } from '../ecosystem/AppEcosystem_Impure.js';
 import { handleUiSessionRequest } from '@ultrst-armada/kloks/backend/ui-session';
 import { authenticateLuthRequest } from '../auth/luthSession.js';
+import { verifyApplicationOAuthSession } from '../auth/applicationOAuthBff.js';
 import { fetch as universalFetch } from '../../app.js';
 import {
   listWorkspaces, createWorkspace, invokeStorage, completeGoogleDriveOAuth,
@@ -45,9 +46,29 @@ export async function fetchHandler(request: Request, env: Env = {}): Promise<Res
     if (sharedResponse.status !== 404) return sharedResponse;
   }
 
-  const auth = await authenticateLuthRequest(request);
-  if (auth.status) return json({ success: false, error: auth.error || 'Authentication required.' }, auth.status);
-  request = auth.request || request;
+  // The canonical app-owned BFF verifies its own first-party opaque cookie
+  // against Luth. No browser-supplied x-user-id or workspace claim is trusted.
+  // Legacy bearer calls remain supported for API-only consumers until migrated.
+  let bffUser: { userId: string; sessionId: string } | null = null;
+  try {
+    bffUser = await verifyApplicationOAuthSession(request, env);
+  } catch {
+    return json({ success: false, error: 'Canonical application session verification unavailable.' }, 503);
+  }
+  if (bffUser) {
+    const verified = new Headers(request.headers);
+    verified.delete('x-user-id');
+    verified.delete('x-session-id');
+    verified.delete('x-user-role');
+    verified.set('x-user-id', bffUser.userId);
+    verified.set('x-session-id', bffUser.sessionId);
+    verified.set('x-user-role', 'user');
+    request = new Request(request, { headers: verified });
+  } else {
+    const auth = await authenticateLuthRequest(request);
+    if (auth.status) return json({ success: false, error: auth.error || 'Authentication required.' }, auth.status);
+    request = auth.request || request;
+  }
   const userId = request.headers.get('x-user-id');
   const uiSession = await handleUiSessionRequest(request, { appId: 'skipo', principalId: userId || '', env });
   if (uiSession) return uiSession;
