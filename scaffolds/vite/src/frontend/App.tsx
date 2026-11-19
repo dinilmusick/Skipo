@@ -8,6 +8,7 @@ import WorkspacesPage from './pages/menus/workspaces/page.js';
 import { UiSessionControls } from './components/UiSessionControls.js';
 import { getSkipoApplicationId, luthFetch } from '../libraries/client/luthAuthClient.js';
 import type { ScopedUniversalUiHost } from './pages/main/universalGraphHost.js';
+import { useAuthorizedUniversalUi } from './pages/main/useAuthorizedUniversalUi.js';
 
 function AuthenticatedApplication({ auth, universalUi }: {
   auth: UseLuthAuthResult;
@@ -18,6 +19,8 @@ function AuthenticatedApplication({ auth, universalUi }: {
   const [selection, setSelection] = useState<{principalId: string; workspace: WorkspaceRecord} | null>(null);
   const principalId = auth.user?.id;
   const workspace = principalId && selection?.principalId === principalId ? selection.workspace : null;
+  const discoveredUi = useAuthorizedUniversalUi(principalId, workspace?.id, !universalUi);
+  const activeUi = universalUi ?? discoveredUi;
 
   return (
     <>
@@ -30,8 +33,8 @@ function AuthenticatedApplication({ auth, universalUi }: {
         />
       ) : (
         <MainPage principalId={principalId}
-          activeWorkspace={workspace} agentChat={universalUi?.agentChat}
-          graph={universalUi?.graph}
+          activeWorkspace={workspace} agentChat={activeUi?.agentChat}
+          graph={activeUi?.graph}
           onSwitchWorkspace={() => setSelection(null)} />
       )}
     </>
@@ -39,8 +42,9 @@ function AuthenticatedApplication({ auth, universalUi }: {
 }
 
 /**
- * A generated app starts with no remote authority. Its owning application
- * injects a Luth/Kloks-authorized UI host; Skipo never fabricates an agent.
+ * A generated app starts with no remote authority. It discovers an optional
+ * authenticated application-owned Kloks host or accepts an explicit host.
+ * Missing/invalid scopes fail closed; Skipo never fabricates an agent.
  */
 export function App({universalUi}: {universalUi?: ScopedUniversalUiHost} = {}) {
   const [isGuest, setIsGuest] = useState(false);
