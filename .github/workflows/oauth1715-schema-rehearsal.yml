@@ -1,0 +1,50 @@
+name: Better Auth 1.7.15 official OAuth schema rehearsal
+on:
+  push:
+    branches: [ci/oauth1715-schema-rehearsal-20261120]
+    paths:
+      - scripts/oauth1715-schema.config.ts
+      - .github/workflows/oauth1715-schema-rehearsal.yml
+permissions:
+  contents: read
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate official version-matched schema without credentials or live database
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/better-auth-1715"
+          mkdir -p "$root" "$GITHUB_WORKSPACE/artifacts/official-oauth-schema"
+          cp scripts/oauth1715-schema.config.ts "$root/auth.ts"
+          cd "$root"
+          printf '%s\n' '{"name":"better-auth-1715-schema-rehearsal","private":true,"type":"module"}' > package.json
+          npm install --no-audit --no-fund --save-exact auth@1.7.15 better-auth@1.7.15 @better-auth/oauth-provider@1.7.15 drizzle-orm@0.44.7 drizzle-kit@0.31.8
+          ./node_modules/.bin/auth generate --config ./auth.ts --adapter drizzle --dialect postgresql --output ./schema.ts --yes
+          test -s schema.ts
+          cat > drizzle.config.ts <<'DRIZZLE'
+          import { defineConfig } from 'drizzle-kit';
+          export default defineConfig({ dialect: 'postgresql', schema: './schema.ts', out: './drizzle' });
+          DRIZZLE
+          ./node_modules/.bin/drizzle-kit generate --config ./drizzle.config.ts
+          find drizzle -name '*.sql' -type f -maxdepth 2 -exec cat {} \; > "$GITHUB_WORKSPACE/artifacts/official-oauth-schema/0001-better-auth-1715-full.sql"
+          cp schema.ts "$GITHUB_WORKSPACE/artifacts/official-oauth-schema/schema.ts"
+          npm ls better-auth @better-auth/oauth-provider auth --depth=0 > "$GITHUB_WORKSPACE/artifacts/official-oauth-schema/versions.txt"
+          sha256sum "$GITHUB_WORKSPACE"/artifacts/official-oauth-schema/* > "$GITHUB_WORKSPACE/artifacts/official-oauth-schema/SHA256SUMS"
+          echo '--- Official generated schema table names ---'
+          grep -E 'export const .* = pgTable|CREATE TABLE' schema.ts "$GITHUB_WORKSPACE/artifacts/official-oauth-schema/0001-better-auth-1715-full.sql" || true
+          echo '--- Full generated SQL ---'
+          cat "$GITHUB_WORKSPACE/artifacts/official-oauth-schema/0001-better-auth-1715-full.sql"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: luth-better-auth-1715-schema-only
+          path: artifacts/official-oauth-schema/
+          retention-days: 7
