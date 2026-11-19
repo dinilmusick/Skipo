@@ -3,6 +3,9 @@ import {
   publishDeploymentCapabilityRevision, normalizeStaticCapabilityDescriptors,
   type EcosystemEnv, type Query, type StaticCapabilityDescriptor, systemQuery,
 } from './deploymentStore_Impure.js';
+import {
+  handleDeploymentProof, type DeploymentEnvironment,
+} from './deploymentProof_Impure.js';
 
 const invocationPath = '/api/ecosystem/invoke';
 const heartbeatInterval = 5 * 60_000;
@@ -65,6 +68,8 @@ export function createEcosystemRuntime(options: {
   appId: string;
   /** Persistent deployment UUID, provisioned by an approved control plane. */
   deploymentId?: string;
+  /** Explicit registered environment; never inferred from the deployment URL. */
+  deploymentEnvironment?: DeploymentEnvironment;
   /** Static public metadata only; never include user workflows or session-bound endpoints. */
   capabilityDescriptors?: readonly StaticCapabilityDescriptor[];
   /** Real Kloks BackendFacade and BackendRegistry used to prove operation provenance. */
@@ -91,6 +96,11 @@ export function createEcosystemRuntime(options: {
   if (options.deploymentId !== undefined &&
       !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(options.deploymentId)) {
     throw new Error('Invalid ecosystem deployment identity.');
+  }
+  if (options.deploymentEnvironment !== undefined &&
+      !['development', 'preview', 'staging', 'production']
+        .includes(options.deploymentEnvironment)) {
+    throw new Error('Invalid ecosystem deployment environment.');
   }
   // A public registry snapshot must describe operations actually installed on
   // this runtime. Client-supplied descriptors alone are never proof of a facade.
@@ -151,6 +161,11 @@ export function createEcosystemRuntime(options: {
   }
 
   async function handle(request: Request, env: EcosystemEnv): Promise<Response | null> {
+    const proof = handleDeploymentProof(request, env, {
+      appId, deploymentId: options.deploymentId,
+      environment: options.deploymentEnvironment,
+    });
+    if (proof) return proof;
     if (new URL(request.url).pathname !== invocationPath) return null;
     const respond = (body: unknown, status = 200) => Response.json(body, {
       status, headers: { 'cache-control': 'no-store' },
