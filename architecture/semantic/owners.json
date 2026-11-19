@@ -1,6 +1,10 @@
 {
   "version": 1,
-  "publicBackendBarrels": ["src/backend/index.ts", "src/backend/index.tsx", "src/backend/index.js"],
+  "publicBackendBarrels": [
+    "src/backend/index.ts",
+    "src/backend/index.tsx",
+    "src/backend/index.js"
+  ],
   "providerPackages": [
     "@ultrst-armada/kloks",
     "@ultrst-armada/floks",
@@ -8,30 +12,128 @@
     "@ultrst-armada/frnlts",
     "@dinilmusick/gutts"
   ],
-  "privateSegments": ["src", "internal", "private", "dist", "build", "node_modules", "test", "tests", "__tests__"],
-  "browserForbidden": ["@ultrst-armada/kloks", "@ultrst-armada/kloks/backend", "@ultrst-armada/kloks/storage", "@ultrst-armada/kloks/node", "@ultrst-armada/krnl", "@dinilmusick/gutts/server", "@dinilmusick/gutts/storage", "@dinilmusick/gutts/models", "@aws-sdk/", "@neondatabase/serverless", "@supabase/supabase-js", "@google-cloud/", "better-auth", "pg", "kysely", "googleapis", "node:"],
-  "browserAllowed": ["@ultrst-armada/kloks/auth", "@dinilmusick/gutts/browser"],
+  "privateSegments": [
+    "src",
+    "internal",
+    "private",
+    "dist",
+    "build",
+    "node_modules",
+    "test",
+    "tests",
+    "__tests__"
+  ],
+  "browserForbidden": [
+    "@ultrst-armada/kloks",
+    "@ultrst-armada/kloks/backend",
+    "@ultrst-armada/kloks/storage",
+    "@ultrst-armada/kloks/node",
+    "@ultrst-armada/krnl",
+    "@dinilmusick/gutts/server",
+    "@dinilmusick/gutts/storage",
+    "@dinilmusick/gutts/models",
+    "@aws-sdk/",
+    "@neondatabase/serverless",
+    "@supabase/supabase-js",
+    "@google-cloud/",
+    "better-auth",
+    "pg",
+    "kysely",
+    "googleapis",
+    "node:"
+  ],
+  "browserAllowed": [
+    "@ultrst-armada/kloks/auth",
+    "@ultrst-armada/kloks/client",
+    "@dinilmusick/gutts/browser"
+  ],
   "capabilities": {
     "auth": {
       "replacement": "@ultrst-armada/floks (auth UI); @ultrst-armada/kloks/auth (service)",
-      "canonical": ["@ultrst-armada/floks", "@ultrst-armada/kloks/auth", "@dinilmusick/gutts/auth"],
-      "rawSdks": ["better-auth", "next-auth", "@auth/core"],
-      "signals": ["signIn", "signOut", "getSession", "useSession", "createAuthClient", "betterAuth", "login", "logout", "authenticate", "session"],
-      "declarations": ["AuthProvider", "AuthService", "LoginForm", "LoginPage", "SessionProvider", "AuthenticationService"]
+      "canonical": [
+        "@ultrst-armada/floks",
+        "@ultrst-armada/kloks/auth",
+        "@dinilmusick/gutts/auth"
+      ],
+      "rawSdks": [
+        "better-auth",
+        "next-auth",
+        "@auth/core"
+      ],
+      "signals": [
+        "signIn",
+        "signOut",
+        "getSession",
+        "useSession",
+        "createAuthClient",
+        "betterAuth",
+        "login",
+        "logout",
+        "authenticate",
+        "session"
+      ],
+      "declarations": [
+        "AuthProvider",
+        "AuthService",
+        "LoginForm",
+        "LoginPage",
+        "SessionProvider",
+        "AuthenticationService"
+      ]
     },
     "workspaces": {
       "replacement": "@ultrst-armada/floks (workspace tiles/dialog); @ultrst-armada/kloks (workspace service)",
-      "canonical": ["@ultrst-armada/floks", "@ultrst-armada/kloks"],
+      "canonical": [
+        "@ultrst-armada/floks",
+        "@ultrst-armada/kloks"
+      ],
       "rawSdks": [],
-      "signals": ["createWorkspace", "deleteWorkspace", "selectWorkspace", "listWorkspaces", "saveWorkspace", "workspaceId"],
-      "declarations": ["WorkspaceProvider", "WorkspaceService", "WorkspaceMenu", "WorkspaceDialog", "WorkspaceTilesMenu"]
+      "signals": [
+        "createWorkspace",
+        "deleteWorkspace",
+        "selectWorkspace",
+        "listWorkspaces",
+        "saveWorkspace",
+        "workspaceId"
+      ],
+      "declarations": [
+        "WorkspaceProvider",
+        "WorkspaceService",
+        "WorkspaceMenu",
+        "WorkspaceDialog",
+        "WorkspaceTilesMenu"
+      ]
     },
     "storage": {
       "replacement": "@ultrst-armada/kloks (storage services); @ultrst-armada/floks (storage UI)",
-      "canonical": ["@ultrst-armada/kloks", "@ultrst-armada/floks"],
-      "rawSdks": ["@aws-sdk/client-s3", "@google-cloud/storage", "googleapis", "backblaze-b2"],
-      "signals": ["S3Client", "PutObjectCommand", "GetObjectCommand", "uploadFile", "downloadFile", "createBucket", "listBuckets", "drive.files", "storageProvider"],
-      "declarations": ["StorageService", "StorageProvider", "S3Storage", "DriveStorage", "BucketService"]
+      "canonical": [
+        "@ultrst-armada/kloks",
+        "@ultrst-armada/floks"
+      ],
+      "rawSdks": [
+        "@aws-sdk/client-s3",
+        "@google-cloud/storage",
+        "googleapis",
+        "backblaze-b2"
+      ],
+      "signals": [
+        "S3Client",
+        "PutObjectCommand",
+        "GetObjectCommand",
+        "uploadFile",
+        "downloadFile",
+        "createBucket",
+        "listBuckets",
+        "drive.files",
+        "storageProvider"
+      ],
+      "declarations": [
+        "StorageService",
+        "StorageProvider",
+        "S3Storage",
+        "DriveStorage",
+        "BucketService"
+      ]
     }
   }
 }

@@ -290,6 +290,49 @@ def _atomic_write(path: Path, data: bytes, mode: int | None = None) -> None:
             os.unlink(temporary)
 
 
+def _sync_capability_ledger(root: Path) -> None:
+    cap_file = root / ".skipo" / "capabilities.json"
+    if not cap_file.exists():
+        return
+    try:
+        from skipo_capabilities import (
+            capability_state,
+            write_capability_state,
+            generated_entries,
+            write_generated_entries,
+            resolve_capabilities,
+        )
+        cap_state = capability_state(root)
+        installed = cap_state.get("installed", {})
+        baseline = {"auth", "workspace", "settings", "accounts", "storage"}
+        resolved = resolve_capabilities(sorted(baseline | set(installed)))
+        gen_entries = generated_entries(cap_state)
+        updated = False
+        for cap_name, spec in resolved:
+            for asset in spec.get("generated", []):
+                rel = asset["path"]
+                raw = asset["content"]
+                p = root / rel
+                if p.is_file():
+                    ck = hashlib.sha256(p.read_bytes()).hexdigest()
+                    expected_ck = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+                    if ck == expected_ck:
+                        existing = gen_entries.get(rel)
+                        if not existing or existing.get("owner") != "skipo" or existing.get("checksum") != ck:
+                            gen_entries[rel] = {
+                                "path": rel,
+                                "owner": "skipo",
+                                "capability": cap_name,
+                                "checksum": ck,
+                            }
+                            updated = True
+        if updated:
+            write_generated_entries(cap_state, gen_entries)
+            write_capability_state(root, cap_state)
+    except Exception:
+        pass
+
+
 def reconcile_shell(root: Path, apply: bool = True, title: str | None = None) -> dict:
     """Reproduce the standard shell. Never silently preserve non-tab drift.
 
@@ -306,6 +349,7 @@ def reconcile_shell(root: Path, apply: bool = True, title: str | None = None) ->
 
     actions = plan["actions"]
     if not actions:
+        _sync_capability_ledger(root)
         return {**plan, "applied": True, "verification": {"ok": True, "idempotent": True}}
     desired = _desired(root, title)
     protected_tabs = _snapshot_tabs(root)
@@ -344,6 +388,7 @@ def reconcile_shell(root: Path, apply: bool = True, title: str | None = None) ->
             raise UnsafeShellRepair("Repaired shell still differs from Skipo canonical assets")
         if _snapshot_tabs(root) != expected_tabs:
             raise UnsafeShellRepair("Application tab code changed during shell reconciliation")
+        _sync_capability_ledger(root)
     except Exception as exc:
         errors = []
         for rel in reversed(touched):

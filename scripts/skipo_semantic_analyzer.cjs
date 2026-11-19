@@ -2,8 +2,10 @@
 'use strict';
 /** Standalone, read-only TypeScript/React architecture analyser. No Skipo CLI imports. */
 const fs = require('node:fs');
+const crypto = require('node:crypto');
 const path = require('node:path');
 const cp = require('node:child_process');
+
 const DEFAULT_POLICY = path.resolve(__dirname, '../architecture/semantic/owners.json');
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts', '.mjs', '.cjs']);
 const SKIP_DIRS = new Set(['.git', 'node_modules', '.next', 'dist', 'build', 'coverage', '.turbo', '.pnpm', 'vendor']);
@@ -16,11 +18,37 @@ const matchPrefix = (specifier, prefix) => prefix.endsWith('/') || prefix.endsWi
 const rel = (root, file) => unix(path.relative(root, file));
 const inside = (root, file) => file === root || file.startsWith(root + path.sep);
 
-function typescript() {
+function typescript(root) {
+  // The analyzer may live outside the application (e.g. an installed CLI).
+  // Load the compiler from the analyzed project's installed dependency first;
+  // never resolve an unrelated parent package or execute a global fallback.
+  const engine = path.resolve(__dirname, '..');
+  for (const base of [root, engine]) {
+    const candidate = path.join(base, 'node_modules', 'typescript');
+    try {
+      const physical = fs.realpathSync(candidate);
+      if (!inside(base, physical) || !fs.statSync(physical).isDirectory()) continue;
+      return require(candidate);
+    } catch (error) {
+      if (error.code !== 'ENOENT' && error.code !== 'MODULE_NOT_FOUND') {
+        throw error;
+      }
+    }
+  }
+  // Published CLI consumers may install TypeScript alongside the Skipo
+  // package rather than inside the analyzed legacy application. Retain Node's
+  // normal package-resolution path only after the target-local compiler.
   try { return require('typescript'); }
-  catch (_) {
-    try { return require(require.resolve('typescript', { paths: [cp.execFileSync('npm', ['root', '-g'], { encoding: 'utf8' }).trim()] })); }
-    catch (_) { throw new Error('TypeScript compiler API unavailable; install the existing TypeScript devDependency'); }
+  catch (error) {
+    if (error.code !== 'MODULE_NOT_FOUND') throw error;
+  }
+  // Preserve read-only CLI diagnostics for legacy/uninstalled projects.
+  // A target-local compiler always wins over the global fallback.
+  try {
+    const globalRoot = cp.execFileSync('npm', ['root', '-g'], { encoding: 'utf8' }).trim();
+    return require(require.resolve('typescript', { paths: [globalRoot] }));
+  } catch (_) {
+    throw new Error('TypeScript compiler API unavailable; install the existing TypeScript devDependency');
   }
 }
 function validatePolicy(value) {
@@ -103,9 +131,38 @@ function projectOptions(ts, root, file, cache) {
   cache.set(config, parsed.options);
   return parsed.options;
 }
+function localSource(root, resolved) {
+  return inside(root, resolved) && !rel(root, resolved).split('/').some(segment =>
+    segment === 'node_modules' || segment === '.pnpm');
+}
+function trustedGeneratedServerBridge(root, file, specifier) {
+  // The static capability registry, owner ledger and actual bytes must agree.
+  // A generated re-export can serve backend consumers, but a frontend import
+  // of that module remains blocked by SEM109's transitive provider check.
+  if (specifier !== '@ultrst-armada/kloks/backend/krnl-services') return false;
+  const relative = rel(root, file);
+  if (!new Set([
+    'src/libraries/skipo/auth.ts',
+    'src/libraries/skipo/workspace.ts',
+    'src/libraries/skipo/services/storage.ts',
+  ]).has(relative)) return false;
+  try {
+    const state = JSON.parse(fs.readFileSync(path.join(root,'.skipo/capabilities.json'),'utf8'));
+    const ledger = state.generated?.find(entry => entry.path === relative && entry.owner === 'skipo');
+    if (!ledger || !/^[a-f0-9]{64}$/.test(ledger.checksum)) return false;
+    const registry = JSON.parse(fs.readFileSync(path.resolve(__dirname,'../architecture/capabilities/registry.json'),'utf8'));
+    const templates = Object.values(registry.capabilities || {}).flatMap(cap => cap.generated || []);
+    const canonical = templates.find(template => template.path === relative);
+    if (!canonical || typeof canonical.content !== 'string') return false;
+    const actual = crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+    const expected = crypto.createHash('sha256').update(canonical.content,'utf8').digest('hex');
+    return actual === expected && actual === ledger.checksum;
+  } catch (_) { return false; }
+}
 function resolveLocal(ts, root, file, specifier, options) {
   const resolved = ts.resolveModuleName(specifier, file, options, ts.sys).resolvedModule;
-  if (resolved && inside(root, path.resolve(resolved.resolvedFileName))) return path.resolve(resolved.resolvedFileName);
+  if (resolved && localSource(root, path.resolve(resolved.resolvedFileName)))
+    return path.resolve(resolved.resolvedFileName);
   // Paths aliases and NodeNext .js -> .ts are handled by the compiler above; this
   // fallback covers a missing tsconfig and extensionless imports without guessing.
   if (!specifier.startsWith('.')) return null;
@@ -113,7 +170,7 @@ function resolveLocal(ts, root, file, specifier, options) {
   const candidates = [target, ...['.ts','.tsx','.js','.jsx','.mts','.cts'].map(ext => target + ext),
     ...['.ts','.tsx','.js','.jsx'].map(ext => path.join(target, 'index' + ext))];
   if (/\.jsx?$/.test(target)) candidates.push(target.replace(/\.jsx?$/, '.ts'), target.replace(/\.jsx?$/, '.tsx'));
-  return candidates.find(p => inside(root,p) && fs.existsSync(p) && fs.statSync(p).isFile()) || null;
+  return candidates.find(p => localSource(root,p) && fs.existsSync(p) && fs.statSync(p).isFile()) || null;
 }
 function analyzeProject(rootInput, options = {}) {
   const root = path.resolve(rootInput || '.');
@@ -121,7 +178,7 @@ function analyzeProject(rootInput, options = {}) {
   try {
     if (!fs.statSync(root).isDirectory()) throw new Error('Target must be a directory');
     policy = validatePolicy(JSON.parse(fs.readFileSync(options.policyPath || DEFAULT_POLICY, 'utf8')));
-    ts = typescript();
+    ts = typescript(root);
   } catch (error) { return blocked(error.message); }
   const files = scanFiles(root, !!options.includeTests);
   const configCache = new Map();
@@ -192,7 +249,8 @@ function analyzeProject(rootInput, options = {}) {
     if (['frontend','libraries'].includes(origin)) {
       const forbidden = policy.browserForbidden.some(p => matchPrefix(edge.specifier,p));
       const allowed = policy.browserAllowed.some(p => matchPrefix(edge.specifier,p));
-      if (forbidden && !allowed) emit('SEM102','error','violation',edge.file,edge.node,source,
+      if (forbidden && !allowed && !trustedGeneratedServerBridge(root,edge.file,edge.specifier))
+        emit('SEM102','error','violation',edge.file,edge.node,source,
         'Browser/shared module imports server-only implementation', [{kind:'import',value:edge.specifier}],
         'Use a browser-safe facade or canonical client entrypoint');
     }
@@ -241,6 +299,23 @@ function analyzeProject(rootInput, options = {}) {
       }
     }
   }
+  // Canonical facade delegation can be indirect: a client wrapper or backend
+  // adapter may import a local bridge that owns the canonical Kloks entrypoint.
+  // Only static, in-project import edges count; never treat unknown imports or
+  // arbitrary package mentions as proof of canonical ownership.
+  const delegatesTo = (start, entrypoints) => {
+    const queue = [start], visited = new Set();
+    while (queue.length) {
+      const current = queue.shift();
+      if (visited.has(current)) continue;
+      visited.add(current);
+      for (const edge of graph.get(current) || []) {
+        if (entrypoints.some(prefix => matchPrefix(edge.specifier, prefix))) return true;
+        if (edge.target && !visited.has(edge.target)) queue.push(edge.target);
+      }
+    }
+    return false;
+  };
   // AST identifiers and declaration signatures, not filenames or regex text, are
   // used for semantic duplication evidence. Canonical delegation is an extension.
   for (const file of files) {
@@ -257,9 +332,11 @@ function analyzeProject(rootInput, options = {}) {
     for (const [capability, def] of Object.entries(policy.capabilities)) {
       const sdk = imports.filter(s => def.rawSdks.some(p => matchPrefix(s,p)));
       const canonical = imports.some(s => def.canonical.some(p => matchPrefix(s,p)));
+      const declaresProvider = def.declarations.some(s=>declarations.has(s));
       const evidence = [...def.signals.filter(s=>identifiers.has(s)), ...def.declarations.filter(s=>declarations.has(s))];
-      const isCandidate = evidence.length >= 2 || def.declarations.some(s=>declarations.has(s));
-      if (!sdk.length && (!isCandidate || canonical)) continue;
+      const isCandidate = evidence.length >= 2 || declaresProvider;
+      if (!sdk.length && (!isCandidate || canonical ||
+          (!declaresProvider && delegatesTo(file, def.canonical)))) continue;
       // The provider may legitimately own its SDK; a source package named Kloks/Floks
       // should not be labeled a duplicate solely for using its own implementation.
       const currentPackage = (()=> { try { return JSON.parse(fs.readFileSync(path.join(packageOwner(root,file),'package.json'),'utf8')).name; } catch (_) { return null; } })();

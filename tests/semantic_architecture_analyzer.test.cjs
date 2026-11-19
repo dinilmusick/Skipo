@@ -65,3 +65,71 @@ test('AST ignores misleading comments and string literals', () => project('posit
   const report=analyzeProject(root);
   assert.equal(report.status,'compliant');
 }));
+
+test('installed package declaration paths never become application dependency planes', () => project('positive', root => {
+  const vendor = path.join(root, 'node_modules/vendor-types');
+  fs.mkdirSync(path.join(vendor, 'src/frontend'), { recursive: true });
+  fs.writeFileSync(path.join(vendor, 'package.json'), JSON.stringify({
+    name: 'vendor-types', version: '1.0.0', types: 'src/frontend/index.d.ts',
+  }));
+  fs.writeFileSync(path.join(vendor, 'src/frontend/index.d.ts'), 'export declare const fetchClient: () => void;\n');
+  fs.mkdirSync(path.join(root,'src/backend'), { recursive: true });
+  fs.writeFileSync(path.join(root,'src/backend/use.ts'), "import { fetchClient } from 'vendor-types'; export { fetchClient };\n");
+  const report = analyzeProject(root);
+  assert.equal(report.status, 'compliant', JSON.stringify(report.findings));
+  assert.ok(report.dependencies.some(edge => edge.file === 'src/backend/use.ts' &&
+    edge.specifier === 'vendor-types' && edge.target === null));
+}));
+
+test('canonical Kloks client import is browser-safe without allowing backend providers', () => project('positive', root => {
+  const filename = path.join(root,'src/frontend/kloksClient.ts');
+  fs.writeFileSync(filename, "import { WorkspaceAutosaveController } from '@ultrst-armada/kloks/client'; export { WorkspaceAutosaveController };\n");
+  const report = analyzeProject(root);
+  assert.equal(report.status, 'compliant', JSON.stringify(report.findings));
+  assert.ok(!report.findings.some(f => f.ruleId === 'SEM102'));
+  fs.writeFileSync(filename, "import { BackendFacade } from '@ultrst-armada/kloks/backend'; export { BackendFacade };\n");
+  const blocked = analyzeProject(root);
+  assert.ok(blocked.findings.some(f => f.ruleId === 'SEM102'));
+}));
+
+test('a canonical Luth facade delegation is not confused with a second auth provider', () => project('positive', root => {
+  fs.mkdirSync(path.join(root, 'src/backend'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'src/backend/luthBridge.ts'),
+    "import { DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth'; export const base = DEFAULT_LUTH_URL;\n");
+  fs.writeFileSync(path.join(root, 'src/backend/sessionFacade.ts'),
+    "import { base } from './luthBridge'; export const auth = { getSession() { return base; }, session: true };\n");
+  const report = analyzeProject(root);
+  assert.equal(report.status, 'compliant', JSON.stringify(report.findings));
+  assert.ok(!report.findings.some(f => f.ruleId === 'SEM106'));
+}));
+
+test('attested backend-only generated bridge is allowed but forged changes and frontend reachability are not', () => project('positive', root => {
+  const crypto = require('node:crypto');
+  const registry = require('../architecture/capabilities/registry.json');
+  const relative = 'src/libraries/skipo/auth.ts';
+  const content = registry.capabilities.auth.generated.find(entry => entry.path === relative).content;
+  const target = path.join(root, relative);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(target, content);
+  const digest = crypto.createHash('sha256').update(content).digest('hex');
+  fs.mkdirSync(path.join(root, '.skipo'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.skipo/capabilities.json'), JSON.stringify({
+    schemaVersion: 1, installed: {}, generated: [
+      { path: relative, owner: 'skipo', capability: 'auth', checksum: digest },
+    ],
+  }));
+  const trusted = analyzeProject(root);
+  assert.ok(!trusted.findings.some(f => f.ruleId === 'SEM102' && f.file === relative),
+    JSON.stringify(trusted.findings));
+
+  fs.writeFileSync(target, content + '\n// app-owned modification');
+  const tampered = analyzeProject(root);
+  assert.ok(tampered.findings.some(f => f.ruleId === 'SEM102' && f.file === relative));
+
+  fs.writeFileSync(target, content);
+  fs.writeFileSync(path.join(root, 'src/frontend/useBridge.ts'),
+    "import { AuthServiceFacade } from '../libraries/skipo/auth'; export { AuthServiceFacade };\n");
+  const exposed = analyzeProject(root);
+  assert.ok(exposed.findings.some(f => f.ruleId === 'SEM109' && f.file === 'src/frontend/useBridge.ts'),
+    JSON.stringify(exposed.findings));
+}));
