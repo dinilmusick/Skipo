@@ -33,6 +33,6 @@ test('application has real settings and workspace presentation', () => {
 
 test('canonical auth page is generated from the capability registry', () => {
   const auth = read('src/frontend/pages/auth/page.tsx');
-  assert.match(auth, /LuthAuthPage/, 'generated auth must render canonical Floks page');
+  assert.match(auth, /LuthOidcGate/, 'generated auth must render the canonical Floks OAuth gate');
   assert.doesNotMatch(auth, /function LocalAuthPage|createLocalAuth/);
 });
