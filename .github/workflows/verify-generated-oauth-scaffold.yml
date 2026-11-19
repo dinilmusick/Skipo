@@ -1,0 +1,40 @@
+name: Verify canonical OAuth app scaffolds
+on:
+  push:
+    branches:
+      - fix/canonical-oauth-bff-scaffold-20261119
+  pull_request:
+    paths:
+      - 'scripts/scaffold_app_structure.py'
+      - 'scripts/generate_provider_packaging.py'
+      - 'tests/authentication_scaffold.test.py'
+      - 'tests/scaffold_regression.py'
+      - 'checklists/21_skipo_authentication_contract.py'
+      - '.github/workflows/verify-generated-oauth-scaffold.yml'
+permissions:
+  contents: read
+jobs:
+  generator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile Python generator and auth boundary checks
+        run: |
+          python3 -m py_compile scripts/scaffold_app_structure.py scripts/generate_provider_packaging.py checklists/21_skipo_authentication_contract.py
+      - name: Generate complete generic application without browser auth shims
+        run: |
+          set -euo pipefail
+          python3 scripts/scaffold_app_structure.py "$RUNNER_TEMP/CanonicalDemo" --name CanonicalDemo
+          test -f "$RUNNER_TEMP/CanonicalDemo/src/backend/auth/luthSession.ts"
+          grep -q createCanonicalApplicationOAuthBff "$RUNNER_TEMP/CanonicalDemo/src/backend/auth/luthSession.ts"
+          grep -q FloksLuthOidcGate "$RUNNER_TEMP/CanonicalDemo/src/frontend/pages/auth/LuthAuthPage.tsx"
+          ! grep -q createLuthAuthClient "$RUNNER_TEMP/CanonicalDemo/src/frontend/pages/auth/luthFetch.ts"
+          grep -q handleApplicationOAuth "$RUNNER_TEMP/CanonicalDemo/src/app.ts"
+      - name: Run generated scaffold contract checks
+        run: |
+          python3 -m pip install --disable-pip-version-check pytest
+          python3 -m pytest -q --import-mode=importlib tests/authentication_scaffold.test.py
+          python3 checklists/21_skipo_authentication_contract.py
