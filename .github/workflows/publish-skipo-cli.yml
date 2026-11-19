@@ -43,6 +43,8 @@ jobs:
         env:
           ISSUE_COMMIT_SHA: ${{ github.event.issue.body }}
         run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA" || { echo "Checkout does not match triggering commit"; exit 1; }
           if [[ "$GITHUB_EVENT_NAME" == "issues" ]]; then
             TAG_VERSION="1.3.0"
             [[ "$ISSUE_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "Issue body must contain only the main commit SHA"; exit 1; }
@@ -56,13 +58,36 @@ jobs:
           test "$TAG_VERSION" = "$ROOT_VERSION"
           echo "version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Pack Skipo
+      - name: Pack actual release candidate
         working-directory: packages/skipo
-        run: npm pack --dry-run
+        run: npm pack --pack-destination "$RUNNER_TEMP"
 
-      - name: Publish @ultrst-armada/skipo
+      - name: Check npm version uniqueness (fail closed on registry errors)
+        id: registry
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          if npm view "@ultrst-armada/skipo@${PACKAGE_VERSION}" version --registry=https://registry.npmjs.org/ > "$RUNNER_TEMP/npm-version.out" 2> "$RUNNER_TEMP/npm-version.err"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::@ultrst-armada/skipo@${PACKAGE_VERSION} is immutable and already published; no publish will be attempted."
+          elif grep -Eq 'E404|404 Not Found' "$RUNNER_TEMP/npm-version.err"; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Registry lookup failed for a reason other than a missing version; aborting publication." >&2
+            cat "$RUNNER_TEMP/npm-version.err" >&2
+            exit 1
+          fi
+
+      - name: Publish unique version using npm Trusted Publishing
+        if: steps.registry.outputs.exists == 'false'
         working-directory: packages/skipo
-        run: npm publish --access public
+        run: npm publish --provenance --access public
+
+      - name: Do not misrepresent an existing version as this commit's release
+        if: steps.registry.outputs.exists == 'true'
+        run: echo "::warning::Existing npm version is only being checked as a historical registry artifact; this source commit was not published."
 
       - name: Independently verify the actual public npm consumer artifact
         env:
