@@ -33,7 +33,7 @@ def test_generic_scaffold_generates_canonical_floks_kloks_auth(tmp_path):
     assert auth_page.is_file() and adapter.is_file() and guard.is_file() and fetcher.is_file()
     assert "@ultrst-armada/floks/auth" in adapter.read_text(encoding="utf-8")
     assert "LuthOidcGate as FloksLuthOidcGate" in adapter.read_text(encoding="utf-8")
-    assert "@ultrst-armada/kloks/auth" in fetcher.read_text(encoding="utf-8")
+    assert "@ultrst-armada/kloks/auth" in guard.read_text(encoding="utf-8")
     assert "LuthAuthPage" in auth_page.read_text(encoding="utf-8")
     assert "requireLuthSession" in guard.read_text(encoding="utf-8")
     assert "credentials: 'same-origin'" in fetcher.read_text(encoding="utf-8")
@@ -98,7 +98,7 @@ def test_vite_scaffold_uses_luth_for_backend_identity_and_session_validation():
     assert not re.search(r"\bAuthServiceFacade\b", backend)
     assert "DEFAULT_LUTH_URL" in guard
     assert "session.session?.id" in guard
-    assert "handleApplicationOAuth" in guard
+    assert "handleApplicationOAuth" in (ROOT / "scaffolds/vite/src/backend/auth/applicationOAuthBff.ts").read_text(encoding="utf-8")
 
 
 
