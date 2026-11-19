@@ -10,7 +10,7 @@ assert.ok(source.includes('inputs.publish'), 'Manual approval input is missing')
 assert.ok(source.includes('ref') || source.includes('git rev-parse HEAD'), 'Missing source identity');
 assert.ok(source.includes('test "$(git rev-parse HEAD)" = "$GITHUB_SHA"'), 'Source revision not asserted');
 assert.ok(source.includes('npm pack --pack-destination'), 'Real release candidate is not packed');
-assert.ok(source.includes('npm publish --provenance --access public'), 'No OIDC provenance publication');
+assert.ok(source.includes('npm publish "$archive" --provenance --access public'), 'No OIDC provenance publication');
 assert.ok(source.includes("steps.registry.outputs.exists == 'false'"), 'Published version collision guard missing');
 assert.ok(source.includes('Registry lookup failed for a reason other than a missing version'), 'Registry outage must fail closed');
 assert.ok(source.includes('SKIPO_REGISTRY_VERSION:'), 'Public archive smoke missing');
