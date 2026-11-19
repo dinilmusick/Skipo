@@ -1,8 +1,7 @@
 'use client';
 
 import React from 'react';
-import { LuthAuthPage, type AuthResult } from '@ultrst-armada/floks/auth';
-import { getSkipoApplicationId } from '../../../libraries/client/luthAuthClient.js';
+import { LuthOidcGate, type AuthResult } from '@ultrst-armada/floks/auth';
 
 export interface LoginGateProps {
   appName?: string;
@@ -10,18 +9,15 @@ export interface LoginGateProps {
   onSuccess: (result: AuthResult) => void;
 }
 
+/** Thin presentation adapter; Kloks owns OAuth and the application session. */
 export const LoginGate: React.FC<LoginGateProps> = ({
   appName = 'SKIPO APP',
-  applicationId = getSkipoApplicationId(),
   onSuccess,
 }) => (
-  <LuthAuthPage
-    ecosystemId="ultrst-armada"
-    applicationId={applicationId}
+  <LuthOidcGate
     appName={appName}
-    appSubtitle="CANONICAL AUTH"
-    footerText="Powered by Luth · Floks · Kloks"
-    onSuccess={onSuccess}
-    onContinueAsGuest={() => onSuccess({ user: null, success: true } as AuthResult)}
+    authenticatedContent={null}
+    onAuthenticated={(user) => onSuccess({ user, success: true })}
+    onContinueAsGuest={() => onSuccess({ user: null, success: true })}
   />
 );
