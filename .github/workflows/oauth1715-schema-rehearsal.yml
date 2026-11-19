@@ -26,7 +26,7 @@ jobs:
           cp scripts/oauth1715-schema.config.ts "$root/auth.ts"
           cd "$root"
           printf '%s\n' '{"name":"better-auth-1715-schema-rehearsal","private":true,"type":"module"}' > package.json
-          npm install --no-audit --no-fund --save-exact auth@1.7.15 better-auth@1.7.15 @better-auth/core@1.7.15 @better-auth/oauth-provider@1.7.15 better-call@1.4.4 drizzle-orm@0.44.7 drizzle-kit@0.31.8
+          npm install --no-audit --no-fund --save-exact auth@1.7.15 better-auth@1.7.15 @better-auth/core@1.7.15 @better-auth/oauth-provider@1.7.15 better-call@1.4.4 drizzle-orm@0.45.4 drizzle-kit@0.31.8
           ./node_modules/.bin/auth generate --config ./auth.ts --adapter drizzle --dialect postgresql --output ./schema.ts --yes
           test -s schema.ts
           cat > drizzle.config.ts <<'DRIZZLE'
