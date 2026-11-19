@@ -1,5 +1,4 @@
 import { externalInterfaces } from "./backend/UniversalBackend.js";
-import { proxyLuthAuthRequest } from "./backend/auth/luthSession.js";
 import { handleApplicationOAuth } from "./backend/auth/applicationOAuthBff.js";
 
 /**
@@ -62,9 +61,6 @@ export async function fetch(
   if (url.pathname === "/health" || url.pathname === "/api/health") {
     return Response.json({ status: "ok", runtime: "fetch" }, { headers: cors });
   }
-
-  const authProxy = await proxyLuthAuthRequest(request);
-  if (authProxy) return authProxy;
 
   const mcp = await externalInterfaces.mcp(request);
   if (mcp) return mcp;
