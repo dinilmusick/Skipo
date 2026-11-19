@@ -1,0 +1,36 @@
+name: Skipo standalone installed CLI
+
+on:
+  pull_request:
+    paths:
+      - "packages/skipo/bin/**"
+      - "scripts/skipo_cli.py"
+      - "scripts/prepare-npm-package.mjs"
+      - "tests/skipo-cli-launcher.test.mjs"
+      - "tests/verify-skipo-packed-cli.mjs"
+      - ".github/workflows/skipo-cli-standalone-package.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-npm-cli:
+    name: Packed command on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify launcher, exact version and errors
+        run: node --test tests/skipo-cli-launcher.test.mjs
+      - name: Pack actual tarball, install externally, run installed CLI
+        run: node tests/verify-skipo-packed-cli.mjs
