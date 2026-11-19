@@ -95,4 +95,19 @@ describe('authenticated Kloks browser transport contract', () => {
     )).rejects.toThrow(/Invalid authenticated graph/);
     await expect(runtime.executeFlow('x')).rejects.toThrow(/not configured/);
   });
+  it('requires explicit remote cancellation acknowledgment rather than accepting a generic HTTP success', async () => {
+    const denied = createAuthenticatedAgentChatHttpHost(identity, {
+      request: async () => Response.json({cancelled:false}),
+      invokePath:'/api/app/invoke',cancelPath:'/api/app/cancel',
+    });
+    await expect(denied.onCancel?.({targetId:'workflow-immutable',targetKind:'workflow',invocationId:'in-flight'}))
+      .rejects.toThrow(/confirm remote/);
+    const accepted = createAuthenticatedAgentChatHttpHost(identity, {
+      request: async () => new Response(null,{status:204}),
+      invokePath:'/api/app/invoke',cancelPath:'/api/app/cancel',
+    });
+    await expect(accepted.onCancel?.({targetId:'workflow-immutable',targetKind:'workflow',invocationId:'in-flight'}))
+      .resolves.toBeUndefined();
+  });
+
 });
