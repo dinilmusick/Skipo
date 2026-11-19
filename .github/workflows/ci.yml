@@ -67,6 +67,22 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm build
       - run: pnpm validate
+      - name: Verify public Skipo npm archive and first unused patch version
+        run: node scripts/verify-public-npm-artifact.mjs packages/skipo/package.json
+      - name: Pack independently verifiable Skipo release candidate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/release-evidence
+          (cd packages/skipo && npm pack --pack-destination "$GITHUB_WORKSPACE/artifacts/release-evidence")
+          sha256sum artifacts/release-evidence/*.tgz > artifacts/release-evidence/candidate-sha256.txt
+      - name: Upload Skipo published-archive and candidate evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: skipo-npm-release-artifact-evidence
+          path: artifacts/release-evidence/
+          retention-days: 14
+          if-no-files-found: warn
 
   generated-applications:
     name: Generated Vite install / test / build
