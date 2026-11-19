@@ -143,8 +143,8 @@ def validate_repository(root: Path) -> list[str]:
     vite_login = root / "scaffolds/vite/src/frontend/components/gates/LoginGate.tsx"
     if vite_login.is_file():
         source = vite_login.read_text(encoding="utf-8")
-        if "@ultrst-armada/floks/auth" not in source or "LuthAuthPage" not in source:
-            errors.append("Vite LoginGate must use integrated Floks LuthAuthPage")
+        if "@ultrst-armada/floks/auth" not in source or "LuthOidcGate" not in source:
+            errors.append("Vite LoginGate must use canonical Floks LuthOidcGate backed by the Kloks BFF")
         if re.search(r"onLogin=|onRegister=|onGoogleSignIn=", source):
             errors.append("Vite LoginGate must not provide application-owned authentication callbacks")
 
