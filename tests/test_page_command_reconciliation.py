@@ -214,7 +214,8 @@ def test_auth_command_repairs_full_stack_and_preserves_custom_backend(tmp_path):
     actual = invoke("add", "auth", str(target))
     assert actual.returncode == 0, actual.stdout + actual.stderr
     assert "authenticateLuthRequest" in legacy_proxy.read_text()
-    assert "proxyLuthAuthRequest" in (target / "src/app.ts").read_text()
+    assert "handleApplicationOAuth" in (target / "src/app.ts").read_text()
+    assert "proxyLuthAuthRequest" not in (target / "src/app.ts").read_text()
     assert "LuthOidcGate" in (target / "src/frontend/App.tsx").read_text()
     assert app_service.read_text() == "export const specialWork = () => 42;\n"
 
