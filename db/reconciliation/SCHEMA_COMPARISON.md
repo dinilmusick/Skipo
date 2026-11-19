@@ -1,6 +1,6 @@
 # Neon schema comparison — E2E03 (19 November 2026)
 
-Project `red-mode-38205509`. Inspected production branch `br-calm-glitter-ae5fen6h` **read-only**. All writes/tests were transactionally rolled back on isolated branches `br-icy-math-aeaz1vu2` and `br-polished-rain-aegwhtcf`.
+Project `red-mode-38205509`. Inspected production branch `br-calm-glitter-ae5fen6h` **read-only**. Production read-only; earlier isolated test branches `br-icy-math-aeaz1vu2` and historical `br-polished-rain-aegwhtcf` (historical leaf retired after certification). A NEW current-production child `br-misty-cake-aefv6ko2` was created and migrated without touching production. Its synthetic fixtures and temporary RLS roles were transactionally rolled back.
 
 | Contract | Production observation | Migration authority / target |
 | --- | --- | --- |
@@ -16,8 +16,8 @@ Project `red-mode-38205509`. Inspected production branch `br-calm-glitter-ae5fen
 | Registry RLS | No normalized RLS to inspect | E2E03 `20261119_registry_integrity.sql` default-deny and private ACL |
 | Runtime authorization | Cannot be proved from schema | Luth authenticated token/session checks; Skipo attested deployment resolution; Kloks target-side ACL and FOD invocation |
 
-**Normalized preflight:** Six migration-blocking checks were zero after isolated historical-branch migration. This does not imply no conflicting historical records exist on today's production branch, nor that the SQL engine can verify network origin ownership, authenticated user consent, or client-side callback security.
+**Normalized preflight:** Six migration-blocking checks were zero on the newly created current-production-derived isolated clone, both after initial migration and full replay. The SQL engine still cannot authenticate network origin ownership, authenticated user consent, or client-side callback security. Exact-source Luth/Skipo query tests and a negative RLS/partial-failure suite now pass on the clone.
 
 **Mapping policy:** Preserve every existing catalog ID, app association, origin row, user/session and legacy route. Do not auto-create missing apps, approve OAuth clients, move users/workspaces, rewrite deployment URLs or classify preview deployments as verified. The read-only `20261118_existing_record_mapping.sql` flags exceptions for manual owner verification.
 
-**Blocking gate:** A current-production clone is required for independent complete replay and rollback. No production cutover has been authorized.
+**Database isolation gate resolved:** Full forward/replay/rollback on current-production child `br-misty-cake-aefv6ko2` passed (255 SQL statements); durable isolated migration and replay each passed (102 statements), with five preserved legacy-association hashes. See `20261119_fresh_clone_certification.md`. **Remaining independent runtime/release gate:** reconcile the Skipo registry implementation and conduct real two-user OAuth/remote invocation E2E. No production cutover has been authorized.
