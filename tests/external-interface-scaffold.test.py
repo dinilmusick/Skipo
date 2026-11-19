@@ -33,7 +33,8 @@ def test_vite_scaffold_mounts_both_external_protocols():
     assert "export async function fetch(" in app
     assert "externalInterfaces.mcp(request)" in app
     assert "externalInterfaces.http(request)" in app
-    assert "proxyLuthAuthRequest(request)" in app
+    assert "handleApplicationOAuth(request, env)" in app
+    assert "proxyLuthAuthRequest(request)" not in app
     assert "node:" not in app + adapter + worker
     assert "fetchHandler" in adapter + vercel + node + worker
     package = __import__("json").loads((base / "package.json").read_text(encoding="utf-8"))
