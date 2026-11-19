@@ -55,6 +55,11 @@ try {
   run(npm, [...npmPrefix, "install", "--no-audit", "--no-fund", "--prefix", consumer, archive], externalCwd);
   const cli = join(consumer, "node_modules", "@ultrst-armada", "skipo", "bin", "skipo.js");
   assert.ok(existsSync(cli), "Real installed package must contain the executable");
+  const bundledScaffoldTest = join(consumer, "node_modules", "@ultrst-armada", "skipo",
+    "dist", "engine", "scaffolds", "vite", "tests", "canonical-capabilities.test.cjs");
+  assert.ok(existsSync(bundledScaffoldTest),
+    "npm archive must preserve generated scaffold tests ignored by source .gitignore");
+
   const skipo = (args, cwd = externalCwd, options = {}) =>
     run(process.execPath, [cli, ...args], cwd, options);
 
