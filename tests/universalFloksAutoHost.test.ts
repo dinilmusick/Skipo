@@ -1,7 +1,7 @@
 import {describe, expect, it, vi} from 'vitest';
 import {bindAuthorizedAgentChat} from '../scaffolds/vite/src/frontend/pages/main/agentChatHost.js';
 import {
-  fetchScopedUniversalUi, makeScopedUniversalUi,
+  fetchScopedUniversalUi, makeScopedUniversalUi, sameAuthorizedUi,
 } from '../scaffolds/vite/src/frontend/pages/main/useAuthorizedUniversalUi.js';
 
 const appA = {principalId:'luth-user-a', workspaceId:'workspace-a',applicationId:'app-a'};
@@ -73,4 +73,18 @@ describe('generated Vite canonical Luth/Kloks UI host discovery', () => {
     expect(source?.graph).toBeUndefined();
     expect(source?.agentChat?.targets).toHaveLength(2);
   });
+  it('retains graph runtime while polling unchanged permissions, but rotates on grant or cancellation changes', () => {
+    const request = vi.fn();
+    const stableA = makeScopedUniversalUi({...catalog(appA),cancelEnabled:true},appA,request as never);
+    const stableB = makeScopedUniversalUi({...catalog(appA),cancelEnabled:true},appA,request as never);
+    const changedGrant = makeScopedUniversalUi({...catalog(appA,'2'),cancelEnabled:true},appA,request as never);
+    const changedCancellation = makeScopedUniversalUi({...catalog(appA),cancelEnabled:false},appA,request as never);
+    expect(sameAuthorizedUi(stableA,stableB)).toBe(true);
+    expect(sameAuthorizedUi(stableA,changedGrant)).toBe(false);
+    expect(sameAuthorizedUi(stableA,changedCancellation)).toBe(false);
+    expect(stableA!.agentChat!.onCancel).toBeDefined();
+    expect(changedCancellation!.agentChat!.onCancel).toBeUndefined();
+    expect(sameAuthorizedUi(undefined,undefined)).toBe(true);
+  });
+
 });
