@@ -35,7 +35,10 @@ BEGIN
 END $checks$;
 
 CREATE ROLE e2e03_isolated_untrusted NOLOGIN;
-GRANT e2e03_isolated_untrusted TO neondb_owner;
+DO $role$
+BEGIN
+  EXECUTE format('GRANT e2e03_isolated_untrusted TO %I',current_user);
+END $role$;
 GRANT USAGE ON SCHEMA skipo_ecosystem TO e2e03_isolated_untrusted;
 GRANT SELECT ON skipo_ecosystem.workflow_publications TO e2e03_isolated_untrusted;
 SET LOCAL ROLE e2e03_isolated_untrusted;
