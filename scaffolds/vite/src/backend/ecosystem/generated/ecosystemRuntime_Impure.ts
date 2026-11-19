@@ -1,6 +1,7 @@
 import {
-  consumeInvocation, createInvocation, findDeployment, refreshDeployment, systemQuery,
-  type EcosystemEnv, type Query,
+  consumeInvocation, createInvocation, findDeployment, refreshDeployment, refreshDeploymentById,
+  publishDeploymentCapabilityRevision, normalizeStaticCapabilityDescriptors,
+  type EcosystemEnv, type Query, type StaticCapabilityDescriptor, systemQuery,
 } from './deploymentStore_Impure.js';
 
 const invocationPath = '/api/ecosystem/invoke';
@@ -24,8 +25,50 @@ function deploymentOrigin(input: unknown): string {
   return url.origin;
 }
 
+/** Exact registered BackendRegistry handler and live BackendFacade service inventory. */
+export interface BackendFacadeOperationSource {
+  facade: { services: Record<string, unknown> };
+  registry: {
+    getCommand: (domain: string, operation: string) => { handler?: unknown } | undefined;
+    getQuery: (domain: string, operation: string) => { handler?: unknown } | undefined;
+  };
+}
+
+/** A manually supplied descriptor alone cannot attest that its operation exists. */
+export function verifyRegisteredBackendFacadeOperations(
+  source: BackendFacadeOperationSource | undefined,
+  descriptors: readonly StaticCapabilityDescriptor[],
+): void {
+  if (!source?.facade?.services ||
+      typeof source.registry?.getCommand !== 'function' ||
+      typeof source.registry?.getQuery !== 'function') {
+    throw new Error('Static publication requires a real BackendFacade and BackendRegistry.');
+  }
+  for (const descriptor of descriptors) {
+    const { serviceId, operationId } = descriptor.invocation;
+    const services = source.facade.services;
+    const service = Object.prototype.hasOwnProperty.call(services, serviceId)
+      ? services[serviceId] : undefined;
+    if (!service || typeof service !== 'object' ||
+        typeof (service as { execute?: unknown }).execute !== 'function') {
+      throw new Error('Static capability service is not installed on BackendFacade.');
+    }
+    const registered = source.registry.getCommand(serviceId, operationId)
+      ?? source.registry.getQuery(serviceId, operationId);
+    if (!registered || typeof registered.handler !== 'function') {
+      throw new Error('Static capability operation is not registered in BackendRegistry.');
+    }
+  }
+}
+
 export function createEcosystemRuntime(options: {
   appId: string;
+  /** Persistent deployment UUID, provisioned by an approved control plane. */
+  deploymentId?: string;
+  /** Static public metadata only; never include user workflows or session-bound endpoints. */
+  capabilityDescriptors?: readonly StaticCapabilityDescriptor[];
+  /** Real Kloks BackendFacade and BackendRegistry used to prove operation provenance. */
+  backendFacadeOperations?: BackendFacadeOperationSource;
   capabilities: Record<string, Capability>;
   serviceCapabilities?: Record<string, (params: unknown, context: {
     callerApp: string; env: EcosystemEnv;
@@ -38,9 +81,28 @@ export function createEcosystemRuntime(options: {
   const methods = new Map(Object.entries(options.capabilities));
   const serviceMethods = new Map(Object.entries(options.serviceCapabilities ?? {}));
   const capabilities = [...new Set([...methods.keys(), ...serviceMethods.keys()])].sort();
+  const capabilityDescriptors = options.capabilityDescriptors === undefined
+    ? undefined : normalizeStaticCapabilityDescriptors(options.capabilityDescriptors);
+  const verifiedSnapshotIds = new Set(capabilityDescriptors?.map(item => item.id) ?? []);
   if (!appPattern.test(appId) || capabilities.some(name => !capabilityPattern.test(name)) ||
       capabilities.length !== methods.size + serviceMethods.size) {
     throw new Error('Invalid ecosystem application or capability identifier.');
+  }
+  if (options.deploymentId !== undefined &&
+      !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(options.deploymentId)) {
+    throw new Error('Invalid ecosystem deployment identity.');
+  }
+  // A public registry snapshot must describe operations actually installed on
+  // this runtime. Client-supplied descriptors alone are never proof of a facade.
+  if (capabilityDescriptors !== undefined) {
+    if (!options.deploymentId) {
+      throw new Error('Publishing static descriptors requires a stable deployment identity.');
+    }
+    if (capabilityDescriptors.some(descriptor =>
+      !methods.has(descriptor.id) && !serviceMethods.has(descriptor.id))) {
+      throw new Error('Static capability descriptors must reference registered callable capabilities.');
+    }
+    verifyRegisteredBackendFacadeOperations(options.backendFacadeOperations, capabilityDescriptors);
   }
   const query = options.query ?? systemQuery;
   const send = options.send ?? globalThis.fetch;
@@ -58,7 +120,15 @@ export function createEcosystemRuntime(options: {
       return Promise.resolve();
     }
     pending = Promise.resolve().then(async () => {
-      await refreshDeployment(query(env), appId, deploymentOrigin(env.APP_URL), capabilities);
+      if (options.deploymentId) {
+        await refreshDeploymentById(query(env), appId, options.deploymentId,
+          deploymentOrigin(env.APP_URL), capabilities);
+        if (capabilityDescriptors !== undefined) {
+          await publishDeploymentCapabilityRevision(query(env), options.deploymentId, capabilityDescriptors);
+        }
+      } else {
+        await refreshDeployment(query(env), appId, deploymentOrigin(env.APP_URL), capabilities);
+      }
       lastUrl = env.APP_URL;
       lastRefresh = Date.now();
     }).finally(() => { pending = undefined; });
@@ -91,6 +161,12 @@ export function createEcosystemRuntime(options: {
     try {
       const invocation = await consumeInvocation(query(env), ticket, appId, deploymentOrigin(env.APP_URL));
       if (!invocation) return respond({ error: 'INVALID_INVOCATION' }, 401);
+      // A single-use legacy ticket does NOT carry verified Luth audience, grant
+      // or workspace claims. Published facade operations MUST be dispatched
+      // through the target's authenticated Kloks invocation boundary.
+      if (verifiedSnapshotIds.has(invocation.capability)) {
+        return respond({ error: 'AUTHENTICATED_FACADE_ROUTE_REQUIRED' }, 403);
+      }
       const context = { callerApp: invocation.caller_app, env };
       const service = serviceMethods.get(invocation.capability);
       if (service) return respond({ output: (await service(invocation.params, context)) ?? null });
