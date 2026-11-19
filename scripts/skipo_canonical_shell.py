@@ -22,6 +22,7 @@ MANAGED_ROOTS = ("src/frontend", "src/libraries/client", "src/config", "src/prov
 CANONICAL_BACKEND = (
     "src/app.ts",
     "src/backend/auth/luthSession.ts",
+    "src/backend/auth/applicationOAuthBff.ts",
     "src/backend/storage/canonicalCapabilityRoutes.ts",
     "src/backend/adapters/httpsAdapter.ts",
     "src/backend/BackendFacade.ts",
@@ -34,9 +35,10 @@ FULL_STACK = {
         "frontend": ("src/frontend/App.tsx", "src/frontend/components/skipo/pages/auth.tsx",
                      "src/frontend/pages/auth/page.tsx"),
         "backend": ("src/app.ts", "src/backend/auth/luthSession.ts",
+                    "src/backend/auth/applicationOAuthBff.ts",
                     "src/backend/adapters/httpsAdapter.ts"),
         "services": ("@ultrst-armada/floks/auth", "@ultrst-armada/kloks/auth"),
-        "routes": ("/api/auth/*", "/api/session"),
+        "routes": ("/api/auth/oidc/*",),
     },
     "workspace": {
         "frontend": ("src/frontend/pages/menus/workspaces/page.tsx",
