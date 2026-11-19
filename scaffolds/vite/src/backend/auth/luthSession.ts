@@ -1,57 +1,6 @@
 import { DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth';
-function stripGuestLeaseCookie(cookie: string | null): string | null {
-  if (!cookie) return null;
-  const retained = cookie.split(";").map((part) => part.trim()).filter((part) => !part.startsWith("__Host-skipo_guest="));
-  return retained.length ? retained.join("; ") : null;
-}
-
-const APP_AUTH_PATHS = [
-  '/api/auth/workspaces',
-  '/api/auth/storage/',
-];
-
-function isAppOwnedAuthPath(pathname: string): boolean {
-  return APP_AUTH_PATHS.some((prefix) => pathname === prefix || pathname.startsWith(prefix));
-}
-
-export async function proxyLuthAuthRequest(request: Request): Promise<Response | null> {
-  const url = new URL(request.url);
-  if (!url.pathname.startsWith('/api/auth/') || isAppOwnedAuthPath(url.pathname)) return null;
-  if (url.pathname === '/api/auth/admin/login') {
-    return Response.json({ success: false, error: 'Administrative login is not provided by Luth user authentication.' }, { status: 403 });
-  }
-
-  const targetPath = url.pathname === '/api/auth/login'
-    ? '/api/auth/sign-in/email'
-    : url.pathname === '/api/auth/register'
-      ? '/api/auth/sign-up/email'
-      : url.pathname;
-  const headers = new Headers();
-  for (const name of ['authorization', 'cookie', 'content-type', 'origin', 'user-agent']) {
-    const value = request.headers.get(name);
-    if (value) headers.set(name, value);
-  }
-  const appId = request.headers.get('x-app-id') || url.hostname || 'my-app';
-  headers.set('x-app-id', appId);
-
-  try {
-    const upstream = await fetch(`${DEFAULT_LUTH_URL}${targetPath}${url.search}`, {
-      method: request.method,
-      headers,
-      ...(request.method === 'GET' || request.method === 'HEAD' ? {} : { body: await request.arrayBuffer() }),
-      redirect: 'manual',
-      cache: 'no-store',
-    });
-    const responseHeaders = new Headers();
-    for (const name of ['content-type', 'set-cookie', 'set-auth-token', 'location', 'cache-control']) {
-      const value = upstream.headers.get(name);
-      if (value) responseHeaders.set(name, value);
-    }
-    return new Response(await upstream.arrayBuffer(), { status: upstream.status, headers: responseHeaders });
-  } catch {
-    return Response.json({ success: false, error: 'Canonical Luth authentication service unavailable.' }, { status: 503 });
-  }
-}
+/** App-origin sessions are verified by the Kloks BFF.
+ * Legacy cross-domain cookie proxying is intentionally not exposed. */
 
 /** Verify the canonical Luth session for external HTTP and MCP transports. */
 export async function getLuthSession(request: Request) {
