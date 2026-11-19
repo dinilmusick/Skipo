@@ -123,7 +123,7 @@ class ScaffoldRegressionTest(unittest.TestCase):
             "@ultrst-armada/floks/auth" in login_content or "@ultrst-armada/floks/ui" in login_content,
             f"Expected @ultrst-armada/floks/auth or @ultrst-armada/floks/ui in {scaffold_name} LoginGate"
         )
-        self.assertIn("AuthPage", login_content)
+        self.assertIn("LuthOidcGate", login_content)
         self.assertNotIn("@floks/ui", login_content)
 
         ws_content = ws_gate.read_text(encoding="utf-8")
