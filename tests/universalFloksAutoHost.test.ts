@@ -1,4 +1,5 @@
 import {describe, expect, it, vi} from 'vitest';
+import {bindAuthorizedAgentChat} from '../scaffolds/vite/src/frontend/pages/main/agentChatHost.js';
 import {
   fetchScopedUniversalUi, makeScopedUniversalUi,
 } from '../scaffolds/vite/src/frontend/pages/main/useAuthorizedUniversalUi.js';
@@ -55,8 +56,12 @@ describe('generated Vite canonical Luth/Kloks UI host discovery', () => {
     expect(a.agentChat!.scopeKey).not.toBe(b.agentChat!.scopeKey);
     expect(a.agentChat!.targets[0].id).toBe('agent-immutable');
     expect(b.agentChat!.targets[0].id).toBe('agent-b');
-    await expect(b.agentChat!.onInvoke({targetKind:'app',targetId:'agent-immutable',prompt:'forged'}))
-      .resolves.toMatchObject({kind:'completed',text:'B'}); // backend still reauthorizes, never grants from browser cache
+    const boundB = bindAuthorizedAgentChat(b.agentChat!, {principalId:appB.principalId,workspaceId:appB.workspaceId})!;
+    await expect(boundB.onInvoke({targetKind:'app',targetId:'agent-immutable',prompt:'forged'}))
+      .rejects.toThrow(/authorized directory/);
+    expect(requestB).toHaveBeenCalledTimes(1);
+    expect(await boundB.onInvoke({targetKind:'app',targetId:'agent-b',prompt:'authorized'}))
+      .toMatchObject({kind:'completed',text:'B'});
     expect(requestB.mock.calls[1][0]).toBe('/api/ultrst/ui/agent-invoke');
     const a2 = makeScopedUniversalUi(catalog(appA,'2'),appA,requestA as never)!;
     expect(a2.agentChat!.scopeKey).not.toBe(a.agentChat!.scopeKey);
