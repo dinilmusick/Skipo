@@ -131,3 +131,14 @@ these references. An empty default facade, hand-authored descriptor, static
 application manifest or manually supplied function is insufficient. Existing
 `AppBackend` composition is not automatically enrolled by the registry
 library; application wiring is owned by the appropriate consumer.
+
+## Shared capability-handle syntax
+
+Registry publication, verified discovery, target-resolution and legacy
+compatibility proxies use the same `validStaticHandle` validator. It accepts
+bounded alphanumeric, underscore, dash, dot and colon-qualified identifiers
+such as `workspace.list` and `storage:getConnections`. Prototype/thenable
+property names and traversal patterns are denied. This closes the discrepancy
+where valid immutable operation IDs could be discovered but not registered
+by a generated backend runtime. Handle validity does **not** imply permission
+to execute: verified operations require the Luth/Kloks target-owned boundary.

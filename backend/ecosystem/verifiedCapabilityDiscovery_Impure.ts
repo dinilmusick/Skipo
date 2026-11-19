@@ -5,6 +5,7 @@
  */
 import {
   normalizeStaticCapabilityDescriptors, resolveVerifiedCapabilityDeployment,
+  validStaticHandle,
   type Query, type StaticCapabilityDescriptor,
 } from './deploymentStore_Impure.js';
 
@@ -40,7 +41,6 @@ export interface VerifiedDiscoveryPolicy {
 }
 
 const appIdPattern = /^[a-z][a-z0-9-]{0,62}$/;
-const methodPattern = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{1,127}$/;
 const deploymentPattern = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const environments = new Set<RegistryEnvironment>(['development', 'preview', 'staging', 'production']);
 
@@ -53,7 +53,7 @@ function validateApp(appId: string, environment: RegistryEnvironment): void {
 function validateSelector(value: CapabilitySelector): void {
   if (!value) throw new Error('Verified registry selector is required.');
   validateApp(value.appId, value.environment);
-  if (typeof value.capabilityId !== 'string' || !methodPattern.test(value.capabilityId) ||
+  if (!validStaticHandle(value.capabilityId) ||
       (value.revision !== undefined &&
         (!Number.isSafeInteger(value.revision) || value.revision < 1)) ||
       (value.deploymentId !== undefined && !deploymentPattern.test(value.deploymentId))) {

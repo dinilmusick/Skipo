@@ -2,7 +2,7 @@ import {
   consumeInvocation, createInvocation, findDeployment, refreshDeployment, refreshDeploymentById,
   publishDeploymentCapabilityRevision, normalizeStaticCapabilityDescriptors,
   type EcosystemEnv, type Query, type StaticCapabilityDescriptor, systemQuery,
-  validatedDeploymentOrigin,
+  validatedDeploymentOrigin, validStaticHandle,
 } from './deploymentStore_Impure.js';
 import {
   handleDeploymentProof, type DeploymentEnvironment,
@@ -11,7 +11,8 @@ import {
 const invocationPath = '/api/ecosystem/invoke';
 const heartbeatInterval = 5 * 60_000;
 const appPattern = /^[a-z][a-z0-9-]{0,62}$/;
-const capabilityPattern = /^[a-z][a-zA-Z0-9_]{0,63}$/;
+// Dotted and colon-qualified registered operations share the registry's
+// reserved-name and traversal guard; legacy camelCase remains compatible.
 const ticketPattern = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 type Capability = (params: unknown, context: {
   userId: string; callerApp: string; env: EcosystemEnv;
@@ -138,7 +139,7 @@ export function createEcosystemRuntime(options: {
   const capabilityDescriptors = options.capabilityDescriptors === undefined
     ? undefined : normalizeStaticCapabilityDescriptors(options.capabilityDescriptors);
   const verifiedSnapshotIds = new Set(capabilityDescriptors?.map(item => item.id) ?? []);
-  if (!appPattern.test(appId) || capabilities.some(name => !capabilityPattern.test(name)) ||
+  if (!appPattern.test(appId) || capabilities.some(name => !validStaticHandle(name)) ||
       capabilities.length !== methods.size + serviceMethods.size) {
     throw new Error('Invalid ecosystem application or capability identifier.');
   }
@@ -286,7 +287,7 @@ export function createEcosystemRuntime(options: {
         ? undefined
         : new Proxy(Object.create(null), {
           get: (_target, capability) => typeof capability !== 'string' ||
-            capability === 'then' || !capabilityPattern.test(capability)
+            capability === 'then' || !validStaticHandle(capability)
             ? undefined : (params: unknown) => invoke(app, capability, params),
         }),
     });

@@ -92,9 +92,11 @@ export interface StaticCapabilityDescriptor {
 
 const forbiddenDescriptorKey = /(?:secret|token|session|endpoint|url|credential|authorization|password|cookie|bearer|(?:api|access|private|client|server|signing|encryption)[_-]?key|key[_-]?(?:material|secret))/i;
 const staticOperationHandle = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
-function validStaticHandle(value: unknown): value is string {
+/** Shared capability handle validation for publication, resolution and callers. */
+export function validStaticHandle(value: unknown): value is string {
   return typeof value === 'string' && staticOperationHandle.test(value) &&
-    !value.includes('..') && !['constructor', 'prototype', '__proto__'].includes(value);
+    !value.includes('..') &&
+    !['constructor', 'prototype', '__proto__', 'then'].includes(value);
 }
 const descriptorKeys = new Set([
   'id', 'description', 'inputSchema', 'outputSchema', 'name', 'serviceName',
@@ -340,7 +342,7 @@ export async function resolveVerifiedCapabilityDeployment(
   descriptor: StaticCapabilityDescriptor;
 } | null> {
   if (!/^[a-z][a-z0-9-]{0,62}$/.test(appId) ||
-      !/^[a-zA-Z0-9][a-zA-Z0-9._:-]{1,127}$/.test(capabilityId) ||
+      !validStaticHandle(capabilityId) ||
       !['development', 'preview', 'staging', 'production'].includes(environment) ||
       (revision !== undefined && (!Number.isSafeInteger(revision) || revision < 1)) ||
       (deploymentId !== undefined &&
