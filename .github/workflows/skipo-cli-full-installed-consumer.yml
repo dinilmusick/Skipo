@@ -1,0 +1,32 @@
+name: Skipo strict installed Vite application certification
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/skipo-cli-full-installed-consumer.yml"
+      - "scripts/skipo_cli.py"
+      - "scripts/prepare-npm-package.mjs"
+      - "tests/verify-skipo-packed-cli.mjs"
+      - "scaffolds/vite/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-packaged-generated-app:
+    name: Fully verified frozen Vite consumer from actual npm package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - name: Run strict packed-CLI generated-app lifecycle from isolated consumer
+        run: node tests/verify-skipo-packed-cli.mjs --full
