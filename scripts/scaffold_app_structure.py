@@ -768,6 +768,18 @@ createRoot(container).render(<React.StrictMode><App /></React.StrictMode>);
         lib_index.write_text("// Application-specific custom libraries only (never duplicate @ultrst-armada/kloks or @ultrst-armada/floks)\nexport {};\n", encoding="utf-8")
         created.append(lib_index)
 
+    # Canonical environment contract: application-owned database and origin.
+    # OAuth confidential client credentials are injected by the trusted runtime,
+    # not generated, committed, stored in the frontend or written to .env.example.
+    env_example = target_root / ".env.example"
+    if not env_example.exists():
+        env_example.write_text(
+            'SYSTEM_DATABASE_URL="postgres://user:password@db.example.com:5432/postgres?sslmode=require"\\n'
+            'APP_URL="http://localhost:3000"\\n',
+            encoding="utf-8",
+        )
+        created.append(env_example)
+
     created.extend(generate_provider_packaging(target_root, app_name))
     return created
 
