@@ -36,6 +36,7 @@ export async function refreshDeployment(query: Query, app: string, url: string, 
     ON CONFLICT (app_id, app_url) DO UPDATE
     SET last_refresh_at = GREATEST(deployments.last_refresh_at, EXCLUDED.last_refresh_at),
         capabilities = EXCLUDED.capabilities
+    WHERE deployments.verification_state = 'unverified'
   `, [app, url, capabilities]);
 }
 
@@ -59,6 +60,10 @@ export async function refreshDeploymentById(
       last_refresh_at = GREATEST(deployments.last_refresh_at, EXCLUDED.last_refresh_at),
       capabilities = EXCLUDED.capabilities
     WHERE deployments.app_id = EXCLUDED.app_id
+      AND (deployments.verification_state = 'unverified'
+        OR (deployments.verification_state = 'verified'
+          AND deployments.app_url = EXCLUDED.app_url
+          AND deployments.capabilities = EXCLUDED.capabilities))
     RETURNING deployment_id
   `, [deploymentId, app, url, capabilities]);
   if (updated.length !== 1) {
@@ -168,14 +173,16 @@ export async function publishDeploymentCapabilityRevision(
       LIMIT 1
     ),
     eligible AS MATERIALIZED (
-      SELECT deployment_id
-      FROM skipo_ecosystem.deployments
-      WHERE deployment_id = $1::uuid
-        AND verification_state = 'verified'
-        AND NULLIF(btrim(verification_proof_digest), '') IS NOT NULL
-        AND lease_expires_at > statement_timestamp()
-        AND environment <> 'unclassified'
-        AND last_refresh_at > statement_timestamp() - interval '15 minutes'
+      SELECT d.deployment_id
+      FROM skipo_ecosystem.deployments AS d
+      JOIN public."ultrst-apps" AS apps
+        ON apps.app_id = d.app_id AND apps.status = 'active'
+      WHERE d.deployment_id = $1::uuid
+        AND d.verification_state = 'verified'
+        AND NULLIF(btrim(d.verification_proof_digest), '') IS NOT NULL
+        AND d.lease_expires_at > statement_timestamp()
+        AND d.environment <> 'unclassified'
+        AND d.last_refresh_at > statement_timestamp() - interval '15 minutes'
     ),
     inserted AS (
       INSERT INTO skipo_ecosystem.deployment_capability_revisions
@@ -207,6 +214,7 @@ export async function getDeploymentCapabilityRevision(
   }>(`
     SELECT d.app_id, d.environment, r.revision, r.descriptors, r.published_at
     FROM skipo_ecosystem.deployments d
+    JOIN public."ultrst-apps" apps ON apps.app_id = d.app_id AND apps.status = 'active'
     JOIN LATERAL (
       SELECT revision, descriptors, published_at
       FROM skipo_ecosystem.deployment_capability_revisions
@@ -230,6 +238,7 @@ export async function findDeployment(query: Query, app: string, capability: stri
   const [row] = await query<{ app_url: string }>(`
     SELECT app_url FROM skipo_ecosystem.deployments
     WHERE app_id = $1 AND $2 = ANY(capabilities)
+      AND verification_state = 'unverified'
       AND last_refresh_at > statement_timestamp() - interval '15 minutes'
     ORDER BY last_refresh_at DESC, app_url ASC LIMIT 1
   `, [app, capability]);
@@ -288,6 +297,7 @@ export async function resolveVerifiedCapabilityDeployment(
     SELECT d.deployment_id::text AS deployment_id, d.app_url, r.revision,
            matched.descriptor
     FROM skipo_ecosystem.deployments d
+    JOIN public."ultrst-apps" apps ON apps.app_id = d.app_id AND apps.status = 'active'
     JOIN LATERAL (
       SELECT revision, descriptors
       FROM skipo_ecosystem.deployment_capability_revisions
@@ -347,10 +357,16 @@ export interface Invocation {
 
 export async function consumeInvocation(query: Query, id: string, app: string, url: string) {
   const [invocation] = await query<Invocation>(`
-    DELETE FROM skipo_ecosystem.invocations
-    WHERE id = $1::uuid AND target_app = $2 AND target_url = $3
-      AND expires_at > statement_timestamp()
-    RETURNING caller_app, user_id, capability, params
+    DELETE FROM skipo_ecosystem.invocations AS pending
+    USING skipo_ecosystem.deployments AS target
+    WHERE pending.id = $1::uuid
+      AND pending.target_app = $2 AND pending.target_url = $3
+      AND pending.expires_at > statement_timestamp()
+      AND target.app_id = pending.target_app
+      AND target.app_url = pending.target_url
+      AND target.verification_state = 'unverified'
+      AND target.last_refresh_at > statement_timestamp() - interval '15 minutes'
+    RETURNING pending.caller_app, pending.user_id, pending.capability, pending.params
   `, [id, app, url]);
   return invocation;
 }

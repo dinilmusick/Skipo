@@ -99,6 +99,7 @@ export function createVerifiedCapabilityDiscovery(query: Query, policy: Verified
     }>([
       'SELECT d.deployment_id::text AS deployment_id, r.revision, matched.descriptor',
       'FROM skipo_ecosystem.deployments d',
+      'JOIN public."ultrst-apps" apps ON apps.app_id=d.app_id AND apps.status=\'active\'',
       'JOIN LATERAL (SELECT revision, descriptors FROM',
       'skipo_ecosystem.deployment_capability_revisions',
       'WHERE deployment_id=d.deployment_id ORDER BY revision DESC LIMIT 1) r ON true',
