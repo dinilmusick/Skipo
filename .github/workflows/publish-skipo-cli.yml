@@ -47,13 +47,11 @@ jobs:
       - name: Verify exact checked-out release commit and matching package versions
         id: release
         shell: bash
-        env:
-          REQUESTED_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA" || { echo "Checkout does not match triggering commit"; exit 1; }
           if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
-            TAG_VERSION="$REQUESTED_VERSION"
+            TAG_VERSION="$(node -e 'const fs=require("node:fs"); const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, "utf8")); process.stdout.write(String(event.inputs?.version || ""));')"
           else
             [[ "$GITHUB_REF" == refs/tags/skipo-v* ]] || { echo "Only Skipo release tags are valid"; exit 1; }
             TAG_VERSION="${GITHUB_REF_NAME#skipo-v}"
@@ -72,13 +70,12 @@ jobs:
       - name: Check npm version uniqueness (fail closed on registry errors)
         id: registry
         shell: bash
-        env:
-          PACKAGE_VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -euo pipefail
-          if npm view "@ultrst-armada/skipo@${PACKAGE_VERSION}" version --registry=https://registry.npmjs.org/ > "$RUNNER_TEMP/npm-version.out" 2> "$RUNNER_TEMP/npm-version.err"; then
+          SKIPO_RELEASE_VERSION="$(node -p "require('./packages/skipo/package.json').version")"
+          if npm view "@ultrst-armada/skipo@${SKIPO_RELEASE_VERSION}" version --registry=https://registry.npmjs.org/ > "$RUNNER_TEMP/npm-version.out" 2> "$RUNNER_TEMP/npm-version.err"; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::@ultrst-armada/skipo@${PACKAGE_VERSION} is immutable and already published; no publish will be attempted."
+            echo "::notice::@ultrst-armada/skipo@${SKIPO_RELEASE_VERSION} is immutable and already published; no publish will be attempted."
           elif grep -Eq 'E404|404 Not Found' "$RUNNER_TEMP/npm-version.err"; then
             echo "exists=false" >> "$GITHUB_OUTPUT"
           else
