@@ -32,16 +32,18 @@ def test_generic_scaffold_generates_canonical_floks_kloks_auth(tmp_path):
 
     assert auth_page.is_file() and adapter.is_file() and guard.is_file() and fetcher.is_file()
     assert "@ultrst-armada/floks/auth" in adapter.read_text(encoding="utf-8")
-    assert "LuthAuthPage as FloksLuthAuthPage" in adapter.read_text(encoding="utf-8")
+    assert "LuthOidcGate as FloksLuthOidcGate" in adapter.read_text(encoding="utf-8")
     assert "@ultrst-armada/kloks/auth" in fetcher.read_text(encoding="utf-8")
     assert "LuthAuthPage" in auth_page.read_text(encoding="utf-8")
     assert "requireLuthSession" in guard.read_text(encoding="utf-8")
-    assert "getAuthHeaders" in fetcher.read_text(encoding="utf-8")
-    assert "canonicaldemo" in fetcher.read_text(encoding="utf-8")
+    assert "credentials: 'same-origin'" in fetcher.read_text(encoding="utf-8")
+    assert "authorization" in fetcher.read_text(encoding="utf-8")
+    assert "createCanonicalApplicationOAuthBff" in guard.read_text(encoding="utf-8")
+    assert "canonicaldemo" in guard.read_text(encoding="utf-8")
     assert "LuthAuthServiceFacade" in backend.read_text(encoding="utf-8")
     assert not re.search(r"\bAuthServiceFacade\b", backend.read_text(encoding="utf-8"))
     assert manifest["dependencies"]["@ultrst-armada/krnl"] == "^1.0.25"
-    assert manifest["dependencies"]["@dinilmusick/gutts"] == AUTH_CONTRACT.PACKAGE_BASELINE["@dinilmusick/gutts"]
+    assert AUTH_CONTRACT.package_spec_satisfies_minimum(manifest["dependencies"]["@dinilmusick/gutts"], AUTH_CONTRACT.PACKAGE_BASELINE["@dinilmusick/gutts"])
     assert scan_source_tree(target) == []
 
 
@@ -96,7 +98,7 @@ def test_vite_scaffold_uses_luth_for_backend_identity_and_session_validation():
     assert not re.search(r"\bAuthServiceFacade\b", backend)
     assert "DEFAULT_LUTH_URL" in guard
     assert "session.session?.id" in guard
-    assert "proxyLuthAuthRequest" in guard
+    assert "handleApplicationOAuth" in guard
 
 
 
