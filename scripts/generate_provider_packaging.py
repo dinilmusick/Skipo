@@ -8,7 +8,7 @@ from typing import Any
 
 
 SCAFFOLD_APP_SOURCE = """import { externalInterfaces } from "./backend/__SKIPO_BACKEND_ENTRY__.js";
-import { proxyLuthAuthRequest } from "./backend/auth/luthSession.js";
+import { handleApplicationOAuth, authenticateLuthRequest } from "./backend/auth/luthSession.js";
 
 /**
  * Canonical Web-standard application entrypoint.
@@ -58,16 +58,27 @@ export async function fetch(
   _ctx?: unknown,
 ): Promise<Response> {
   const url = new URL(request.url);
+  // OAuth callback must be admitted before any route requiring an existing
+  // session. The shared Kloks BFF enforces PKCE, issuer, state and replay.
+  const oauth = await handleApplicationOAuth(request, env);
+  if (oauth) return oauth;
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
-  const authProxy = await proxyLuthAuthRequest(request);
-  if (authProxy) return authProxy;
+  if (url.pathname === "/health" || url.pathname === "/api/health") {
+    return Response.json({ status: "ok", runtime: "fetch" }, { headers: cors });
+  }
+  // The endpoint implementation sees a canonical, revalidated Luth principal
+  // or rejects the request. Never trust x-user-id/session/workspace headers.
+  if (url.pathname.startsWith("/api/") || url.pathname === "/mcp") {
+    const checked = await authenticateLuthRequest(request, env);
+    if (checked.status) return Response.json({ error: checked.error || "Unauthorized" }, {
+      status: checked.status, headers: { "cache-control": "no-store" },
+    });
+    request = checked.request || request;
+  }
   const mcp = await externalInterfaces.mcp(request);
   if (mcp) return mcp;
   const http = await externalInterfaces.http(request);
   if (http) return http;
-  if (url.pathname === "/health" || url.pathname === "/api/health") {
-    return Response.json({ status: "ok", runtime: "fetch" }, { headers: cors });
-  }
   const assetResponse = await fetchStaticAsset(request, env.ASSETS);
   if (assetResponse) return assetResponse;
   return Response.json({ error: "Not Found" }, { status: 404, headers: cors });
