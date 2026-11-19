@@ -1,6 +1,6 @@
 'use client';
 
-import { createElement, useState, type ComponentProps, type ComponentType } from 'react';
+import { createElement, Suspense, useState, type ComponentProps, type ComponentType } from 'react';
 import { AppShell, BaseButton, type WorkspaceRecord } from '@ultrst-armada/floks/ui';
 import MainTabs from './MainTabs.js';
 import SettingsPage from '../settings/page.js';
@@ -53,13 +53,15 @@ export default function MainPage({isGuest, principalId, activeWorkspace, onSwitc
       {shownMode === 'settings'
         ? <SettingsPage activeWorkspaceName={activeWorkspace?.title || (isGuest ? 'Guest' : undefined)} />
         : shownMode === 'graph' && authorizedGraph
-          ? createElement(authorizedGraph.GraphComponent, {
-              key: authorizedGraph.scopeKey,
-              scopeKey: authorizedGraph.scopeKey,
-              workspaceId: activeWorkspace!.id,
-              runtime: authorizedGraph.runtime,
-              nodeDefinitions: authorizedGraph.nodeDefinitions ?? [],
-            })
+          ? <Suspense fallback={<p role="status">Loading authorized graph…</p>}>
+              {createElement(authorizedGraph.GraphComponent, {
+                key: authorizedGraph.scopeKey,
+                scopeKey: authorizedGraph.scopeKey,
+                workspaceId: activeWorkspace!.id,
+                runtime: authorizedGraph.runtime,
+                nodeDefinitions: authorizedGraph.nodeDefinitions ?? [],
+              })}
+            </Suspense>
           : <MainTabs />}
     </UniversalAppShell>
   );
