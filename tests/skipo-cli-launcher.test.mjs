@@ -49,7 +49,7 @@ test("missing explicitly selected Python fails with actionable diagnostics", (t)
     SKIPO_PYTHON: join(cwd, "no such interpreter"),
   });
   assert.equal(result.status, 127);
-  assert.match(result.stderr, /Python 3\\.10 or newer/);
+  assert.match(result.stderr, /Python 3\.10 or newer/);
   assert.match(result.stderr, /SKIPO_PYTHON/);
   assert.doesNotMatch(result.stdout, /args=/);
 });
@@ -58,7 +58,7 @@ test("launched Python forwards arguments and arbitrary consumer working director
   const { executable, cwd } = fixture(t);
   const result = run(executable, cwd, ["inspect", "some project"]);
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /args=inspect\\|some project/);
+  assert.match(result.stdout, /args=inspect\|some project/);
   assert.ok(result.stdout.includes("cwd=" + cwd), result.stdout);
 });
 
