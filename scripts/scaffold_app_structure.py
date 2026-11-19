@@ -511,42 +511,34 @@ export {{ default }} from './{pascal}Backend.js';
         pages_root / "auth" / "LuthAuthPage.tsx": """'use client';
 
 import React from 'react';
-import { LuthAuthPage as FloksLuthAuthPage } from '@ultrst-armada/floks/auth';
+import { LuthOidcGate as FloksLuthOidcGate } from '@ultrst-armada/floks/auth';
 
-export function LuthAuthPage({ applicationId, appName, onAuthenticated, authenticatedContent, onContinueAsGuest }: {
-  applicationId: string;
+/** Presentation only; the verified applicationId is compiled into the server
+ *  BFF adapter, not accepted from a browser prop or redirect parameter. */
+export function LuthAuthPage({ appName, onAuthenticated, authenticatedContent, onContinueAsGuest }: {
+  applicationId?: string;
   appName: string;
   onAuthenticated?: (user: unknown) => void;
   authenticatedContent?: React.ReactNode | ((auth: any) => React.ReactNode);
   onContinueAsGuest?: () => void;
 }) {
-  return <FloksLuthAuthPage ecosystemId="ultrst-armada"
-    applicationId={applicationId} appName={appName}
+  return <FloksLuthOidcGate
+    appName={appName}
     onAuthenticated={onAuthenticated as any}
-    authenticatedContent={authenticatedContent as any}
+    authenticatedContent={authenticatedContent ?? null}
     onContinueAsGuest={onContinueAsGuest} />;
 }
-
 export default LuthAuthPage;
 """,
         pages_root / "auth" / "luthFetch.ts": """'use client';
 
-import { createLuthAuthClient } from '@ultrst-armada/kloks/auth';
-
-const luthClient = createLuthAuthClient({
-  ecosystemId: 'ultrst-armada',
-  applicationId: "__SKIPO_APPLICATION_ID__",
-  autoRegister: true,
-});
-
-/** Attach the canonical Luth bearer token to protected application API requests. */
+/** Browser requests remain first-party; the server owns OAuth PKCE and tokens. */
 export async function luthFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
-  new Headers(luthClient.getAuthHeaders()).forEach((value, key) => headers.set(key, value));
+  headers.delete('authorization');
   return fetch(input, {
-    ...init,
-    headers,
-    credentials: init.credentials ?? 'include',
+    ...init, headers,
+    credentials: 'same-origin',
     cache: init.cache ?? 'no-store',
   });
 }
