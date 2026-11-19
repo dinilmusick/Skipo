@@ -39,7 +39,7 @@ export interface TrustedDeploymentAuthority {
 
 const appPattern = /^[a-z][a-z0-9-]{0,62}$/;
 const uuidPattern = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
-const proofPattern = /^[A-Za-z0-9._:-]{16,256}$/;
+const proofPattern = /^[a-f0-9]{64}$/;
 const environments = new Set<VerifiedEnvironment>([
   'development', 'preview', 'staging', 'production',
 ]);

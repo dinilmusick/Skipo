@@ -134,7 +134,17 @@ export function createEcosystemRuntime(options: {
         await refreshDeploymentById(query(env), appId, options.deploymentId,
           deploymentOrigin(env.APP_URL), capabilities);
         if (capabilityDescriptors !== undefined) {
-          await publishDeploymentCapabilityRevision(query(env), options.deploymentId, capabilityDescriptors);
+          // A handler withdrawn after startup must disappear from the next
+          // complete immutable revision rather than remain discoverable.
+          const currentDescriptors = capabilityDescriptors.filter(descriptor => {
+            try {
+              verifyRegisteredBackendFacadeOperations(options.backendFacadeOperations, [descriptor]);
+              return true;
+            } catch {
+              return false;
+            }
+          });
+          await publishDeploymentCapabilityRevision(query(env), options.deploymentId, currentDescriptors);
         }
       } else {
         await refreshDeployment(query(env), appId, deploymentOrigin(env.APP_URL), capabilities);
