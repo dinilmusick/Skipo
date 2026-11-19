@@ -28,6 +28,7 @@ export interface UniversalUiDirectory {
   targets?: AgentTarget[];
   appAgentId?: string;
   graphEnabled?: boolean;
+  cancelEnabled?: boolean;
 }
 const endpoints = {
   directory: '/api/ultrst/ui/available',
@@ -68,7 +69,8 @@ export function makeScopedUniversalUi(
       value.applicationId !== scope.applicationId ||
       typeof value.scopeKey !== 'string' || !value.scopeKey.trim() ||
       (value.targets !== undefined && !validTargets(value.targets)) ||
-      (value.graphEnabled !== undefined && typeof value.graphEnabled !== 'boolean')) return undefined;
+      (value.graphEnabled !== undefined && typeof value.graphEnabled !== 'boolean') ||
+      (value.cancelEnabled !== undefined && typeof value.cancelEnabled !== 'boolean')) return undefined;
   const targets = value.targets ?? [];
   if (value.appAgentId && !targets.some(target => target.kind === 'app' && target.id === value.appAgentId))
     return undefined;
@@ -78,7 +80,8 @@ export function makeScopedUniversalUi(
   };
   const agentChat = targets.length ? createAuthenticatedAgentChatHttpHost({
     ...identity, targets, appAgentId: value.appAgentId,
-  }, {request, invokePath: endpoints.invoke, cancelPath: endpoints.cancel}) : undefined;
+  }, {request, invokePath: endpoints.invoke,
+    ...(value.cancelEnabled ? {cancelPath: endpoints.cancel} : {})}) : undefined;
   const graph = value.graphEnabled ? {
     ...identity, GraphComponent,
     runtime: createAuthenticatedFodGraphHttpRuntime(request, {
@@ -111,6 +114,25 @@ export async function fetchScopedUniversalUi(
  * grants, deployment leases, and publication revocations retire stale UI.
  * An identity change invalidates the old scope in the SAME render.
  */
+/**
+ * Reuse stable host callbacks during unchanged 15-second polling: replacing
+ * the Floks graph runtime every tick would abort valid in-flight executions.
+ * A changed scope or directory must still remount affected UI immediately.
+ */
+export function sameAuthorizedUi(
+  previous: ScopedUniversalUiHost | undefined,
+  next: ScopedUniversalUiHost | undefined,
+): boolean {
+  if (!previous || !next) return previous === next;
+  const previousChat = previous.agentChat;
+  const nextChat = next.agentChat;
+  return previousChat?.scopeKey === nextChat?.scopeKey &&
+    previous.graph?.scopeKey === next.graph?.scopeKey &&
+    Boolean(previousChat?.onCancel) === Boolean(nextChat?.onCancel) &&
+    previousChat?.appAgentId === nextChat?.appAgentId &&
+    JSON.stringify(previousChat?.targets ?? []) === JSON.stringify(nextChat?.targets ?? []);
+}
+
 export function useAuthorizedUniversalUi(
   principalId: string | undefined,
   workspaceId: string | undefined,
@@ -136,7 +158,11 @@ export function useAuthorizedUniversalUi(
       current = controller;
       void fetchScopedUniversalUi(scope, luthFetch, controller.signal)
         .then(host => {
-          if (alive && request === revision) setState({principalId, workspaceId, host});
+          if (alive && request === revision) setState(previous => {
+            if (previous?.principalId === principalId && previous.workspaceId === workspaceId &&
+                sameAuthorizedUi(previous.host, host)) return previous;
+            return {principalId, workspaceId, host};
+          });
         })
         .catch(() => {
           // Authentication failure, disconnected service, or malformed directory
