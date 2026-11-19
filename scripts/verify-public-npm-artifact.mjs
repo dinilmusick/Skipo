@@ -8,8 +8,8 @@ import {execFileSync} from "node:child_process";
 
 const root = process.cwd();
 const current = JSON.parse(fs.readFileSync(path.join(root, process.argv[2] || "packages/skipo/package.json"), "utf8"));
-const packageName = process.env.PUBLIC_ARTIFACT_PACKAGE || current.name;
-const packageVersion = process.env.PUBLIC_ARTIFACT_VERSION || current.version;
+const packageName = current.name;
+const packageVersion = current.version;
 if (!/^(@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/i.test(packageName) ||
     !/^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/.test(packageVersion)) {
   throw new Error("Invalid package name/version for registry verification");
