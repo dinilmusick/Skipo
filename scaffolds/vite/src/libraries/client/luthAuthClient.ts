@@ -1,4 +1,4 @@
-import { LuthAuthClient } from '@ultrst-armada/kloks/auth';
+import { createApplicationAuthClient } from '@dinilmusick/gutts/auth';
 
 export const SKIPO_ECOSYSTEM_ID = 'ultrst-armada';
 export const SKIPO_APPLICATION_ID = 'my-app';
@@ -7,25 +7,20 @@ export function getSkipoApplicationId(): string {
   return SKIPO_APPLICATION_ID;
 }
 
-// Construct the browser Luth client only in a browser runtime.
-// The server-side fetch adapter verifies requests independently.
-export const luthAuthClient = typeof window !== 'undefined'
-  ? new LuthAuthClient({
-      ecosystemId: SKIPO_ECOSYSTEM_ID,
-      applicationId: getSkipoApplicationId(),
-      autoRegister: true,
-    })
-  : null;
+/**
+ * The browser sees only first-party HttpOnly cookies from Kloks' application
+ * OAuth BFF. It never stores Luth bearer tokens, code verifiers or client secrets.
+ */
+export const luthAuthClient = createApplicationAuthClient();
 
-/** All same-origin application API requests carry the active Luth session. */
+/** App-owned APIs use the same-site session cookie; no bearer shim. */
 export async function luthFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
-  if (!luthAuthClient) throw new Error('Browser Luth session unavailable');
-  new Headers(luthAuthClient.getAuthHeaders()).forEach((value, key) => headers.set(key, value));
+  // Do not forward a caller's untrusted bearer/session token into the BFF.
+  headers.delete('Authorization');
   return fetch(input, {
-    ...init,
-    headers,
-    credentials: init.credentials ?? 'include',
+    ...init, headers,
+    credentials: 'same-origin',
     cache: init.cache ?? 'no-store',
   });
 }
