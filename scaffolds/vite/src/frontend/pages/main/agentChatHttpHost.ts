@@ -37,6 +37,8 @@ export function createAuthenticatedAgentChatHttpHost(
       body: JSON.stringify(body), signal, credentials: 'include', cache: 'no-store',
     });
     if (!response.ok) throw new Error('Authenticated Kloks operation was denied or unavailable');
+    // 204 is an explicit successful cancellation response, not an invocation.
+    if (response.status === 204) return {cancelled: true};
     return response.json();
   };
   const onInvoke: AgentChatBinding['onInvoke'] = async (invocation: AgentInvocation, options) => {
@@ -46,6 +48,11 @@ export function createAuthenticatedAgentChatHttpHost(
   };
   return {
     ...identity, onInvoke,
-    onCancel: cancelPath ? async target => { await post(cancelPath, target); } : undefined,
+    onCancel: cancelPath ? async target => {
+      const acknowledgment = await post(cancelPath, target);
+      if (!acknowledgment || typeof acknowledgment !== 'object' ||
+          (acknowledgment as {cancelled?: unknown}).cancelled !== true)
+        throw new Error('Unable to confirm remote agent cancellation');
+    } : undefined,
   };
 }
