@@ -21,7 +21,7 @@ export interface MainPageProps {
   onSwitchWorkspace?: () => void;
   /** Authorized server-backed Luth/Kloks chat directory and invoker. */
   agentChat?: ScopedAgentChatHost;
-  /** Floks FodModule + Kloks reauthorizing FOD runtime from the app owner. */
+  /** Floks remote graph with app-supplied Kloks-authorized runtime. */
   graph?: ScopedGraphHost;
 }
 
