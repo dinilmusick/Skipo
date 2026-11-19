@@ -14,6 +14,8 @@ export interface CapabilitySelector {
   capabilityId: string;
   environment: RegistryEnvironment;
   revision?: number;
+  /** Pin the exact attested target instance, not just app and revision. */
+  deploymentId?: string;
 }
 export interface AuthenticatedDiscoveryIdentity {
   userId: string;
@@ -39,6 +41,7 @@ export interface VerifiedDiscoveryPolicy {
 
 const appIdPattern = /^[a-z][a-z0-9-]{0,62}$/;
 const methodPattern = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{1,127}$/;
+const deploymentPattern = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const environments = new Set<RegistryEnvironment>(['development', 'preview', 'staging', 'production']);
 
 function validateApp(appId: string, environment: RegistryEnvironment): void {
@@ -52,7 +55,8 @@ function validateSelector(value: CapabilitySelector): void {
   validateApp(value.appId, value.environment);
   if (typeof value.capabilityId !== 'string' || !methodPattern.test(value.capabilityId) ||
       (value.revision !== undefined &&
-        (!Number.isSafeInteger(value.revision) || value.revision < 1))) {
+        (!Number.isSafeInteger(value.revision) || value.revision < 1)) ||
+      (value.deploymentId !== undefined && !deploymentPattern.test(value.deploymentId))) {
     throw new Error('Invalid verified registry operation/revision selector.');
   }
 }
@@ -79,7 +83,8 @@ export function createVerifiedCapabilityDiscovery(query: Query, policy: Verified
     const initialBinding = boundIdentity(initial);
     if (!initialBinding) return null;
     const found = await resolveVerifiedCapabilityDeployment(query, selector.appId,
-      selector.capabilityId, selector.environment, selector.revision);
+      selector.capabilityId, selector.environment, selector.revision,
+      selector.deploymentId);
     if (!found) return null;
     const current = await policy.authenticate(request, selector.appId, selector.environment);
     if (boundIdentity(current) !== initialBinding || !current) return null;
@@ -122,6 +127,7 @@ export function createVerifiedCapabilityDiscovery(query: Query, policy: Verified
       }
       const selected = await resolve(request, {
         appId, capabilityId: descriptor.id, environment, revision,
+        deploymentId: row.deployment_id,
       });
       if (selected && selected.deploymentId === row.deployment_id) {
         result.push(selected);

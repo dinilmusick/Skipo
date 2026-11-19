@@ -280,6 +280,7 @@ export async function resolveVerifiedCapabilityDeployment(
   capabilityId: string,
   environment: 'development' | 'preview' | 'staging' | 'production',
   revision?: number,
+  deploymentId?: string,
 ): Promise<{
   deploymentId: string; url: string; revision: number;
   descriptor: StaticCapabilityDescriptor;
@@ -287,9 +288,13 @@ export async function resolveVerifiedCapabilityDeployment(
   if (!/^[a-z][a-z0-9-]{0,62}$/.test(appId) ||
       !/^[a-zA-Z0-9][a-zA-Z0-9._:-]{1,127}$/.test(capabilityId) ||
       !['development', 'preview', 'staging', 'production'].includes(environment) ||
-      (revision !== undefined && (!Number.isSafeInteger(revision) || revision < 1))) {
+      (revision !== undefined && (!Number.isSafeInteger(revision) || revision < 1)) ||
+      (deploymentId !== undefined &&
+        !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(deploymentId))) {
     throw new Error('Invalid verified capability target selector.');
   }
+  const deploymentCondition = deploymentId === undefined
+    ? '' : 'AND d.deployment_id = $5::uuid';
   const [row] = await query<{
     deployment_id: string; app_url: string; revision: number | string;
     descriptor: StaticCapabilityDescriptor;
@@ -312,6 +317,7 @@ export async function resolveVerifiedCapabilityDeployment(
     WHERE COALESCE((matched.descriptor->>'discoverable')::boolean, true)
       AND d.app_id = $1
       AND d.environment = $3
+      ${deploymentCondition}
       AND ($4::bigint IS NULL OR r.revision = $4::bigint)
       AND d.verification_state = 'verified'
       AND NULLIF(btrim(d.verification_proof_digest), '') IS NOT NULL
@@ -319,8 +325,13 @@ export async function resolveVerifiedCapabilityDeployment(
       AND d.last_refresh_at > statement_timestamp() - interval '15 minutes'
     ORDER BY d.last_refresh_at DESC, d.deployment_id ASC
     LIMIT 1
-  `, [appId, capabilityId, environment, revision ?? null]);
+  `, deploymentId === undefined
+    ? [appId, capabilityId, environment, revision ?? null]
+    : [appId, capabilityId, environment, revision ?? null, deploymentId]);
   if (!row) return null;
+  if (deploymentId && row.deployment_id.toLowerCase() !== deploymentId.toLowerCase()) {
+    throw new Error('Registry returned a different deployment identity.');
+  }
   const [descriptor] = normalizeStaticCapabilityDescriptors([row.descriptor]);
   if (!descriptor || descriptor.id !== capabilityId) {
     throw new Error('Registry returned an invalid capability descriptor.');

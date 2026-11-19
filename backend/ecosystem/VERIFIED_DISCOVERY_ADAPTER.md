@@ -29,3 +29,75 @@ A trusted registrar must authenticate an app owner/deployer, independently prove
 Actual certified E2E requires: (1) exact-head registry and generated Vite tests, (2) isolated Neon migration replay, role-permission tests and expired/revoked/wrong-environment/malformed descriptor negative cases, (3) integrated Luth/Skipo/Kloks two-user, two-workspace discovery and invocation with consent/revocation, and (4) independent reviewer approval. Do not enable production discovery, release, or migration based on this PR alone.
 
 Registry source recovery provenance: [#198](https://github.com/dinilmusick/Skipo/pull/198), [#199](https://github.com/dinilmusick/Skipo/pull/199), [#202](https://github.com/dinilmusick/Skipo/pull/202). Schema is coordinated through ATAX, not authored here.
+
+## Concrete origin challenge (registrar-only, not a browser API)
+
+`createHttpDeploymentProofAuthority(owner, transport)` is available from
+`backend/ecosystem/httpDeploymentProofAuthority_Impure.ts`, **not** from generated
+Vite code. It implements the previously abstract `TrustedDeploymentAuthority`
+contract. Its injected `owner.authorizeEnrollment` MUST independently verify
+the live Luth deployer/session, exact immutable canonical `app_id`, deployment
+UUID, **pre-approved** HTTPS origin and declared environment; authorization must
+not trust a posted app ID, client-submitted proof digest, guessed URL or bearer
+claim without server verification. `authorizeRevocation` MUST separately verify
+the owner/controller, including when the old origin is unreachable.
+
+When the owner authority approves the exact binding, the registrar generates a
+fresh cryptographic 256-bit nonce and fetches
+
+`GET https://<attested-origin>/api/ecosystem/deployment-proof?nonce=<hex>`
+
+with redirects disabled, no cache, a five-second deadline and a bounded JSON
+response. The response must bind `appId`, `deploymentId`, `environment`,
+`origin` and the exact nonce. A mismatched origin or redirect is denied. The
+registrar computes a fresh SHA-256 proof digest and a fifteen-minute lease,
+then passes this attestation to `registerOrRenewVerifiedDeployment`. No user
+credential, grant or static capability metadata is transmitted to the target
+proof endpoint.
+
+The target backend exposes the proof route **only** when explicitly configured:
+
+```ts
+createEcosystemRuntime({
+  appId: verifiedCanonicalAppId,
+  deploymentId: persistentControlPlaneDeploymentId,
+  deploymentEnvironment: registeredEnvironment,
+  capabilities: actualBackendMethods,
+  authenticate: authenticateViaLuth,
+});
+```
+
+The target's `APP_URL` must match the HTTPS request origin exactly. Absence
+of deployment ID, explicit environment, correct origin or a fresh correctly
+formatted nonce yields HTTP 404. Do not derive deployment identity or environment
+from the URL. This endpoint alone does not authorize enrollment; the Luth owner
+gate and separately privileged registry database credentials remain mandatory.
+
+**Network hardening:** The trusted registrar must impose outbound network
+egress restrictions, DNS rebinding protections and approved-domain policy at
+its host layer; a DNS-looking public HTTPS string alone cannot guarantee the
+resolved IP is publicly routable. No generated application's ordinary database
+role may update `verification_state`, proof digests or leases. Existing app
+origin allowlists are necessary but do not substitute for owner authentication.
+
+A fifteen-minute lease is renewed only on a newly authorized owner challenge.
+Ordinary app heartbeats may update freshness for an unchanged verified
+origin/capability set but cannot change verified URL, capability claims,
+environment, proof or lease, and cannot resurrect a revoked UUID. Legacy ticket
+calls are now restricted to a fresh *unverified* target record; verified app
+invocation goes exclusively through Kloks' authenticated target boundary.
+
+All proof tests are fixtures for the Skipo backend protocol, **not** evidence
+of a live Luth enrollment endpoint, deployed origin or Neon least-privilege
+registrar role. The latter require separate authorized integration gates.
+
+## Exact deployment-instance binding
+
+For invocation persist **all** of `appId`, `capabilityId`, `environment`,
+`revision`, and `deploymentId` from an authorized discovery result.
+`CapabilitySelector.deploymentId` is optional for broad discovery but
+required for target-specific revalidation. Skipo parameterizes the deployment
+UUID and rejects a row bound to another instance. Never silently substitute
+a deployment with the same app ID or capability revision. Expired, revoked,
+retired or missing exact targets must fail closed. Revalidate immediately
+before the separate Kloks target-side invocation and output authorization.
