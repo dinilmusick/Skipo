@@ -58,12 +58,9 @@ export async function getLuthSession(request: Request) {
   const headers = new Headers({
     'x-app-id': request.headers.get('x-app-id') || new URL(request.url).hostname,
   });
-  for (const name of ['authorization', 'origin']) {
-    const value = request.headers.get(name);
-    if (value) headers.set(name, value);
-  }
-  const cookie = stripGuestLeaseCookie(request.headers.get('cookie'));
-  if (cookie) headers.set('cookie', cookie);
+  const bearer = request.headers.get('authorization');
+  if (!bearer?.startsWith('Bearer ')) return null;
+  headers.set('authorization', bearer);
   try {
     const response = await fetch(`${DEFAULT_LUTH_URL}/api/session`, {
       method: 'GET', headers, cache: 'no-store', redirect: 'manual',
@@ -95,14 +92,14 @@ export async function authenticateLuthRequest(request: Request): Promise<{
   ) return { request };
 
   const authorization = request.headers.get('authorization');
-  const cookie = stripGuestLeaseCookie(request.headers.get('cookie'));
-  if (!authorization && !cookie) return { status: 401, error: 'A verified Luth session is required.' };
+  if (!authorization?.startsWith('Bearer ')) {
+    return { status: 401, error: 'An explicit verified Luth bearer is required for API clients.' };
+  }
 
   try {
     const appId = request.headers.get('x-app-id') || url.hostname || 'my-app';
     const headers = new Headers({ 'x-app-id': appId });
-    if (authorization) headers.set('authorization', authorization);
-    if (cookie) headers.set('cookie', cookie);
+    headers.set('authorization', authorization);
     const response = await fetch(`${DEFAULT_LUTH_URL}/api/session`, {
       headers,
       cache: 'no-store',
@@ -118,6 +115,8 @@ export async function authenticateLuthRequest(request: Request): Promise<{
     }
 
     const forwarded = new Headers(request.headers);
+    // Caller-supplied identity metadata cannot survive principal admission.
+    for (const key of ['x-user-id', 'x-user-email', 'x-user-role', 'x-session-id']) forwarded.delete(key);
     forwarded.set('x-user-id', session.user.id);
     if (session.user.email) forwarded.set('x-user-email', session.user.email);
     if (session.session?.id) forwarded.set('x-session-id', session.session.id);
