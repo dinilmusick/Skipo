@@ -574,6 +574,7 @@ def main() -> int:
             print(json.dumps({"ok": False, "operation": "canonical-shell", "error": str(exc)}))
             return 1
     parser=argparse.ArgumentParser(prog="skipo",description="Skipo deterministic application builder and composition framework.")
+    parser.add_argument("--version", action="version", version=VERSION)
     sub=parser.add_subparsers(dest="command",required=True)
     p=sub.add_parser("create")
     p.add_argument("name"); p.add_argument("target",nargs="?",default=None)

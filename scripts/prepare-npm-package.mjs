@@ -43,6 +43,15 @@ rmSync(dist, { recursive: true, force: true });
 mkdirSync(engine, { recursive: true });
 
 for (const dir of sourceDirs) copyDirectory(dir, engine);
+/* Source scaffolds use .gitignore patterns (including *.cjs) that must
+ * never suppress executable/test assets from the published npm archive.
+ * The generated-app copy operation deliberately omits this pack-only file. */
+const viteBundle = join(engine, "scaffolds", "vite");
+if (existsSync(viteBundle)) writeFileSync(
+  join(viteBundle, ".npmignore"),
+  "# Bundle the complete generated scaffold despite source .gitignore patterns.\n",
+);
+
 for (const file of ["assistant.py"]) {
   const source = join(repo, file);
   if (existsSync(source)) cpSync(source, join(engine, file));
