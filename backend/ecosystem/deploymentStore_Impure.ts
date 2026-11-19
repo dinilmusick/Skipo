@@ -96,17 +96,47 @@ const descriptorKeys = new Set([
   'invocation', 'access', 'requiredRoles', 'discoverable',
 ]);
 
-function assertSafeDescriptorValue(value: unknown): void {
-  if (Array.isArray(value)) {
-    for (const item of value) assertSafeDescriptorValue(item);
+function assertSafeDescriptorValue(
+  value: unknown, depth = 0,
+  state = { visited: 0, active: new WeakSet<object>() },
+): void {
+  if (depth > 16 || ++state.visited > 2048) {
+    throw new Error('Static capability descriptor exceeds safe nesting or complexity.');
+  }
+  if (typeof value === 'string') {
+    if (value.length > 4096) throw new Error('Static capability descriptor text is oversized.');
     return;
   }
-  if (!value || typeof value !== 'object') return;
-  for (const [key, nested] of Object.entries(value)) {
-    if (forbiddenDescriptorKey.test(key)) {
-      throw new Error('Static capability descriptors cannot contain session, endpoint, credential or secret fields.');
+  if (value === null || typeof value === 'boolean' ||
+      (typeof value === 'number' && Number.isFinite(value))) return;
+  if (!value || typeof value !== 'object') {
+    throw new Error('Static capability descriptor contains a non-JSON value.');
+  }
+  if (state.active.has(value)) {
+    throw new Error('Static capability descriptor contains a circular object.');
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== Array.prototype &&
+      prototype !== null) {
+    throw new Error('Static capability descriptor requires plain JSON values.');
+  }
+  state.active.add(value);
+  try {
+    if (Array.isArray(value)) {
+      for (const item of value) assertSafeDescriptorValue(item, depth + 1, state);
+    } else {
+      for (const [key, nested] of Object.entries(value)) {
+        if (forbiddenDescriptorKey.test(key)) {
+          throw new Error('Static capability descriptors cannot contain session, endpoint, credential or secret fields.');
+        }
+        if (/^(?:__proto__|prototype|constructor|default|example|examples|const)$/i.test(key)) {
+          throw new Error('Static capability descriptors cannot contain unsafe literal-value fields.');
+        }
+        assertSafeDescriptorValue(nested, depth + 1, state);
+      }
     }
-    assertSafeDescriptorValue(nested);
+  } finally {
+    state.active.delete(value);
   }
 }
 
@@ -117,6 +147,7 @@ export function normalizeStaticCapabilityDescriptors(
     throw new Error('Static capability descriptor collection is invalid.');
   }
   const seen = new Set<string>();
+  let totalDescriptorBytes = 0;
   return descriptors.map((descriptor) => {
     if (!descriptor || typeof descriptor !== 'object') {
       throw new Error('Static capability descriptor is malformed.');
@@ -127,7 +158,14 @@ export function normalizeStaticCapabilityDescriptors(
     if (
         Object.keys(descriptor).some((key) => !descriptorKeys.has(key)) ||
         !validStaticHandle(descriptor.id) ||
-        typeof descriptor.description !== 'string' || !descriptor.description.trim() ||
+        typeof descriptor.description !== 'string' ||
+        !descriptor.description.trim() || descriptor.description.length > 1024 ||
+        (descriptor.name !== undefined &&
+          (typeof descriptor.name !== 'string' || !descriptor.name.trim() ||
+            descriptor.name.length > 128)) ||
+        (descriptor.serviceName !== undefined &&
+          (typeof descriptor.serviceName !== 'string' || !descriptor.serviceName.trim() ||
+            descriptor.serviceName.length > 128)) ||
         !descriptor.invocation ||
         Object.keys(descriptor.invocation).sort().join(',') !== 'operationId,serviceId' ||
         !validStaticHandle(descriptor.invocation.serviceId) ||
@@ -138,13 +176,24 @@ export function normalizeStaticCapabilityDescriptors(
         Array.isArray(descriptor.outputSchema) ||
         (descriptor.access !== undefined && !['public', 'authenticated', 'roles'].includes(descriptor.access)) ||
         (descriptor.requiredRoles !== undefined &&
-          (!Array.isArray(descriptor.requiredRoles) || descriptor.requiredRoles.some((role) => typeof role !== 'string'))) ||
+          (!Array.isArray(descriptor.requiredRoles) || descriptor.requiredRoles.length > 32 ||
+            descriptor.requiredRoles.some((role) =>
+              typeof role !== 'string' || !/^[A-Za-z][A-Za-z0-9:_-]{0,63}$/.test(role)) ||
+            new Set(descriptor.requiredRoles).size !== descriptor.requiredRoles.length)) ||
+        ((descriptor.access === 'roles') !==
+          (descriptor.requiredRoles !== undefined && descriptor.requiredRoles.length > 0)) ||
         (descriptor.discoverable !== undefined && typeof descriptor.discoverable !== 'boolean')) {
       throw new Error('Static capability descriptor is malformed.');
     }
     if (seen.has(descriptor.id)) throw new Error('Static capability descriptor IDs must be unique.');
     seen.add(descriptor.id);
-    return JSON.parse(JSON.stringify(descriptor)) as StaticCapabilityDescriptor;
+    const json = JSON.stringify(descriptor);
+    const size = new TextEncoder().encode(json).byteLength;
+    totalDescriptorBytes += size;
+    if (size > 32 * 1024 || totalDescriptorBytes > 128 * 1024) {
+      throw new Error('Static capability descriptor collection exceeds maximum size.');
+    }
+    return JSON.parse(json) as StaticCapabilityDescriptor;
   }).sort((left, right) => left.id.localeCompare(right.id));
 }
 
