@@ -29,7 +29,7 @@ function AuthenticatedApplication({ auth, universalUi }: {
           onLogout={() => { setSelection(null); void auth.signOut(); }}
         />
       ) : (
-        <MainPage key={`${principalId}:${workspace.id}`} principalId={principalId}
+        <MainPage principalId={principalId}
           activeWorkspace={workspace} agentChat={universalUi?.agentChat}
           graph={universalUi?.graph}
           onSwitchWorkspace={() => setSelection(null)} />
