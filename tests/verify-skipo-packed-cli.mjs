@@ -69,8 +69,7 @@ try {
     archive: archives[0], sha256: archiveHash,
   }));
 
-  if (!full) process.exit(0);
-
+  if (full) {
   const application = join(scratch, "GeneratedSmokeApp");
   skipo(["create", "GeneratedSmokeApp", application]);
   assert.ok(existsSync(join(application, ".skipo", "project.json")));
@@ -105,6 +104,7 @@ try {
     checked: ["create", "inspect", "diagnose", "plan", "add", "update twice", "verify",
               "typecheck", "test", "build", "validate", "custom file integrity"],
   }));
+  }
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }
