@@ -1,11 +1,13 @@
 import { DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth';
+import { SKIPO_APPLICATION_ID } from '../../libraries/client/luthAuthClient.js';
 /** App-origin sessions are verified by the Kloks BFF.
  * Legacy cross-domain cookie proxying is intentionally not exposed. */
 
 /** Verify the canonical Luth session for external HTTP and MCP transports. */
 export async function getLuthSession(request: Request) {
   const headers = new Headers({
-    'x-app-id': request.headers.get('x-app-id') || new URL(request.url).hostname,
+    // Binding is compiled into the generated app, never caller-supplied.
+    'x-app-id': SKIPO_APPLICATION_ID,
   });
   const bearer = request.headers.get('authorization');
   if (!bearer?.startsWith('Bearer ')) return null;
@@ -46,8 +48,7 @@ export async function authenticateLuthRequest(request: Request): Promise<{
   }
 
   try {
-    const appId = request.headers.get('x-app-id') || url.hostname || 'my-app';
-    const headers = new Headers({ 'x-app-id': appId });
+    const headers = new Headers({ 'x-app-id': SKIPO_APPLICATION_ID });
     headers.set('authorization', authorization);
     const response = await fetch(`${DEFAULT_LUTH_URL}/api/session`, {
       headers,
