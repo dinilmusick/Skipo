@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from skipo_state_registry import load_registry as load_validated_registry
+from skipo_process import platform_command
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = ROOT / "architecture" / "capabilities" / "registry.json"
@@ -420,7 +421,7 @@ def install_dependencies(root: Path) -> dict[str, Any]:
         command = ["yarn", "install"]
     else:
         command = ["npm", "install"]
-    completed = subprocess.run(command, cwd=root)
+    completed = subprocess.run(platform_command(command), cwd=root)
     return {"ok": completed.returncode == 0, "command": command, "returncode": completed.returncode}
 
 def legacy_migration_paths() -> list[str]:
