@@ -7,7 +7,7 @@
       "description": "Canonical Luth authentication and Floks auth surface.",
       "dependencies": {
         "@ultrst-armada/floks": "2.0.9",
-        "@ultrst-armada/kloks": "2.2.5"
+        "@ultrst-armada/kloks": "2.2.6"
       },
       "providers": [
         {
@@ -80,7 +80,7 @@
       "description": "Canonical workspace selection and workspace service.",
       "dependencies": {
         "@ultrst-armada/floks": "2.0.9",
-        "@ultrst-armada/kloks": "2.2.5"
+        "@ultrst-armada/kloks": "2.2.6"
       },
       "providers": [
         {
@@ -147,7 +147,7 @@
       "kind": "service",
       "description": "Canonical workspace storage service.",
       "dependencies": {
-        "@ultrst-armada/kloks": "2.2.5"
+        "@ultrst-armada/kloks": "2.2.6"
       },
       "providers": [
         {
@@ -197,7 +197,7 @@
       "kind": "service",
       "description": "Canonical MIDI service.",
       "dependencies": {
-        "@ultrst-armada/kloks": "2.2.5"
+        "@ultrst-armada/kloks": "2.2.6"
       },
       "providers": [
         {
@@ -507,7 +507,7 @@
       "@dinilmusick/gutts": "2.2.3",
       "@ultrst-armada/krnl": "^1.0.29",
       "@ultrst-armada/frnlts": "0.5.27",
-      "@ultrst-armada/kloks": "2.2.5",
+      "@ultrst-armada/kloks": "2.2.6",
       "@ultrst-armada/floks": "2.0.9"
     },
     "ownership": {
