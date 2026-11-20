@@ -233,9 +233,9 @@ PACKAGE_SWIFT = r'''// swift-tools-version: 5.9
 import PackageDescription
 
 let package = Package(
-    name: "SkipoDiscovery",
+    name: "UltrstSkipoDiscovery",
     platforms: [.iOS(.v15)],
-    products: [.library(name: "SkipoDiscovery", targets: ["SkipoDiscovery"])],
+    products: [.library(name: "UltrstSkipoDiscovery", targets: ["SkipoDiscovery"])],
     dependencies: [
         .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git",
                  from: "8.0.0")
