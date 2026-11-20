@@ -42,13 +42,11 @@ jobs:
       - name: Verify host-native subprocess and trusted filesystem root contracts
         run: python -m unittest discover -s tests -p "test_skipo_portable_process.py" -v
       - name: Pack, install, create a new Git app and exercise full CLI lifecycle
-        env:
-          SKIPO_E2E_EVIDENCE_DIR: ${{ github.workspace }}/e2e-evidence/${{ matrix.os }}
         run: node tests/verify-skipo-cli-cleanroom.mjs
       - name: Persist source-neutral acceptance report even if CLI breaks
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: skipo-cleanroom-${{ matrix.os }}-${{ github.run_id }}
-          path: e2e-evidence/${{ matrix.os }}/
+          path: e2e-evidence/
           if-no-files-found: warn
