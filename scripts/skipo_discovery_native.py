@@ -218,7 +218,7 @@ public class SkipoDiscoveryPlugin: CAPPlugin, CAPBridgedPlugin, NetServiceBrowse
         self.browser?.stop()
         self.browser = nil
         notifyListeners("discoveryError", data: [
-            "code": errorDict[NetService.errorCode]?.intValue ?? -1
+            "code": errorDict.values.first?.intValue ?? -1
         ])
     }
 
