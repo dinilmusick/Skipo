@@ -47,10 +47,17 @@ for (const dir of sourceDirs) copyDirectory(dir, engine);
  * never suppress executable/test assets from the published npm archive.
  * The generated-app copy operation deliberately omits this pack-only file. */
 const viteBundle = join(engine, "scaffolds", "vite");
-if (existsSync(viteBundle)) writeFileSync(
-  join(viteBundle, ".npmignore"),
-  "# Bundle the complete generated scaffold despite source .gitignore patterns.\n",
-);
+if (existsSync(viteBundle)) {
+  writeFileSync(
+    join(viteBundle, ".npmignore"),
+    "# Bundle the complete generated scaffold despite source .gitignore patterns.\n",
+  );
+  // npm always filters source .gitignore from packed archives. Preserve its
+  // exact bytes under a package-safe template name, then restore it on create.
+  const gitignore = join(repo, "scaffolds", "vite", ".gitignore");
+  if (!existsSync(gitignore)) throw new Error("Canonical Vite .gitignore is missing");
+  writeFileSync(join(viteBundle, "skipo-gitignore.template"), readFileSync(gitignore));
+}
 
 for (const file of ["assistant.py"]) {
   const source = join(repo, file);
