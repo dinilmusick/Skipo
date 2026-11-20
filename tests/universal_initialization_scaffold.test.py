@@ -63,6 +63,22 @@ def test_scaffold_client_is_browser_only_and_legacy_bff_boundary_is_untouched():
     assert "LuthOidcGate as FloksLuthOidcGate" in source
     assert "createCanonicalApplicationOAuthBff" in (ROOT / "scripts/generate_provider_packaging.py").read_text(encoding="utf-8")
 
+
+
+def test_legacy_login_gate_and_vite_transport_cannot_restore_browser_bearer():
+    gate = (ROOT / "scaffolds/vite/src/frontend/components/gates/LoginGate.tsx").read_text(encoding="utf-8")
+    transport = (ROOT / "scaffolds/vite/src/libraries/client/luthAuthClient.ts").read_text(encoding="utf-8")
+    assert "LuthOidcGate" in gate
+    assert "LuthAuthPage" not in gate
+    assert "createApplicationUniversalInitializationClient" in gate
+    assert "config.principal.userId !== principalId" in gate
+    assert "createApplicationAuthClient" in transport
+    assert "new LuthAuthClient" not in transport
+    assert "headers.delete('Authorization')" in transport
+    assert "UNTRUSTED_APPLICATION_API_ORIGIN" in transport
+    assert "credentials: 'same-origin'" in transport
+    assert "getAuthHeaders()" not in transport
+
 def test_capability_registry_versions_match_generated_published_dependencies():
     registry = json.loads((ROOT / "architecture/capabilities/registry.json").read_text(encoding="utf-8"))
     scaffold = json.loads((ROOT / "scaffolds/vite/package.json").read_text(encoding="utf-8"))
