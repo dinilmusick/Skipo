@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const scratch = mkdtempSync(join(tmpdir(), "skipo-independent-lab-"));
-const evidenceDir = process.env.SKIPO_E2E_EVIDENCE_DIR || join(scratch, "evidence");
+const evidenceDir = join(repo, "e2e-evidence", process.platform);
 mkdirSync(evidenceDir, { recursive: true });
 
 const report = {
@@ -271,9 +271,7 @@ try {
   writeFileSync(join(evidenceDir, "skipo-cleanroom-report.json"),
     JSON.stringify(report, null, 2) + "\n");
   console.log("SKIPO_CLEANROOM_REPORT " + JSON.stringify(report.summary));
-  if (!process.env.SKIPO_E2E_KEEP_SCRATCH) {
-    rmSync(scratch, { recursive: true, force: true });
-  }
+  rmSync(scratch, { recursive: true, force: true });
   if (report.fatal || requiredFailures.length) process.exitCode = 1;
   else if (report.blockers.length) process.exitCode = 2;
 }
