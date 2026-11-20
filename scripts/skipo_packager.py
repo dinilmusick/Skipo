@@ -20,7 +20,7 @@ from urllib.parse import urlparse
 from skipo_packager_templates import render_files
 
 APP_ID = re.compile(r"^[a-z][a-z0-9-]{0,62}$")
-BUNDLE_ID = re.compile(r"^[a-z][a-z0-9]*(?:\\.[a-z][a-z0-9]*){2,}$")
+BUNDLE_ID = re.compile(r"^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*){2,}$")
 TARGETS = ("desktop", "android", "ios")
 
 
@@ -126,6 +126,8 @@ def build_plan(args: argparse.Namespace) -> tuple[dict, dict[str, bytes]]:
 def prepare(report: dict, files: dict[str, bytes]) -> dict:
     output = Path(report["output"])
     parent = output.parent
+    if parent.is_symlink() or not parent.resolve().is_relative_to(Path(report["source"]).resolve()):
+        raise ValueError("Generated destination escapes the project")
     if output.exists() or output.is_symlink():
         if output.is_symlink() or not output.is_dir():
             raise ValueError("Generated destination is unsafe")
