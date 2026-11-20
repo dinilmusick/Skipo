@@ -114,7 +114,7 @@ class ScaffoldRegressionTest(unittest.TestCase):
         self.assertTrue(vercel.get("cleanUrls"))
 
     def test_gates_import_canonical_floks(self):
-        """LoginGate & WorkspaceGate must exist and import @ultrst-armada/floks/ui."""
+        """LoginGate must use Floks OIDC; WorkspaceGate must use Floks UI."""
         scaffold_name = "vite"
         gates_dir = SKIPO_ROOT / "scaffolds" / scaffold_name / "src" / "frontend" / "components" / "gates"
         login_gate = gates_dir / "LoginGate.tsx"
@@ -127,7 +127,8 @@ class ScaffoldRegressionTest(unittest.TestCase):
             "@ultrst-armada/floks/auth" in login_content or "@ultrst-armada/floks/ui" in login_content,
             f"Expected @ultrst-armada/floks/auth or @ultrst-armada/floks/ui in {scaffold_name} LoginGate"
         )
-        self.assertIn("AuthPage", login_content)
+        self.assertIn("LuthOidcGate", login_content)
+        self.assertNotIn("LuthAuthPage", login_content)
         self.assertNotIn("@floks/ui", login_content)
 
         ws_content = ws_gate.read_text(encoding="utf-8")

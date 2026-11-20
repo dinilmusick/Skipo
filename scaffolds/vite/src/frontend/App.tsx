@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { SkipoThemeProvider, BaseButton, type WorkspaceRecord } from '@ultrst-armada/floks/ui';
-import { LuthAuthPage, type UseLuthAuthResult } from '@ultrst-armada/floks/auth';
+import { LuthOidcGate, type ApplicationOidcAuth } from '@ultrst-armada/floks/auth';
 import MainPage from './pages/main/page.js';
 import WorkspacesPage from './pages/menus/workspaces/page.js';
 import { UiSessionControls } from './components/UiSessionControls.js';
@@ -12,7 +12,7 @@ import type { ScopedUniversalUiHost } from './pages/main/universalGraphHost.js';
 import { useAuthorizedUniversalUi } from './pages/main/useAuthorizedUniversalUi.js';
 
 function AuthenticatedApplication({ auth, universalUi }: {
-  auth: UseLuthAuthResult;
+  auth: ApplicationOidcAuth;
   universalUi?: ScopedUniversalUiHost;
 }) {
   // Workspace selection belongs to the authenticated principal. A principal
@@ -95,7 +95,7 @@ function InitializationGate({ children, phase, retry }: {
  * No application service can mount until its configuration is validated.
  */
 function ConfiguredApplication({ auth, universalUi, initializer }: {
-  auth: UseLuthAuthResult; universalUi?: ScopedUniversalUiHost;
+  auth: ApplicationOidcAuth; universalUi?: ScopedUniversalUiHost;
   initializer: BootstrapClient;
 }) {
   const [attempt, retry] = useState(0);
@@ -161,9 +161,7 @@ export function App({universalUi}: {universalUi?: ScopedUniversalUiHost} = {}) {
           <InitializationGate phase={phase} retry={() => {
             initializer.invalidate(); retry(n => n + 1);
           }}>
-            <LuthAuthPage ecosystemId="ultrst-armada"
-              applicationId={getSkipoApplicationId()}
-              appName="SKIPO APP"
+            <LuthOidcGate appName="SKIPO APP"
               authenticatedContent={auth =>
                 <ConfiguredApplication auth={auth}
                   universalUi={universalUi} initializer={initializer} />}
