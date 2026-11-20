@@ -33,7 +33,7 @@ def _canonical_framework_hashes() -> tuple[dict[str, str], str | None]:
     """Only a pinned release manifest may identify framework-owned source."""
     if not FRAMEWORK_MANIFEST_PATH.is_file() or FRAMEWORK_MANIFEST_PATH.is_symlink():
         return {}, None  # Older generated apps have no provenance exemption.
-    raw = FRAMEWORK_MANIFEST_PATH.read_bytes()
+    raw = FRAMEWORK_MANIFEST_PATH.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
     if hashlib.sha256(raw).hexdigest() != TRUSTED_FRAMEWORK_MANIFEST_SHA256:
         return {}, "Framework library attestation digest mismatch: untrusted manifest"
     try:
