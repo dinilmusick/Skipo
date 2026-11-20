@@ -18,6 +18,8 @@ def test_vite_scaffold_discovery_precedes_auth_and_authorized_services():
     assert source.index("initializer.discover()") < source.index("<LuthAuthPage")
     assert "phase === 'ready'" in source
     assert "Retry initialization" in source
+    assert "Authorize application" in source
+    assert "window.location.assign('/api/auth/oidc/start')" in source
     assert "@ultrst-armada/kloks/auth" in source
     assert "SYSTEM_DATABASE_URL" not in source
     assert "getAuthHeaders()" not in source
