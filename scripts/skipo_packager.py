@@ -90,25 +90,36 @@ def build_plan(args: argparse.Namespace) -> tuple[dict, dict[str, bytes]]:
     origin = https_origin(args.api_origin)
     if args.backend == "remote" and not origin:
         raise ValueError("Remote backend mode requires an HTTPS --api-origin")
-    if args.discovery and args.target != "desktop":
-        raise ValueError("Mobile NSD/Bonjour adapters are not installed; discovery is blocked")
+    # Mandatory target capabilities; packaging no longer has a discovery-off path.
+    from skipo_native_peer import TEMPLATE
+    from skipo_discovery_native import render_mobile_discovery
     peer = root / "native" / "peer" / "nodeBeacon.mjs"
-    if args.discovery:
-        from skipo_native_peer import TEMPLATE
-        if not peer.is_file() or peer.is_symlink():
-            raise ValueError("First install desktop peer adapter using skipo native-peer")
-        if peer.read_text(encoding="utf-8") != TEMPLATE:
-            raise ValueError("Native peer adapter drift; review and reinstall canonical adapter")
+    if args.target == "desktop" and peer.exists():
+        if peer.is_symlink() or not peer.is_file() or peer.read_text(encoding="utf-8") != TEMPLATE:
+            raise ValueError("Desktop native peer adapter drift from canonical Skipo source")
     if args.backend == "remote" and args.action == "prepare":
         raise ValueError("Native authenticated API bridge is unverified; remote packaging blocked")
 
     output = root / "dist" / "native" / args.target
     files = {path: data.encode("utf-8") for path, data in
-             render_files(args.target, args.bundle_id, args.app_name, args.discovery, app_id).items()}
-    if args.discovery:
-        files["peer/nodeBeacon.mjs"] = peer.read_bytes()
+             render_files(args.target, args.bundle_id, args.app_name, True, app_id).items()}
+    if args.target == "desktop":
+        files["peer/nodeBeacon.mjs"] = TEMPLATE.encode("utf-8")
+    else:
+        files.update({path: data.encode("utf-8") for path, data in
+                      render_mobile_discovery(args.target).items()})
     for path in assets:
         files["web/" + path.relative_to(web).as_posix()] = path.read_bytes()
+    if args.target in ("android", "ios"):
+        key = "web/index.html"
+        html = files[key].decode("utf-8")
+        if "</head>" not in html:
+            raise ValueError("Mobile native discovery requires a valid HTML head")
+        if "skipo-native-discovery.js" in html:
+            raise ValueError("App HTML already injects a discovery bridge")
+        files[key] = html.replace("</head>",
+            '<script src="/skipo-native-discovery.js" defer></script></head>', 1
+        ).encode("utf-8")
     sha = hashlib.sha256()
     for path in sorted(files):
         sha.update(path.encode("utf-8") + b"\\x00" + files[path] + b"\\x00")
@@ -116,7 +127,7 @@ def build_plan(args: argparse.Namespace) -> tuple[dict, dict[str, bytes]]:
     report = {
         "operation": "skipo package", "target": args.target,
         "backend": args.backend, "apiOrigin": origin,
-        "discovery": "desktop-udp" if args.discovery else "disabled",
+        "discovery": {"desktop":"desktop-udp","android":"android-nsd","ios":"ios-bonjour"}[args.target],
         "source": str(root), "output": str(output),
         "artifactDigest": digest, "fileCount": len(files),
         "nativeShellPrepared": False, "nativeBinaryBuilt": False,
@@ -155,19 +166,24 @@ def prepare(report: dict, files: dict[str, bytes]) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="skipo package")
-    parser.add_argument("action", choices=("plan", "prepare"))
+    parser.add_argument("action", choices=("plan", "prepare", "build"))
     parser.add_argument("--target", required=True, choices=TARGETS)
     parser.add_argument("--project", type=Path, default=Path.cwd())
     parser.add_argument("--bundle-id", required=True)
     parser.add_argument("--app-name", required=True)
     parser.add_argument("--backend", choices=("static", "remote"), required=True)
     parser.add_argument("--api-origin")
-    parser.add_argument("--discovery", action="store_true")
+    parser.add_argument("--discovery", action="store_true", help="Deprecated: discovery is mandatory for native targets")
+    parser.add_argument("--platform", choices=("windows", "macos", "linux"))
+    parser.add_argument("--arch", choices=("x64", "arm64", "universal"), default="x64")
     args = parser.parse_args(argv)
     try:
         report, files = build_plan(args)
         if args.action == "prepare":
             report = prepare(report, files)
+        elif args.action == "build":
+            from skipo_native_build import build_native
+            report = build_native(args, report, files)
         print(json.dumps({"ok": True, **report}, sort_keys=True))
         return 0
     except (ValueError, OSError, TypeError, KeyError, json.JSONDecodeError) as exc:
