@@ -622,29 +622,21 @@ import MainPage from './pages/main/page.js';
 import AuthPage from './pages/auth/page.js';
 import { WorkspaceGate } from './components/gates/WorkspaceGate.js';
 import { FrnlSemanticInputProvider } from '@ultrst-armada/frnlts';
-import { createLuthAuthClient } from '@ultrst-armada/kloks/auth';
 import type { WorkspaceRecord } from '@ultrst-armada/floks/ui';
 
 const appId = '__SKIPO_APP_ID__';
-const authClient = typeof window !== 'undefined'
-  ? createLuthAuthClient({
-      ecosystemId: 'ultrst-armada', applicationId: appId, autoRegister: false,
-    })
-  : null;
-type InitFactory = (
-  app: { appId: string; runtime: 'browser' },
-  transport: { expectedIssuerOrigin: string; authorize: () => Promise<HeadersInit> },
-) => { discover(): Promise<any>; configuration(): Promise<any>; invalidate(): void };
-const initialize = (KloksLuth as unknown as { createUniversalInitializationClient?: InitFactory })
-  .createUniversalInitializationClient;
+type InitFactory = (options: { appId: string }) =>
+  { discover(): Promise<any>; configuration(): Promise<any>; invalidate(): void };
+const initialize = (KloksLuth as unknown as {
+  createApplicationUniversalInitializationClient?: InitFactory;
+}).createApplicationUniversalInitializationClient;
 const unavailable = async (): Promise<never> => {
   throw new Error('UNIVERSAL_INITIALIZATION_CONTRACT_UNAVAILABLE');
 };
+// Discovery is public; protected configuration goes through the app-owned
+// HttpOnly-session BFF. Never deliver OAuth bearer tokens to browser JavaScript.
 const initializer = typeof initialize === 'function'
-  ? initialize({ appId, runtime: 'browser' }, {
-      expectedIssuerOrigin: KloksLuth.DEFAULT_LUTH_URL,
-      authorize: async () => authClient?.getAuthHeaders() ?? {},
-    })
+  ? initialize({ appId })
   : { discover: unavailable, configuration: unavailable, invalidate: () => {} };
 
 function InitStatus({ message, retry }: { message: string; retry?: () => void }) {
