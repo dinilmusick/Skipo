@@ -39,7 +39,7 @@ class PortableCliProcessTests(unittest.TestCase):
             package = app / "package.json"
             source = json.dumps({
                 "name": "consumer", "scripts": {"build": "vite build"},
-                "dependencies": {"@ultrst-armada/kloks": "2.2.6"}
+                "dependencies": {"@ultrst-armada/kloks": load_registry()["capabilities"]["storage"]["dependencies"]["@ultrst-armada/kloks"]}
             }, indent=4).replace("\n", "\r\n").encode("utf-8") + b"\r\n"
             package.write_bytes(source)
             result = compose(app, ["storage"], apply=True)
@@ -66,7 +66,8 @@ class PortableCliProcessTests(unittest.TestCase):
             self.assertTrue(result["ok"], result)
             updated = json.loads(package.read_text(encoding="utf-8"))
             self.assertEqual(updated["scripts"], original["scripts"])
-            self.assertEqual(updated["dependencies"]["@ultrst-armada/kloks"], "2.2.6")
+            self.assertEqual(updated["dependencies"]["@ultrst-armada/kloks"],
+                             load_registry()["capabilities"]["storage"]["dependencies"]["@ultrst-armada/kloks"])
             self.assertNotIn(b"\r\n", package.read_bytes())
 
     def test_empty_process_command_fails_closed(self):
