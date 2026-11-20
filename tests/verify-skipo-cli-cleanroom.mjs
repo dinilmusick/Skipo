@@ -140,6 +140,10 @@ try {
   assertStage("created-valid-app", () => {
     assert.ok(existsSync(join(application, ".skipo", "project.json")));
     assert.ok(existsSync(join(application, "pnpm-lock.yaml")));
+    const ignore = content(join(application, ".gitignore"));
+    assert.match(ignore, /node_modules\//);
+    assert.match(ignore, /\/dist\//);
+    assert.match(ignore, /\/api\//);
     assert.ok(existsSync(join(application, "src", "frontend", "pages", "main", "tabs", "README.md")));
     assert.ok(existsSync(join(application, "src", "backend", "AppBackend.ts")));
     assert.ok(!existsSync(join(application, "node_modules")),
@@ -153,6 +157,8 @@ try {
   run("git-set-email", "git", ["config", "user.email", "skipo-e2e@example.invalid"], application);
   run("git-add-baseline", "git", ["add", "-A"], application);
   run("git-commit-baseline", "git", ["commit", "-m", "baseline: generated using packaged Skipo CLI"], application);
+  run("git-tracks-canonical-commonjs-tests", "git",
+    ["ls-files", "--error-unmatch", "tests/canonical-capabilities.test.cjs"], application);
   report.newRepository = { created: true, pathType: "temporary isolated directory" };
 
   skipo("inspect", ["inspect", application], scratch);
@@ -237,6 +243,9 @@ try {
   run("typecheck", pnpm, ["run", "typecheck"], application);
   run("unit-tests", pnpm, ["run", "test"], application);
   run("vite-build", pnpm, ["run", "build"], application);
+  run("git-ignores-installed-dependencies", "git", ["check-ignore", "-q", "node_modules"], application);
+  run("git-ignores-generated-vite-output", "git", ["check-ignore", "-q", "dist"], application);
+  run("git-ignores-generated-api-output", "git", ["check-ignore", "-q", "api"], application);
   skipo("CLI-test-four-gates", ["test", application], scratch, { allowFailure: true, timeout: 600_000 });
 
   run("git-record-diff", "git", ["status", "--short"], application);
