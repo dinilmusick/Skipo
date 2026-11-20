@@ -189,10 +189,16 @@ def validate_repository(root: Path) -> list[str]:
         if re.search(r"\bAuthServiceFacade\b", source):
             errors.append("Generic scaffold generator must not generate the legacy Kloks auth facade")
         for marker in ("FloksLuthOidcGate", "requireLuthSession", "DEFAULT_LUTH_URL",
-                       "LuthAuthPage", "createCanonicalApplicationOAuthBff",
-                       "createApplicationUniversalInitializationClient"):
+                       "LuthAuthPage", "createApplicationUniversalInitializationClient"):
             if marker not in source:
                 errors.append(f"Generic scaffold generator missing canonical auth output: {marker}")
+        # The provider packager owns the single generated Fetch entrypoint.
+        # Check the actual source authority, not a duplicated in-generator copy.
+        provider_packaging = root / "scripts/generate_provider_packaging.py"
+        if (not provider_packaging.is_file() or
+                "createCanonicalApplicationOAuthBff" not in
+                provider_packaging.read_text(encoding="utf-8")):
+            errors.append("Generated provider Fetch entrypoint must mount the protected Kloks OIDC BFF")
         if "@ultrst-armada/kloks/auth" not in source or "@dinilmusick/gutts/auth" in source:
             errors.append("Generic scaffold generator must consume the public Kloks auth API")
         if re.search(r"client\.signInWithEmail|client\.signUpWithEmail|client\.signInWithGoogle", source):
