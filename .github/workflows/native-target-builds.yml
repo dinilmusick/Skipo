@@ -1,4 +1,6 @@
 name: Skipo Native Target Builds
+# Reconciled exact-head CI; native outputs remain unsigned development artifacts.
+# Hubrys packaging uses the same native targets without certifying embedded backends.
 
 on:
   pull_request:
