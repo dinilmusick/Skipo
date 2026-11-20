@@ -42,9 +42,10 @@ from skipo_environment_contract import (
 from skipo_capabilities import retire_known_duplicates
 from skipo_lifecycle import assess as assess_architecture, independent_verify, transaction_verify
 from skipo_reconciliation import reconcile as reconcile_transaction
+from skipo_process import platform_command
 
 def run(cmd: list[str], cwd: Path) -> int:
-    return subprocess.run(cmd, cwd=str(cwd)).returncode
+    return subprocess.run(platform_command(cmd), cwd=str(cwd)).returncode
 
 def manifest(root: Path) -> dict[str, Any]:
     p = root / ".skipo" / "project.json"
