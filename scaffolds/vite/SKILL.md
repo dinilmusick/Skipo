@@ -28,3 +28,12 @@ Use `skipo service repair <Name> --plan` before a repair; modified managed
 assets require explicit backup/reset. Never overwrite user-owned functions
 or tabs. Never bypass typed validation, Luth authorization, workspace grants,
 or the failed installed-application release gate.
+
+## BLOCKING VERIFICATION GATE
+
+Before release or publication, the application must pass frozen dependency
+installation, typechecking, executable tests, provider builds and the full
+canonical Skipo validation scorecard. A missing checklist engine or a failed
+applicable aspect is blocking—not permission to relax the gate or report
+success. Running `skipo verify .` tests managed structure and never replaces
+live, authorized cross-user OAuth and workspace testing.
