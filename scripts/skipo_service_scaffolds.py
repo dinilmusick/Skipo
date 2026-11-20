@@ -38,8 +38,14 @@ def load_state(root: Path) -> dict[str, Any]:
 
 
 def validate_path(root: Path, rel: str) -> Path:
-    path = root / rel
-    if path.is_symlink() or any(part.is_symlink() for part in path.parents):
+    relative = Path(rel)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise ValueError(f"Refusing unsafe relative path: {rel}")
+    path = root / relative
+    # Only reject links *inside* the selected project. On macOS, /var is a
+    # system link to /private/var, outside the project ownership boundary.
+    paths = [root.joinpath(*relative.parts[:i]) for i in range(1, len(relative.parts) + 1)]
+    if any(component.is_symlink() for component in paths):
         raise ValueError(f"Refusing symlink path: {rel}")
     if path.exists() and not path.is_file():
         raise ValueError(f"Expected a regular file, not a directory: {rel}")
@@ -112,7 +118,7 @@ def commit_files(root: Path, writes: dict[str, str]) -> None:
 
 def perform(root: Path, command: str, name: str, member: str | None = None,
             plan: bool = False, reset: bool = False) -> dict[str, Any]:
-    root = root.absolute()
+    root = root.resolve()
     if not (root / "package.json").is_file():
         raise ValueError("A Skipo project with package.json is required.")
     service = service_id(name)
