@@ -160,10 +160,19 @@ def _populate_create_project(name: str, target: Path, framework: str) -> int:
     source = SCAFFOLDS / framework
     target.mkdir(parents=True, exist_ok=True)
     for item in source.iterdir():
-        if item.name in {".git", ".skipo", ".npmignore"}:
+        if item.name in {".git", ".skipo", ".npmignore", "skipo-gitignore.template"}:
             continue
         dest = target / item.name
         shutil.copytree(item, dest) if item.is_dir() else shutil.copy2(item, dest)
+    # A source checkout retains .gitignore; npm archives do not. The prepack
+    # workflow stores an exact copy under a package-safe template filename.
+    # Never produce a project without an ignore policy for generated outputs.
+    ignore_file = target / ".gitignore"
+    if not ignore_file.is_file():
+        packaged_ignore = source / "skipo-gitignore.template"
+        if not packaged_ignore.is_file() or packaged_ignore.is_symlink():
+            raise ValueError("Installed Skipo scaffold lacks the canonical Git ignore policy")
+        shutil.copy2(packaged_ignore, ignore_file)
     for p in target.rglob("*"):
         if p.is_file() and p.suffix in {".json",".md",".ts",".tsx",".js",".mjs",".toml",".yml",".yaml"}:
             try:
