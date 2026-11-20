@@ -77,6 +77,9 @@ def test_prepare_idempotent_and_original_source_unmodified(tmp_path, target):
         assert (output / "main.mjs").exists()
         assert "nodeIntegration: false" in (output / "main.mjs").read_text()
         assert "Native API transport not configured" in (output / "main.mjs").read_text()
+        checked = subprocess.run(["node", "--check", str(output / "main.mjs")],
+                                 capture_output=True, text=True)
+        assert checked.returncode == 0, checked.stderr
     else:
         assert json.loads((output / "capacitor.config.json").read_text())["webDir"] == "web"
     code, again, stderr = call(root, action="prepare", target=target)
@@ -111,7 +114,9 @@ def test_desktop_discovery_requires_opt_in_and_reviewed_module(tmp_path):
     assert code == 2
     peer = root / "native" / "peer" / "nodeBeacon.mjs"
     peer.parent.mkdir(parents=True)
-    peer.write_text("export class NativeUdpBeacon {}\n")
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from skipo_native_peer import TEMPLATE
+    peer.write_text(TEMPLATE)
     code, report, _ = call(root, action="prepare", discovery=True)
     assert code == 0 and report["discovery"] == "desktop-udp"
     output = root / "dist" / "native" / "desktop"
