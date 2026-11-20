@@ -626,13 +626,15 @@ import { createLuthAuthClient } from '@ultrst-armada/kloks/auth';
 import type { WorkspaceRecord } from '@ultrst-armada/floks/ui';
 
 const appId = '__SKIPO_APP_ID__';
-const authClient = createLuthAuthClient({
-  ecosystemId: 'ultrst-armada', applicationId: appId, autoRegister: false,
-});
+const authClient = typeof window !== 'undefined'
+  ? createLuthAuthClient({
+      ecosystemId: 'ultrst-armada', applicationId: appId, autoRegister: false,
+    })
+  : null;
 const initializer = createUniversalInitializationClient(
   { appId, runtime: 'browser' },
   { expectedIssuerOrigin: DEFAULT_LUTH_URL,
-    authorize: async () => authClient.getAuthHeaders() },
+    authorize: async () => authClient?.getAuthHeaders() ?? {} },
 );
 
 function InitStatus({ message, retry }: { message: string; retry?: () => void }) {
