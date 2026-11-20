@@ -29,6 +29,16 @@ ASPECT_ID = "aspect_13_state_execution_governance"
 ASPECT_TITLE = "STATE & EXECUTION Architecture Governance"
 
 
+def _has_enforced_worker_boundary(source: str) -> bool:
+    # A comment or bare symbol reference is NOT a security boundary.
+    executable = re.sub(r"/\*[\s\S]*?\*/|(?m:^\s*//[^\n]*)", "", source)
+    declared = bool(re.search(r"import\s*\{[^}]*\bWorkerExecutionBoundary\b[^}]*\}\s*from\s*['\"]@ultrst-armada/krnl['\"]", executable))
+    instantiated = bool(re.search(r"new\s+WorkerExecutionBoundary\s*\(", executable))
+    attached = bool(re.search(r"\bworker\s*:\s*[A-Za-z_$]\w*\b", executable))
+    explicit_guard = bool(re.search(r"\bif\s*\(\s*!?\s*isWorkerContext\s*\(", executable))
+    return (declared and instantiated and attached) or explicit_guard
+
+
 def _delegates_to_verified_backend(root_dir: Path, source: str, file_name: str) -> bool:
     """A re-export has no independent worker entrypoint to guard.
 
@@ -50,9 +60,7 @@ def _delegates_to_verified_backend(root_dir: Path, source: str, file_name: str) 
         return False
     real = read_text_safe(impl) or ""
     return bool(
-        re.search(r"""import\s*\{[^}]*\bWorkerExecutionBoundary\b[^}]*\}\s*from\s*['"]@ultrst-armada/krnl['"]""", real)
-        and re.search(r"new\s+WorkerExecutionBoundary\s*\(", real)
-        and re.search(r"\bworker\s*:\s*appWorkerBoundary\b", real)
+        _has_enforced_worker_boundary(real)
         and re.search(r"\bAppBackend\s*=", real)
     )
 
@@ -119,7 +127,7 @@ def validate_state_execution(root_dir: Path) -> ChecklistResult:
 
         # Rule 4: Facade must verify Worker context
         if is_facade and not is_frontend and "export" in txt:
-            if "isWorkerContext" not in txt and "WorkerExecutionBoundary" not in txt \
+            if not _has_enforced_worker_boundary(txt) \
                     and not _delegates_to_verified_backend(root_dir, txt, fpath.name):
                 violations.append(Violation(
                     rule_id="backend-facade-missing-worker-boundary",
