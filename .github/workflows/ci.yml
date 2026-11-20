@@ -74,7 +74,7 @@ jobs:
       - run: pnpm build
       - run: pnpm validate
       - name: Verify public Skipo npm archive and first unused patch version
-        run: node scripts/verify-public-npm-artifact.mjs packages/skipo/package.json
+        run: node scripts/verify-public-npm-artifact.mjs packages/skipo/package.json 1.3.0
       - name: Pack independently verifiable Skipo release candidate
         run: |
           set -euo pipefail
