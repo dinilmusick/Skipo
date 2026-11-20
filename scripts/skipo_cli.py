@@ -348,9 +348,25 @@ def adopt_project(root: Path) -> int:
 
 def sync_project(root: Path, install: bool) -> int:
     try:
+        if not (root / ".skipo" / "project.json").is_file():
+            raise ValueError("Skipo sync requires an adopted project; run skipo adopt first.")
         payload = capability_sync(root, install=install)
+        if install and not payload.get("install", {}).get("ok", False):
+            payload["ok"] = False
+            payload["error"] = "Dependency installation failed; sync cannot be certified."
+        if payload.get("ok") and (root / "vite.config.ts").is_file():
+            # Capability composition changes the installed capability ledger.
+            # A canonical Vite app also has a managed full-stack receipt,
+            # which MUST be reconciled in the same sync transaction before
+            # verify/test can truthfully report a clean application.
+            from skipo_canonical_shell import reconcile_shell
+            shell = reconcile_shell(root, apply=True)
+            payload["canonical_shell"] = shell
+            payload["ok"] = bool(payload["ok"] and shell.get("ok", False))
+            if not payload["ok"]:
+                payload["error"] = "Canonical shell reconciliation failed after capability sync."
     except (ValueError, OSError) as exc:
-        print(json.dumps({"ok":False,"error":str(exc)}, indent=2)); return 2
+        print(json.dumps({"ok":False,"operation":"sync","error":str(exc)}, indent=2)); return 2
     print(json.dumps(payload, indent=2))
     return 0 if payload.get("ok", False) else 1
 
