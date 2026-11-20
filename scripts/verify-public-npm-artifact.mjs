@@ -14,8 +14,8 @@ const packageName = current.name;
 const historical = process.argv[3] || null;
 const packageVersion = historical || current.version;
 if (historical) {
-  const currentSemver = /^(\\d+)\\.(\\d+)\\.(\\d+)$/.exec(current.version);
-  const earlierSemver = /^(\\d+)\\.(\\d+)\\.(\\d+)$/.exec(historical);
+  const currentSemver = /^(\d+)\.(\d+)\.(\d+)$/.exec(current.version);
+  const earlierSemver = /^(\d+)\.(\d+)\.(\d+)$/.exec(historical);
   if (!currentSemver || !earlierSemver ||
       currentSemver[1] !== earlierSemver[1] ||
       currentSemver[2] !== earlierSemver[2] ||
