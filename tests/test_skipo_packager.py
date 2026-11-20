@@ -16,7 +16,7 @@ def project(tmp_path):
     (tmp_path / "dist" / "client" / "assets").mkdir(parents=True)
     (tmp_path / "src" / "app.ts").write_text("export default {fetch() {}};\n")
     (tmp_path / "dist" / "client" / "index.html").write_text(
-        "<html><body>Skipo</body></html>\n"
+        "<html><head><meta charset='utf-8'></head><body>Skipo</body></html>\n"
     )
     (tmp_path / "dist" / "client" / "assets" / "app.js").write_text(
         "document.body.dataset.ready='true';\n"
@@ -100,29 +100,51 @@ def test_edited_native_project_is_preserved(tmp_path):
     assert package.read_text() == "user-owned custom changes\n"
 
 
-def test_mobile_discovery_denied_until_real_adapter_exists(tmp_path):
+def test_mobile_discovery_is_mandatory_and_has_real_native_sources(tmp_path):
     root = project(tmp_path)
-    for target in ("android", "ios"):
-        code, status, _ = call(root, target=target, discovery=True)
-        assert code == 2 and not status["ok"]
-        assert "not installed" in status["error"]
+    for target, name in (("android", "NsdManager"), ("ios", "NetServiceBrowser")):
+        code, status, stderr = call(root, action="prepare", target=target)
+        assert code == 0, stderr
+        assert status["discovery"] == {"android": "android-nsd", "ios": "ios-bonjour"}[target]
+        output = root / "dist" / "native" / target
+        native = output / "native" / "skipo-discovery"
+        if target == "android":
+            source = native / "android" / "src" / "main" / "java" / "org" / "ultrst" / "skipo" / "discovery" / "SkipoDiscoveryPlugin.java"
+            assert name in source.read_text()
+            assert "ACCESS_LOCAL_NETWORK" in (native / "android" / "src" / "main" / "AndroidManifest.xml").read_text()
+        else:
+            source = native / "ios" / "Sources" / "SkipoDiscovery" / "SkipoDiscoveryPlugin.swift"
+            assert name in source.read_text()
+            assert "capacitor-swift-pm" in (native / "Package.swift").read_text()
+        assert "skipo-native-discovery.js" in (output / "web" / "index.html").read_text()
+        assert (output / "web" / "skipo-native-discovery.js").is_file()
+        assert "file:./native/skipo-discovery" in (output / "package.json").read_text()
+        assert (output / "scripts" / "skipo-postadd.mjs").is_file()
 
 
-def test_desktop_discovery_requires_opt_in_and_reviewed_module(tmp_path):
+def test_desktop_udp_is_mandatory_even_without_explicit_flag(tmp_path):
     root = project(tmp_path)
-    code, _, _ = call(root, discovery=True)
-    assert code == 2
-    peer = root / "native" / "peer" / "nodeBeacon.mjs"
-    peer.parent.mkdir(parents=True)
-    sys.path.insert(0, str(ROOT / "scripts"))
-    from skipo_native_peer import TEMPLATE
-    peer.write_text(TEMPLATE)
-    code, report, _ = call(root, action="prepare", discovery=True)
-    assert code == 0 and report["discovery"] == "desktop-udp"
+    code, status, stderr = call(root, action="prepare", target="desktop")
+    assert code == 0, stderr
+    assert status["discovery"] == "desktop-udp"
     output = root / "dist" / "native" / "desktop"
     assert "NativeUdpBeacon" in (output / "main.mjs").read_text()
-    assert (output / "peer" / "nodeBeacon.mjs").read_bytes() == peer.read_bytes()
+    assert "node:dgram" in (output / "peer" / "nodeBeacon.mjs").read_text()
+    assert "electron-builder" in (output / "package.json").read_text()
+    assert "package:windows:x64" in (output / "package.json").read_text()
+    assert "package:macos:arm64" in (output / "package.json").read_text()
+    assert "package:linux:x64" in (output / "package.json").read_text()
     assert "node:dgram" not in (root / "src" / "app.ts").read_text()
+
+
+def test_custom_peer_adapter_drift_is_rejected(tmp_path):
+    root = project(tmp_path)
+    peer = root / "native" / "peer" / "nodeBeacon.mjs"
+    peer.parent.mkdir(parents=True)
+    peer.write_text("export class Unsafe {}\\n")
+    code, status, _ = call(root, action="prepare", target="desktop")
+    assert code == 2 and not status["ok"]
+    assert "drift" in status["error"]
 
 
 @pytest.mark.parametrize("origin", [
@@ -168,3 +190,38 @@ def test_rejects_symlink_assets(tmp_path):
     )
     code, report, _ = call(root)
     assert code == 2 and "Symlink" in report["error"]
+
+
+def test_native_build_rejects_wrong_host_and_architecture(tmp_path):
+    import platform
+    root = project(tmp_path)
+    code, status, _ = call(root, action="build", target="desktop")
+    assert code == 2 and "--platform" in status["error"]
+    args = [sys.executable, str(SCRIPT), "build", "--target", "desktop",
+            "--project", str(root), "--bundle-id", "com.example.app",
+            "--app-name", "My App", "--backend", "static", "--platform",
+            ("windows" if platform.system() != "Windows" else "linux")]
+    result = subprocess.run(args, capture_output=True, text=True)
+    assert result.returncode == 2
+    assert "matching OS" in json.loads(result.stdout)["error"]
+    assert not (root / "dist" / "native" / "releases").exists()
+
+
+def test_iOS_native_requires_mac_host(tmp_path):
+    import platform
+    if platform.system() == "Darwin":
+        pytest.skip("Native iOS build should run through Xcode on macOS runner")
+    root = project(tmp_path)
+    code, result, _ = call(root, action="build", target="ios")
+    assert code == 2
+    assert "macOS Xcode" in result["error"]
+
+
+def test_native_js_bridge_is_syntax_valid(tmp_path):
+    root = project(tmp_path)
+    assert call(root, action="prepare", target="android")[0] == 0
+    output = root / "dist" / "native" / "android"
+    for rel in ("web/skipo-native-discovery.js", "scripts/skipo-postadd.mjs"):
+        result = subprocess.run(["node", "--check", str(output / rel)],
+                                capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
