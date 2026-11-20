@@ -56,3 +56,19 @@ def test_real_generated_app_contains_referenced_docs_and_links(tmp_path):
     assert (app / "skipo.providers.json").is_file()
     assert (app / "src/app.ts").is_file()
     assert (app / "src/frontend/pages/main/tabs/README.md").is_file()
+
+
+def test_cross_linked_application_and_workspace_skills_are_substantive():
+    agent = (SOURCE / "SKILL.md").read_text(encoding="utf-8")
+    architecture = (SOURCE / "architecture/app-architecture/SKILL.md").read_text(encoding="utf-8")
+    workspace = (SOURCE / "architecture/workspace-architectures/SKILL.md").read_text(encoding="utf-8")
+    assert "BLOCKING VERIFICATION GATE" in agent
+    for marker in ("SKIPO APPLICATION CONTRACT", "assistant.py advise",
+                   "python3 assistant.py validate .", "Workspace Storage Architecture",
+                   "../workspace-architectures/SKILL.md"):
+        assert marker in architecture
+    for marker in ("Unified Workspace & Storage Architecture", "Backblaze B2",
+                   "Google Drive", "mermaid", "../app-architecture/SKILL.md"):
+        assert marker in workspace
+    assert "not a guaranteed file inside an installed generated app" in architecture
+    assert "not proof of a live OAuth" in workspace
