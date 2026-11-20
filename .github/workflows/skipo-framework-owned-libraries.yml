@@ -26,5 +26,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Print exact release candidate attestation with SHA-256 digest
-        run: python scripts/generate_scaffold_library_attestation.py --print
+      - name: Verify the pinned release manifest matches canonical framework source
+        run: python scripts/generate_scaffold_library_attestation.py --check
+      - name: Strict adversarial original/edited/user-scoped and tampered provenance tests
+        run: python -m unittest discover -s tests -p "test_scaffold_framework_library_provenance.py" -v
+      - name: Verify canonical Vite template itself passes scoped library enforcement
+        run: python checklists/18_scoped_library_governance.py scaffolds/vite
