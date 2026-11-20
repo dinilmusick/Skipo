@@ -17,7 +17,7 @@ import android.net.nsd.NsdManager;
 import android.net.nsd.NsdServiceInfo;
 import android.os.Build;
 import android.util.Log;
-import androidx.core.content.ContextCompat;
+
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -42,7 +42,7 @@ public class SkipoDiscoveryPlugin extends Plugin {
 
   @PluginMethod public void start(PluginCall call) {
     if (Build.VERSION.SDK_INT >= 37 &&
-        ContextCompat.checkSelfPermission(getContext(), PERMISSION)
+        getContext().checkSelfPermission(PERMISSION)
           != PackageManager.PERMISSION_GRANTED) {
       requestPermissionForAlias("localNetwork", call, "permissionReturned");
       return;
@@ -52,7 +52,7 @@ public class SkipoDiscoveryPlugin extends Plugin {
 
   @PermissionCallback private void permissionReturned(PluginCall call) {
     if (Build.VERSION.SDK_INT >= 37 &&
-        ContextCompat.checkSelfPermission(getContext(), PERMISSION)
+        getContext().checkSelfPermission(PERMISSION)
           != PackageManager.PERMISSION_GRANTED) {
       call.reject("Local network permission denied");
       return;
