@@ -35,3 +35,18 @@ def test_empty_main_tab_root_survives_generated_vite_app(tmp_path, capsys):
     assert (target / "src/frontend/pages/main/tabRegistry.tsx").is_file()
     assert b"\r\n" not in (target / "src/frontend/pages/settings/tabs/accounts/page.tsx").read_bytes()
     assert not re.search(r"#[\da-fA-F]{3,8}\b", css)
+
+
+def test_one_component_per_file_preserves_registry_api():
+    folder = REPO / "scaffolds/vite/src/frontend/pages/main"
+    registry = (folder / "tabRegistry.tsx").read_text(encoding="utf-8")
+    assert "export const mainPageTabs" in registry
+    assert "export { MainTabContent } from './MainTabContent.js'" in registry
+    assert "export { MainPageToolbar } from './MainPageToolbar.js'" in registry
+    assert "function MainTabContent(" not in registry
+    assert "function MainPageToolbar(" not in registry
+    for component in ("MainTabContent", "MainPageToolbar"):
+        content = (folder / f"{component}.tsx").read_text(encoding="utf-8")
+        assert len(re.findall(r"\bexport function [A-Z]", content)) == 1
+        assert f"export function {component}(" in content
+        assert "from './tabRegistry.js'" in content
