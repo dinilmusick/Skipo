@@ -37,3 +37,21 @@ Native packaging requires separate platform builds and OS permission checks.
 Run frozen dependency installation, typecheck, tests, build and applicable
 Skipo CLI verification. A missing validator or a failed compliance scorecard
 blocks release; no auto-generated success or relaxed lockfile is acceptable.
+
+## SKIPO APPLICATION CONTRACT
+
+The application is composed using canonical Skipo page and service commands
+rather than copying source from another application's framework plane.
+For the mandatory **Workspace Storage Architecture**, consult
+[the workspace architecture](../workspace-architectures/SKILL.md) before
+binding storage providers or permissions.
+
+### Source-checkout-only legacy assistant commands
+
+The historical source-checkout CLI `assistant.py advise` and command
+`python3 assistant.py validate .` refer to a **full Skipo framework
+checkout**, not a guaranteed file inside an installed generated app.
+In generated applications use the supported installed Skipo CLI to inspect,
+plan and verify. The installed-app `pnpm run validate` is only usable when
+the canonical validator has been packaged and passes all applicable checks;
+do not substitute a no-op or skip a failing aspect.
