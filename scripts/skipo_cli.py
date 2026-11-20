@@ -144,6 +144,37 @@ def _populate_create_project(name: str, target: Path, framework: str) -> int:
             continue
         dest = target / item.name
         shutil.copytree(item, dest) if item.is_dir() else shutil.copy2(item, dest)
+    # Standalone consumer validation must use the same, immutable checklist
+    # snapshot shipped with the installed CLI, not a sibling Skipo checkout.
+    # The source package already bundles checklists/ under dist/engine.
+    validator_src = ROOT / "checklists"
+    validator_entry = validator_src / "full_system_validator.py"
+    if not validator_entry.is_file() or validator_entry.is_symlink():
+        raise ValueError("Installed Skipo engine is missing its full-system validator")
+    for item in validator_src.rglob("*"):
+        if item.is_symlink():
+            raise ValueError(f"Refusing symlink inside bundled validator: {item}")
+    validator_dst = target / "Skipo" / "checklists"
+    if validator_dst.exists():
+        raise ValueError("Generated scaffold unexpectedly owns Skipo/checklists")
+    validator_dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(
+        validator_src, validator_dst,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store"),
+    )
+    # Aspect 24 imports the canonical registry checker from the framework
+    # engine and validates the capability catalogue. Include both in the
+    # immutable local validation snapshot; never synthesize weaker substitutes.
+    for rel in ("scripts/skipo_state_registry.py",
+                "scripts/skipo_environment_contract.py",
+                "architecture/capabilities/registry.json",
+                "architecture/environment/contract.json"):
+        src = ROOT / rel
+        if not src.is_file() or src.is_symlink():
+            raise ValueError(f"Installed Skipo engine has no verified validator dependency: {rel}")
+        dst = target / "Skipo" / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
     for p in target.rglob("*"):
         if p.is_file() and p.suffix in {".json",".md",".ts",".tsx",".js",".mjs",".toml",".yml",".yaml"}:
             try:
