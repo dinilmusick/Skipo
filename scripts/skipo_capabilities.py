@@ -10,8 +10,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from skipo_state_registry import load_registry
-from skipo_patch_compatibility import compatible_patch_version as load_validated_registry
+from skipo_state_registry import load_registry as load_validated_registry
+from skipo_patch_compatibility import compatible_patch_version
 from skipo_process import platform_command
 
 ROOT = Path(__file__).resolve().parents[1]
