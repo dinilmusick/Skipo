@@ -42,7 +42,7 @@ function AuthenticatedApplication({ auth, universalUi }: {
   );
 }
 
-type InitPhase = 'discovery' | 'authentication' | 'configuring' | 'ready' | 'denied' | 'unavailable';
+type InitPhase = 'discovery' | 'authentication' | 'configuring' | 'authorization' | 'ready' | 'denied' | 'unavailable';
 
 type BootstrapClient = {
   discover(): Promise<{ application: { appId: string } }>;
@@ -74,13 +74,18 @@ function InitializationGate({ children, phase, retry }: {
   if (phase === 'ready' || phase === 'authentication') return <>{children}</>;
   const message = phase === 'discovery' ? 'Connecting to Luth discovery…'
     : phase === 'configuring' ? 'Verifying application configuration…'
+    : phase === 'authorization' ? 'Authorize this application with Luth to continue.'
     : phase === 'denied' ? 'Access to this application is denied.'
     : 'Luth discovery or configuration is unavailable.';
   return <div role="status" aria-live="polite" data-skipo-init={phase} style={{ padding: 24 }}>
     <p>{message}</p>
-    {(phase === 'denied' || phase === 'unavailable')
-      ? <button type="button" onClick={retry}>Retry initialization</button>
-      : null}
+    {phase === 'authorization'
+      ? <button type="button" onClick={() => {
+          window.location.assign('/api/auth/oidc/start');
+        }}>Authorize application</button>
+      : (phase === 'denied' || phase === 'unavailable')
+        ? <button type="button" onClick={retry}>Retry initialization</button>
+        : null}
   </div>;
 }
 
@@ -109,8 +114,9 @@ function ConfiguredApplication({ auth, universalUi, initializer }: {
     }).catch((error: unknown) => {
       if (!active) return;
       const code = (error as {code?: string})?.code;
-      setPhase(code === 'AUTHORIZATION_DENIED' || code === 'APP_IDENTITY_UNVERIFIED'
-        ? 'denied' : 'unavailable');
+      setPhase(code === 'AUTHENTICATION_REQUIRED' ? 'authorization'
+        : code === 'AUTHORIZATION_DENIED' || code === 'APP_IDENTITY_UNVERIFIED'
+          ? 'denied' : 'unavailable');
     });
     return () => { active = false; };
   }, [initializer, principal, attempt]);
