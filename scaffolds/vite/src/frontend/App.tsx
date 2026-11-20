@@ -7,7 +7,7 @@ import MainPage from './pages/main/page.js';
 import WorkspacesPage from './pages/menus/workspaces/page.js';
 import { UiSessionControls } from './components/UiSessionControls.js';
 import { getSkipoApplicationId, luthAuthClient, luthFetch } from '../libraries/client/luthAuthClient.js';
-import { createUniversalInitializationClient, DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth';
+import * as KloksLuth from '@ultrst-armada/kloks/auth';
 import type { ScopedUniversalUiHost } from './pages/main/universalGraphHost.js';
 import { useAuthorizedUniversalUi } from './pages/main/useAuthorizedUniversalUi.js';
 
@@ -44,6 +44,35 @@ function AuthenticatedApplication({ auth, universalUi }: {
 
 type InitPhase = 'discovery' | 'authentication' | 'configuring' | 'ready' | 'denied' | 'unavailable';
 
+type BootstrapClient = {
+  discover(): Promise<{ application: { appId: string } }>;
+  configuration(): Promise<{ principal: { userId: string } }>;
+  invalidate(): void;
+};
+type BootstrapFactory = (
+  app: { appId: string; runtime: 'browser' },
+  transport: { expectedIssuerOrigin: string; authorize: () => Promise<HeadersInit> },
+) => BootstrapClient;
+
+/** Compatibility wrapper only: absent verified Kloks release fails closed. */
+function createVerifiedInitializer(): BootstrapClient {
+  const factory = (KloksLuth as unknown as {
+    createUniversalInitializationClient?: BootstrapFactory;
+  }).createUniversalInitializationClient;
+  if (typeof factory !== 'function') {
+    const unavailable = async (): Promise<never> => {
+      throw new Error('UNIVERSAL_INITIALIZATION_CONTRACT_UNAVAILABLE');
+    };
+    return { discover: unavailable, configuration: unavailable, invalidate: () => {} };
+  }
+  return factory({ appId: getSkipoApplicationId(), runtime: 'browser' }, {
+    expectedIssuerOrigin: KloksLuth.DEFAULT_LUTH_URL,
+    authorize: async () => luthAuthClient?.getAuthHeaders() ?? {},
+  });
+}
+
+
+
 function InitializationGate({ children, phase, retry }: {
   children?: React.ReactNode; phase: InitPhase; retry: () => void;
 }) {
@@ -67,7 +96,7 @@ function InitializationGate({ children, phase, retry }: {
  */
 function ConfiguredApplication({ auth, universalUi, initializer }: {
   auth: UseLuthAuthResult; universalUi?: ScopedUniversalUiHost;
-  initializer: ReturnType<typeof createUniversalInitializationClient>;
+  initializer: BootstrapClient;
 }) {
   const [attempt, retry] = useState(0);
   const [phase, setPhase] = useState<InitPhase>('configuring');
@@ -109,13 +138,7 @@ export function App({universalUi}: {universalUi?: ScopedUniversalUiHost} = {}) {
   const [isGuest, setIsGuest] = useState(false);
   const [attempt, retry] = useState(0);
   const [phase, setPhase] = useState<InitPhase>('discovery');
-  const initializer = useMemo(() => createUniversalInitializationClient(
-    { appId: getSkipoApplicationId(), runtime: 'browser' },
-    {
-      expectedIssuerOrigin: DEFAULT_LUTH_URL,
-      authorize: async () => luthAuthClient?.getAuthHeaders() ?? {},
-    },
-  ), []);
+  const initializer = useMemo(() => createVerifiedInitializer(), []);
 
   useEffect(() => {
     let active = true;
