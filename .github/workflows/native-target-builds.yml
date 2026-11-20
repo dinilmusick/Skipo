@@ -1,5 +1,4 @@
 name: Skipo Native Target Builds
-# Gate is re-run on the reconciled PR head; native artifacts are not signed releases.
 
 on:
   pull_request:
@@ -32,6 +31,7 @@ jobs:
           node-version: '22'
       - run: python -m pip install pytest
       - run: python -m pytest -q --import-mode=importlib tests/test_skipo_packager.py
+      - run: python -m pytest -q --import-mode=importlib tests/test_hubrys_packager.py
 
   native-fixture:
     runs-on: ubuntu-latest
