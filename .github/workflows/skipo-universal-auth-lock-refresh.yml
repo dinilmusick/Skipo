@@ -1,4 +1,5 @@
 name: Reconcile universal auth 2.2.4 / 2.2.9 Skipo lockfiles
+# Retry after exact-head Kloks npm release entered public verification
 on:
   push:
     branches:
