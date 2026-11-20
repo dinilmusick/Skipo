@@ -67,7 +67,7 @@ FORBIDDEN_SOURCE_PATTERNS = (
     (r"\bAuthServiceFacade\b", "legacy Kloks application-local auth facade (AuthServiceFacade)"),
     (r"Bearer\s+sess::", "synthetic application-local session token"),
     (r"SRKL_AUTH_BASE_URL|NEXT_PUBLIC_SRKL_AUTH_BASE_URL|VITE_SRKL_AUTH_BASE_URL", "legacy SRKL authentication endpoint configuration"),
-    (r"process\.env\.(?:DATABASE_URL|SYSTEM_DATABASE_URL_1)", "non-canonical database environment variable"),
+    (r"process\.env\.DATABASE_URL", "non-canonical generic database environment variable"),
 )
 
 def source_files(root: Path):
@@ -143,8 +143,8 @@ def validate_repository(root: Path) -> list[str]:
     vite_login = root / "scaffolds/vite/src/frontend/components/gates/LoginGate.tsx"
     if vite_login.is_file():
         source = vite_login.read_text(encoding="utf-8")
-        if "@ultrst-armada/floks/auth" not in source or "LuthAuthPage" not in source:
-            errors.append("Vite LoginGate must use integrated Floks LuthAuthPage")
+        if "@ultrst-armada/floks/auth" not in source or "LuthOidcGate" not in source:
+            errors.append("Vite LoginGate must use Floks first-party LuthOidcGate")
         if re.search(r"onLogin=|onRegister=|onGoogleSignIn=", source):
             errors.append("Vite LoginGate must not provide application-owned authentication callbacks")
 
@@ -174,8 +174,12 @@ def validate_repository(root: Path) -> list[str]:
     client = root / "scaffolds" / framework / "src" / "libraries" / "client" / "luthAuthClient.ts"
     if client.is_file():
         source = client.read_text(encoding="utf-8")
-        if "getAuthHeaders()" not in source or "@ultrst-armada/kloks/auth" not in source or "@dinilmusick/gutts/auth" in source or "VITE_LUTH_URL" in source or "NEXT_PUBLIC_LUTH_URL" in source:
-            errors.append(f"{framework} client must use the public Kloks Luth bearer client without per-app auth URL env vars")
+        if ("getAuthHeaders()" in source or "headers.delete('Authorization')" not in source
+                or "credentials: 'same-origin'" not in source
+                or "@ultrst-armada/kloks/auth" not in source
+                or "@dinilmusick/gutts/auth" in source
+                or "VITE_LUTH_URL" in source or "NEXT_PUBLIC_LUTH_URL" in source):
+            errors.append(f"{framework} client must use the same-origin Kloks HttpOnly BFF session with no browser bearer")
 
     generator = root / "scripts/scaffold_app_structure.py"
     if generator.is_file():
@@ -184,7 +188,9 @@ def validate_repository(root: Path) -> list[str]:
             errors.append("Generic scaffold generator contains stale Krnl package baseline")
         if re.search(r"\bAuthServiceFacade\b", source):
             errors.append("Generic scaffold generator must not generate the legacy Kloks auth facade")
-        for marker in ("FloksLuthAuthPage", "requireLuthSession", "DEFAULT_LUTH_URL", "LuthAuthPage"):
+        for marker in ("FloksLuthOidcGate", "requireLuthSession", "DEFAULT_LUTH_URL",
+                       "LuthAuthPage", "createCanonicalApplicationOAuthBff",
+                       "createApplicationUniversalInitializationClient"):
             if marker not in source:
                 errors.append(f"Generic scaffold generator missing canonical auth output: {marker}")
         if "@ultrst-armada/kloks/auth" not in source or "@dinilmusick/gutts/auth" in source:
