@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "target": "api",
+  "client": null,
+  "providers": [
+    {
+      "name": "cloudflare",
+      "entrypoint": "src/providers/cloudflare.ts",
+      "outfile": "dist/providers/cloudflare/worker.js",
+      "platform": "browser",
+      "target": "es2022"
+    },
+    {
+      "name": "vercel",
+      "entrypoint": "src/providers/vercel.ts",
+      "outfile": "api/[...path].js",
+      "platform": "node",
+      "target": "node22",
+      "packages": "external"
+    },
+    {
+      "name": "mcp",
+      "entrypoint": "src/providers/vercel.ts",
+      "outfile": "api/mcp.js",
+      "platform": "node",
+      "target": "node22",
+      "packages": "external"
+    }
+  ]
+}

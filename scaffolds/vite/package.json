@@ -17,7 +17,10 @@
     "validate": "python3 Skipo/checklists/full_system_validator.py .",
     "validate:strict": "python3 Skipo/checklists/full_system_validator.py . --verbose",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/canonical-capabilities.test.cjs"
+    "test": "node --test tests/canonical-capabilities.test.cjs",
+    "build:fullstack": "node scripts/skipo-build.mjs --target fullstack",
+    "build:api": "node scripts/skipo-build.mjs --target api",
+    "build:all": "node scripts/skipo-build.mjs --target fullstack"
   },
   "dependencies": {
     "@dinilmusick/gutts": "2.2.3",

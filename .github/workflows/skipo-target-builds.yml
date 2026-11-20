@@ -1,0 +1,57 @@
+name: Skipo generated API and full-stack target certification
+
+on:
+  pull_request:
+    paths:
+      - "scaffolds/vite/config/build/manifests/**"
+      - "scaffolds/vite/scripts/skipo-build.mjs"
+      - "scaffolds/vite/src/backend/adapters/nodeBridge.ts"
+      - "scaffolds/vite/src/providers/vercel.ts"
+      - "scaffolds/vite/package.json"
+      - "tests/test_vite_build_targets.py"
+      - "tests/external-interface-scaffold.test.py"
+      - "tests/scaffold_regression.py"
+      - "tests/verify-skipo-target-builds.mjs"
+      - ".github/workflows/skipo-target-builds.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-target-builds:
+    name: Frozen generated API and fullstack builds (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10.33.0"
+      - name: Verify contracts and actual generated application layout
+        run: python -m unittest discover -s tests -p 'test_vite_build_targets.py' -v
+      - name: Generate isolated consumer using canonical CLI
+        run: python scripts/skipo_cli.py create BuildTargetFixture skipo-build-target-fixture
+      - name: Frozen install, separate API/full-stack builds, real outputs, tests
+        run: |
+          cd skipo-build-target-fixture
+          pnpm install --frozen-lockfile
+          pnpm run build:api
+          node ../tests/verify-skipo-target-builds.mjs . api
+          pnpm run build:fullstack
+          node ../tests/verify-skipo-target-builds.mjs . fullstack
+          pnpm run typecheck
+          pnpm run test
