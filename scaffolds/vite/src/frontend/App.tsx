@@ -6,7 +6,7 @@ import { LuthAuthPage, type UseLuthAuthResult } from '@ultrst-armada/floks/auth'
 import MainPage from './pages/main/page.js';
 import WorkspacesPage from './pages/menus/workspaces/page.js';
 import { UiSessionControls } from './components/UiSessionControls.js';
-import { getSkipoApplicationId, luthAuthClient, luthFetch } from '../libraries/client/luthAuthClient.js';
+import { getSkipoApplicationId, luthFetch } from '../libraries/client/luthAuthClient.js';
 import * as KloksLuth from '@ultrst-armada/kloks/auth';
 import type { ScopedUniversalUiHost } from './pages/main/universalGraphHost.js';
 import { useAuthorizedUniversalUi } from './pages/main/useAuthorizedUniversalUi.js';
@@ -49,29 +49,24 @@ type BootstrapClient = {
   configuration(): Promise<{ principal: { userId: string } }>;
   invalidate(): void;
 };
-type BootstrapFactory = (
-  app: { appId: string; runtime: 'browser' },
-  transport: { expectedIssuerOrigin: string; authorize: () => Promise<HeadersInit> },
-) => BootstrapClient;
+type BootstrapFactory = (app: { appId: string }) => BootstrapClient;
 
-/** Compatibility wrapper only: absent verified Kloks release fails closed. */
+/**
+ * Only the Kloks same-origin BFF may forward an OAuth bearer to Luth config.
+ * The browser performs public discovery but never reads/mints OAuth tokens.
+ */
 function createVerifiedInitializer(): BootstrapClient {
   const factory = (KloksLuth as unknown as {
-    createUniversalInitializationClient?: BootstrapFactory;
-  }).createUniversalInitializationClient;
+    createApplicationUniversalInitializationClient?: BootstrapFactory;
+  }).createApplicationUniversalInitializationClient;
   if (typeof factory !== 'function') {
     const unavailable = async (): Promise<never> => {
       throw new Error('UNIVERSAL_INITIALIZATION_CONTRACT_UNAVAILABLE');
     };
     return { discover: unavailable, configuration: unavailable, invalidate: () => {} };
   }
-  return factory({ appId: getSkipoApplicationId(), runtime: 'browser' }, {
-    expectedIssuerOrigin: KloksLuth.DEFAULT_LUTH_URL,
-    authorize: async () => luthAuthClient?.getAuthHeaders() ?? {},
-  });
+  return factory({ appId: getSkipoApplicationId() });
 }
-
-
 
 function InitializationGate({ children, phase, retry }: {
   children?: ReactNode; phase: InitPhase; retry: () => void;
