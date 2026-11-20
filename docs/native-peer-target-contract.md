@@ -1,6 +1,6 @@
 # Native peer discovery: opt-in target contract
 
-Skipo's canonical application remains a single Fetch handler in `src/app.ts`.
+> **Updated native packaging contract (2026-11-20):** Every packaged native Skipo target must include its platform discovery implementation by default. Desktop Electron always bundles/starts UDP discovery; Android and iOS embed NSD/Bonjour and respect OS permissions. The separate `native-peer add` command remains an optional standalone generator, not a packaging opt-out. See `docs/required-native-discovery-and-target-builds.md`.\n\nSkipo's canonical application remains a single Fetch handler in `src/app.ts`.
 Cloudflare Workers, Vercel functions and browser builds must never import native
 peer discovery. A generated native module must not alter the application entry,
 existing Luth session authority, database-backed discovery, or HTTP capability
