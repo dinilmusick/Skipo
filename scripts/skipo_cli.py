@@ -65,6 +65,25 @@ def _create_error(message: str, *, code: str = "SKIPO_CREATE_INVALID", target: P
     return 2
 
 
+def _is_trusted_macos_root_alias(path: Path) -> bool:
+    """Allow only stock macOS root aliases, not project-relative symlinks.
+
+    /var, /tmp and /etc are system-owned links to /private/{name}. macOS
+    temporary directories normally use /var/folders, so rejecting /var makes
+    all fresh-app creation fail despite a canonical writable parent.
+    """
+    if sys.platform != "darwin":
+        return False
+    alias = {"/var": "/private/var", "/tmp": "/private/tmp",
+             "/etc": "/private/etc"}.get(path.as_posix())
+    if alias is None:
+        return False
+    try:
+        return path.resolve(strict=True) == Path(alias).resolve(strict=True)
+    except OSError:
+        return False
+
+
 def create_project(name: str, target: Path, framework: str, force: bool) -> int:
     """Create into a sibling staging directory and publish only on success.
 
@@ -81,7 +100,7 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
     # Do not resolve a user-supplied target before this test: resolving would
     # erase symlink traversal evidence and could redirect writes elsewhere.
     for component in (target, *target.parents):
-        if component.is_symlink():
+        if component.is_symlink() and not _is_trusted_macos_root_alias(component):
             return _create_error(f"Symlink component is not an authorized create target: {component}", code="SKIPO_CREATE_SYMLINK", target=target)
     source = SCAFFOLDS / framework
     if not source.is_dir():
@@ -111,7 +130,7 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
             return result
         # Protect against concurrent target creation during generation.
         for component in (target, *target.parents):
-            if component.is_symlink():
+            if component.is_symlink() and not _is_trusted_macos_root_alias(component):
                 return _create_error("Symlink target appeared during creation; refusing publish.",
                                      code="SKIPO_CREATE_SYMLINK", target=target)
         if target.exists():
