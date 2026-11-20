@@ -45,7 +45,9 @@ def test_generic_generator_requires_discovery_and_scoped_configuration(tmp_path)
     assert "getAuthHeaders()" not in source
     generated_entry = (target / "src/app.ts").read_text(encoding="utf-8")
     generated_transport = (target / "src/frontend/pages/auth/luthFetch.ts").read_text(encoding="utf-8")
-    assert "createCanonicalApplicationOAuthBff" in generated_entry\n    assert "externalInterfaces.mcp(request)" in generated_entry\n    assert "externalInterfaces.http(request)" in generated_entry
+    assert "createCanonicalApplicationOAuthBff" in generated_entry
+    assert "externalInterfaces.mcp(request)" in generated_entry
+    assert "externalInterfaces.http(request)" in generated_entry
     assert '/api/initialization/config' in generated_entry
     assert "headers.delete('Authorization')" in generated_transport
     assert "getAuthHeaders()" not in generated_transport
