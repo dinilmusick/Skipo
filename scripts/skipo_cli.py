@@ -606,7 +606,14 @@ def main() -> int:
         if action == "repair":
             q.add_argument("--reset", action="store_true", help="Backup and restore altered Skipo-managed scaffolds")
 
-    a=parser.parse_args()
+    a, trailing = parser.parse_known_args()
+    # Python 3.11 treats an optional positional after --plan/--reset as
+    # unrecognized for nested subparsers. Accept exactly one service target.
+    if trailing and a.command == "service" and len(trailing) == 1 and a.target == "." and not trailing[0].startswith("-"):
+        a.target = trailing[0]
+        trailing = []
+    if trailing:
+        parser.error("unrecognized arguments: " + " ".join(trailing))
     if a.command == "service":
         from skipo_service_scaffolds import perform
         try:
