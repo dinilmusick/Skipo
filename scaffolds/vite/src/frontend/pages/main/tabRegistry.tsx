@@ -1,6 +1,5 @@
 /// <reference types="vite/client" />
-import type { ComponentType, ComponentProps } from 'react';
-import { TopToolbar } from '@ultrst-armada/floks/ui';
+import type { ComponentType } from 'react';
 
 // A tab may be command-generated (name-hash) or app-owned (plain directory).
 // Only page.tsx is an entrypoint; supporting code can live anywhere under tabs.
@@ -24,12 +23,6 @@ export const mainPageTabs = Object.entries(modules)
   }))
   .sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
 
-export function MainTabContent({ id }: { id: string }) {
-  const Page = mainPageTabs.find(tab => tab.id === id)?.Page;
-  return Page ? <Page /> : null;
-}
-
-/** All app-specific content is registered as a main-page tab. */
-export function MainPageToolbar({ tabs = [], ...props }: ComponentProps<typeof TopToolbar>) {
-  return <TopToolbar {...props} tabs={[...tabs, ...mainPageTabs.map(({ id, label }) => ({ id, label }))]} />;
-}
+/* Preserve the existing public imports while each component owns one file. */
+export { MainTabContent } from './MainTabContent.js';
+export { MainPageToolbar } from './MainPageToolbar.js';
