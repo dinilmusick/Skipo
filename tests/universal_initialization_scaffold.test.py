@@ -50,6 +50,8 @@ def test_scaffold_client_is_browser_only_and_legacy_bff_boundary_is_untouched():
 def test_capability_registry_versions_match_generated_published_dependencies():
     registry = json.loads((ROOT / "architecture/capabilities/registry.json").read_text(encoding="utf-8"))
     scaffold = json.loads((ROOT / "scaffolds/vite/package.json").read_text(encoding="utf-8"))
+    root_package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+    assert registry["applicationState"]["framework"]["version"] == root_package["version"]
     canonical = registry["applicationState"]["dependencies"]
     for name in ("@dinilmusick/gutts", "@ultrst-armada/kloks"):
         assert canonical[name] == scaffold["dependencies"][name], name
