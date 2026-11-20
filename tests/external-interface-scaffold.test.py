@@ -45,7 +45,15 @@ def test_vite_scaffold_mounts_both_external_protocols():
     assert (base / "skipo.providers.json").is_file()
     assert not (base / "scripts/skipo-build.cjs").exists()
     assert not (base / "src/backend/adapters/universalEntry.ts").exists()
-    assert not (base / "src/backend/adapters/nodeBridge.ts").exists()
+    bridge = (base / "src/backend/adapters/nodeBridge.ts").read_text(encoding="utf-8")
+    # The required bridge is a verified alias of our one real Node Fetch
+    # converter, NOT a second implementation or Node dependency in Workers.
+    assert "dispatchNodeRequest as adaptNodeRequest" in bridge
+    assert "from '../../providers/nodeRequestAdapter.js'" in bridge
+    assert "createServer(" not in bridge
+    assert "new Request(" not in bridge
+    assert "node:" not in bridge
+    assert "from '../backend/adapters/nodeBridge.js'" in vercel
     backend_source = (base / "src/backend/AppBackend.ts").read_text(encoding="utf-8")
     assert "@ultrst-armada/kloks/audio-midi" not in backend_source
     assert "AudioHardwareServiceFacade" not in backend_source
