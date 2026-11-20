@@ -39,9 +39,9 @@ def _delegates_to_verified_backend(root_dir: Path, source: str, file_name: str) 
     """
     if file_name != "UniversalBackend.ts":
         return False
-    without_comments = re.sub(r"/\\*[\\s\\S]*?\\*/|(?m:^\\s*//[^\\n]*)", "", source).strip()
+    without_comments = re.sub(r"/\*[\s\S]*?\*/|(?m:^\s*//[^\n]*)", "", source).strip()
     if not re.fullmatch(
-        r"""export\\s*\\{[^{}]*\\bAppBackend\\b[^{}]*\\}\\s*from\\s*['"]\\./AppBackend\\.js['"]\\s*;?""",
+        r"""export\s*\{[^{}]*\bAppBackend\b[^{}]*\}\s*from\s*['"]\./AppBackend\.js['"]\s*;?""",
         without_comments,
     ):
         return False
@@ -50,10 +50,10 @@ def _delegates_to_verified_backend(root_dir: Path, source: str, file_name: str) 
         return False
     real = read_text_safe(impl) or ""
     return bool(
-        re.search(r"""import\\s*\\{[^}]*\\bWorkerExecutionBoundary\\b[^}]*\\}\\s*from\\s*['"]@ultrst-armada/krnl['"]""", real)
-        and re.search(r"new\\s+WorkerExecutionBoundary\\s*\\(", real)
-        and re.search(r"\\bworker\\s*:\\s*appWorkerBoundary\\b", real)
-        and re.search(r"\\bAppBackend\\s*=", real)
+        re.search(r"""import\s*\{[^}]*\bWorkerExecutionBoundary\b[^}]*\}\s*from\s*['"]@ultrst-armada/krnl['"]""", real)
+        and re.search(r"new\s+WorkerExecutionBoundary\s*\(", real)
+        and re.search(r"\bworker\s*:\s*appWorkerBoundary\b", real)
+        and re.search(r"\bAppBackend\s*=", real)
     )
 
 
