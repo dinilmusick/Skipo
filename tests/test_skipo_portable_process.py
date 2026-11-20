@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from skipo_process import platform_command
 from skipo_cli import _is_trusted_macos_root_alias
-from skipo_capabilities import compose
+from skipo_capabilities import compose, load_registry
 
 
 class PortableCliProcessTests(unittest.TestCase):
@@ -45,6 +45,10 @@ class PortableCliProcessTests(unittest.TestCase):
             result = compose(app, ["storage"], apply=True)
             self.assertTrue(result["ok"], result)
             self.assertEqual(package.read_bytes(), source)
+            owned_path = app / "src/libraries/skipo/services/storage.ts"
+            canonical = load_registry()["capabilities"]["storage"]["generated"][0]["content"]
+            self.assertEqual(owned_path.read_bytes(), canonical.encode("utf-8"),
+                             "Generated registry blobs must never undergo Windows LF→CRLF translation")
             second = compose(app, ["storage"], apply=True)
             self.assertTrue(second["ok"], second)
             self.assertEqual(package.read_bytes(), source)
