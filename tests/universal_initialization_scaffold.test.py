@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -45,3 +46,13 @@ def test_scaffold_client_is_browser_only_and_legacy_bff_boundary_is_untouched():
     assert "authorize: async () => authClient?.getAuthHeaders() ?? {}" in source
     assert "LuthAuthPage as FloksLuthAuthPage" in source
     assert "createCanonicalApplicationOAuthBff" not in source
+
+def test_capability_registry_versions_match_generated_published_dependencies():
+    registry = json.loads((ROOT / "architecture/capabilities/registry.json").read_text(encoding="utf-8"))
+    scaffold = json.loads((ROOT / "scaffolds/vite/package.json").read_text(encoding="utf-8"))
+    canonical = registry["applicationState"]["dependencies"]
+    for name in ("@dinilmusick/gutts", "@ultrst-armada/kloks"):
+        assert canonical[name] == scaffold["dependencies"][name], name
+    for capability in registry["capabilities"].values():
+        if "@ultrst-armada/kloks" in capability.get("dependencies", {}):
+            assert capability["dependencies"]["@ultrst-armada/kloks"] == scaffold["dependencies"]["@ultrst-armada/kloks"]
