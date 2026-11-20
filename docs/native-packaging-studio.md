@@ -1,6 +1,6 @@
 # Skipo Packaging Studio — platform packaging contract
 
-**Scope:** this first slice is a **deterministic native-project preparer**, not a completed store-distribution service. It lives in Skipo because Skipo already owns generated adapter wiring and canonical application builds. A Skipo-based visual Packaging Studio can later drive the same command contracts. Do not create a competing application generator.
+> **Updated native packaging contract (2026-11-20):** Every packaged native Skipo target must include its platform discovery implementation by default. Desktop Electron always bundles/starts UDP discovery; Android and iOS embed NSD/Bonjour and respect OS permissions. The separate `native-peer add` command remains an optional standalone generator, not a packaging opt-out. See `docs/required-native-discovery-and-target-builds.md`.\n\n**Scope:** this first slice is a **deterministic native-project preparer**, not a completed store-distribution service. It lives in Skipo because Skipo already owns generated adapter wiring and canonical application builds. A Skipo-based visual Packaging Studio can later drive the same command contracts. Do not create a competing application generator.
 
 ## Ownership
 
