@@ -118,6 +118,8 @@ class ServiceScaffoldTests(unittest.TestCase):
         state = json.loads((self.root / ".skipo/service-scaffolds.json").read_text())
         self.assertNotIn("preexisting", state["services"]["weather"]["helpers"])
         self.run_cli("create", "storage", ok=False)
+        self.run_cli("create", "Database", ok=False)
+        self.run_cli("create", "ControlPlane", ok=False)
 
     def test_bind_missing_anchor_is_atomic(self):
         self.run_cli("create", "Weather")
