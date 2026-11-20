@@ -5,6 +5,7 @@ on:
     paths:
       - "scaffolds/vite/src/index.css"
       - "scripts/skipo_canonical_shell.py"
+      - "scaffolds/vite/src/frontend/pages/main/**"
       - "scaffolds/vite/src/frontend/pages/main/tabs/**"
       - "tests/test_vite_theme_tabs_contract.py"
       - ".github/workflows/skipo-vite-theme-tabs.yml"
