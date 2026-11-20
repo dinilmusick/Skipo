@@ -101,3 +101,19 @@ def test_generated_staging_is_published_to_final_target(tmp_path, monkeypatch, c
     assert not any(".skipo-stage-" in item.name for item in tmp_path.iterdir())
     output = json.loads(capsys.readouterr().out)
     assert output["target"] == str(target) and output["applied"] is True
+
+
+def test_self_contained_validator_matches_installed_framework_snapshot(tmp_path, capsys):
+    target = tmp_path / "ValidatorConsumer"
+    assert cli.create_project("ValidatorConsumer", target, "vite", False) == 0
+    engine = Path(cli.__file__).resolve().parents[1]
+    bundled = target / "Skipo" / "checklists"
+    expected = engine / "checklists"
+    assert bundled.is_dir()
+    assert (bundled / "full_system_validator.py").is_file()
+    assert (bundled / "common.py").is_file()
+    assert _digest(bundled / "full_system_validator.py") == _digest(expected / "full_system_validator.py")
+    assert _digest(bundled / "common.py") == _digest(expected / "common.py")
+    assert json.loads(capsys.readouterr().out)["applied"] is True
+    assert (target / "package.json").is_file()
+    assert (target / "package.json").read_text().find("Skipo/checklists/full_system_validator.py") > 0
