@@ -5,14 +5,14 @@
 @import "@ultrst-armada/floks/ui/dist/index.css";
 @import "@ultrst-armada/floks/ui/theme/tokens.css";
 
+/* Floks owns the canonical --skipo-* palette, typography, and radii.
+   Application scaffolds consume those tokens rather than overriding them. */
 :root {
   color-scheme: dark;
-  --skipo-bg: #0b0d10;
-  --skipo-text: #e8eaf0;
-  --skipo-font: ui-sans-serif, system-ui, sans-serif;
-  --skipo-border-color: #2a2f38;
-  --skipo-radius-sm: 4px;
-  --skipo-accent: #8b9cf7;
+}
+
+[data-skipo-theme="light"] {
+  color-scheme: light;
 }
 
 html, body, #root {
@@ -23,6 +23,23 @@ html, body, #root {
   background-color: var(--skipo-bg);
   color: var(--skipo-text);
   font-family: var(--skipo-font);
+}
+
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--skipo-accent) var(--skipo-surface);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--skipo-accent);
+  border-radius: var(--skipo-radius-sm);
+}
+::-webkit-scrollbar-track {
+  background-color: var(--skipo-surface);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
