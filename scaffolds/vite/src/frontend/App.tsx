@@ -155,11 +155,11 @@ export function App({universalUi}: {universalUi?: ScopedUniversalUiHost} = {}) {
 
   return (
     <SkipoThemeProvider defaultTheme="dark">
-      <InitializationGate phase={phase} retry={() => {
-        initializer.invalidate(); retry(n => n + 1);
-      }}>
-        {isGuest ? <MainPage isGuest /> : (
-          <>
+      {isGuest ? <MainPage isGuest /> : (
+        <>
+          <InitializationGate phase={phase} retry={() => {
+            initializer.invalidate(); retry(n => n + 1);
+          }}>
             <LuthAuthPage ecosystemId="ultrst-armada"
               applicationId={getSkipoApplicationId()}
               appName="SKIPO APP"
@@ -167,12 +167,14 @@ export function App({universalUi}: {universalUi?: ScopedUniversalUiHost} = {}) {
                 <ConfiguredApplication auth={auth}
                   universalUi={universalUi} initializer={initializer} />}
             />
-            <div style={{display: 'flex', justifyContent: 'center', padding: 12}}>
-              <BaseButton type="button" onClick={() => setIsGuest(true)}>Continue as guest</BaseButton>
-            </div>
-          </>
-        )}
-      </InitializationGate>
+          </InitializationGate>
+          {/* Local-only guest mode must remain reachable during a Luth outage.
+              Authenticated services remain behind the verified configuration gate. */}
+          <div style={{display: 'flex', justifyContent: 'center', padding: 12}}>
+            <BaseButton type="button" onClick={() => setIsGuest(true)}>Continue as guest</BaseButton>
+          </div>
+        </>
+      )}
     </SkipoThemeProvider>
   );
 }
