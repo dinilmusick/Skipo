@@ -465,7 +465,7 @@ def test_project(root: Path) -> int:
     return verify_project(root)
 
 def main() -> int:
-    if sys.argv[1:2] == ["native-peer"]:
+    if sys.argv[1:2] == ["package"]:\n        from skipo_packager import main as package_main\n        return package_main(sys.argv[2:])\n    if sys.argv[1:2] == ["native-peer"]:
         from skipo_native_peer import main as native_peer_main
         return native_peer_main(sys.argv[2:])
     # Friendly full-stack page commands are aliases for the same atomic
