@@ -111,6 +111,7 @@ VALID_KLOKS_SUBPATHS = {
     "ai-tools",
     "krnl-ai-services",
     "auth",
+    "backend/auth",
 }
 
 DATABASE_PACKAGES = {
