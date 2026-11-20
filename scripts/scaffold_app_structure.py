@@ -615,85 +615,117 @@ export default MainPage;
     app_tsx = target_root / "src" / "frontend" / "App.tsx"
     if not app_tsx.exists():
         app_tsx.write_text(
-            """import { useState } from 'react';
+            """import { useEffect, useMemo, useState } from 'react';
 import { SkipoThemeProvider } from '@ultrst-armada/floks/ui';
+import { createUniversalInitializationClient, DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth';
 import MainPage from './pages/main/page.js';
 import AuthPage from './pages/auth/page.js';
 import { WorkspaceGate } from './components/gates/WorkspaceGate.js';
 import { FrnlSemanticInputProvider } from '@ultrst-armada/frnlts';
+import { createLuthAuthClient } from '@ultrst-armada/kloks/auth';
 import type { WorkspaceRecord } from '@ultrst-armada/floks/ui';
 
-export function App() {
-  const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([]);
-  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceRecord | null>(null);
-  const [isGuest, setIsGuest] = useState(false);
-  const storageOptions = [{ id: 'memory', provider: 'memory', label: 'In-memory (ephemeral)' }];
+const appId = '__SKIPO_APP_ID__';
+const authClient = createLuthAuthClient({
+  ecosystemId: 'ultrst-armada', applicationId: appId, autoRegister: false,
+});
+const initializer = createUniversalInitializationClient(
+  { appId, runtime: 'browser' },
+  { expectedIssuerOrigin: DEFAULT_LUTH_URL,
+    authorize: async () => authClient.getAuthHeaders() },
+);
 
-  const handleContinueAsGuest = () => {
-    const guestWs: WorkspaceRecord = {
-      id: 'ws-guest',
-      title: 'Guest Session',
-      name: 'Guest Session',
-      storageProvider: 'memory',
-    };
-    setWorkspaces([guestWs]);
-    setActiveWorkspace(guestWs);
-    setIsGuest(true);
-  };
-
-  if (isGuest && activeWorkspace) {
-    return <SkipoThemeProvider defaultTheme="dark">
-      <FrnlSemanticInputProvider value={{ workspace: activeWorkspace.id }}>
-        <MainPage>
-          <div data-skipo-active-workspace={activeWorkspace.id} />
-        </MainPage>
-      </FrnlSemanticInputProvider>
-    </SkipoThemeProvider>;
-  }
-
-  return <SkipoThemeProvider defaultTheme="dark">
-    <AuthPage onContinueAsGuest={handleContinueAsGuest} authenticatedContent={(auth: any) => {
-    if (!activeWorkspace) {
-      return <WorkspaceGate
-        workspaces={workspaces}
-        userId={auth.user?.id}
-        currentUser={auth.user}
-        storageOptions={storageOptions}
-        visibility={{ storagePolicy: { providers: ['memory'] } }}
-        activeWorkspaceId={null}
-        onSelectWorkspace={setActiveWorkspace}
-        onCreateWorkspace={async (input) => {
-          const workspace: WorkspaceRecord = {
-            id: `ws-${Date.now()}`,
-            title: input.name.trim(),
-            name: input.name.trim(),
-            description: input.description,
-            storageProvider: input.storageProvider || input.storage?.provider || 'memory',
-            storageConnectionId: input.storageConnectionId || input.storage?.connectionId,
-          };
-          setWorkspaces((current) => [...current, workspace]);
-          setActiveWorkspace(workspace);
-        }}
-        onLogout={() => {
-          setActiveWorkspace(null);
-          setIsGuest(false);
-          void auth.signOut();
-        }}
-        appName="__SKIPO_APP_NAME__"
-      />;
-    }
-
-    return <FrnlSemanticInputProvider value={{ workspace: activeWorkspace.id }}>
-      <MainPage>
-        <div data-skipo-active-workspace={activeWorkspace.id} />
-      </MainPage>
-    </FrnlSemanticInputProvider>;
-  }} />
-  </SkipoThemeProvider>;
+function InitStatus({ message, retry }: { message: string; retry?: () => void }) {
+  return <section role="status" aria-live="polite" data-skipo-initializing="true">
+    <p>{message}</p>
+    {retry && <button type="button" onClick={retry}>Retry initialization</button>}
+  </section>;
 }
 
+function AuthenticatedUser({ auth }: { auth: any }) {
+  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceRecord | null>(null);
+  const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([]);
+  const [phase, setPhase] = useState<'configuring'|'ready'|'denied'|'unavailable'>('configuring');
+  const [retryCount, setRetryCount] = useState(0);
+  const principal = auth.user?.id;
+  useEffect(() => {
+    let active = true;
+    setPhase('configuring');
+    void initializer.configuration().then(config => {
+      if (!active) return;
+      setPhase(principal && config.principal.userId === principal ? 'ready' : 'denied');
+    }).catch(error => {
+      if (active) setPhase(error?.code === 'AUTHORIZATION_DENIED' ? 'denied' : 'unavailable');
+    });
+    return () => { active = false; };
+  }, [principal, retryCount]);
+  if (phase !== 'ready') return <InitStatus message={
+    phase === 'configuring' ? 'Verifying Luth application configuration…' :
+    phase === 'denied' ? 'Application access denied.' : 'Configuration unavailable.'
+  } retry={phase === 'configuring' ? undefined : () => {
+    initializer.invalidate(); setRetryCount(n => n + 1);
+  }} />;
+  if (!activeWorkspace) return <WorkspaceGate
+    workspaces={workspaces} userId={principal} currentUser={auth.user}
+    storageOptions={[{ id: 'memory', provider: 'memory', label: 'In-memory (ephemeral)' }]}
+    activeWorkspaceId={null} onSelectWorkspace={setActiveWorkspace}
+    onCreateWorkspace={async (input) => {
+      const workspace: WorkspaceRecord = {
+        id: 'ws-' + Date.now(),
+        title: input.name.trim(), name: input.name.trim(), description: input.description,
+        storageProvider: input.storageProvider || input.storage?.provider || 'memory',
+        storageConnectionId: input.storageConnectionId || input.storage?.connectionId,
+      };
+      setWorkspaces(current => [...current, workspace]);
+      setActiveWorkspace(workspace);
+    }}
+    onLogout={() => { setActiveWorkspace(null); initializer.invalidate(); void auth.signOut(); }}
+    appName="__SKIPO_APP_NAME__" />;
+  return <FrnlSemanticInputProvider value={{ workspace: activeWorkspace.id }}>
+    <MainPage><div data-skipo-active-workspace={activeWorkspace.id} /></MainPage>
+  </FrnlSemanticInputProvider>;
+}
+
+export function App() {
+  const [phase, setPhase] = useState<'discovery'|'authentication'|'denied'|'unavailable'>('discovery');
+  const [retryCount, setRetryCount] = useState(0);
+  const [guest, setGuest] = useState(false);
+  const guestWorkspace = useMemo(() => ({
+    id: 'ws-guest', title: 'Guest Session', name: 'Guest Session',
+    storageProvider: 'memory',
+  } as WorkspaceRecord), []);
+  useEffect(() => {
+    let active = true;
+    setPhase('discovery');
+    void initializer.discover().then(() => { if (active) setPhase('authentication'); })
+      .catch(error => {
+        if (active) setPhase(error?.code === 'APP_NOT_FOUND' || error?.code === 'UNTRUSTED_ISSUER'
+          ? 'denied' : 'unavailable');
+      });
+    return () => { active = false; };
+  }, [retryCount]);
+
+  return <SkipoThemeProvider defaultTheme="dark">
+    {phase !== 'authentication' ? (
+      <InitStatus message={
+        phase === 'discovery' ? 'Connecting to Luth discovery…' :
+        phase === 'denied' ? 'Application registration denied.' : 'Discovery unavailable.'
+      } retry={phase === 'discovery' ? undefined : () => {
+        initializer.invalidate(); setRetryCount(n => n + 1);
+      }} />
+    ) : guest ? (
+      <FrnlSemanticInputProvider value={{ workspace: guestWorkspace.id }}>
+        <MainPage><div data-skipo-active-workspace={guestWorkspace.id} /></MainPage>
+      </FrnlSemanticInputProvider>
+    ) : (
+      <AuthPage onContinueAsGuest={() => setGuest(true)}
+        authenticatedContent={(auth: any) =>
+          <AuthenticatedUser key={auth.user?.id || 'unauthenticated'} auth={auth} />} />
+    )}
+  </SkipoThemeProvider>;
+}
 export default App;
-""".replace("__SKIPO_APP_NAME__", pascal),
+""".replace("__SKIPO_APP_NAME__", pascal).replace("__SKIPO_APP_ID__", app_name.lower().replace(" ", "-")),
             encoding="utf-8",
         )
         created.append(app_tsx)
