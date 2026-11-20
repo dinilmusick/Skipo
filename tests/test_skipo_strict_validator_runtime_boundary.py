@@ -64,7 +64,7 @@ class RealBackendBoundaryTests(unittest.TestCase):
             encoding="utf-8",
         )
         found = errors(self.verify(), "backend-facade-missing-worker-boundary")
-        self.assertEqual([v.file_path for v in found], ["src/backend/UniversalBackend.ts"])
+        self.assertEqual([v.file_path.replace('\\', '/') for v in found], ["src/backend/UniversalBackend.ts"])
 
     def test_comment_only_worker_marker_is_not_proof(self):
         (self.backend / "UntrustedBackend.ts").write_text(
@@ -73,7 +73,7 @@ class RealBackendBoundaryTests(unittest.TestCase):
             encoding="utf-8",
         )
         found = errors(self.verify(), "backend-facade-missing-worker-boundary")
-        self.assertIn("src/backend/UntrustedBackend.ts", [v.file_path for v in found])
+        self.assertIn("src/backend/UntrustedBackend.ts", [v.file_path.replace('\\', '/') for v in found])
 
 
 class RuntimePurityClassificationTests(unittest.TestCase):
@@ -96,7 +96,7 @@ class RuntimePurityClassificationTests(unittest.TestCase):
         canonical = (ROOT / "scaffolds/vite/src/backend/ecosystem/AppEcosystem_Impure.ts")
         (self.folder / "NotActuallyA_Facade.ts").write_bytes(canonical.read_bytes())
         found = errors(self.verify(), "purity-grade-mismatch")
-        self.assertEqual([v.file_path for v in found],
+        self.assertEqual([v.file_path.replace('\\', '/') for v in found],
                          ["src/backend/ecosystem/NotActuallyA_Facade.ts"])
 
     def test_passive_local_module_cannot_call_itself_impure(self):
@@ -109,7 +109,7 @@ class RuntimePurityClassificationTests(unittest.TestCase):
         ))
         (self.folder / "Registry_Impure.ts").write_text(source, encoding="utf-8")
         found = errors(self.verify(), "purity-grade-mismatch")
-        self.assertEqual([v.file_path for v in found],
+        self.assertEqual([v.file_path.replace('\\', '/') for v in found],
                          ["src/backend/ecosystem/Registry_Impure.ts"])
 
 
