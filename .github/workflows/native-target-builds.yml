@@ -32,9 +32,44 @@ jobs:
       - run: python -m pip install pytest
       - run: python -m pytest -q --import-mode=importlib tests/test_skipo_packager.py
 
+  native-fixture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: \${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - name: Build canonical application once on portable Linux
+        shell: bash
+        run: |
+          python3 scripts/skipo_cli.py create CanonicalFixture "$RUNNER_TEMP/skipo-native-fixture"
+          cd "$RUNNER_TEMP/skipo-native-fixture"
+          pnpm install --frozen-lockfile
+          pnpm run build
+      - name: Share verified canonical Fetch build with native hosts
+        uses: actions/upload-artifact@v4
+        with:
+          name: skipo-canonical-native-fixture
+          path: |
+            \${{ runner.temp }}/skipo-native-fixture/package.json
+            \${{ runner.temp }}/skipo-native-fixture/src/app.ts
+            \${{ runner.temp }}/skipo-native-fixture/skipo.providers.json
+            \${{ runner.temp }}/skipo-native-fixture/dist/client/
+          retention-days: 5
+
   native-compile:
     name: ${{ matrix.name }}
-    needs: native-shell-test
+    needs: [native-shell-test, native-fixture]
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -58,25 +93,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.33.0
       - if: matrix.target == 'android'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-      - if: matrix.target == 'android'
-        uses: android-actions/setup-android@v3
-      - name: Generate canonical Skipo fixture
-        shell: bash
-        run: python3 scripts/skipo_cli.py create CanonicalFixture "$RUNNER_TEMP/skipo-native-fixture"
-      - name: Install and build canonical Skipo application
-        shell: bash
-        working-directory: ${{ runner.temp }}/skipo-native-fixture
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm run build
+      - name: Restore canonical Skipo application built on Linux
+        uses: actions/download-artifact@v4
+        with:
+          name: skipo-canonical-native-fixture
+          path: \${{ runner.temp }}/skipo-native-fixture
       - name: Verify exact checked out source commit
         shell: bash
         run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
