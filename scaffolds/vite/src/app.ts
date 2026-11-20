@@ -1,5 +1,6 @@
 import { externalInterfaces } from "./backend/UniversalBackend.js";
 import { proxyLuthAuthRequest } from "./backend/auth/luthSession.js";
+import { handleSkipoUniversalBff } from "./backend/adapters/universalOAuthBff.js";
 
 /**
  * Canonical Web-standard application entrypoint.
@@ -57,6 +58,10 @@ export async function fetch(
   if (url.pathname === "/health" || url.pathname === "/api/health") {
     return Response.json({ status: "ok", runtime: "fetch" }, { headers: cors });
   }
+
+  // The same canonical app-owned Kloks BFF runs for Workers and Node.
+  const bff = await handleSkipoUniversalBff(request, env);
+  if (bff) return bff;
 
   const authProxy = await proxyLuthAuthRequest(request);
   if (authProxy) return authProxy;
