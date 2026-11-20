@@ -19,6 +19,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from skipo_process import platform_command
+
 FRAMEWORK_ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_SCRIPTS = ("typecheck", "lint", "test", "build")
 UNVERIFIED_LIVE = (
@@ -90,7 +92,7 @@ def _git_sha(root: Path) -> str | None:
 
 def _execute(command: list[str], cwd: Path, timeout: int = 600) -> tuple[int | None, str, str, str | None]:
     try:
-        proc = subprocess.run(command, cwd=cwd, text=True, capture_output=True, timeout=timeout, check=False)
+        proc = subprocess.run(platform_command(command), cwd=cwd, text=True, capture_output=True, timeout=timeout, check=False)
         return proc.returncode, proc.stdout, proc.stderr, None
     except subprocess.TimeoutExpired as exc:
         return None, "", "", f"Command timed out after {timeout}s"
