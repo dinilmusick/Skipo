@@ -335,3 +335,55 @@ def render_mobile_discovery(target: str) -> dict[str, str]:
         "web/skipo-native-discovery.js": BOOTSTRAP_JS,
     }
     return files
+
+
+POSTADD_JS = r'''#!/usr/bin/env node
+import { readFileSync, writeFileSync, lstatSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const target = process.argv[2];
+if (!['android', 'ios'].includes(target)) throw new Error('Unsupported native target');
+const root = process.cwd();
+if (target === 'android') {
+  // The plugin's AndroidManifest.xml is merged by Gradle. Never disable
+  // OS permission checks to avoid a platform permission request.
+  const path = resolve(root, 'native/skipo-discovery/android/src/main/AndroidManifest.xml');
+  if (!readFileSync(path, 'utf8').includes('android.permission.ACCESS_LOCAL_NETWORK')) {
+    throw new Error('Skipo NSD permission declaration missing');
+  }
+} else {
+  const path = resolve(root, 'ios/App/App/Info.plist');
+  if (lstatSync(path).isSymbolicLink()) throw new Error('Info.plist symlink is unsafe');
+  let xml = readFileSync(path, 'utf8');
+  const usage = 'NSLocalNetworkUsageDescription';
+  const services = 'NSBonjourServices';
+  if (!xml.includes('<key>' + usage + '</key>') || !xml.includes('<key>' + services + '</key>')) {
+    const before = xml.lastIndexOf('</dict>');
+    if (before < 0 || !xml.includes('<plist')) throw new Error('Invalid iOS plist format');
+    if (xml.includes('<key>' + usage + '</key>') ||
+        xml.includes('<key>' + services + '</key>')) {
+      throw new Error('Conflicting native LAN privacy keys must be reconciled manually');
+    }
+    const fragment = [
+      '    <key>NSLocalNetworkUsageDescription</key>',
+      '    <string>Discover nearby Skipo applications on your local network.</string>',
+      '    <key>NSBonjourServices</key>',
+      '    <array><string>_skipo._tcp</string></array>',
+      ''
+    ].join('\n');
+    xml = xml.slice(0, before) + fragment + xml.slice(before);
+    writeFileSync(path, xml, 'utf8');
+  }
+}
+console.log('[skipo] Mandatory native discovery permissions installed for ' + target);
+'''
+
+
+# Preserve the application's web bundle but install a mandatory native-only
+# bootstrap. The bridge never authorizes invocations based on an advertisement.
+_old_render_mobile_discovery = render_mobile_discovery
+
+def render_mobile_discovery(target: str) -> dict[str, str]:
+    result = _old_render_mobile_discovery(target)
+    result["scripts/skipo-postadd.mjs"] = POSTADD_JS
+    return result
