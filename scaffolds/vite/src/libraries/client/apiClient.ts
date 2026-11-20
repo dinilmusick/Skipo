@@ -12,13 +12,17 @@ async function wrappedFetch(url: string, init?: RequestInit): Promise<Response> 
 export const apiClient = {
   async login(email?: string, password?: string, isAdmin: boolean = false) {
     if (isAdmin) throw new Error('Administrative authentication is not provided by Luth user login.');
-    await luthAuthClient.signInWithEmail({ email: email || '', password: password || '' });
-    return luthAuthClient.getSession();
+    // The app never receives email/password credentials; Luth hosts that UI.
+    if (!luthAuthClient) throw new Error('AUTHENTICATION_RUNTIME_UNAVAILABLE');
+    luthAuthClient.signInWithEmail();
+    return { success: false, redirecting: true };
   },
 
   async register(data: { name: string; email: string; password: string; role?: string }) {
-    await luthAuthClient.signUpWithEmail({ name: data.name, email: data.email, password: data.password });
-    return luthAuthClient.getSession();
+    // Registration is performed by the Luth-hosted OAuth login page.
+    if (!luthAuthClient) throw new Error('AUTHENTICATION_RUNTIME_UNAVAILABLE');
+    luthAuthClient.startSignIn();
+    return { success: false, redirecting: true };
   },
 
   async getWorkspaces(_userId?: string) {
