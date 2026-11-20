@@ -119,6 +119,7 @@ def perform(root: Path, command: str, name: str, member: str | None = None,
     state = load_state(root)
     services: dict = state["services"]
     existing = services.get(service)
+    previously_owned = set(existing.get("userOwned", [])) if existing else set()
     if command in {"create", "new"}:
         if not existing:
             registry = json.loads((Path(__file__).resolve().parents[1] /
@@ -167,7 +168,9 @@ def perform(root: Path, command: str, name: str, member: str | None = None,
         if rel in user_owned:
             if current is None:
                 writes[rel] = expected
-            elif rel not in state["managed"]:
+            elif rel not in previously_owned:
+                conflicts.append(rel)
+            else:
                 preserved.append(rel)
             continue
         previous_hash = managed.get(rel)
@@ -176,7 +179,17 @@ def perform(root: Path, command: str, name: str, member: str | None = None,
         elif current is None:
             writes[rel] = expected
             managed[rel] = digest(expected)
-        elif previous_hash is not None and (digest(current) == previous_hash or reset):
+        elif previous_hash is not None and digest(current) == previous_hash:
+            writes[rel] = expected
+            managed[rel] = digest(expected)
+        elif previous_hash is not None and reset and command == "repair":
+            backup = f".skipo/service-backups/{service}/{digest(current)}/{rel}"
+            backup_path = validate_path(root, backup)
+            if backup_path.exists() and backup_path.read_text(encoding="utf-8") != current:
+                conflicts.append(backup)
+                continue
+            if not backup_path.exists():
+                writes[backup] = current
             writes[rel] = expected
             managed[rel] = digest(expected)
         else:
