@@ -1,0 +1,76 @@
+name: Reconcile universal auth 2.2.4 / 2.2.9 Skipo lockfiles
+on:
+  push:
+    branches:
+      - feat/universal-init-scaffold-v1-20261120
+permissions:
+  contents: write
+concurrency:
+  group: skipo-universal-auth-lock-refresh
+  cancel-in-progress: false
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: true
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org/
+          cache: pnpm
+      - name: Wait for the immutable Kloks upstream release
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=false
+          for attempt in $(seq 1 48); do
+            if npm view '@ultrst-armada/kloks@2.2.9' version --registry=https://registry.npmjs.org/ | grep -Fx '2.2.9' >/dev/null; then
+              ok=true
+              break
+            fi
+            echo "Waiting for immutable Kloks 2.2.9 ($attempt/48)"
+            sleep 15
+          done
+          test "$ok" = true
+      - name: Resolve root and generated Vite app pnpm lockfiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --lockfile-only --ignore-scripts --no-frozen-lockfile
+          (cd scaffolds/vite && pnpm install --lockfile-only --ignore-scripts --no-frozen-lockfile)
+          pnpm install --frozen-lockfile --ignore-scripts
+          (cd scaffolds/vite && pnpm install --frozen-lockfile --ignore-scripts)
+      - name: Assert both roots are pinned to the released packages
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          for (const p of ['package.json','scaffolds/vite/package.json']) {
+            const d=JSON.parse(fs.readFileSync(p,'utf8'));
+            if(d.dependencies?.['@dinilmusick/gutts']!=='2.2.4'||d.dependencies?.['@ultrst-armada/kloks']!=='2.2.9')throw Error('Stale auth deps in '+p);
+          }
+          for (const l of ['pnpm-lock.yaml','scaffolds/vite/pnpm-lock.yaml']) {
+            const s=fs.readFileSync(l,'utf8');
+            if(!s.includes('@dinilmusick/gutts@2.2.4')||!s.includes('@ultrst-armada/kloks@2.2.9'))throw Error('Stale lock '+l);
+          }
+          if(JSON.parse(fs.readFileSync('packages/skipo/package.json','utf8')).version!=='1.3.2')throw Error('CLI version mismatch');
+          NODE
+      - name: Commit package-manager generated lockfiles only
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- pnpm-lock.yaml scaffolds/vite/pnpm-lock.yaml; then
+            echo "Locks already consistent"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add pnpm-lock.yaml scaffolds/vite/pnpm-lock.yaml
+          git commit -m 'chore(lock): resolve published universal auth dependencies in both Skipo roots'
+          git push origin HEAD:refs/heads/feat/universal-init-scaffold-v1-20261120
