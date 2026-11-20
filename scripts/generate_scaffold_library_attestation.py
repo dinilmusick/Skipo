@@ -26,7 +26,11 @@ def canonical_bytes() -> bytes:
         if relative.startswith("skipo/"):
             # Dynamic application capability assets are never framework-exempt.
             continue
-        files["src/libraries/" + relative] = hashlib.sha256(source.read_bytes()).hexdigest()
+        # Git checkout autocrlf changes text bytes on Windows. Canonical LF
+        # normalization preserves semantic source identity on every platform;
+        # every other change must still cause a SHA-256 mismatch.
+        canonical = source.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+        files["src/libraries/" + relative] = hashlib.sha256(canonical).hexdigest()
     if not files:
         raise ValueError("Cannot attest an empty framework-owned Vite library snapshot")
     payload = {"schema": 1, "source": "canonical-vite-scaffold", "files": files}
