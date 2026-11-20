@@ -1,4 +1,5 @@
 name: Skipo Native Target Builds
+# Gate is re-run on the reconciled PR head; native artifacts are not signed releases.
 
 on:
   pull_request:
