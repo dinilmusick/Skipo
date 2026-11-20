@@ -6,6 +6,10 @@ on:
       - "tests/verify-skipo-cli-cleanroom.mjs"
       - ".github/workflows/skipo-cli-cleanroom-e2e.yml"
       - "scripts/skipo_cli.py"
+      - "scripts/skipo_process.py"
+      - "scripts/skipo_maintenance.py"
+      - "scripts/skipo_conformance.py"
+      - "tests/test_skipo_portable_process.py"
       - "scripts/skipo_capabilities.py"
       - "scripts/skipo_service_scaffolds.py"
       - "scripts/skipo_reconciliation.py"
@@ -35,6 +39,8 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: "10.33.0"
+      - name: Verify host-native subprocess and trusted filesystem root contracts
+        run: python -m unittest discover -s tests -p "test_skipo_portable_process.py" -v
       - name: Pack, install, create a new Git app and exercise full CLI lifecycle
         env:
           SKIPO_E2E_EVIDENCE_DIR: ${{ github.workspace }}/e2e-evidence/${{ matrix.os }}
