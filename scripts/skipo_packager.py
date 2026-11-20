@@ -66,6 +66,76 @@ def read_project(root: Path) -> tuple[str, Path, list[Path]]:
     return app_id, web, assets
 
 
+
+def read_hubrys_project(root: Path) -> tuple[str, Path, list[Path], list[dict]]:
+    """Validate a real Hubrys complex; never synthesize a fake Skipo Fetch entry.
+
+    Hubrys is an application host, so its native wrapper inherits the same
+    target-specific Skipo native platform assets but not Skipo app scaffolding.
+    """
+    if root.is_symlink() or not root.is_dir():
+        raise ValueError("Hubrys project directory must be a real directory")
+    descriptor = root / "hubrys.package.json"
+    package_path = root / "package.json"
+    for path in (descriptor, package_path):
+        if not path.is_file() or path.is_symlink():
+            raise ValueError("Hubrys package input missing: " + str(path))
+    try:
+        spec = json.loads(descriptor.read_text(encoding="utf-8"))
+        package = json.loads(package_path.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("Invalid Hubrys package manifest or package.json") from exc
+    if (not isinstance(spec, dict) or spec.get("kind") != "hubrys-complex-v1"
+        or spec.get("schemaVersion") != 1):
+        raise ValueError("Invalid Hubrys composition manifest schema")
+    name = spec.get("complexId")
+    if not isinstance(name, str) or not APP_ID.fullmatch(name):
+        raise ValueError("Invalid Hubrys complex ID")
+    host = spec.get("host")
+    if not isinstance(host, dict) or host.get("httpEntrypoints") != 1 or host.get("appPorts") != 0:
+        raise ValueError("Hubrys must expose one host entrypoint and zero per-app ports")
+    frontend = spec.get("frontend")
+    if not isinstance(frontend, dict) or frontend.get("directory") != "dist/client":
+        raise ValueError("Hubrys native frontend must use dist/client; arbitrary paths are forbidden")
+    if not isinstance(package, dict) or not isinstance(package.get("name"), str):
+        raise ValueError("Hubrys package.json must name the host package")
+    apps = spec.get("apps")
+    if not isinstance(apps, list) or not apps or len(apps) > 64:
+        raise ValueError("Hubrys native packaging requires 1–64 embedded apps")
+    ids: set[str] = set()
+    records: list[dict] = []
+    for app in apps:
+        if not isinstance(app, dict):
+            raise ValueError("Invalid Hubrys embedded application entry")
+        app_id, version = app.get("id"), app.get("version")
+        if (not isinstance(app_id, str) or not APP_ID.fullmatch(app_id)
+            or not isinstance(version, str) or not version.strip() or len(version) > 100
+            or any(c in version for c in ("/", "\\", "\x00"))):
+            raise ValueError("Invalid Hubrys app ID or version")
+        if app_id in ids:
+            raise ValueError("Duplicate embedded Hubrys app " + app_id)
+        ids.add(app_id)
+        component = root / "apps" / app_id
+        meta = component / "hubrys.manifest.json"
+        if (component.is_symlink() or not component.is_dir()
+            or meta.is_symlink() or not meta.is_file()):
+            raise ValueError("Missing Hubrys embedded app manifest: " + app_id)
+        installed = json.loads(meta.read_text(encoding="utf-8"))
+        if (not isinstance(installed, dict) or installed.get("id") != app_id
+            or installed.get("version") != version):
+            raise ValueError("Hubrys app ID/version mismatch: " + app_id)
+        backend_entry = installed.get("backendEntry")
+        if not isinstance(backend_entry, str) or not backend_entry or "\\" in backend_entry:
+            raise ValueError("Invalid Hubrys app backend entry: " + app_id)
+        resolved = (component / backend_entry).resolve()
+        if not resolved.is_relative_to(component.resolve()) or not resolved.is_file() or resolved.is_symlink():
+            raise ValueError("Hubrys backend entry not installed inside its app: " + app_id)
+        records.append({"id": app_id, "version": version})
+    frontend_dir = root / "dist" / "client"
+    if not (frontend_dir / "index.html").is_file():
+        raise ValueError("Hubrys complex frontend is not built: dist/client/index.html")
+    return name, frontend_dir, safe_files(frontend_dir), records
+
 def https_origin(value: str | None) -> str | None:
     if value is None:
         return None
@@ -82,7 +152,11 @@ def build_plan(args: argparse.Namespace) -> tuple[dict, dict[str, bytes]]:
     root = args.project.resolve()
     if (root / "dist").is_symlink():
         raise ValueError("Build output cannot be symlinked")
-    app_id, web, assets = read_project(root)
+    if args.source_kind == "hubrys":
+        app_id, web, assets, embedded_apps = read_hubrys_project(root)
+    else:
+        app_id, web, assets = read_project(root)
+        embedded_apps = []
     if not BUNDLE_ID.fullmatch(args.bundle_id):
         raise ValueError("Bundle ID must be a reverse-DNS identifier (com.example.app)")
     if not args.app_name.strip() or len(args.app_name.strip()) > 80:
@@ -97,7 +171,7 @@ def build_plan(args: argparse.Namespace) -> tuple[dict, dict[str, bytes]]:
     if args.target == "desktop" and peer.exists():
         if peer.is_symlink() or not peer.is_file() or peer.read_text(encoding="utf-8") != TEMPLATE:
             raise ValueError("Desktop native peer adapter drift from canonical Skipo source")
-    if args.backend == "remote" and args.action == "prepare":
+    if args.backend == "remote" and args.action in ("prepare", "build"):
         raise ValueError("Native authenticated API bridge is unverified; remote packaging blocked")
 
     output = root / "dist" / "native" / args.target
@@ -110,6 +184,13 @@ def build_plan(args: argparse.Namespace) -> tuple[dict, dict[str, bytes]]:
                       render_mobile_discovery(args.target).items()})
     for path in assets:
         files["web/" + path.relative_to(web).as_posix()] = path.read_bytes()
+    if embedded_apps:
+        composition = {"kind": "hubrys-complex-v1", "complexId": app_id,
+                       "host": {"httpEntrypoints": 1, "appPorts": 0},
+                       "apps": embedded_apps}
+        files["meta/hubrys-composition.json"] = (
+            json.dumps(composition, sort_keys=True, separators=(",", ":")) + "\n"
+        ).encode("utf-8")
     if args.target in ("android", "ios"):
         key = "web/index.html"
         html = files[key].decode("utf-8")
@@ -126,6 +207,7 @@ def build_plan(args: argparse.Namespace) -> tuple[dict, dict[str, bytes]]:
     digest = sha.hexdigest()
     report = {
         "operation": "skipo package", "target": args.target,
+        "sourceKind": args.source_kind, "embeddedApps": embedded_apps,
         "backend": args.backend, "apiOrigin": origin,
         "discovery": {"desktop":"desktop-udp","android":"android-nsd","ios":"ios-bonjour"}[args.target],
         "source": str(root), "output": str(output),
@@ -135,6 +217,11 @@ def build_plan(args: argparse.Namespace) -> tuple[dict, dict[str, bytes]]:
         "blockers": (["Canonical native API and Luth auth redirect bridge not verified"]
                      if args.backend == "remote" else []),
     }
+    if args.source_kind == "hubrys":
+        report["compositeBackendBundled"] = False
+        report["blockers"].append(
+            "Hubrys app backend mounting and authenticated Luth session bridge are not included in this native shell"
+        )
     return report, files
 
 
@@ -169,6 +256,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("action", choices=("plan", "prepare", "build"))
     parser.add_argument("--target", required=True, choices=TARGETS)
     parser.add_argument("--project", type=Path, default=Path.cwd())
+    parser.add_argument("--source-kind", choices=("skipo", "hubrys"), default="skipo")
     parser.add_argument("--bundle-id", required=True)
     parser.add_argument("--app-name", required=True)
     parser.add_argument("--backend", choices=("static", "remote"), required=True)
