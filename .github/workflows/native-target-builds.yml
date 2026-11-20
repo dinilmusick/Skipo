@@ -1,0 +1,129 @@
+name: Skipo Native Target Builds
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/skipo_packager.py'
+      - 'scripts/skipo_packager_templates.py'
+      - 'scripts/skipo_discovery_native.py'
+      - 'scripts/skipo_native_build.py'
+      - 'tests/test_skipo_packager.py'
+      - '.github/workflows/native-target-builds.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-shell-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install pytest
+      - run: python -m pytest -q --import-mode=importlib tests/test_skipo_packager.py
+
+  native-fixture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - name: Build canonical application once on portable Linux
+        shell: bash
+        run: |
+          python3 scripts/skipo_cli.py create CanonicalFixture "$RUNNER_TEMP/skipo-native-fixture"
+          cd "$RUNNER_TEMP/skipo-native-fixture"
+          pnpm install --frozen-lockfile
+          pnpm run build
+      - name: Share verified canonical Fetch build with native hosts
+        uses: actions/upload-artifact@v4
+        with:
+          name: skipo-canonical-native-fixture
+          path: |
+            ${{ runner.temp }}/skipo-native-fixture/package.json
+            ${{ runner.temp }}/skipo-native-fixture/src/app.ts
+            ${{ runner.temp }}/skipo-native-fixture/skipo.providers.json
+            ${{ runner.temp }}/skipo-native-fixture/dist/client/
+          retention-days: 5
+
+  native-compile:
+    name: ${{ matrix.name }}
+    needs: [native-shell-test, native-fixture]
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: 'Windows x64 NSIS', os: 'windows-latest', target: desktop, platform: windows, arch: x64 }
+          - { name: 'macOS Intel DMG', os: 'macos-15', target: desktop, platform: macos, arch: x64 }
+          - { name: 'macOS Apple Silicon DMG', os: 'macos-15', target: desktop, platform: macos, arch: arm64 }
+          - { name: 'Linux x64 AppImage', os: 'ubuntu-latest', target: desktop, platform: linux, arch: x64 }
+          - { name: 'Android debug APK', os: 'ubuntu-latest', target: android, platform: mobile, arch: x64 }
+          - { name: 'iOS simulator app', os: 'macos-15', target: ios, platform: mobile, arch: x64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - if: matrix.target == 'android'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Restore canonical Skipo application built on Linux
+        uses: actions/download-artifact@v4
+        with:
+          name: skipo-canonical-native-fixture
+          path: ${{ runner.temp }}/skipo-native-fixture
+      - name: Verify exact checked out source commit
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+      - name: Build real native SDK artifact
+        shell: bash
+        run: |
+          extras=()
+          if [[ "${{ matrix.target }}" == "desktop" ]]; then
+            extras+=(--platform "${{ matrix.platform }}" --arch "${{ matrix.arch }}")
+          fi
+          python3 scripts/skipo_cli.py package build \
+            --target "${{ matrix.target }}" \
+            --project "$RUNNER_TEMP/skipo-native-fixture" \
+            --bundle-id com.example.nativefixture \
+            --app-name CanonicalFixture \
+            --backend static "${extras[@]}"
+      - name: Upload unsigned build evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: skipo-native-${{ matrix.target }}-${{ matrix.platform }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/skipo-native-fixture/dist/native/releases/
+          retention-days: 5
+          if-no-files-found: error
