@@ -1,79 +1,47 @@
-# Canonical Authentication Contract
+# ULTRST Universal Luth Initialization — Authentication Skill
 
-Every generated Skipo application composes one authentication authority:
+**Canonical identity authority:** Luth / Better Auth (official OAuth provider). **Canonical configuration authority:** existing ULTRST system Neon database, accessed through protected Luth configuration APIs. **SRKL:** account and connected-service management only. **ATAX:** separate persistent ledger; not the ULTRST application database.
 
+## Required application initialization
+
+1. Public `GET /api/discovery/v1?app_id=<registered_app_id>` at the pinned Luth issuer, before login. `app_id` is canonical; `APP_URL` is a deployment origin, not identity.
+2. **Floks `LuthOidcGate`** presents the hosted Luth OAuth/Google/email sign-in. Use `ApplicationOidcAuth` and the Kloks `createApplicationAuthClient` only as the opaque app-origin HttpOnly session interface. Do **not** use the legacy `LuthAuthPage` browser bearer client for a BFF application.
+3. The **Kloks** `createApplicationUniversalInitializationClient` validates GutTS v1 discovery metadata and issuer, then calls only the app-origin `/api/initialization/config` with `credentials: 'include'`. It never exposes or creates an OAuth token or confidential secret in frontend JavaScript.
+4. A **protected backend route** mounts `createCanonicalApplicationOAuthBff(request, env, appId)` before generic proxy/API routes. Kloks verifies the first-party session cookie, retrieves the server-held OAuth bearer, calls Luth `/api/config/v1`, validates application identity/consent and exact principal, revalidates session revocation and returns explicitly allowlisted no-secret data.
+5. Render services, accounts, workspace UI or agent/workflow execution only when `configuration.principal.userId === authenticatedSession.user.id`. On 401/403/503/issuer mismatch: fail closed with explicit unauthenticated/denied/unavailable/retry states. No silent fallback, security downgrade, or automatic login loop.
+6. Logout invalidates application configuration, browser readiness and server-held session. No application-owned OAuth/password/session issuer.
+
+## Shared ownership and source locations
+
+- **GutTS**: public discovery/configuration types, protocol validation, issuer pinning, native public-client PKCE contracts.
+- **Luth**: verified OAuth issuer, protected config read from Neon, canonical app registry and registered-origin/consent checks.
+- **Kloks**: public runtime discovery client, OAuth BFF, encrypted session, protected config continuation, supported server/Worker adapters.
+- **Floks**: shared `LuthOidcGate`, loading/error/login UI; do not rebuild it inside each app.
+- **Skipo**: deterministic generic and Vite scaffolding, CLI generators, `checklists/21_skipo_authentication_contract.py`, exact-head integration and cleanroom verification.
+- **SRKL/Aiko**: consumers of shared initialization, retaining their own account and workflow responsibilities.
+
+Production BFF still requires protected operational connection(s) and registered OAuth credentials during the **transition**. `SYSTEM_DATABASE_URL_1` is canonical and optional `_2/_3` are fallbacks; old unsuffixed `SYSTEM_DATABASE_URL` is a reviewed compatibility alias. Do not move a privileged database credential into a browser or distribute it to native apps. Removing ordinary runtime direct access depends on separately verified trusted-workload authorization and secure provisioning; it cannot be simulated with caller headers or APP_URL.
+
+## Generated CLI & compatibility contract
+
+- The generic generator: `scripts/scaffold_app_structure.py` creates application pages, and **`scripts/generate_provider_packaging.py` owns the single generated Fetch `src/app.ts`** for Node, Cloudflare Workers and Vercel. Do not replace or duplicate that canonical Fetch entrypoint.
+- Vite uses `scaffolds/vite/src/app.ts`; generated login UI uses Floks `LuthOidcGate`.
+- `LoginGate` is a legacy compatibility facade but must use the same OIDC gate and independently verified config principal, never the old bearer client.
+- `scaffolds/vite/src/libraries/client/luthAuthClient.ts` may use `createApplicationAuthClient`, but `luthFetch` must strip Authorization, reject cross-origin API URLs and use first-party cookies only.
+- No custom `better-auth` import, password hash handling, token storage, client-secret retrieval, auth-table schema or fabricated JWTs in generated apps. No legacy `AuthServiceFacade`.
+- Existing app-specific services, pages, workers, account settings and workflows must survive scaffold `add/repair`; refuse overlapping writes without ATAX claims.
+
+## Verification required before merging
+
+```bash
+pnpm install --frozen-lockfile
+pnpm run build
+pnpm run test
+pnpm run typecheck
+python3 checklists/21_skipo_authentication_contract.py
+python3 -m pytest -q --import-mode=importlib tests/universal_initialization_scaffold.test.py
 ```
-Skipo app identity + branding
-    ↓
-Floks LuthAuthPage + lifecycle hooks
-    ↓
-Kloks LuthAuthClient (re-exported from GutTS)
-    ↓
-Luth
-    ↓
-Better Auth
-```
 
-Applications own application identity, branding, protected-route presentation, and application-specific profile/workspace data. Luth exclusively owns identity, credentials, Google OAuth, session creation, session validation, refresh, logout, and revocation.
+Test exactly installed **published** GutTS/Kloks/Floks exports plus independent packed CLI generated-app builds. Reconcile every failed check, not just compilation. E2E must validate actual Luth discovery, real admin-enrolled OAuth clients, PKCE/state/redirect, Google/email, user + app + workspace isolation, session expiry and revocation, Luth/Neon outage, Workers/Vercel/Node. Native/headless flows must be separately proven in their actual runtime and registered identity before calling them supported. Unverified published dependencies, missing legitimate enrollment or runner failures are **BLOCKED**, never PASS.
 
-## Canonical ownership
-
-- **Luth / Better Auth:** user identities, credential verification and persistence, OAuth, sessions, token issuance, session validation and revocation.
-- **GutTS:** shared Luth authentication contracts and client primitives.
-- **Kloks:** public `@ultrst-armada/kloks/auth` client integration surface.
-- **Floks:** public `@ultrst-armada/floks/auth` authentication UI.
-- **Skipo:** thin composition adapter, app identity/branding, route protection integration and enforcement.
-- **Generated application:** app-specific profile/workspace data only; it never becomes an identity or session authority.
-
-## Required integration
-
-The generated authentication surface MUST use:
-
-- `LuthAuthPage` from `@ultrst-armada/floks/auth` as the complete authentication experience.
-- Floks-owned lifecycle hooks for email sign-in, registration, Google sign-in, session hydration, loading/error states and logout.
-- Kloks' `LuthAuthClient` only through Floks or the shared canonical API transport; applications must not wire login/register callbacks themselves.
-- A stable `ecosystemId` and application-specific `applicationId`.
-- Runtime-origin discovery and canonical application registration through the client.
-- Luth session validation for every protected backend route. A user ID, application profile row, or client-supplied identity is never an authentication credential.
-
-The Skipo adapter may supply stable application identity and presentation props only. It must not create callback-based login/register flows, implement the protocol, persist credentials, mint tokens, or create/validate sessions itself. Backend route guards must call Luth's session endpoint and reject requests unless Luth returns an authenticated user and a real session.
-
-## Prohibited application behavior
-
-Generated applications MUST NOT:
-
-- Hash or verify passwords locally.
-- Store passwords, password hashes, refresh tokens, or authentication credentials in an application database.
-- Create, sign, refresh, or revoke application-local sessions or JWTs.
-- Implement local login, registration, password-reset, or OAuth handlers.
-- Import Better Auth directly or instantiate an authentication database adapter.
-- Use the legacy `AuthServiceFacade` from `@ultrst-armada/kloks/backend` or `@ultrst-armada/kloks/backend/krnl-services`. That facade contains a legacy application-local password-login implementation and is not the canonical Luth client.
-- Depend directly on `bcrypt` or `bcryptjs` for application authentication.
-- Use Git-SHA dependencies or overrides for GutTS, Kloks, or Floks.
-
-Authentication API routes should be absent. If a compatibility proxy is explicitly required, it may only forward requests to Luth and must not inspect credentials, query authentication tables, or issue sessions.
-
-
-## Upstream Kloks packaging constraint
-
-The current published Kloks backend entrypoints re-export `krnl-services`, and that module still defines the legacy `AuthServiceFacade` alongside storage/workspace services. Skipo must never call or expose that facade. Because the storage/workspace imports currently share that module, removing the legacy code from the generated runtime dependency graph requires an upstream Kloks package split into auth-free storage/workspace exports and a new published package version. Track this as an upstream release dependency; do not reintroduce application-owned auth as a workaround.
-
-## Package contract
-
-The root package and Vite scaffold must use compatible published npm dependencies for `@dinilmusick/gutts`, `@ultrst-armada/kloks`, and `@ultrst-armada/floks`. Repository CI must install these packages from npm and resolve the exact public subpath exports used by generated source. Package availability and export resolution are executable checks, not documentation assumptions.
-
-## Enforcement and completion gate
-
-CI must inspect actual scaffold and generated source, manifests, imports and route files. Documentation markers alone are insufficient.
-
-A generated application is compliant only when:
-
-1. Its login surface composes Floks `LuthAuthPage` without application-owned authentication callbacks.
-2. Email registration/sign-in and Google sign-in are owned by Floks and delegate to Luth.
-3. Session hydration and protected-route validation delegate to Luth through Floks and the shared backend session guard.
-4. It contains no app-local password, credential, identity, token or session authority.
-5. It does not import the legacy Kloks `AuthServiceFacade`.
-6. Its package exports resolve from the published npm packages.
-7. Scaffold-generation tests, negative architecture tests, Vite builds, typecheck and CI pass.
-
-Runtime verification in a disposable environment should exercise email registration/login, Google OAuth callback, session hydration after refresh, logout/revocation, expired and invalid sessions, application-origin registration, protected backend authorization, and incremental Google Drive authorization. A successful compile is not proof of authentication consolidation.
+Record commits, PRs, dependency versions, verified CI, negative test evidence, and blockers to the canonical ATAX Supabase ledger before releasing claims. A passing source build is not production authorization evidence.
