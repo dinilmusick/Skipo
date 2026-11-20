@@ -16,7 +16,8 @@
       "outfile": "api/[...path].js",
       "platform": "node",
       "target": "node22",
-      "packages": "external"
+      "packages": "external",
+      "minify": true
     },
     {
       "name": "mcp",
@@ -24,7 +25,8 @@
       "outfile": "api/mcp.js",
       "platform": "node",
       "target": "node22",
-      "packages": "external"
+      "packages": "external",
+      "minify": true
     }
   ]
 }
