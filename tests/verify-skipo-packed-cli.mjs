@@ -88,7 +88,9 @@ try {
   // No lockfile relaxation: the first fresh-consumer dependency gate is frozen.
   run(pnpm, ["install", "--frozen-lockfile"], application);
   for (const gate of ["typecheck", "test", "build", "validate"]) {
-    run(pnpm, ["run", gate], application);
+    // Keep every full compliance rule active. Verbose logs reveal exact
+    // generated-app violations instead of reporting only the scorecard.
+    run(pnpm, gate === "validate" ? ["run", gate, "--", "--verbose"] : ["run", gate], application);
   }
   skipo(["add", "ui", "settings", application]);
   skipo(["verify", application]);
