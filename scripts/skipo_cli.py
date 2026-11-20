@@ -593,7 +593,31 @@ def main() -> int:
         q.add_argument("items",nargs="+")
         q.add_argument("--plan",action="store_true")
 
+    service_group=sub.add_parser("service", help="Scaffold and manage application-owned Krnl services")
+    service_commands=service_group.add_subparsers(dest="service_action",required=True)
+    for action in ["create", "new", "functionality", "helper", "bind", "repair", "verify"]:
+        q=service_commands.add_parser(action)
+        q.add_argument("name", help="Alphanumeric service name (e.g. Weather)")
+        if action in {"functionality", "helper"}:
+            q.add_argument("member", help="Lower-camel-case functionality/helper name")
+        q.add_argument("target", nargs="?", default=".")
+        if action != "verify":
+            q.add_argument("--plan", action="store_true", help="Show the exact write-set without modifying files")
+        if action == "repair":
+            q.add_argument("--reset", action="store_true", help="Backup and restore altered Skipo-managed scaffolds")
+
     a=parser.parse_args()
+    if a.command == "service":
+        from skipo_service_scaffolds import perform
+        try:
+            result = perform(Path(a.target), a.service_action, a.name,
+                             member=getattr(a, "member", None),
+                             plan=getattr(a, "plan", False),
+                             reset=getattr(a, "reset", False))
+        except (ValueError, OSError, json.JSONDecodeError) as exc:
+            result = {"ok": False, "operation": a.service_action, "applied": False, "error": str(exc)}
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0 if result.get("ok") else 2
     if a.command=="create":
         return create_project(a.name,Path(a.target or a.name).absolute(),a.framework,a.force)
     if a.command == "inspect":
