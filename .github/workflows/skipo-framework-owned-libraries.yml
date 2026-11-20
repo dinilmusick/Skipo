@@ -1,0 +1,30 @@
+name: Skipo cryptographic framework library provenance
+
+on:
+  pull_request:
+    paths:
+      - "scripts/generate_scaffold_library_attestation.py"
+      - "checklists/18_scoped_library_governance.py"
+      - "checklists/framework_owned_vite_libraries.json"
+      - "tests/test_scaffold_framework_library_provenance.py"
+      - ".github/workflows/skipo-framework-owned-libraries.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  framework-provenance:
+    name: Canonical framework library snapshot (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Print exact release candidate attestation with SHA-256 digest
+        run: python scripts/generate_scaffold_library_attestation.py --print
