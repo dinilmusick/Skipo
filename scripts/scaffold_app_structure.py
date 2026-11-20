@@ -528,23 +528,14 @@ export default LuthAuthPage;
 """,
         pages_root / "auth" / "luthFetch.ts": """'use client';
 
-import { createLuthAuthClient } from '@ultrst-armada/kloks/auth';
-
-const luthClient = createLuthAuthClient({
-  ecosystemId: 'ultrst-armada',
-  applicationId: "__SKIPO_APPLICATION_ID__",
-  autoRegister: true,
-});
-
-/** Attach the canonical Luth bearer token to protected application API requests. */
+/** Canonical same-origin HttpOnly BFF session; no browser bearer access. */
 export async function luthFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(init.headers);
-  new Headers(luthClient.getAuthHeaders()).forEach((value, key) => headers.set(key, value));
-  return fetch(input, {
-    ...init,
-    headers,
-    credentials: init.credentials ?? 'include',
-    cache: init.cache ?? 'no-store',
+  const headers = new Headers(input instanceof Request ? input.headers : undefined);
+  new Headers(init.headers).forEach((value, key) => headers.set(key, value));
+  headers.delete('Authorization');
+  const request = input instanceof Request ? new Request(input, { headers }) : input;
+  return fetch(request, {
+    ...init, headers, credentials: 'same-origin', cache: init.cache ?? 'no-store',
   });
 }
 """,
@@ -622,42 +613,37 @@ import MainPage from './pages/main/page.js';
 import AuthPage from './pages/auth/page.js';
 import { WorkspaceGate } from './components/gates/WorkspaceGate.js';
 import { FrnlSemanticInputProvider } from '@ultrst-armada/frnlts';
-import { createLuthAuthClient } from '@ultrst-armada/kloks/auth';
 import type { WorkspaceRecord } from '@ultrst-armada/floks/ui';
 
 const appId = '__SKIPO_APP_ID__';
-const authClient = typeof window !== 'undefined'
-  ? createLuthAuthClient({
-      ecosystemId: 'ultrst-armada', applicationId: appId, autoRegister: false,
-    })
-  : null;
-type InitFactory = (
-  app: { appId: string; runtime: 'browser' },
-  transport: { expectedIssuerOrigin: string; authorize: () => Promise<HeadersInit> },
-) => { discover(): Promise<any>; configuration(): Promise<any>; invalidate(): void };
-const initialize = (KloksLuth as unknown as { createUniversalInitializationClient?: InitFactory })
-  .createUniversalInitializationClient;
+type InitFactory = (app: { appId: string }) => {
+  discover(): Promise<any>; configuration(): Promise<any>; invalidate(): void;
+};
+const initialize = (KloksLuth as unknown as {
+  createApplicationUniversalInitializationClient?: InitFactory;
+}).createApplicationUniversalInitializationClient;
 const unavailable = async (): Promise<never> => {
   throw new Error('UNIVERSAL_INITIALIZATION_CONTRACT_UNAVAILABLE');
 };
 const initializer = typeof initialize === 'function'
-  ? initialize({ appId, runtime: 'browser' }, {
-      expectedIssuerOrigin: KloksLuth.DEFAULT_LUTH_URL,
-      authorize: async () => authClient?.getAuthHeaders() ?? {},
-    })
+  ? initialize({ appId })
   : { discover: unavailable, configuration: unavailable, invalidate: () => {} };
 
-function InitStatus({ message, retry }: { message: string; retry?: () => void }) {
+function InitStatus({ message, retry, actionLabel }: {
+  message: string; retry?: () => void; actionLabel?: string;
+}) {
   return <section role="status" aria-live="polite" data-skipo-initializing="true">
     <p>{message}</p>
-    {retry && <button type="button" onClick={retry}>Retry initialization</button>}
+    {retry && <button type="button" onClick={retry}>
+      {actionLabel ?? 'Retry initialization'}
+    </button>}
   </section>;
 }
 
 function AuthenticatedUser({ auth }: { auth: any }) {
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceRecord | null>(null);
   const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([]);
-  const [phase, setPhase] = useState<'configuring'|'ready'|'denied'|'unavailable'>('configuring');
+  const [phase, setPhase] = useState<'configuring'|'authorization'|'ready'|'denied'|'unavailable'>('configuring');
   const [retryCount, setRetryCount] = useState(0);
   const principal = auth.user?.id;
   useEffect(() => {
@@ -667,16 +653,19 @@ function AuthenticatedUser({ auth }: { auth: any }) {
       if (!active) return;
       setPhase(principal && config.principal.userId === principal ? 'ready' : 'denied');
     }).catch(error => {
-      if (active) setPhase(error?.code === 'AUTHORIZATION_DENIED' ? 'denied' : 'unavailable');
+      if (active) setPhase(error?.code === 'AUTHENTICATION_REQUIRED' ? 'authorization'
+        : error?.code === 'AUTHORIZATION_DENIED' ? 'denied' : 'unavailable');
     });
     return () => { active = false; };
   }, [principal, retryCount]);
   if (phase !== 'ready') return <InitStatus message={
     phase === 'configuring' ? 'Verifying Luth application configuration…' :
+    phase === 'authorization' ? 'Authorize this application with Luth to continue.' :
     phase === 'denied' ? 'Application access denied.' : 'Configuration unavailable.'
-  } retry={phase === 'configuring' ? undefined : () => {
-    initializer.invalidate(); setRetryCount(n => n + 1);
-  }} />;
+  } actionLabel={phase === 'authorization' ? 'Authorize application' : undefined}
+    retry={phase === 'configuring' ? undefined : phase === 'authorization'
+      ? () => window.location.assign('/api/auth/oidc/start')
+      : () => { initializer.invalidate(); setRetryCount(n => n + 1); }} />;
   if (!activeWorkspace) return <WorkspaceGate
     workspaces={workspaces} userId={principal} currentUser={auth.user}
     storageOptions={[{ id: 'memory', provider: 'memory', label: 'In-memory (ephemeral)' }]}

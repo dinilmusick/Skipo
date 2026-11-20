@@ -1,7 +1,8 @@
 import { LuthAuthClient } from '@ultrst-armada/kloks/auth';
+import { SKIPO_APPLICATION_ID } from '../../config/applicationIdentity.js';
+export { SKIPO_APPLICATION_ID } from '../../config/applicationIdentity.js';
 
 export const SKIPO_ECOSYSTEM_ID = 'ultrst-armada';
-export const SKIPO_APPLICATION_ID = 'my-app';
 
 export function getSkipoApplicationId(): string {
   return SKIPO_APPLICATION_ID;

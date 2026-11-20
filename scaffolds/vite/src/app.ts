@@ -1,5 +1,7 @@
 import { externalInterfaces } from "./backend/UniversalBackend.js";
 import { proxyLuthAuthRequest } from "./backend/auth/luthSession.js";
+import { createCanonicalApplicationOAuthBff } from '@ultrst-armada/kloks/backend/auth';
+import { SKIPO_APPLICATION_ID } from './config/applicationIdentity.js';
 
 /**
  * Canonical Web-standard application entrypoint.
@@ -56,6 +58,24 @@ export async function fetch(
 
   if (url.pathname === "/health" || url.pathname === "/api/health") {
     return Response.json({ status: "ok", runtime: "fetch" }, { headers: cors });
+  }
+
+  // Registered application OAuth + protected configuration must run before
+  // generic Luth proxy and API routes. Kloks validates a first-party HttpOnly
+  // session, its protected access token and exact registered app identity.
+  if (url.pathname.startsWith('/api/auth/oidc/') ||
+      url.pathname === '/api/initialization/config') {
+    try {
+      const bff = createCanonicalApplicationOAuthBff(request, env, SKIPO_APPLICATION_ID);
+      const response = await bff.handle(request);
+      return response ?? Response.json({ error: 'NOT_FOUND' }, {
+        status: 404, headers: { 'cache-control': 'no-store' },
+      });
+    } catch {
+      return Response.json({ error: 'CANONICAL_APPLICATION_OAUTH_UNAVAILABLE' }, {
+        status: 503, headers: { 'cache-control': 'no-store' },
+      });
+    }
   }
 
   const authProxy = await proxyLuthAuthRequest(request);

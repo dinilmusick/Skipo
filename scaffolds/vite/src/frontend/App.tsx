@@ -6,7 +6,7 @@ import { LuthAuthPage, type UseLuthAuthResult } from '@ultrst-armada/floks/auth'
 import MainPage from './pages/main/page.js';
 import WorkspacesPage from './pages/menus/workspaces/page.js';
 import { UiSessionControls } from './components/UiSessionControls.js';
-import { getSkipoApplicationId, luthAuthClient, luthFetch } from '../libraries/client/luthAuthClient.js';
+import { getSkipoApplicationId, luthFetch } from '../libraries/client/luthAuthClient.js';
 import * as KloksLuth from '@ultrst-armada/kloks/auth';
 import type { ScopedUniversalUiHost } from './pages/main/universalGraphHost.js';
 import { useAuthorizedUniversalUi } from './pages/main/useAuthorizedUniversalUi.js';
@@ -42,36 +42,31 @@ function AuthenticatedApplication({ auth, universalUi }: {
   );
 }
 
-type InitPhase = 'discovery' | 'authentication' | 'configuring' | 'ready' | 'denied' | 'unavailable';
+type InitPhase = 'discovery' | 'authentication' | 'configuring' | 'authorization' | 'ready' | 'denied' | 'unavailable';
 
 type BootstrapClient = {
   discover(): Promise<{ application: { appId: string } }>;
   configuration(): Promise<{ principal: { userId: string } }>;
   invalidate(): void;
 };
-type BootstrapFactory = (
-  app: { appId: string; runtime: 'browser' },
-  transport: { expectedIssuerOrigin: string; authorize: () => Promise<HeadersInit> },
-) => BootstrapClient;
+type BootstrapFactory = (app: { appId: string }) => BootstrapClient;
 
-/** Compatibility wrapper only: absent verified Kloks release fails closed. */
+/**
+ * Only the Kloks same-origin BFF may forward an OAuth bearer to Luth config.
+ * The browser performs public discovery but never reads/mints OAuth tokens.
+ */
 function createVerifiedInitializer(): BootstrapClient {
   const factory = (KloksLuth as unknown as {
-    createUniversalInitializationClient?: BootstrapFactory;
-  }).createUniversalInitializationClient;
+    createApplicationUniversalInitializationClient?: BootstrapFactory;
+  }).createApplicationUniversalInitializationClient;
   if (typeof factory !== 'function') {
     const unavailable = async (): Promise<never> => {
       throw new Error('UNIVERSAL_INITIALIZATION_CONTRACT_UNAVAILABLE');
     };
     return { discover: unavailable, configuration: unavailable, invalidate: () => {} };
   }
-  return factory({ appId: getSkipoApplicationId(), runtime: 'browser' }, {
-    expectedIssuerOrigin: KloksLuth.DEFAULT_LUTH_URL,
-    authorize: async () => luthAuthClient?.getAuthHeaders() ?? {},
-  });
+  return factory({ appId: getSkipoApplicationId() });
 }
-
-
 
 function InitializationGate({ children, phase, retry }: {
   children?: ReactNode; phase: InitPhase; retry: () => void;
@@ -79,13 +74,18 @@ function InitializationGate({ children, phase, retry }: {
   if (phase === 'ready' || phase === 'authentication') return <>{children}</>;
   const message = phase === 'discovery' ? 'Connecting to Luth discovery…'
     : phase === 'configuring' ? 'Verifying application configuration…'
+    : phase === 'authorization' ? 'Authorize this application with Luth to continue.'
     : phase === 'denied' ? 'Access to this application is denied.'
     : 'Luth discovery or configuration is unavailable.';
   return <div role="status" aria-live="polite" data-skipo-init={phase} style={{ padding: 24 }}>
     <p>{message}</p>
-    {(phase === 'denied' || phase === 'unavailable')
-      ? <button type="button" onClick={retry}>Retry initialization</button>
-      : null}
+    {phase === 'authorization'
+      ? <button type="button" onClick={() => {
+          window.location.assign('/api/auth/oidc/start');
+        }}>Authorize application</button>
+      : (phase === 'denied' || phase === 'unavailable')
+        ? <button type="button" onClick={retry}>Retry initialization</button>
+        : null}
   </div>;
 }
 
@@ -114,8 +114,9 @@ function ConfiguredApplication({ auth, universalUi, initializer }: {
     }).catch((error: unknown) => {
       if (!active) return;
       const code = (error as {code?: string})?.code;
-      setPhase(code === 'AUTHORIZATION_DENIED' || code === 'APP_IDENTITY_UNVERIFIED'
-        ? 'denied' : 'unavailable');
+      setPhase(code === 'AUTHENTICATION_REQUIRED' ? 'authorization'
+        : code === 'AUTHORIZATION_DENIED' || code === 'APP_IDENTITY_UNVERIFIED'
+          ? 'denied' : 'unavailable');
     });
     return () => { active = false; };
   }, [initializer, principal, attempt]);
