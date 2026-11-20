@@ -9,6 +9,7 @@ on:
       - "scaffolds/vite/src/providers/vercel.ts"
       - "scaffolds/vite/package.json"
       - "tests/test_vite_build_targets.py"
+      - "tests/external-interface-scaffold.test.py"
       - "tests/verify-skipo-target-builds.mjs"
       - ".github/workflows/skipo-target-builds.yml"
   workflow_dispatch:
