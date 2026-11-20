@@ -55,7 +55,23 @@ function run(name, executable, args, cwd, { expected = 0, env = {}, allowFailure
   mark(name, detail);
   if (!success) {
     if (allowFailure) {
-      report.blockers.push({ name, actual, expected, stderr: detail.stderrTail, stdout: detail.stdoutTail });
+      const safe = name.replace(/[^a-z0-9_-]/gi, "_");
+      writeFileSync(join(evidenceDir, safe + ".stdout.log"), cmd.stdout || "");
+      writeFileSync(join(evidenceDir, safe + ".stderr.log"), cmd.stderr || "");
+      let structured = null;
+      try {
+        structured = JSON.parse(cmd.stdout || "");
+      } catch {
+        /* Some CLI commands stream subprocess logs before their JSON result. */
+      }
+      const diagnostics = structured?.diagnostics || structured?.errors || [];
+      report.blockers.push({
+        name, actual, expected,
+        diagnosticCount: structured?.diagnostic_count,
+        diagnostics: Array.isArray(diagnostics) ? diagnostics.slice(0, 35) : diagnostics,
+        gate: structured?.error, status: structured?.status,
+        stderr: detail.stderrTail, stdout: detail.stdoutTail,
+      });
       return cmd;
     }
     requiredFailures.push(name);
@@ -211,8 +227,10 @@ try {
     assert.equal(snapshot(consumerCustom), userOwnedHash);
     assert.equal(snapshot(operation), backendOwned);
   });
-  skipo("verify-after-update", ["verify", application], scratch, { allowFailure: true });
   skipo("sync", ["sync", application], scratch, { allowFailure: true });
+  // update explicitly announces sync as its next stage; verify the final
+  // reconciled state only AFTER that canonical synchronization stage.
+  skipo("verify-after-update", ["verify", application], scratch, { allowFailure: true });
 
   // Never relax frozen installation or substitute fake provider packages.
   run("frozen-pnpm-install", pnpm, ["install", "--frozen-lockfile"], application);
