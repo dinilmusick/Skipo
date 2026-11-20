@@ -2,6 +2,7 @@ import { ecosystem } from '../ecosystem/AppEcosystem_Impure.js';
 import { handleUiSessionRequest } from '@ultrst-armada/kloks/backend/ui-session';
 import { authenticateLuthRequest } from '../auth/luthSession.js';
 import { fetch as universalFetch } from '../../app.js';
+import { handleSkipoUniversalBff } from './universalOAuthBff.js';
 import {
   listWorkspaces, createWorkspace, invokeStorage, completeGoogleDriveOAuth,
 } from '../storage/canonicalCapabilityRoutes.js';
@@ -28,6 +29,10 @@ function oauthNonceCookie(nonce: string, origin: string, clear = false): string 
 
 
 export async function fetchHandler(request: Request, env: Env = {}): Promise<Response> {
+  // The OAuth callback/session and authorized configuration must run before
+  // broad application middleware, which otherwise intercepts these routes.
+  const bff = await handleSkipoUniversalBff(request, env);
+  if (bff) return bff;
   await ecosystem.observe(env);
   const invocation = await ecosystem.handle(request, env);
   if (invocation) return invocation;

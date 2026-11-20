@@ -8,6 +8,7 @@ from typing import Any
 
 
 SCAFFOLD_APP_SOURCE = """import { externalInterfaces } from "./backend/__SKIPO_BACKEND_ENTRY__.js";
+import { handleSkipoUniversalBff } from "./backend/adapters/universalOAuthBff.js";
 import { proxyLuthAuthRequest } from "./backend/auth/luthSession.js";
 
 /**
@@ -59,6 +60,9 @@ export async function fetch(
 ): Promise<Response> {
   const url = new URL(request.url);
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+  // Validate the exact app ID and HttpOnly BFF session before ordinary API routing.
+  const universalBff = await handleSkipoUniversalBff(request, env);
+  if (universalBff) return universalBff;
   const authProxy = await proxyLuthAuthRequest(request);
   if (authProxy) return authProxy;
   const mcp = await externalInterfaces.mcp(request);
@@ -74,6 +78,35 @@ export async function fetch(
 }
 
 export default { fetch };
+"""
+
+UNIVERSAL_BFF_SOURCE = """import { createCanonicalApplicationOAuthBff } from '@ultrst-armada/kloks/backend/auth';
+
+/**
+ * All provider runtimes use the same canonical server-only OAuth BFF.
+ * Public discovery happens in the browser. This application route validates
+ * the HttpOnly session and retrieves only allowlisted configuration.
+ */
+export async function handleSkipoUniversalBff(
+  request: Request, env: Record<string, unknown>,
+): Promise<Response | null> {
+  const pathname = new URL(request.url).pathname;
+  if (pathname !== '/api/initialization/config' &&
+      !pathname.startsWith('/api/auth/oidc/')) return null;
+  try {
+    const bff = createCanonicalApplicationOAuthBff(
+      request, env, '__SKIPO_APP_ID__',
+    );
+    const response = await bff.handle(request);
+    return response ?? Response.json(
+      { error: 'CANONICAL_AUTH_PATH_NOT_SUPPORTED' },
+      { status: 404, headers: { 'cache-control': 'no-store' } },
+    );
+  } catch {
+    return Response.json({ error: 'CANONICAL_APP_AUTH_NOT_PROVISIONED' },
+      { status: 503, headers: { 'cache-control': 'no-store' } });
+  }
+}
 """
 
 APP_SOURCE = SCAFFOLD_APP_SOURCE
@@ -274,6 +307,7 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
     created: list[Path] = []
     files = {
         "src/app.ts": APP_SOURCE,
+        "src/backend/adapters/universalOAuthBff.ts": UNIVERSAL_BFF_SOURCE,
         "src/providers/cloudflare.ts": CLOUDFLARE_SOURCE,
         "src/providers/vercel.ts": VERCEL_SOURCE,
         "src/providers/nodeRequestAdapter.ts": NODE_REQUEST_ADAPTER_SOURCE,
@@ -281,7 +315,11 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
         "scripts/skipo-build.mjs": BUILD_SCRIPT,
     }
     for relative, source in files.items():
-        if relative == "src/app.ts":
+        if relative == "src/backend/adapters/universalOAuthBff.ts":
+            source = UNIVERSAL_BFF_SOURCE.replace(
+                "__SKIPO_APP_ID__", app_name.lower().replace(" ", "-"),
+            )
+        elif relative == "src/app.ts":
             candidates = ("UniversalBackend", "AppBackend", f"{app_name[:1].upper() + app_name[1:]}Backend")
             backend_entry = next((name for name in candidates if (target / "src/backend" / f"{name}.ts").is_file()), candidates[-1])
             source = APP_SOURCE.replace("__SKIPO_BACKEND_ENTRY__", backend_entry)
