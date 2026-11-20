@@ -54,6 +54,9 @@ for (const provider of manifest.providers) {
     "--platform=" + provider.platform, "--target=" + provider.target,
     "--outfile=" + provider.outfile];
   if (provider.packages === "external") args.push("--packages=external");
+  // Compact deployed serverless artifacts while retaining descriptive symbol
+  // names (no identifier mangling). The full source remains in src/providers.
+  if (provider.minify === true) args.push("--minify-whitespace", "--minify-syntax");
   run("npx", args);
 }
 console.log("[skipo] Completed " + target + " provider packaging");
