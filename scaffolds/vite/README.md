@@ -1,59 +1,63 @@
-# MyApp (Skipo Fullstack Vite Scaffold)
+# MyApp — Canonical Application Contract
 
-> **FOR DEVELOPERS & AI CODING AGENTS**:
-> Read [**`SCAFFOLD_GUIDE.md`**](./SCAFFOLD_GUIDE.md) before writing code.
-> Authentication, Neon Database, Cloud Storage, p-queue scheduling, UI Primitives, BottomStrip Hover Inspection, and React Flow Node Graph are **ALREADY SOLVED AND WIRED**. Do not re-invent them.
+This is a generated Skipo Vite application. Skipo owns the application shell and lifecycle,
+Kloks owns published backend service implementations, Floks owns shared UI components,
+and Luth owns authentication authority. No application-local authentication authority
+should be created. OAuth client enrolment and a working remote deployment are **not**
+established merely by generating this app.
 
----
+## Authoritative project references
 
-## 1. First Step: Rename This Application
+- [SKILL.md](./SKILL.md) — instructions for agents and CLI-managed changes
+- [SCAFFOLD_GUIDE.md](./SCAFFOLD_GUIDE.md) — verified project layout and development process
+- [architecture/app-architecture/SKILL.md](./architecture/app-architecture/SKILL.md) — application-owned code boundaries
+- [architecture/workspace-architectures/SKILL.md](./architecture/workspace-architectures/SKILL.md) — principal/workspace isolation
 
-Run the automated renaming engine to customize all identifiers (`MyApp`, `my-app`, `MY_APP`, `AppBackend`) across the repository in one command:
+## Standard development lifecycle
 
-```bash
-python3 Skipo/scripts/rename_app.py "YourAppName"
+Use the installed Skipo CLI to create a new project rather than running a
+nonexistent copy of a source-checkout rename script:
+
+```sh
+skipo create MyApp ./my-app
+cd my-app
+pnpm install --frozen-lockfile
+pnpm run typecheck
+pnpm run test
+pnpm run build
 ```
 
----
+Once created, use `skipo plan .`, `skipo inspect .`, `skipo verify .`, and
+`skipo update .` for deterministic project inspection and reconciliation.
+Do not overwrite an existing project with `skipo create --force`.
 
-## 2. What Is Pre-Wired & Ready To Use
+## Where changes belong
 
-- **UI Primitives (`src/frontend/components/ui/index.ts`)**:
-  `BaseButton`, `BaseInput`, `BaseSelect`, `BaseToggle`, `BaseBadge`, `BaseCard`, `ModalContainer`, `PanelContainer`, `PageContainer`, `ConfirmDialog`, `StatusIndicator`, `LoadingOverlay`, etc.
-  *(NEVER write raw `<button>` or `<input>`, and never use hardcoded hex colors).*
-- **Dynamic BottomStrip (`src/frontend/components/bottom-strip/BottomStrip.tsx`)**:
-  Pre-mounted at the bottom. Add `data-skipo-label="..."` (max 4 words) and `data-skipo-desc="..."` (revealed on holding **`D`** key) to any interactive element.
-- **NodeGraph Suite (`src/frontend/components/nodegraph/`)**:
-  Full React Flow canvas with wheel zoom, middle-click pan, Space-drag, marquee box selection, and full hotkey matrix (`Del`, `Cmd+Z`, `Cmd+Y`, `Cmd+C`, `Cmd+V`, `Cmd+A`, `0` origin).
-- **Background Execution Queue (`src/backend/queue/commandQueue.ts`)**:
-  In-process p-queue scheduler with bounded concurrency and retry handling; queue state is volatile and process-local. Dispatched via `apiClient.dispatchCommand(type, payload)`.
-- **Zod Validation (`src/libraries/validation/schemas.ts`)**:
-  Boundary validation and formatted error responses (`formatZodError`).
-- **Unified Neon Database (`src/backend/services/core/unifiedDb.ts`)**:
-  Isomorphic serverless HTTP driver running identically on Node.js and Cloudflare Workers (Law L23).
-- **Universal Cloud Storage (`src/backend/services/core/storageCore.ts`)**:
-  S3, Backblaze B2, and Supabase storage connection management.
-- **Authentication Core (`src/backend/services/core/authCore.ts`)**:
-  Pre-built login/register UI in `src/frontend/components/auth/UserAuthPage/`.
+- **Application frontend:** `src/frontend/pages/main/tabs/<tab>/page.tsx`
+  and its local supporting files. Skipo retains the login, workspace, settings
+  and main-page shell.
+- **Application backend:** `src/backend/services/` for app-owned domain behavior.
+  Use `skipo service create Weather`, `skipo service functionality Weather getForecast`,
+  `skipo service helper Weather normalizeForecast`, and `skipo service bind Weather`.
+  New functionality/helper bodies deliberately throw until implemented.
+- **Shared backend services:** Import a published Kloks export; do not copy its
+  code or generate another implementation with the same authority.
+- **Deployment:** `src/app.ts` is the canonical Fetch entrypoint. The
+  provider outputs are declared in `skipo.providers.json`.
+- **Theme:** Consume the `--skipo-*` design tokens from Floks. Do not override
+  the canonical palette with hardcoded colour literals.
 
----
+## Authentication and validation boundaries
 
-## 3. Running & Building the App
+The frontend consumes Floks authentication UI and the backend delegates to
+Kloks/Luth. A real login depends on trusted OAuth client registration,
+deployment secrets, callback verification, live sessions and workspace scope.
+Do not substitute local password/session code when any external authority is
+not provisioned.
 
-```bash
-# 1. Install dependencies
-npm install
+The `validate` and `validate:strict` package scripts require the canonical
+Skipo checklist engine. Standalone installed-app validation is still a
+separate release gate; a missing validator or failed check is not success.
 
-# 2. Start local development
-npm run dev
-
-# 3. Build the shared Fetch application and provider adapters
-npm run build
-
-# 4. Start the generated Node.js deployment
-npm start
-```
-
-The canonical application handler is `src/app.ts`. Cloudflare, Vercel Edge, and Node adapters delegate to that same handler. Configure provider secrets in the hosting platform; do not add credentials to the generated manifest.
-
-Run `python3 checklists/full_system_validator.py .` for architectural validation.
+Never put secrets, tokens, or local user records in generated source files.
+Always preserve application-owned tabs and backend behavior during repairs.
