@@ -228,6 +228,7 @@ def compose(root: Path, items: list[str], apply: bool = True) -> dict[str, Any]:
         raise ValueError("Target has no package.json.")
 
     deps = dict(pkg.get("dependencies", {}))
+    original_dependencies = dict(deps)
     state = capability_state(root)
     generated = generated_entries(state)
     installed = dict(state.get("installed", {}))
@@ -293,7 +294,13 @@ def compose(root: Path, items: list[str], apply: bool = True) -> dict[str, Any]:
         for path, desired in pending_writes.items():
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(desired, encoding="utf-8")
-        pkg_path.write_text(json.dumps(pkg, indent=2) + "\n", encoding="utf-8")
+        # On Windows write_text normally translates LF to CRLF. Rewriting
+        # package.json with *unchanged dependencies* therefore creates an
+        # unowned byte change and correctly fails the sealed transaction.
+        # Preserve original application-owned manifest bytes on every noop.
+        if deps != original_dependencies:
+            pkg_path.write_text(json.dumps(pkg, indent=2) + "\n",
+                                encoding="utf-8", newline="\n")
         state["installed"] = installed
         write_generated_entries(state, generated)
         write_capability_state(root, state)
