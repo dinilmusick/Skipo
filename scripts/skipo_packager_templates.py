@@ -21,7 +21,7 @@ function resolveAsset(url) {
   if (parsed.host !== 'app') return null;
   let path;
   try { path = decodeURIComponent(parsed.pathname); } catch { return null; }
-  if (path.includes('\\0') || path.includes('\\\\')) return null;
+  if (path.includes(String.fromCharCode(0)) || path.includes(String.fromCharCode(92))) return null;
   const target = resolve(root, '.' + (path === '/' ? '/index.html' : path));
   if (target !== root && !target.startsWith(root + sep)) return null;
   return target;
