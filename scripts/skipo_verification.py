@@ -4,6 +4,7 @@ import hashlib, importlib.util, json, os, re, sys
 from pathlib import Path
 from typing import Any
 from skipo_state_registry import validate_registry_contract
+from skipo_patch_compatibility import compatible_patch_version
 ROOT = Path(__file__).resolve().parents[1]
 
 def version_tuple(value: str | None) -> tuple[int, ...]:
@@ -157,10 +158,12 @@ def verify_canonical_state(root: Path, framework_version: str | None = None):
         if record.get("providers") != spec.get("providers"):
             ds.append(diag("SKIPO_PROVIDER_OWNERSHIP_MISMATCH","unsafe/ambiguous","Provider ownership differs from canonical registry: "+cap_id,files["capabilities"],spec.get("providers"),record.get("providers"),"Review ownership and explicitly recompose."))
         for name, version in sorted(spec.get("dependencies",{}).items()):
-            if deps.get(name) != version:
+            if not compatible_patch_version(deps.get(name), version):
                 ds.append(diag("SKIPO_CANONICAL_DEPENDENCY_MISMATCH","repairable","Canonical dependency contract is unsatisfied: "+name,"package.json",version,deps.get(name),"Run skipo add or update, reinstall dependencies, then verify."))
-            if dep_state.get(name) != version:
-                ds.append(diag("SKIPO_DEPENDENCY_STATE_MISMATCH","repairable","Recorded dependency state differs: "+name,files["dependencies"],version,dep_state.get(name),"Run skipo sync or update explicitly."))
+            # The state ledger must mirror the application declaration, not
+            # replace a compatible newer patch with an older registry floor.
+            if dep_state.get(name) != deps.get(name):
+                ds.append(diag("SKIPO_DEPENDENCY_STATE_MISMATCH","repairable","Recorded dependency state differs: "+name,files["dependencies"],deps.get(name),dep_state.get(name),"Run skipo sync or update explicitly."))
     ownership_records = {
         entry.get("path"): entry for entry in generated
         if isinstance(entry, dict) and isinstance(entry.get("path"), str)

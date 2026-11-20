@@ -10,7 +10,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from skipo_state_registry import load_registry as load_validated_registry
+from skipo_state_registry import load_registry
+from skipo_patch_compatibility import compatible_patch_version as load_validated_registry
 from skipo_process import platform_command
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -239,7 +240,7 @@ def compose(root: Path, items: list[str], apply: bool = True) -> dict[str, Any]:
     for cap_id, spec in resolved:
         for package, version in spec.get("dependencies", {}).items():
             current = deps.get(package)
-            if current != version:
+            if not compatible_patch_version(current, version):
                 actions.append({
                     "action": "dependency",
                     "capability": cap_id,
