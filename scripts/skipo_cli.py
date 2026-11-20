@@ -162,6 +162,17 @@ def _populate_create_project(name: str, target: Path, framework: str) -> int:
         validator_src, validator_dst,
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store"),
     )
+    # Aspect 24 imports the canonical registry checker from the framework
+    # engine and validates the capability catalogue. Include both in the
+    # immutable local validation snapshot; never synthesize weaker substitutes.
+    for rel in ("scripts/skipo_state_registry.py",
+                "architecture/capabilities/registry.json"):
+        src = ROOT / rel
+        if not src.is_file() or src.is_symlink():
+            raise ValueError(f"Installed Skipo engine has no verified validator dependency: {rel}")
+        dst = target / "Skipo" / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
     for p in target.rglob("*"):
         if p.is_file() and p.suffix in {".json",".md",".ts",".tsx",".js",".mjs",".toml",".yml",".yaml"}:
             try:
