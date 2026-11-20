@@ -19,6 +19,13 @@ REGISTRY_PATH = "src/backend/services/__skipo/registry.ts"
 APP_BACKEND = "src/backend/AppBackend.ts"
 APP_IMPORT = "import { appOwnedServices } from './services/__skipo/registry.js';"
 APP_SPREAD = "  ...appOwnedServices,"
+# Verified against Kloks packages/backend/kloks.manifest.json on 2026-11-20.
+# Skipo may compose these existing services, but must never scaffold duplicates.
+KLOKS_SERVICE_IDS = frozenset({
+    "auth", "storage", "workspace", "control-plane", "database", "gemini", "srkl",
+    "github-actions", "web-container", "development", "code-validation",
+    "code-diagnostics", "typescript-language-server", "agent-harness",
+})
 
 
 def digest(content: str) -> str:
@@ -132,6 +139,8 @@ def perform(root: Path, command: str, name: str, member: str | None = None,
                                    "architecture/capabilities/registry.json").read_text())
             if service in registry["capabilities"]:
                 raise ValueError(f"'{service}' is a canonical Kloks/Floks capability. Use skipo add service {service}.")
+            if service in KLOKS_SERVICE_IDS:
+                raise ValueError(f"'{service}' already exists in Kloks. Import/bind the canonical service; do not generate a duplicate.")
             package = json.loads((root / "package.json").read_text())
             dependencies = {**package.get("dependencies", {}), **package.get("devDependencies", {})}
             if "@ultrst-armada/krnl" not in dependencies:
