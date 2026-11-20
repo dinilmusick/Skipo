@@ -60,6 +60,21 @@ try {
   assert.ok(service(["repair", "Notes"]).ok);
   assert.match(readFileSync(userFile, "utf8"), /42/);
   assert.ok(!service(["functionality", "Notes", "__proto__"], 2).ok);
+  if (process.argv.includes("--full")) {
+    // A real, packed Skipo-built Vite application; no source checkout wiring.
+    const generated = join(scratch, "GeneratedServiceApp");
+    command(process.execPath, [cli, "create", "GeneratedServiceApp", generated], scratch);
+    command(process.execPath, [cli, "service", "create", "Weather", generated], scratch);
+    command(process.execPath, [cli, "service", "functionality", "Weather", "getForecast", generated], scratch);
+    command(process.execPath, [cli, "service", "bind", "Weather", generated], scratch);
+    command(process.execPath, [cli, "service", "verify", "Weather", generated], scratch);
+    command("pnpm", ["install", "--frozen-lockfile"], generated);
+    for (const gate of ["typecheck", "test", "build"]) {
+      command("pnpm", ["run", gate], generated);
+    }
+    console.log(JSON.stringify({ stage: "generated-vite-service", ok: true,
+      frozenInstall: true, gates: ["typecheck", "test", "build"], validateGate: "separate-issue-216" }));
+  }
   console.log(JSON.stringify({ stage: "packed-app-owned-service", ok: true,
     platform: process.platform, node: process.version, archive: tarballs[0],
     checked: ["plan", "create", "repeat", "functionality", "helper", "bind",
