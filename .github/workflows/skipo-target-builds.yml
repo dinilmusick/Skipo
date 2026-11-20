@@ -10,6 +10,7 @@ on:
       - "scaffolds/vite/package.json"
       - "tests/test_vite_build_targets.py"
       - "tests/external-interface-scaffold.test.py"
+      - "tests/scaffold_regression.py"
       - "tests/verify-skipo-target-builds.mjs"
       - ".github/workflows/skipo-target-builds.yml"
   workflow_dispatch:
