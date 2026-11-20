@@ -93,8 +93,12 @@ def build_plan(args: argparse.Namespace) -> tuple[dict, dict[str, bytes]]:
     if args.discovery and args.target != "desktop":
         raise ValueError("Mobile NSD/Bonjour adapters are not installed; discovery is blocked")
     peer = root / "native" / "peer" / "nodeBeacon.mjs"
-    if args.discovery and (not peer.is_file() or peer.is_symlink()):
-        raise ValueError("First install reviewed desktop peer adapter using skipo native-peer")
+    if args.discovery:
+        from skipo_native_peer import TEMPLATE
+        if not peer.is_file() or peer.is_symlink():
+            raise ValueError("First install desktop peer adapter using skipo native-peer")
+        if peer.read_text(encoding="utf-8") != TEMPLATE:
+            raise ValueError("Native peer adapter drift; review and reinstall canonical adapter")
     if args.backend == "remote" and args.action == "prepare":
         raise ValueError("Native authenticated API bridge is unverified; remote packaging blocked")
 
