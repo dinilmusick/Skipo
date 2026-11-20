@@ -617,7 +617,7 @@ export default MainPage;
         app_tsx.write_text(
             """import { useEffect, useMemo, useState } from 'react';
 import { SkipoThemeProvider } from '@ultrst-armada/floks/ui';
-import { createUniversalInitializationClient, DEFAULT_LUTH_URL } from '@ultrst-armada/kloks/auth';
+import * as KloksLuth from '@ultrst-armada/kloks/auth';
 import MainPage from './pages/main/page.js';
 import AuthPage from './pages/auth/page.js';
 import { WorkspaceGate } from './components/gates/WorkspaceGate.js';
@@ -631,11 +631,21 @@ const authClient = typeof window !== 'undefined'
       ecosystemId: 'ultrst-armada', applicationId: appId, autoRegister: false,
     })
   : null;
-const initializer = createUniversalInitializationClient(
-  { appId, runtime: 'browser' },
-  { expectedIssuerOrigin: DEFAULT_LUTH_URL,
-    authorize: async () => authClient?.getAuthHeaders() ?? {} },
-);
+type InitFactory = (
+  app: { appId: string; runtime: 'browser' },
+  transport: { expectedIssuerOrigin: string; authorize: () => Promise<HeadersInit> },
+) => { discover(): Promise<any>; configuration(): Promise<any>; invalidate(): void };
+const initialize = (KloksLuth as unknown as { createUniversalInitializationClient?: InitFactory })
+  .createUniversalInitializationClient;
+const unavailable = async (): Promise<never> => {
+  throw new Error('UNIVERSAL_INITIALIZATION_CONTRACT_UNAVAILABLE');
+};
+const initializer = typeof initialize === 'function'
+  ? initialize({ appId, runtime: 'browser' }, {
+      expectedIssuerOrigin: KloksLuth.DEFAULT_LUTH_URL,
+      authorize: async () => authClient?.getAuthHeaders() ?? {},
+    })
+  : { discover: unavailable, configuration: unavailable, invalidate: () => {} };
 
 function InitStatus({ message, retry }: { message: string; retry?: () => void }) {
   return <section role="status" aria-live="polite" data-skipo-initializing="true">
