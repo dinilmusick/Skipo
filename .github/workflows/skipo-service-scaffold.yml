@@ -1,0 +1,53 @@
+name: Skipo app-owned service scaffold contract
+
+on:
+  pull_request:
+    paths:
+      - "scripts/skipo_cli.py"
+      - "scripts/skipo_service_scaffolds.py"
+      - "scripts/skipo_service_templates.py"
+      - "tests/test_service_scaffolds.py"
+      - "tests/verify-skipo-packed-services.mjs"
+      - ".github/workflows/skipo-service-scaffold.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  service-scaffolds:
+    name: Service scaffold on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Real CLI lifecycle, repair, ownership and negative paths
+        run: python -m unittest discover -s tests -p "test_service_scaffolds.py" -v
+      - name: Fresh npm tarball consumer with app-owned service lifecycle
+        run: node tests/verify-skipo-packed-services.mjs
+
+  generated-vite:
+    name: Packed CLI service in real Vite consumer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10.33.0"
+      - name: Frozen install and compile generated service consumers
+        run: node tests/verify-skipo-packed-services.mjs --full
