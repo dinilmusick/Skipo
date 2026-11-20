@@ -34,7 +34,7 @@
     "@neondatabase/serverless": "^1.1.0",
     "@ultrst-armada/floks": "2.0.9",
     "@ultrst-armada/frnlts": "0.5.27",
-    "@ultrst-armada/kloks": "2.2.5",
+    "@ultrst-armada/kloks": "2.2.6",
     "@ultrst-armada/krnl": "^1.0.29",
     "@xyflow/react": "^12.11.1",
     "d3-force": "^3.0.0",
