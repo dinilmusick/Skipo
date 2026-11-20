@@ -19,6 +19,10 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+# Also imported by conformance_test.py using importlib.util directly, where
+# scripts/ is not necessarily in sys.path. Load the co-shipped helper from
+# this script's own immutable directory.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from skipo_process import platform_command
 
 FRAMEWORK_ROOT = Path(__file__).resolve().parents[1]
