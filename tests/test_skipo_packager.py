@@ -16,7 +16,7 @@ def project(tmp_path):
     (tmp_path / "dist" / "client" / "assets").mkdir(parents=True)
     (tmp_path / "src" / "app.ts").write_text("export default {fetch() {}};\n")
     (tmp_path / "dist" / "client" / "index.html").write_text(
-        "<html><body>Skipo</body></html>\n"
+        "<html><head><meta charset='utf-8'></head><body>Skipo</body></html>\n"
     )
     (tmp_path / "dist" / "client" / "assets" / "app.js").write_text(
         "document.body.dataset.ready='true';\n"
