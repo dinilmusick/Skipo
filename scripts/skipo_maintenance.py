@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from skipo_state_registry import load_registry
+from skipo_patch_compatibility import compatible_patch_version
 from skipo_capabilities import (
     capability_state, ensure_state, generated_entries, sha256_text, compose, diagnose as diagnose_capabilities,
 )
@@ -160,7 +161,7 @@ def build_plan(root: Path, framework_version: str,
     canonical_dependencies = canonical.get("dependencies", {})
     for name, desired in sorted(canonical_dependencies.items()):
         current = current_dependencies.get(name)
-        if current != desired:
+        if not compatible_patch_version(current, desired):
             actions.append({"phase": "update", "action": "dependency", "package": name, "from": current, "to": desired})
 
     migrations = read_json(MIGRATIONS_PATH, {"migrations": []}).get("migrations", [])
@@ -195,8 +196,9 @@ def build_plan(root: Path, framework_version: str,
     dependency_state_path = root / canonical["configuration"]["dependencyState"]
     dependency_state = read_json(dependency_state_path, {})
     dependency_state_drift = {
-        name: version for name, version in canonical_dependencies.items()
-        if dependency_state.get(name) != version
+        name: (current_dependencies.get(name) if compatible_patch_version(current_dependencies.get(name), version) else version)
+        for name, version in canonical_dependencies.items()
+        if dependency_state.get(name) != (current_dependencies.get(name) if compatible_patch_version(current_dependencies.get(name), version) else version)
     }
     if dependency_state_drift:
         actions.append({"phase": "sync", "action": "reconcile-dependency-state",

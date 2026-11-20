@@ -1,0 +1,55 @@
+name: Owner-approved pinned Skipo npm release
+on:
+  issues:
+    types: [opened]
+permissions:
+  contents: read
+  actions: write
+jobs:
+  dispatch:
+    if: >-
+      github.event.issue.user.id == 155351357 &&
+      github.event.issue.title == '[skipo-npm-release] publish'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify immutable owner-approved main and published package identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          approved_sha="$(jq -r '.issue.body // ""' "$GITHUB_EVENT_PATH")"
+          [[ "$approved_sha" =~ ^[0-9a-f]{40}$ ]] || {
+            echo 'Owner issue body must be the exact main SHA' >&2
+            exit 1
+          }
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$approved_sha" = "$GITHUB_SHA" || {
+            echo 'Main changed since this release was approved' >&2
+            exit 1
+          }
+          version="$(node -e 'const a=require("./package.json"),b=require("./packages/skipo/package.json"); if(a.version!==b.version || b.name!=="@ultrst-armada/skipo") process.exit(1); process.stdout.write(b.version)')"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+          [[ "$version" != '1.3.0' ]] || {
+            echo 'Legacy package version must not be published by this workflow' >&2
+            exit 1
+          }
+          current="$(curl --fail --silent --show-error --retry 2 \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/git/ref/heads/main" | jq -r '.object.sha')"
+          test "$current" = "$approved_sha" || {
+            echo 'Main advanced before dispatch; new approval required' >&2
+            exit 1
+          }
+          payload="$(jq -n --arg v "$version" '{ref:"main",inputs:{publish:"true",version:$v}}')"
+          curl --fail --silent --show-error --retry 2 -X POST \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'Content-Type: application/json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/publish-skipo-cli.yml/dispatches" \
+            --data "$payload"
+          echo "Dispatched trusted Skipo release for $version at $approved_sha." >> "$GITHUB_STEP_SUMMARY"
+          echo 'Only a successful downstream publish with npm provenance and independent packed-consumer verification establishes release.' >> "$GITHUB_STEP_SUMMARY"

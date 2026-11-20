@@ -9,7 +9,19 @@ import {execFileSync} from "node:child_process";
 const root = process.cwd();
 const current = JSON.parse(fs.readFileSync(path.join(root, process.argv[2] || "packages/skipo/package.json"), "utf8"));
 const packageName = current.name;
-const packageVersion = current.version;
+// An unpublished candidate must independently audit a *previously published*
+ // historical version; it must never claim current source is already published.
+const historical = process.argv[3] || null;
+const packageVersion = historical || current.version;
+if (historical) {
+  const currentSemver = /^(\d+)\.(\d+)\.(\d+)$/.exec(current.version);
+  const earlierSemver = /^(\d+)\.(\d+)\.(\d+)$/.exec(historical);
+  if (!currentSemver || !earlierSemver ||
+      currentSemver[1] !== earlierSemver[1] ||
+      currentSemver[2] !== earlierSemver[2] ||
+      Number(currentSemver[3]) <= Number(earlierSemver[3]))
+    throw new Error('Historical registry version must be older in the same release series');
+}
 if (!/^(@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/i.test(packageName) ||
     !/^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/.test(packageVersion)) {
   throw new Error("Invalid package name/version for registry verification");
@@ -90,7 +102,8 @@ try {
   }
   const result = {
     schema: 1, kind: "historical-registry-artifact",
-    packageName, packageVersion, sha256, sha512Integrity: integrity,
+    packageName, packageVersion, sourceCandidateVersion: current.version,
+    historicalRelease: Boolean(historical), sha256, sha512Integrity: integrity,
     checkedExports, archiveBytes: bytes.length, nextUnusedPatch,
     sourceVerificationCommit: exec('git', ['rev-parse', 'HEAD']),
     note: "Current checkout and registry artifact are distinct unless published provenance establishes the same commit."
