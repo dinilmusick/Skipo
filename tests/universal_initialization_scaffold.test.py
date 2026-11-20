@@ -15,7 +15,7 @@ def test_vite_scaffold_discovery_precedes_auth_and_authorized_services():
     assert "createApplicationUniversalInitializationClient" in source
     assert "initializer.discover()" in source
     assert "initializer.configuration()" in source
-    assert source.index("initializer.discover()") < source.index("<LuthAuthPage")
+    assert source.index("initializer.discover()") < source.index("<LuthOidcGate")
     assert "phase === 'ready'" in source
     assert "Retry initialization" in source
     assert "Authorize application" in source
@@ -60,7 +60,7 @@ def test_scaffold_client_is_browser_only_and_legacy_bff_boundary_is_untouched():
     assert "createApplicationUniversalInitializationClient" in source
     assert "createApplicationUniversalInitializationClient" in source
     assert "authorize: async () => authClient?.getAuthHeaders()" not in source
-    assert "LuthAuthPage as FloksLuthAuthPage" in source
+    assert "LuthOidcGate as FloksLuthOidcGate" in source
     assert "createCanonicalApplicationOAuthBff" in (ROOT / "scripts/generate_provider_packaging.py").read_text(encoding="utf-8")
 
 def test_capability_registry_versions_match_generated_published_dependencies():
