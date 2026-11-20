@@ -37,7 +37,8 @@ def test_generic_scaffold_generates_canonical_floks_kloks_auth(tmp_path):
     assert "LuthAuthPage" in auth_page.read_text(encoding="utf-8")
     assert "requireLuthSession" in guard.read_text(encoding="utf-8")
     assert "getAuthHeaders" not in fetcher.read_text(encoding="utf-8")
-    assert "canonicaldemo" in (target / "src/app.ts").read_text(encoding="utf-8")\n    assert "createCanonicalApplicationOAuthBff" in (target / "src/app.ts").read_text(encoding="utf-8")
+    assert "canonicaldemo" in (target / "src/app.ts").read_text(encoding="utf-8")
+    assert "createCanonicalApplicationOAuthBff" in (target / "src/app.ts").read_text(encoding="utf-8")
     assert "LuthAuthServiceFacade" in backend.read_text(encoding="utf-8")
     assert not re.search(r"\bAuthServiceFacade\b", backend.read_text(encoding="utf-8"))
     assert manifest["dependencies"]["@ultrst-armada/krnl"] == "^1.0.25"
