@@ -293,7 +293,9 @@ def compose(root: Path, items: list[str], apply: bool = True) -> dict[str, Any]:
         pkg["dependencies"] = deps
         for path, desired in pending_writes.items():
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(desired, encoding="utf-8")
+            # Registry contents are exact UTF-8 LF blobs. Preserve bytes on
+            # Windows; CRLF would invalidate independent sealed verification.
+            path.write_text(desired, encoding="utf-8", newline="\n")
         # On Windows write_text normally translates LF to CRLF. Rewriting
         # package.json with *unchanged dependencies* therefore creates an
         # unowned byte change and correctly fails the sealed transaction.
