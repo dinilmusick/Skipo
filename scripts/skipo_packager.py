@@ -171,7 +171,7 @@ def build_plan(args: argparse.Namespace) -> tuple[dict, dict[str, bytes]]:
     if args.target == "desktop" and peer.exists():
         if peer.is_symlink() or not peer.is_file() or peer.read_text(encoding="utf-8") != TEMPLATE:
             raise ValueError("Desktop native peer adapter drift from canonical Skipo source")
-    if args.backend == "remote" and args.action == "prepare":
+    if args.backend == "remote" and args.action in ("prepare", "build"):
         raise ValueError("Native authenticated API bridge is unverified; remote packaging blocked")
 
     output = root / "dist" / "native" / args.target
@@ -217,6 +217,11 @@ def build_plan(args: argparse.Namespace) -> tuple[dict, dict[str, bytes]]:
         "blockers": (["Canonical native API and Luth auth redirect bridge not verified"]
                      if args.backend == "remote" else []),
     }
+    if args.source_kind == "hubrys":
+        report["compositeBackendBundled"] = False
+        report["blockers"].append(
+            "Hubrys app backend mounting and authenticated Luth session bridge are not included in this native shell"
+        )
     return report, files
 
 
