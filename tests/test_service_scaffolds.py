@@ -32,6 +32,8 @@ class ServiceScaffoldTests(unittest.TestCase):
             [sys.executable, str(CLI), "service", *args, str(self.root)],
             text=True, capture_output=True,
         )
+        if not result.stdout.strip():
+            self.fail(f'CLI emitted no JSON: status={result.returncode} stderr={result.stderr!r}')
         payload = json.loads(result.stdout)
         if ok:
             self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
