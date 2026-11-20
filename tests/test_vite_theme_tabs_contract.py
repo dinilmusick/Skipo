@@ -33,4 +33,5 @@ def test_empty_main_tab_root_survives_generated_vite_app(tmp_path, capsys):
     css = (target / "src/index.css").read_text(encoding="utf-8")
     assert css == CSS.read_text(encoding="utf-8")
     assert (target / "src/frontend/pages/main/tabRegistry.tsx").is_file()
+    assert b"\r\n" not in (target / "src/frontend/pages/settings/tabs/accounts/page.tsx").read_bytes()
     assert not re.search(r"#[\da-fA-F]{3,8}\b", css)
