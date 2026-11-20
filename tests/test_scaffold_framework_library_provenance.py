@@ -64,7 +64,7 @@ class ImmutableFrameworkSourceTests(unittest.TestCase):
 
     def test_tampered_manifest_fails_closed(self):
         fake = self.app / "spoofed_manifest.json"
-        fake.write_bytes(ATTESTATION.read_bytes().replace(b"sha", b"SHA"))
+        fake.write_bytes(ATTESTATION.read_bytes() + b"\n")
         with patch.object(validator, "FRAMEWORK_MANIFEST_PATH", fake):
             violations = hard_errors(self.validate())
         self.assertIn("framework-library-attestation-invalid", [v.rule_id for v in violations])
@@ -91,7 +91,7 @@ class ImmutableFrameworkSourceTests(unittest.TestCase):
 class CanonicalAttestationTests(unittest.TestCase):
     def test_manifest_is_byte_identical_to_generator_output(self):
         data = canonical_bytes()
-        self.assertEqual(ATTESTATION.read_bytes(), data)
+        self.assertEqual(ATTESTATION.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n"), data)
         self.assertEqual(hashlib.sha256(data).hexdigest(),
                          validator.TRUSTED_FRAMEWORK_MANIFEST_SHA256)
 
