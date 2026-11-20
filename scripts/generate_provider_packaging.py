@@ -9,6 +9,8 @@ from typing import Any
 
 SCAFFOLD_APP_SOURCE = """import { externalInterfaces } from "./backend/__SKIPO_BACKEND_ENTRY__.js";
 import { proxyLuthAuthRequest } from "./backend/auth/luthSession.js";
+import { createCanonicalApplicationOAuthBff } from '@ultrst-armada/kloks/backend/auth';
+const appId = "__SKIPO_APP_ID__";
 
 /**
  * Canonical Web-standard application entrypoint.
@@ -59,6 +61,21 @@ export async function fetch(
 ): Promise<Response> {
   const url = new URL(request.url);
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+  // The canonical registered app ID is fixed at scaffold time. Auth + config
+  // are handled by the same protected first-party Kloks OAuth BFF.
+  if (url.pathname.startsWith("/api/auth/oidc/") ||
+      url.pathname === "/api/initialization/config") {
+    try {
+      const bff = createCanonicalApplicationOAuthBff(request, env, appId);
+      return await bff.handle(request) ?? Response.json({ error: "NOT_FOUND" }, {
+        status: 404, headers: { "cache-control": "no-store" },
+      });
+    } catch {
+      return Response.json({ error: "CANONICAL_APPLICATION_OAUTH_UNAVAILABLE" }, {
+        status: 503, headers: { "cache-control": "no-store" },
+      });
+    }
+  }
   const authProxy = await proxyLuthAuthRequest(request);
   if (authProxy) return authProxy;
   const mcp = await externalInterfaces.mcp(request);
@@ -285,6 +302,7 @@ def generate_provider_packaging(target: Path, app_name: str = "SkipoApp") -> lis
             candidates = ("UniversalBackend", "AppBackend", f"{app_name[:1].upper() + app_name[1:]}Backend")
             backend_entry = next((name for name in candidates if (target / "src/backend" / f"{name}.ts").is_file()), candidates[-1])
             source = APP_SOURCE.replace("__SKIPO_BACKEND_ENTRY__", backend_entry)
+            source = source.replace("__SKIPO_APP_ID__", app_name.lower().replace(" ", "-"))
         elif relative == "src/providers/vercel.ts" and (target / "src/backend/adapters/httpsAdapter.ts").is_file():
             source = VERCEL_ADAPTER_SOURCE
         path = target / relative
