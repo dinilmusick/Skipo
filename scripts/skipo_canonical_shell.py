@@ -140,11 +140,17 @@ def _desired(root: Path, title: str | None = None) -> dict[str, bytes]:
                 continue
             raw = src.read_bytes()
             if src.suffix in {".ts", ".tsx", ".js", ".mjs", ".cjs", ".json", ".md"}:
-                raw = raw.decode("utf-8").replace("MyApp", name).replace("my-app", name).encode("utf-8")
+                # Registry content is UTF-8 LF even on Windows. Normalize
+                # checkout CRLF before comparing framework ownership bytes.
+                normalized = raw.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
+                raw = normalized.replace("MyApp", name).replace("my-app", name).encode("utf-8")
             desired[relative] = raw
     for relative in CANONICAL_BACKEND:
         template = SOURCE / relative
-        desired[relative] = template.read_bytes()
+        raw = template.read_bytes()
+        if template.suffix in {".ts", ".tsx", ".js", ".mjs", ".cjs", ".json", ".md"}:
+            raw = raw.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+        desired[relative] = raw
 
     # Capability-generated standard pages are also Skipo assets. The Vite
     # template alone omits its generated Luth auth page; deleting those files
