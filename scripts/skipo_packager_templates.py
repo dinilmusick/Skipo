@@ -70,7 +70,7 @@ app.whenReady().then(async () => {
   const { NativeUdpBeacon } = await import('./peer/nodeBeacon.mjs');
   beacon = new NativeUdpBeacon({ appId: '__APP_ID__' });
   await beacon.start();
-}).catch(() => { /* Discovery failure does not bypass authentication. */ });
+}).catch((error) => { console.error('Native UDP discovery unavailable:', error); });
 app.on('before-quit', () => { void beacon?.stop(); });
 """
 
@@ -79,15 +79,31 @@ def render_files(target: str, bundle_id: str, app_name: str,
                  discovery: bool, native_app_id: str) -> dict[str, str]:
     name = app_name.strip()
     if target == "desktop":
-        main = ELECTRON_MAIN + (
-            DISCOVERY_BLOCK.replace("__APP_ID__", native_app_id) if discovery else ""
-        )
+        main = ELECTRON_MAIN + DISCOVERY_BLOCK.replace("__APP_ID__", native_app_id)
         package = {
             "name": native_app_id + "-desktop", "private": True,
             "version": "0.0.0", "type": "module",
             "main": "main.mjs",
-            "scripts": {"start": "electron ."},
-            "devDependencies": {"electron": ELECTRON_VERSION},
+            "scripts": {
+                "start": "electron .",
+                "package:windows:x64": "electron-builder --win nsis --x64 --publish never",
+                "package:windows:arm64": "electron-builder --win nsis --arm64 --publish never",
+                "package:macos:x64": "electron-builder --mac dmg --x64 --publish never",
+                "package:macos:arm64": "electron-builder --mac dmg --arm64 --publish never",
+                "package:macos:universal": "electron-builder --mac dmg --universal --publish never",
+                "package:linux:x64": "electron-builder --linux AppImage --x64 --publish never",
+                "package:linux:arm64": "electron-builder --linux AppImage --arm64 --publish never",
+            },
+            "build": {
+                "appId": bundle_id,
+                "productName": name,
+                "directories": {"output": "release"},
+                "files": ["main.mjs", "peer/nodeBeacon.mjs", "web/**/*", "package.json"],
+                "asar": True,
+                "npmRebuild": False,
+                "publish": None,
+            },
+            "devDependencies": {"electron": ELECTRON_VERSION, "electron-builder": "26.18.0"},
         }
         files = {"main.mjs": main, "package.json": json.dumps(package, indent=2) + "\n"}
     else:
@@ -95,13 +111,14 @@ def render_files(target: str, bundle_id: str, app_name: str,
             "name": native_app_id + "-" + target, "private": True,
             "version": "0.0.0", "type": "module",
             "scripts": {
-                "native:add": "cap add " + target,
-                "native:sync": "cap sync " + target,
+                "native:add": "cap add " + target + " && node scripts/skipo-postadd.mjs " + target,
+                "native:sync": "cap sync " + target + " && node scripts/skipo-postadd.mjs " + target,
                 "native:open": "cap open " + target,
             },
             "dependencies": {
                 "@capacitor/core": CAPACITOR_VERSION,
                 "@capacitor/" + target: CAPACITOR_VERSION,
+                "@ultrst/skipo-discovery": "file:./native/skipo-discovery",
             },
             "devDependencies": {"@capacitor/cli": CAPACITOR_VERSION},
         }
@@ -118,7 +135,7 @@ def render_files(target: str, bundle_id: str, app_name: str,
         "separate integration before production release.\n\n"
     )
     if target == "desktop":
-        notes += "Run `npm install` then `npm start` (Electron preview only).\n"
+        notes += "Run `npm install` then `npm start` (Electron preview only). UDP discovery is required and bundled.\n"
     else:
         notes += (f"Run `npm install`, `npm run native:add`, `npm run native:sync`, "
                   "`npm run native:open`.\n"
