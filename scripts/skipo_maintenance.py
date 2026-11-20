@@ -21,6 +21,7 @@ from skipo_dependency_migrations import plan_dependency_migrations, execute_depe
 from skipo_migrations import plan_upgrade, update_project as update_framework
 from skipo_environment_contract import plan as plan_environment, repair as repair_environment
 from skipo_verification import verify_canonical_state
+from skipo_process import platform_command
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS_PATH = ROOT / "architecture" / "capabilities" / "migrations.json"
@@ -38,10 +39,11 @@ def version_tuple(value: str | None) -> tuple[int, ...]:
 
 
 def _command_version(command: list[str]) -> str | None:
-    if not shutil.which(command[0]):
+    resolved = platform_command(command)
+    if not shutil.which(resolved[0]):
         return None
     try:
-        result = subprocess.run(command, capture_output=True, text=True, check=False)
+        result = subprocess.run(resolved, capture_output=True, text=True, check=False)
         return result.stdout.strip().splitlines()[0] if result.returncode == 0 and result.stdout.strip() else None
     except OSError:
         return None

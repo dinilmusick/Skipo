@@ -42,9 +42,10 @@ from skipo_environment_contract import (
 from skipo_capabilities import retire_known_duplicates
 from skipo_lifecycle import assess as assess_architecture, independent_verify, transaction_verify
 from skipo_reconciliation import reconcile as reconcile_transaction
+from skipo_process import platform_command
 
 def run(cmd: list[str], cwd: Path) -> int:
-    return subprocess.run(cmd, cwd=str(cwd)).returncode
+    return subprocess.run(platform_command(cmd), cwd=str(cwd)).returncode
 
 def manifest(root: Path) -> dict[str, Any]:
     p = root / ".skipo" / "project.json"
@@ -65,6 +66,25 @@ def _create_error(message: str, *, code: str = "SKIPO_CREATE_INVALID", target: P
     return 2
 
 
+def _is_trusted_macos_root_alias(path: Path) -> bool:
+    """Allow only stock macOS root aliases, not project-relative symlinks.
+
+    /var, /tmp and /etc are system-owned links to /private/{name}. macOS
+    temporary directories normally use /var/folders, so rejecting /var makes
+    all fresh-app creation fail despite a canonical writable parent.
+    """
+    if sys.platform != "darwin":
+        return False
+    alias = {"/var": "/private/var", "/tmp": "/private/tmp",
+             "/etc": "/private/etc"}.get(path.as_posix())
+    if alias is None:
+        return False
+    try:
+        return path.resolve(strict=True) == Path(alias).resolve(strict=True)
+    except OSError:
+        return False
+
+
 def create_project(name: str, target: Path, framework: str, force: bool) -> int:
     """Create into a sibling staging directory and publish only on success.
 
@@ -81,7 +101,7 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
     # Do not resolve a user-supplied target before this test: resolving would
     # erase symlink traversal evidence and could redirect writes elsewhere.
     for component in (target, *target.parents):
-        if component.is_symlink():
+        if component.is_symlink() and not _is_trusted_macos_root_alias(component):
             return _create_error(f"Symlink component is not an authorized create target: {component}", code="SKIPO_CREATE_SYMLINK", target=target)
     source = SCAFFOLDS / framework
     if not source.is_dir():
@@ -111,7 +131,7 @@ def create_project(name: str, target: Path, framework: str, force: bool) -> int:
             return result
         # Protect against concurrent target creation during generation.
         for component in (target, *target.parents):
-            if component.is_symlink():
+            if component.is_symlink() and not _is_trusted_macos_root_alias(component):
                 return _create_error("Symlink target appeared during creation; refusing publish.",
                                      code="SKIPO_CREATE_SYMLINK", target=target)
         if target.exists():
@@ -140,10 +160,19 @@ def _populate_create_project(name: str, target: Path, framework: str) -> int:
     source = SCAFFOLDS / framework
     target.mkdir(parents=True, exist_ok=True)
     for item in source.iterdir():
-        if item.name in {".git", ".skipo", ".npmignore"}:
+        if item.name in {".git", ".skipo", ".npmignore", "skipo-gitignore.template"}:
             continue
         dest = target / item.name
         shutil.copytree(item, dest) if item.is_dir() else shutil.copy2(item, dest)
+    # A source checkout retains .gitignore; npm archives do not. The prepack
+    # workflow stores an exact copy under a package-safe template filename.
+    # Never produce a project without an ignore policy for generated outputs.
+    ignore_file = target / ".gitignore"
+    if not ignore_file.is_file():
+        packaged_ignore = source / "skipo-gitignore.template"
+        if not packaged_ignore.is_file() or packaged_ignore.is_symlink():
+            raise ValueError("Installed Skipo scaffold lacks the canonical Git ignore policy")
+        shutil.copy2(packaged_ignore, ignore_file)
     for p in target.rglob("*"):
         if p.is_file() and p.suffix in {".json",".md",".ts",".tsx",".js",".mjs",".toml",".yml",".yaml"}:
             try:
@@ -319,9 +348,25 @@ def adopt_project(root: Path) -> int:
 
 def sync_project(root: Path, install: bool) -> int:
     try:
+        if not (root / ".skipo" / "project.json").is_file():
+            raise ValueError("Skipo sync requires an adopted project; run skipo adopt first.")
         payload = capability_sync(root, install=install)
+        if install and not payload.get("install", {}).get("ok", False):
+            payload["ok"] = False
+            payload["error"] = "Dependency installation failed; sync cannot be certified."
+        if payload.get("ok") and (root / "vite.config.ts").is_file():
+            # Capability composition changes the installed capability ledger.
+            # A canonical Vite app also has a managed full-stack receipt,
+            # which MUST be reconciled in the same sync transaction before
+            # verify/test can truthfully report a clean application.
+            from skipo_canonical_shell import reconcile_shell
+            shell = reconcile_shell(root, apply=True)
+            payload["canonical_shell"] = shell
+            payload["ok"] = bool(payload["ok"] and shell.get("ok", False))
+            if not payload["ok"]:
+                payload["error"] = "Canonical shell reconciliation failed after capability sync."
     except (ValueError, OSError) as exc:
-        print(json.dumps({"ok":False,"error":str(exc)}, indent=2)); return 2
+        print(json.dumps({"ok":False,"operation":"sync","error":str(exc)}, indent=2)); return 2
     print(json.dumps(payload, indent=2))
     return 0 if payload.get("ok", False) else 1
 

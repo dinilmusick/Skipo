@@ -1,0 +1,52 @@
+name: Skipo cleanroom app repository E2E
+
+on:
+  pull_request:
+    paths:
+      - "tests/verify-skipo-cli-cleanroom.mjs"
+      - ".github/workflows/skipo-cli-cleanroom-e2e.yml"
+      - "scripts/skipo_cli.py"
+      - "scripts/skipo_process.py"
+      - "scripts/skipo_maintenance.py"
+      - "scripts/skipo_conformance.py"
+      - "tests/test_skipo_portable_process.py"
+      - "scripts/skipo_capabilities.py"
+      - "scripts/skipo_service_scaffolds.py"
+      - "scripts/skipo_reconciliation.py"
+      - "scaffolds/vite/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  independent-git-consumer:
+    name: Real Skipo packed CLI into a fresh Git consumer (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10.33.0"
+      - name: Verify host-native subprocess and trusted filesystem root contracts
+        run: python -m unittest discover -s tests -p "test_skipo_portable_process.py" -v
+      - name: Pack, install, create a new Git app and exercise full CLI lifecycle
+        run: node tests/verify-skipo-cli-cleanroom.mjs
+      - name: Persist source-neutral acceptance report even if CLI breaks
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: skipo-cleanroom-${{ matrix.os }}-${{ github.run_id }}
+          path: e2e-evidence/
+          if-no-files-found: warn
