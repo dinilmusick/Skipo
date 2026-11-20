@@ -166,7 +166,9 @@ def _populate_create_project(name: str, target: Path, framework: str) -> int:
     # engine and validates the capability catalogue. Include both in the
     # immutable local validation snapshot; never synthesize weaker substitutes.
     for rel in ("scripts/skipo_state_registry.py",
-                "architecture/capabilities/registry.json"):
+                "scripts/skipo_environment_contract.py",
+                "architecture/capabilities/registry.json",
+                "architecture/environment/contract.json"):
         src = ROOT / rel
         if not src.is_file() or src.is_symlink():
             raise ValueError(f"Installed Skipo engine has no verified validator dependency: {rel}")
