@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { SkipoThemeProvider, BaseButton, type WorkspaceRecord } from '@ultrst-armada/floks/ui';
 import { LuthAuthPage, type UseLuthAuthResult } from '@ultrst-armada/floks/auth';
 import MainPage from './pages/main/page.js';
@@ -74,7 +74,7 @@ function createVerifiedInitializer(): BootstrapClient {
 
 
 function InitializationGate({ children, phase, retry }: {
-  children?: React.ReactNode; phase: InitPhase; retry: () => void;
+  children?: ReactNode; phase: InitPhase; retry: () => void;
 }) {
   if (phase === 'ready' || phase === 'authentication') return <>{children}</>;
   const message = phase === 'discovery' ? 'Connecting to Luth discovery…'
@@ -164,7 +164,7 @@ export function App({universalUi}: {universalUi?: ScopedUniversalUiHost} = {}) {
               applicationId={getSkipoApplicationId()}
               appName="SKIPO APP"
               authenticatedContent={auth =>
-                <ConfiguredApplication key={auth.user?.id || 'unknown'} auth={auth}
+                <ConfiguredApplication auth={auth}
                   universalUi={universalUi} initializer={initializer} />}
             />
             <div style={{display: 'flex', justifyContent: 'center', padding: 12}}>
