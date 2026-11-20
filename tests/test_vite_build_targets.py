@@ -35,6 +35,9 @@ class SkipoTargetBuildManifestTests(unittest.TestCase):
             {"cloudflare", "vercel", "mcp"},
         )
         for profile in (api, full):
+            for provider in profile["providers"]:
+                if provider["name"] in ("vercel", "mcp"):
+                    self.assertTrue(provider.get("minify"), "Serverless API bundles must be compacted")
             output_paths = [p["outfile"] for p in profile["providers"]]
             self.assertEqual(len(output_paths), len(set(output_paths)))
             for provider in profile["providers"]:
