@@ -28,6 +28,43 @@ except ImportError:
 ASPECT_ID = "aspect_13_state_execution_governance"
 ASPECT_TITLE = "STATE & EXECUTION Architecture Governance"
 
+
+def _has_enforced_worker_boundary(source: str) -> bool:
+    # A comment or bare symbol reference is NOT a security boundary.
+    executable = re.sub(r"/\*[\s\S]*?\*/|(?m:^\s*//[^\n]*)", "", source)
+    declared = bool(re.search(r"import\s*\{[^}]*\bWorkerExecutionBoundary\b[^}]*\}\s*from\s*['\"]@ultrst-armada/krnl['\"]", executable))
+    instantiated = bool(re.search(r"new\s+WorkerExecutionBoundary\s*\(", executable))
+    attached = bool(re.search(r"\bworker\s*:\s*[A-Za-z_$]\w*\b", executable))
+    explicit_guard = bool(re.search(r"\bif\s*\(\s*!?\s*isWorkerContext\s*\(", executable))
+    return (declared and instantiated and attached) or explicit_guard
+
+
+def _delegates_to_verified_backend(root_dir: Path, source: str, file_name: str) -> bool:
+    """A re-export has no independent worker entrypoint to guard.
+
+    Accept only a *pure* UniversalBackend compatibility alias and independently
+    verify the worker boundary of the concrete AppBackend module it delegates to.
+    An arbitrary marker string, extra executable code, or absent worker binding
+    is not proof of an execution boundary.
+    """
+    if file_name != "UniversalBackend.ts":
+        return False
+    without_comments = re.sub(r"/\*[\s\S]*?\*/|(?m:^\s*//[^\n]*)", "", source).strip()
+    if not re.fullmatch(
+        r"""export\s*\{[^{}]*\bAppBackend\b[^{}]*\}\s*from\s*['"]\./AppBackend\.js['"]\s*;?""",
+        without_comments,
+    ):
+        return False
+    impl = root_dir / "src" / "backend" / "AppBackend.ts"
+    if not impl.is_file():
+        return False
+    real = read_text_safe(impl) or ""
+    return bool(
+        _has_enforced_worker_boundary(real)
+        and re.search(r"\bAppBackend\s*=", real)
+    )
+
+
 def validate_state_execution(root_dir: Path) -> ChecklistResult:
     start_time = time.time()
     violations: List[Violation] = []
@@ -90,7 +127,8 @@ def validate_state_execution(root_dir: Path) -> ChecklistResult:
 
         # Rule 4: Facade must verify Worker context
         if is_facade and not is_frontend and "export" in txt:
-            if "isWorkerContext" not in txt and "WorkerExecutionBoundary" not in txt:
+            if not _has_enforced_worker_boundary(txt) \
+                    and not _delegates_to_verified_backend(root_dir, txt, fpath.name):
                 violations.append(Violation(
                     rule_id="backend-facade-missing-worker-boundary",
                     severity="error",

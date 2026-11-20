@@ -1,0 +1,29 @@
+name: Skipo strict validator runtime and Worker boundary
+
+on:
+  pull_request:
+    paths:
+      - "checklists/04_code_limits_purity.py"
+      - "checklists/13_state_execution_governance.py"
+      - "tests/test_skipo_strict_validator_runtime_boundary.py"
+      - ".github/workflows/skipo-validator-runtime-boundaries.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-boundaries:
+    name: Worker boundary and async-runtime adversarial checks (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run real-source and negative-path strict validator tests
+        run: python -m unittest discover -s tests -p "test_skipo_strict_validator_runtime_boundary.py" -v

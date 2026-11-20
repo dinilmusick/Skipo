@@ -170,7 +170,17 @@ def validate_code_limits_and_purity(root_dir: Path) -> ChecklistResult:
         if not has_local and not has_ext:
             det_grade = 0
         elif has_local and op_count <= 3 and not has_ext and len(local_imp) >= 3:
-            det_grade = 3
+            # A facade is a passive registry of exports. Even a very small
+            # composition that awaits a runtime authenticator inside a live
+            # async callback executes I/O and is not a passive facade.
+            # Require both an actual async callback and awaited invocation;
+            # comments, filenames and import lists alone are never enough.
+            executable = re.sub(r"/\*[\s\S]*?\*/|(?m:^\s*//[^\n]*)", "", content)
+            async_runtime = bool(
+                re.search(r"\basync\s+[A-Za-z_$]\w*\s*=>", executable)
+                and re.search(r"\bawait\s+[A-Za-z_$]\w*\s*\(", executable)
+            )
+            det_grade = 1 if async_runtime else 3
         elif has_local and op_count <= 8:
             det_grade = 2
         else:
