@@ -508,17 +508,16 @@ export {{ default }} from './{pascal}Backend.js';
         pages_root / "auth" / "LuthAuthPage.tsx": """'use client';
 
 import React from 'react';
-import { LuthAuthPage as FloksLuthAuthPage } from '@ultrst-armada/floks/auth';
+import { LuthOidcGate as FloksLuthOidcGate } from '@ultrst-armada/floks/auth';
 
-export function LuthAuthPage({ applicationId, appName, onAuthenticated, authenticatedContent, onContinueAsGuest }: {
+export function LuthAuthPage({ appName, onAuthenticated, authenticatedContent, onContinueAsGuest }: {
   applicationId: string;
   appName: string;
   onAuthenticated?: (user: unknown) => void;
   authenticatedContent?: React.ReactNode | ((auth: any) => React.ReactNode);
   onContinueAsGuest?: () => void;
 }) {
-  return <FloksLuthAuthPage ecosystemId="ultrst-armada"
-    applicationId={applicationId} appName={appName}
+  return <FloksLuthOidcGate appName={appName}
     onAuthenticated={onAuthenticated as any}
     authenticatedContent={authenticatedContent as any}
     onContinueAsGuest={onContinueAsGuest} />;
