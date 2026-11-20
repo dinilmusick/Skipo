@@ -234,6 +234,12 @@ try {
     assert.equal(snapshot(operation), backendOwned);
   });
   skipo("sync", ["sync", application], scratch, { allowFailure: true });
+  assertStage("sync-preserves-explicit-service-binding", () => {
+    assert.match(content(join(application, "src", "backend", "AppBackend.ts")), /\.\.\.appOwnedServices/);
+    assert.equal(snapshot(operation), owned.operation);
+    assert.equal(snapshot(helper), owned.helper);
+  });
+  skipo("service-verify-after-full-sync", ["service", "verify", "Notes", application], scratch);
   // update explicitly announces sync as its next stage; verify the final
   // reconciled state only AFTER that canonical synchronization stage.
   skipo("verify-after-update", ["verify", application], scratch, { allowFailure: true });
