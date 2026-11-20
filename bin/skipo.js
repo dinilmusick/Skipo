@@ -11,7 +11,7 @@ const frameworkCommands = new Set([
   'update', 'repair', 'fix', 'clean', 'verify', 'test', 'remove',
   'policy', 'semantic', 'certify',
   'auth', 'login', 'workspace', 'workspaceMenu', 'mainPage',
-  'native-peer',
+  'native-peer', 'package',
 ]);
 const script = (frameworkCommands.has(args[0]) || (args[0] === 'add' && args[1] !== 'orchestration'))
   ? resolve(__dirname, '../scripts/skipo_cli.py')
