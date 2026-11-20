@@ -23,12 +23,12 @@
     "build:all": "node scripts/skipo-build.mjs --target fullstack"
   },
   "dependencies": {
-    "@dinilmusick/gutts": "2.2.3",
+    "@dinilmusick/gutts": "2.2.4",
     "@neondatabase/serverless": "^1.1.0",
     "@tailwindcss/vite": "^4.1.14",
     "@ultrst-armada/floks": "2.0.10",
     "@ultrst-armada/frnlts": "0.5.26",
-    "@ultrst-armada/kloks": "2.2.7",
+    "@ultrst-armada/kloks": "2.2.9",
     "@ultrst-armada/krnl": "1.0.27",
     "@vitejs/plugin-react": "^5.0.4",
     "@xyflow/react": "^12.11.1",

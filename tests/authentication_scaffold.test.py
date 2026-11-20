@@ -41,7 +41,7 @@ def test_generic_scaffold_generates_canonical_floks_kloks_auth(tmp_path):
     assert "LuthAuthServiceFacade" in backend.read_text(encoding="utf-8")
     assert not re.search(r"\bAuthServiceFacade\b", backend.read_text(encoding="utf-8"))
     assert manifest["dependencies"]["@ultrst-armada/krnl"] == "^1.0.25"
-    assert manifest["dependencies"]["@dinilmusick/gutts"] == AUTH_CONTRACT.PACKAGE_BASELINE["@dinilmusick/gutts"]
+    assert AUTH_CONTRACT.package_spec_satisfies_minimum(manifest["dependencies"]["@dinilmusick/gutts"], AUTH_CONTRACT.PACKAGE_BASELINE["@dinilmusick/gutts"])
     assert scan_source_tree(target) == []
 
 

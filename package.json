@@ -1,6 +1,6 @@
 {
   "name": "skipo",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "private": true,
   "type": "module",
   "description": "Skipo — deterministic application builder, installer and composition engine.",
@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "python3 scripts/skipo_builder.py validate-links && tsc --noEmit",
-    "test": "python3 -m pytest -q --import-mode=importlib checklists/test_19_skipo_frontend_structure.py tests/guest_mode_contract_validator.test.py tests/guest_scaffold_integration.test.py tests/queue_engine_contract.test.py tests/import_direction_governance.test.py tests/graph_application_contract.test.py tests/generate_graph_assets.test.py tests/external-interface-scaffold.test.py tests/storage_provider_contract.test.py tests/authentication_scaffold.test.py tests/test_environment_contract.py tests/test_environment_cli_lifecycle.py tests/runtime_environment_governance.test.py tests/capability_composer.test.py tests/canonical_application_state_registry.test.py tests/skipo_guardrails.test.py && python3 checklists/21_skipo_authentication_contract.py && python3 checklists/24_capability_architecture.py . && python3 checklists/27_guest_mode_contract.py . && node scripts/validate_luth_package_exports.mjs && vitest run",
+    "test": "python3 -m pytest -q --import-mode=importlib checklists/test_19_skipo_frontend_structure.py tests/guest_mode_contract_validator.test.py tests/guest_scaffold_integration.test.py tests/queue_engine_contract.test.py tests/import_direction_governance.test.py tests/graph_application_contract.test.py tests/generate_graph_assets.test.py tests/external-interface-scaffold.test.py tests/storage_provider_contract.test.py tests/authentication_scaffold.test.py tests/test_environment_contract.py tests/test_environment_cli_lifecycle.py tests/runtime_environment_governance.test.py tests/capability_composer.test.py tests/canonical_application_state_registry.test.py tests/skipo_guardrails.test.py && python3 checklists/21_skipo_authentication_contract.py && python3 checklists/24_capability_architecture.py . && python3 checklists/27_guest_mode_contract.py . && node scripts/validate_luth_package_exports.mjs && python3 -m pytest -q --import-mode=importlib tests/universal_initialization_scaffold.test.py && vitest run",
     "validate": "python3 scripts/skipo_builder.py validate-links && python3 -m pytest -q --import-mode=importlib tests/test_environment_contract.py tests/test_environment_cli_lifecycle.py tests/runtime_environment_governance.test.py && python3 checklists/full_system_validator.py .",
     "assistant": "python3 assistant.py",
     "skipo": "python3 scripts/skipo_builder.py",
@@ -30,11 +30,11 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1130.0",
     "@aws-sdk/s3-request-presigner": "^3.1132.0",
-    "@dinilmusick/gutts": "2.2.3",
+    "@dinilmusick/gutts": "2.2.4",
     "@neondatabase/serverless": "^1.1.0",
     "@ultrst-armada/floks": "2.0.10",
     "@ultrst-armada/frnlts": "0.5.27",
-    "@ultrst-armada/kloks": "2.2.7",
+    "@ultrst-armada/kloks": "2.2.9",
     "@ultrst-armada/krnl": "^1.0.29",
     "@xyflow/react": "^12.11.1",
     "d3-force": "^3.0.0",
