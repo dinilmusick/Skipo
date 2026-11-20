@@ -116,6 +116,8 @@ def test_self_contained_validator_matches_installed_framework_snapshot(tmp_path,
     assert _digest(bundled / "common.py") == _digest(expected / "common.py")
     assert _digest(target / "Skipo" / "scripts" / "skipo_state_registry.py") == _digest(engine / "scripts" / "skipo_state_registry.py")
     assert _digest(target / "Skipo" / "architecture" / "capabilities" / "registry.json") == _digest(engine / "architecture" / "capabilities" / "registry.json")
+    assert _digest(target / "Skipo" / "scripts" / "skipo_environment_contract.py") == _digest(engine / "scripts" / "skipo_environment_contract.py")
+    assert _digest(target / "Skipo" / "architecture" / "environment" / "contract.json") == _digest(engine / "architecture" / "environment" / "contract.json")
     assert json.loads(capsys.readouterr().out)["applied"] is True
     assert (target / "package.json").is_file()
     assert (target / "package.json").read_text().find("Skipo/checklists/full_system_validator.py") > 0
