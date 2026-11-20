@@ -50,7 +50,7 @@ def main() -> None:
         print("SKIPO_FRAMEWORK_MANIFEST_END")
         print("SKIPO_FRAMEWORK_MANIFEST_SHA256=" + digest)
     if args.check:
-        if not ATTESTATION.is_file() or ATTESTATION.read_bytes() != data:
+        if not ATTESTATION.is_file() or ATTESTATION.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n") != data:
             raise ValueError("Framework source changed without a new reviewed attestation")
     if not args.print and not args.check:
         parser.error("Specify --print or --check")
