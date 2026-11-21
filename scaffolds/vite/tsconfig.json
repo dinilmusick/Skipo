@@ -4,7 +4,11 @@
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
     "module": "ESNext",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "skipLibCheck": true,
     "moduleResolution": "bundler",
     "isolatedModules": true,
@@ -12,20 +16,47 @@
     "allowJs": true,
     "jsx": "react-jsx",
     "paths": {
-      "@/*": ["./*"],
-      "@skipo/ui": ["./src/libraries/skipo/ui/index.ts"],
-      "@skipo/ui/*": ["./src/libraries/skipo/ui/*"],
-      "@skipo/ui/theme": ["./src/libraries/skipo/ui/theme/index.ts"],
-      "@skipo/core": ["./src/libraries/skipo/core/index.ts"],
-      "@skipo/core/*": ["./src/libraries/skipo/core/*"],
-      "@skipo/backend": ["./src/libraries/skipo/backend/index.ts"],
-      "@skipo/backend/*": ["./src/libraries/skipo/backend/*"],
-      "@skipo/systems": ["./src/libraries/skipo/systems/index.ts"],
-      "@skipo/systems/*": ["./src/libraries/skipo/systems/*"]
+      "@/*": [
+        "./*"
+      ],
+      "@skipo/ui": [
+        "./src/libraries/skipo/ui/index.ts"
+      ],
+      "@skipo/ui/*": [
+        "./src/libraries/skipo/ui/*"
+      ],
+      "@skipo/ui/theme": [
+        "./src/libraries/skipo/ui/theme/index.ts"
+      ],
+      "@skipo/core": [
+        "./src/libraries/skipo/core/index.ts"
+      ],
+      "@skipo/core/*": [
+        "./src/libraries/skipo/core/*"
+      ],
+      "@skipo/backend": [
+        "./src/libraries/skipo/backend/index.ts"
+      ],
+      "@skipo/backend/*": [
+        "./src/libraries/skipo/backend/*"
+      ],
+      "@skipo/systems": [
+        "./src/libraries/skipo/systems/index.ts"
+      ],
+      "@skipo/systems/*": [
+        "./src/libraries/skipo/systems/*"
+      ]
     },
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "resolveJsonModule": true
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist", "Skipo"]
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "Skipo"
+  ]
 }

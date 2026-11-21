@@ -8,6 +8,7 @@ import WorkspacesPage from './pages/menus/workspaces/page.js';
 import { UiSessionControls } from './components/UiSessionControls.js';
 import { getSkipoApplicationId, luthFetch } from '../libraries/client/luthAuthClient.js';
 import * as KloksLuth from '@ultrst-armada/kloks/auth';
+import skipoConfig from '../../skipo.config.json';
 import type { ScopedUniversalUiHost } from './pages/main/universalGraphHost.js';
 import { useAuthorizedUniversalUi } from './pages/main/useAuthorizedUniversalUi.js';
 
@@ -49,7 +50,7 @@ type BootstrapClient = {
   configuration(): Promise<{ principal: { userId: string } }>;
   invalidate(): void;
 };
-type BootstrapFactory = (app: { appId: string }) => BootstrapClient;
+type BootstrapFactory = (app: { appId: string; luthUrls?: readonly string[] }) => BootstrapClient;
 
 /**
  * Only the Kloks same-origin BFF may forward an OAuth bearer to Luth config.
@@ -65,7 +66,7 @@ function createVerifiedInitializer(): BootstrapClient {
     };
     return { discover: unavailable, configuration: unavailable, invalidate: () => {} };
   }
-  return factory({ appId: getSkipoApplicationId() });
+  return factory({ appId: getSkipoApplicationId(), luthUrls: skipoConfig.authentication.luthUrls });
 }
 
 function InitializationGate({ children, phase, retry }: {
