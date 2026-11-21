@@ -1,12 +1,18 @@
 import {
-  consumeInvocation, createInvocation, findDeployment, refreshDeployment, systemQuery,
-  type EcosystemEnv, type Query,
+  consumeInvocation, createInvocation, findDeployment, refreshDeployment, refreshDeploymentById,
+  publishDeploymentCapabilityRevision, normalizeStaticCapabilityDescriptors,
+  type EcosystemEnv, type Query, type StaticCapabilityDescriptor, systemQuery,
+  validatedDeploymentOrigin, validStaticHandle,
 } from './deploymentStore_Impure.js';
+import {
+  handleDeploymentProof, type DeploymentEnvironment,
+} from './deploymentProof_Impure.js';
 
 const invocationPath = '/api/ecosystem/invoke';
 const heartbeatInterval = 5 * 60_000;
 const appPattern = /^[a-z][a-z0-9-]{0,62}$/;
-const capabilityPattern = /^[a-z][a-zA-Z0-9_]{0,63}$/;
+// Dotted and colon-qualified registered operations share the registry's
+// reserved-name and traversal guard; legacy camelCase remains compatible.
 const ticketPattern = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 type Capability = (params: unknown, context: {
   userId: string; callerApp: string; env: EcosystemEnv;
@@ -14,18 +20,110 @@ type Capability = (params: unknown, context: {
 type RemoteApps = Record<string, Record<string, (params: unknown) => Promise<unknown>>>;
 
 function deploymentOrigin(input: unknown): string {
-  const url = new URL(typeof input === 'string' ? input.trim() : '');
-  const host = url.hostname;
-  if (url.protocol !== 'https:' || url.username || url.password || url.port ||
-      url.pathname !== '/' || url.search || url.hash || !host.includes('.') ||
-      /^(?:\d+\.){3}\d+$/.test(host) || /\.(?:localhost|local|internal)\.?$/.test(host)) {
-    throw new Error('Ecosystem APP_URL must be an HTTPS origin with a DNS name.');
+  return validatedDeploymentOrigin(input);
+}
+
+/**
+ * Match the actual Skipo BackendFacade API (getService/listCapabilities and a
+ * private Map) as well as compatibility facade inventories. No metadata-only
+ * descriptor is proof that an operation is installed or callable.
+ */
+export interface BackendFacadeOperationSource {
+  facade: {
+    /** Canonical Skipo BackendFacade lookup; may throw if a service is missing. */
+    getService?: (serviceId: string) => unknown;
+    listCapabilities?: () => readonly {
+      serviceId: string;
+      invocation: { operation: string };
+    }[];
+    /** Transitional Kloks/consumer inventory; supports Map and plain record. */
+    services?: ReadonlyMap<string, unknown> | Record<string, unknown>;
+  };
+  registry: {
+    getCommand: (domain: string, operation: string) =>
+      { handler?: unknown; domain?: string; name?: string } | undefined;
+    getQuery: (domain: string, operation: string) =>
+      { handler?: unknown; domain?: string; name?: string } | undefined;
+  };
+}
+
+function installedBackendService(
+  facade: BackendFacadeOperationSource['facade'], serviceId: string,
+): unknown {
+  // Real Skipo BackendFacade stores services in a private Map and exposes
+  // getService(). Never infer service ownership from a public display name.
+  if (typeof facade.getService === 'function') {
+    try { return facade.getService(serviceId); } catch { return undefined; }
   }
-  return url.origin;
+  const services = facade.services;
+  if (services instanceof Map) return services.get(serviceId);
+  return services && Object.prototype.hasOwnProperty.call(services, serviceId)
+    ? (services as Record<string, unknown>)[serviceId] : undefined;
+}
+
+function validRegisteredOperation(
+  entry: { handler?: unknown; domain?: string; name?: string } | undefined,
+  domain: string, operation: string,
+): boolean {
+  return !!entry && typeof entry.handler === 'function' &&
+    (entry.domain === undefined || entry.domain === domain) &&
+    (entry.name === undefined || entry.name === operation);
+}
+
+/** Verify exact runtime service + executing handler provenance on every publication. */
+export function verifyRegisteredBackendFacadeOperations(
+  source: BackendFacadeOperationSource | undefined,
+  descriptors: readonly StaticCapabilityDescriptor[],
+): void {
+  if (!source?.facade ||
+      (typeof source.facade.getService !== 'function' &&
+        !source.facade.services) ||
+      typeof source.registry?.getCommand !== 'function' ||
+      typeof source.registry?.getQuery !== 'function') {
+    throw new Error('Static publication requires a real BackendFacade and BackendRegistry.');
+  }
+  const facade = source.facade;
+  for (const descriptor of descriptors) {
+    const { serviceId, operationId } = descriptor.invocation;
+    const service = installedBackendService(facade, serviceId);
+    if (!service || typeof service !== 'object' ||
+        ('id' in service && service.id !== serviceId) ||
+        (typeof (service as { execute?: unknown }).execute !== 'function' &&
+          typeof (service as { call?: unknown }).call !== 'function')) {
+      throw new Error('Static capability service is not installed on BackendFacade.');
+    }
+    // No fallback from a malformed command to a different query operation:
+    // the exact live registry domain, name and callable handler must match.
+    const command = source.registry.getCommand(serviceId, operationId);
+    const query = source.registry.getQuery(serviceId, operationId);
+    const matches = Number(validRegisteredOperation(command, serviceId, operationId)) +
+      Number(validRegisteredOperation(query, serviceId, operationId));
+    if (matches !== 1) {
+      throw new Error('Static capability operation is not uniquely registered in BackendRegistry.');
+    }
+    // If canonical facade metadata exists, do not advertise an operation that
+    // its own service namespace does not expose.
+    if (typeof facade.listCapabilities === 'function') {
+      const catalog = facade.listCapabilities();
+      if (!Array.isArray(catalog) ||
+          !catalog.some(item => item?.serviceId === serviceId &&
+            item?.invocation?.operation === operationId)) {
+        throw new Error('Static capability operation is absent from BackendFacade capability catalog.');
+      }
+    }
+  }
 }
 
 export function createEcosystemRuntime(options: {
   appId: string;
+  /** Persistent deployment UUID, provisioned by an approved control plane. */
+  deploymentId?: string;
+  /** Explicit registered environment; never inferred from the deployment URL. */
+  deploymentEnvironment?: DeploymentEnvironment;
+  /** Static public metadata only; never include user workflows or session-bound endpoints. */
+  capabilityDescriptors?: readonly StaticCapabilityDescriptor[];
+  /** Real Kloks BackendFacade and BackendRegistry used to prove operation provenance. */
+  backendFacadeOperations?: BackendFacadeOperationSource;
   capabilities: Record<string, Capability>;
   serviceCapabilities?: Record<string, (params: unknown, context: {
     callerApp: string; env: EcosystemEnv;
@@ -38,9 +136,33 @@ export function createEcosystemRuntime(options: {
   const methods = new Map(Object.entries(options.capabilities));
   const serviceMethods = new Map(Object.entries(options.serviceCapabilities ?? {}));
   const capabilities = [...new Set([...methods.keys(), ...serviceMethods.keys()])].sort();
-  if (!appPattern.test(appId) || capabilities.some(name => !capabilityPattern.test(name)) ||
+  const capabilityDescriptors = options.capabilityDescriptors === undefined
+    ? undefined : normalizeStaticCapabilityDescriptors(options.capabilityDescriptors);
+  const verifiedSnapshotIds = new Set(capabilityDescriptors?.map(item => item.id) ?? []);
+  if (!appPattern.test(appId) || capabilities.some(name => !validStaticHandle(name)) ||
       capabilities.length !== methods.size + serviceMethods.size) {
     throw new Error('Invalid ecosystem application or capability identifier.');
+  }
+  if (options.deploymentId !== undefined &&
+      !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(options.deploymentId)) {
+    throw new Error('Invalid ecosystem deployment identity.');
+  }
+  if (options.deploymentEnvironment !== undefined &&
+      !['development', 'preview', 'staging', 'production']
+        .includes(options.deploymentEnvironment)) {
+    throw new Error('Invalid ecosystem deployment environment.');
+  }
+  // A public registry snapshot must describe operations actually installed on
+  // this runtime. Client-supplied descriptors alone are never proof of a facade.
+  if (capabilityDescriptors !== undefined) {
+    if (!options.deploymentId) {
+      throw new Error('Publishing static descriptors requires a stable deployment identity.');
+    }
+    if (capabilityDescriptors.some(descriptor =>
+      !methods.has(descriptor.id) && !serviceMethods.has(descriptor.id))) {
+      throw new Error('Static capability descriptors must reference registered callable capabilities.');
+    }
+    verifyRegisteredBackendFacadeOperations(options.backendFacadeOperations, capabilityDescriptors);
   }
   const query = options.query ?? systemQuery;
   const send = options.send ?? globalThis.fetch;
@@ -58,7 +180,25 @@ export function createEcosystemRuntime(options: {
       return Promise.resolve();
     }
     pending = Promise.resolve().then(async () => {
-      await refreshDeployment(query(env), appId, deploymentOrigin(env.APP_URL), capabilities);
+      if (options.deploymentId) {
+        await refreshDeploymentById(query(env), appId, options.deploymentId,
+          deploymentOrigin(env.APP_URL), capabilities);
+        if (capabilityDescriptors !== undefined) {
+          // A handler withdrawn after startup must disappear from the next
+          // complete immutable revision rather than remain discoverable.
+          const currentDescriptors = capabilityDescriptors.filter(descriptor => {
+            try {
+              verifyRegisteredBackendFacadeOperations(options.backendFacadeOperations, [descriptor]);
+              return true;
+            } catch {
+              return false;
+            }
+          });
+          await publishDeploymentCapabilityRevision(query(env), options.deploymentId, currentDescriptors);
+        }
+      } else {
+        await refreshDeployment(query(env), appId, deploymentOrigin(env.APP_URL), capabilities);
+      }
       lastUrl = env.APP_URL;
       lastRefresh = Date.now();
     }).finally(() => { pending = undefined; });
@@ -81,6 +221,11 @@ export function createEcosystemRuntime(options: {
   }
 
   async function handle(request: Request, env: EcosystemEnv): Promise<Response | null> {
+    const proof = handleDeploymentProof(request, env, {
+      appId, deploymentId: options.deploymentId,
+      environment: options.deploymentEnvironment,
+    });
+    if (proof) return proof;
     if (new URL(request.url).pathname !== invocationPath) return null;
     const respond = (body: unknown, status = 200) => Response.json(body, {
       status, headers: { 'cache-control': 'no-store' },
@@ -91,6 +236,12 @@ export function createEcosystemRuntime(options: {
     try {
       const invocation = await consumeInvocation(query(env), ticket, appId, deploymentOrigin(env.APP_URL));
       if (!invocation) return respond({ error: 'INVALID_INVOCATION' }, 401);
+      // A single-use legacy ticket does NOT carry verified Luth audience, grant
+      // or workspace claims. Published facade operations MUST be dispatched
+      // through the target's authenticated Kloks invocation boundary.
+      if (verifiedSnapshotIds.has(invocation.capability)) {
+        return respond({ error: 'AUTHENTICATED_FACADE_ROUTE_REQUIRED' }, 403);
+      }
       const context = { callerApp: invocation.caller_app, env };
       const service = serviceMethods.get(invocation.capability);
       if (service) return respond({ output: (await service(invocation.params, context)) ?? null });
@@ -136,7 +287,7 @@ export function createEcosystemRuntime(options: {
         ? undefined
         : new Proxy(Object.create(null), {
           get: (_target, capability) => typeof capability !== 'string' ||
-            capability === 'then' || !capabilityPattern.test(capability)
+            capability === 'then' || !validStaticHandle(capability)
             ? undefined : (params: unknown) => invoke(app, capability, params),
         }),
     });

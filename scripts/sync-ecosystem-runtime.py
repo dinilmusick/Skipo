@@ -7,6 +7,8 @@ SOURCE = Path(__file__).resolve().parents[1] / "backend" / "ecosystem"
 FILES = {
     Path("deploymentStore_Impure.ts"): Path("src/backend/ecosystem/generated/deploymentStore_Impure.ts"),
     Path("ecosystemRuntime_Impure.ts"): Path("src/backend/ecosystem/generated/ecosystemRuntime_Impure.ts"),
+    Path("verifiedCapabilityDiscovery_Impure.ts"): Path("src/backend/ecosystem/generated/verifiedCapabilityDiscovery_Impure.ts"),
+    Path("deploymentProof_Impure.ts"): Path("src/backend/ecosystem/generated/deploymentProof_Impure.ts"),
     Path("workspaceCapabilities_Impure.ts"): Path("src/backend/ecosystem/generated/workspaceCapabilities_Impure.ts"),
     Path("db/deployments.sql"): Path("db/skipo-ecosystem-deployments.sql"),
 }

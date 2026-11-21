@@ -1,5 +1,14 @@
 # Ecosystem deployment registry and capability calls
 
+> **Security scope:** The legacy URL-heartbeat, `findDeployment`, `client`,
+> `serviceClient` and ticket-based `/api/ecosystem/invoke` examples below
+> are **unverified compatibility only**. They are never evidence of a verified
+> deployment or authorization to invoke a published operation. Their database
+> paths now exclude verified and revoked deployment records. For trusted calls
+> use the Luth-policy-gated `verifiedCapabilityDiscovery` adapter, pinned
+> deployment UUID and exact revision, and the target-owned Kloks authenticated
+> invocation boundary. See `VERIFIED_DISCOVERY_ADAPTER.md`.
+>
 Apply `db/skipo-ecosystem-deployments.sql` once to the primary Postgres database
 referenced by the apps' `SYSTEM_DATABASE_URL`. The migration creates only the
 private `skipo_ecosystem` schema. The application role needs schema usage,
