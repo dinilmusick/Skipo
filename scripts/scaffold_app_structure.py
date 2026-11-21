@@ -23,6 +23,16 @@ def scaffold_structure(target_root: Path, app_name: str) -> List[Path]:
     camel = app_name[:1].lower() + app_name[1:]
     created: List[Path] = []
 
+    # All Skipo-created apps own ordered Luth endpoints at their codebase root.
+    auth_config = target_root / "skipo.config.json"
+    if not auth_config.exists():
+        target_root.mkdir(parents=True, exist_ok=True)
+        default_config = json.loads((SKIPO_ROOT / "scaffolds" / "vite" / "skipo.config.json").read_text(encoding="utf-8"))
+        if default_config.get("version") != 1 or not default_config.get("authentication", {}).get("luthUrls"):
+            raise ValueError("SKIPO_AUTH_CONFIG_INVALID")
+        auth_config.write_text(json.dumps(default_config, indent=2) + "\n", encoding="utf-8")
+        created.append(auth_config)
+
     planes = [
         ("src/frontend", "Application UI composition entrypoint importing @floks/* packages."),
         ("src/backend", "Application backend facade importing @kloks/* services and orchestrators."),
@@ -149,6 +159,7 @@ export function WorkspaceGate(props: WorkspaceGateProps) {
                 "lib": ["ES2022", "DOM"],
                 "module": "ESNext",
                 "moduleResolution": "bundler",
+                "resolveJsonModule": True,
                 "jsx": "react-jsx",
                 "strict": False,
                 "skipLibCheck": True,
@@ -608,6 +619,7 @@ export default MainPage;
             """import { useEffect, useMemo, useState } from 'react';
 import { SkipoThemeProvider } from '@ultrst-armada/floks/ui';
 import * as KloksLuth from '@ultrst-armada/kloks/auth';
+import skipoConfig from '../../skipo.config.json';
 import MainPage from './pages/main/page.js';
 import AuthPage from './pages/auth/page.js';
 import { WorkspaceGate } from './components/gates/WorkspaceGate.js';
@@ -625,7 +637,7 @@ const unavailable = async (): Promise<never> => {
   throw new Error('UNIVERSAL_INITIALIZATION_CONTRACT_UNAVAILABLE');
 };
 const initializer = typeof initialize === 'function'
-  ? initialize({ appId })
+  ? initialize({ appId, luthUrls: skipoConfig.authentication.luthUrls })
   : { discover: unavailable, configuration: unavailable, invalidate: () => {} };
 
 function InitStatus({ message, retry, actionLabel }: {

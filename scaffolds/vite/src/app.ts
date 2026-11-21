@@ -1,6 +1,7 @@
 import { externalInterfaces } from "./backend/UniversalBackend.js";
 import { proxyLuthAuthRequest } from "./backend/auth/luthSession.js";
 import { createCanonicalApplicationOAuthBff } from '@ultrst-armada/kloks/backend/auth';
+import skipoConfig from '../skipo.config.json';
 import { SKIPO_APPLICATION_ID } from './config/applicationIdentity.js';
 
 /**
@@ -66,7 +67,7 @@ export async function fetch(
   if (url.pathname.startsWith('/api/auth/oidc/') ||
       url.pathname === '/api/initialization/config') {
     try {
-      const bff = createCanonicalApplicationOAuthBff(request, env, SKIPO_APPLICATION_ID);
+      const bff = createCanonicalApplicationOAuthBff(request, env, SKIPO_APPLICATION_ID, skipoConfig);
       const response = await bff.handle(request);
       return response ?? Response.json({ error: 'NOT_FOUND' }, {
         status: 404, headers: { 'cache-control': 'no-store' },

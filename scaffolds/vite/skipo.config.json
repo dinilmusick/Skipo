@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "authentication": {
+    "luthUrls": [
+      "https://luth.blueprint-ninjastudios.workers.dev"
+    ]
+  }
+}

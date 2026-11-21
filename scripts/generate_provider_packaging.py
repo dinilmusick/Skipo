@@ -10,6 +10,7 @@ from typing import Any
 SCAFFOLD_APP_SOURCE = """import { externalInterfaces } from "./backend/__SKIPO_BACKEND_ENTRY__.js";
 import { proxyLuthAuthRequest } from "./backend/auth/luthSession.js";
 import { createCanonicalApplicationOAuthBff } from '@ultrst-armada/kloks/backend/auth';
+import skipoConfig from '../skipo.config.json';
 const appId = "__SKIPO_APP_ID__";
 
 /**
@@ -66,7 +67,7 @@ export async function fetch(
   if (url.pathname.startsWith("/api/auth/oidc/") ||
       url.pathname === "/api/initialization/config") {
     try {
-      const bff = createCanonicalApplicationOAuthBff(request, env, appId);
+      const bff = createCanonicalApplicationOAuthBff(request, env, appId, skipoConfig);
       return await bff.handle(request) ?? Response.json({ error: "NOT_FOUND" }, {
         status: 404, headers: { "cache-control": "no-store" },
       });
