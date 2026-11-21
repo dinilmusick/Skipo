@@ -40,3 +40,17 @@ def test_generic_generator_creates_root_auth_config_without_env(tmp_path):
     )
     assert rerun.returncode == 0, rerun.stdout + rerun.stderr
     assert json.loads(generated.read_text(encoding="utf-8")) == obj
+
+
+def test_canonical_skipo_bff_and_browser_init_receive_root_config():
+    vite_app = (ROOT / "scaffolds/vite/src/app.ts").read_text(encoding="utf-8")
+    vite_front = (ROOT / "scaffolds/vite/src/frontend/App.tsx").read_text(encoding="utf-8")
+    generic = (ROOT / "scripts/generate_provider_packaging.py").read_text(encoding="utf-8")
+    generator = GENERATOR.read_text(encoding="utf-8")
+    assert "import skipoConfig from '../skipo.config.json'" in vite_app
+    assert "SKIPO_APPLICATION_ID, skipoConfig)" in vite_app
+    assert "luthUrls: skipoConfig.authentication.luthUrls" in vite_front
+    assert "createCanonicalApplicationOAuthBff(request, env, appId, skipoConfig)" in generic
+    assert "createCanonicalApplicationOAuthBff(request, env, appId)" not in generic
+    assert "import skipoConfig from '../../skipo.config.json'" in generator
+    assert '"resolveJsonModule": True' in generator
